@@ -45,3 +45,5 @@ contracts/typechain-types/
 # WhatsApp session data
 whatsapp-bot/.wwebjs_auth/
 whatsapp-bot/.wwebjs_cache/
+
+.vercel
