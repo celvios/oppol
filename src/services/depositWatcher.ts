@@ -118,12 +118,22 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
         console.log('✅ Deposit watcher running');
         console.log(`👁️ Watching USDC at: ${USDC_ADDRESS}`);
 
-        // Handle disconnection
-        provider.websocket?.on('close', () => {
-            console.log('⚠️ WebSocket disconnected, reconnecting...');
+        // Handle disconnection using provider error event
+        provider.on('error', (error) => {
+            console.log('⚠️ WebSocket error, reconnecting...', error);
             isRunning = false;
             setTimeout(() => startDepositWatcher(wssUrl), 5000);
         });
+
+        // Alternative: check websocket and add listener with type assertion
+        const ws = provider.websocket as any;
+        if (ws && typeof ws.addEventListener === 'function') {
+            ws.addEventListener('close', () => {
+                console.log('⚠️ WebSocket disconnected, reconnecting...');
+                isRunning = false;
+                setTimeout(() => startDepositWatcher(wssUrl), 5000);
+            });
+        }
 
     } catch (error) {
         console.error('❌ Failed to start deposit watcher:', error);
