@@ -312,30 +312,42 @@ app.get('/api/admin/db-status', async (req, res) => {
 
 // Health Check
 app.get('/', (req, res) => {
-  res.send({ status: 'OK', service: 'OPOLL Backend API' });
+  res.send({
+    status: 'OK',
+    service: 'OPOLL Backend API',
+    environment: process.env.NODE_ENV || 'development',
+    database: process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory Mock'
+  });
 });
 
 // Initialize DB and start server
 initDatabase().then(async () => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Endpoints ready: POST /api/bet, POST /api/withdraw, GET /api/markets`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Endpoints ready: POST /api/bet, POST /api/withdraw, GET /api/markets, POST /api/admin/migrate`);
   });
 
-  // Start deposit watcher with callback
-  setDepositCallback(async (userId, phoneNumber, amount, txHash) => {
-    console.log(`💰 Crediting ${amount} USDC to user ${userId}`);
+  // Start deposit watcher ONLY if valid WebSocket URL is provided
+  const wssUrl = process.env.BNB_WSS_URL;
 
-    // TODO: Update user balance in database
-    // await updateUserBalance(userId, amount);
+  if (wssUrl && !wssUrl.includes('127.0.0.1') && !wssUrl.includes('localhost')) {
+    // Set callback for deposit notifications
+    setDepositCallback(async (userId, phoneNumber, amount, txHash) => {
+      console.log(`💰 Crediting ${amount} USDC to user ${userId}`);
+      // TODO: Update user balance in database
+      await sendDepositNotification(phoneNumber, amount, txHash);
+    });
 
-    // Send WhatsApp notification
-    await sendDepositNotification(phoneNumber, amount, txHash);
-  });
-
-  // Start watching for deposits (use local for development)
-  const wssUrl = process.env.BNB_WSS_URL || 'ws://127.0.0.1:8545';
-  await startDepositWatcher(wssUrl);
+    try {
+      await startDepositWatcher(wssUrl);
+    } catch (error) {
+      console.warn('⚠️ Deposit watcher failed to start (non-fatal):', error);
+    }
+  } else {
+    console.log('ℹ️ Deposit watcher disabled (no valid BNB_WSS_URL configured)');
+    console.log('   Set BNB_WSS_URL to enable real-time deposit monitoring');
+  }
 
 }).catch(err => {
   console.error("Failed to initialize database:", err);
