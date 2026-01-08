@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: oppol-backend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: BNB_RPC_URL
+        value: https://bsc-testnet-rpc.publicnode.com
+      - key: DATABASE_URL
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        generateValue: true
+    rootDir: .
