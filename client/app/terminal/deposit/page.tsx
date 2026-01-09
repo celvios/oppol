@@ -17,9 +17,9 @@ const MARKET_CONTRACT = (contracts.predictionMarket || '0xEcB7195979Cb5781C2D6b4
 
 // Mock Tokens
 const TOKENS = [
-    { symbol: 'USDC', name: 'USD Coin', icon: '💰' },
-    { symbol: 'USDT', name: 'Tether', icon: '💵' },
-    { symbol: 'BNB', name: 'Binance Coin', icon: '🟡' },
+    { symbol: 'USDC', name: 'USD Coin', icon: '💰', address: USDC_ADDRESS },
+    { symbol: 'USDT', name: 'Tether', icon: '💵', address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd' },
+    { symbol: 'BNB', name: 'Binance Coin', icon: '🟡', address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' }, // WBNB
 ];
 
 // ABI for Standard ERC20
@@ -47,6 +47,24 @@ const MARKET_ABI = [
         type: 'function',
         stateMutability: 'nonpayable',
         inputs: [{ name: 'amount', type: 'uint256' }],
+        outputs: [],
+    },
+] as const;
+
+// Zap Contract Address (Replace with actual deployment)
+const ZAP_ADDRESS = process.env.NEXT_PUBLIC_ZAP_ADDRESS as `0x${string}` || '0x0000000000000000000000000000000000000000';
+
+// Zap ABI
+const ZAP_ABI = [
+    {
+        name: 'zapInToken',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'tokenIn', type: 'address' },
+            { name: 'amountIn', type: 'uint256' },
+            { name: 'minUSDC', type: 'uint256' }
+        ],
         outputs: [],
     },
 ] as const;
@@ -92,14 +110,8 @@ export default function DepositPage() {
     useEffect(() => {
         if (isSuccess) {
             if (step === 'approving') {
-                if (selectedToken.symbol === 'USDC') {
-                    handleDeposit();
-                } else {
-                    // Simulating Swap
-                    setStep('swapping');
-                    setTimeout(() => handleDeposit(), 2000); // Mock swap time
-                }
-            } else if (step === 'depositing') {
+                handleDeposit();
+            } else if (step === 'depositing' || step === 'swapping') {
                 setStep('complete');
             }
         }
@@ -139,14 +151,19 @@ export default function DepositPage() {
         if (!depositAmount || parseFloat(depositAmount) <= 0) return;
         setStep('approving');
 
-        // For demo, we always approve mock USDC contract even for "USDT" 
-        // In real app, we'd use the selected token's contract address
+        const isZap = selectedToken.symbol !== 'USDC';
+        const spender = isZap ? ZAP_ADDRESS : MARKET_CONTRACT;
+        // For USDT, we'd use the USDT contract address. For demo, we use USDC_ADDRESS as placeholder if symbol is not USDC, 
+        // but in production `selectedToken.address` should be used.
+        // Assuming TOKENS list has addresses (adding them now if not)
+        const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+
         try {
             writeContract({
-                address: USDC_ADDRESS,
+                address: tokenAddress,
                 abi: ERC20_ABI,
                 functionName: 'approve',
-                args: [MARKET_CONTRACT, parseUnits(depositAmount, 6)],
+                args: [spender, parseUnits(depositAmount, 6)],
             });
         } catch (err) {
             console.error(err);
@@ -155,18 +172,31 @@ export default function DepositPage() {
     };
 
     const handleDeposit = async () => {
-        setStep('depositing');
-
-        // For non-USDC, we use the estimated USDC amount
-        const amountToDeposit = selectedToken.symbol === 'USDC' ? depositAmount : estimatedUSDC;
+        const isZap = selectedToken.symbol !== 'USDC';
+        setStep(isZap ? 'swapping' : 'depositing'); // For Zap, we say 'swapping' (includes deposit)
 
         try {
-            writeContract({
-                address: MARKET_CONTRACT,
-                abi: MARKET_ABI,
-                functionName: 'deposit',
-                args: [parseUnits(amountToDeposit, 6)],
-            });
+            if (isZap) {
+                // Zap Flow
+                // minUSDC = estimatedUSDC * 0.98 (2% slippage)
+                const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
+                const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+
+                writeContract({
+                    address: ZAP_ADDRESS,
+                    abi: ZAP_ABI,
+                    functionName: 'zapInToken',
+                    args: [tokenAddress, parseUnits(depositAmount, 6), minUSDC],
+                });
+            } else {
+                // Standard Flow
+                writeContract({
+                    address: MARKET_CONTRACT,
+                    abi: MARKET_ABI,
+                    functionName: 'deposit',
+                    args: [parseUnits(depositAmount, 6)],
+                });
+            }
         } catch (err) {
             console.error(err);
             setStep('input');

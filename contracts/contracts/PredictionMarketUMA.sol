@@ -105,6 +105,16 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Deposit funds on behalf of another user (for Zap contracts)
+     */
+    function depositFor(address beneficiary, uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be > 0");
+        require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        userBalances[beneficiary] += amount;
+        emit Deposited(beneficiary, amount);
+    }
+
+    /**
      * @dev Withdraw funds from the market contract
      */
     function withdraw(uint256 amount) external nonReentrant {
