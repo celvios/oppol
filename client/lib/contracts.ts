@@ -8,11 +8,11 @@ export const CONTRACTS = {
     },
     // BSC Testnet (DEPLOYED ✅ - With Zap System)
     bscTestnet: {
-        predictionMarket: '0x57f3E8D7543ba4008708B80116aB7FAcc7D265e5',
-        predictionMarketLMSR: '0x57f3E8D7543ba4008708B80116aB7FAcc7D265e5',
-        mockUSDC: '0xA4FbcEe08b7AAA2F59D3469C0f28A32588740dc7',
-        umaOracle: '0x930D7cebd451B334f9DdF3d89deC931CFf588195',
-        zap: '0x358e8405FCC01Ea93a1422A667f62eec17Fb08cF7',
+        predictionMarket: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Latest deployment
+        predictionMarketLMSR: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Same as above
+        mockUSDC: '0x55d240D4809E1f9c979Ad25a7ADC9C7961C7cAD6',
+        umaOracle: '0xFfF4962d15333Af3D0173b4D979D81FC6dEC4aca',
+        zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Update if Zap was redeployed
     },
     // BSC Mainnet
     bsc: {

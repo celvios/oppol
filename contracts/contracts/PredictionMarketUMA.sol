@@ -38,6 +38,7 @@ interface OptimisticOracleV3Interface {
 /**
  * @title PredictionMarketUMA
  * @dev Binary prediction market using LMSR + UMA Optimistic Oracle V3 for resolution
+ *      500 token bond, deducted from portfolio balance
  */
 contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     IERC20 public immutable token;
@@ -46,7 +47,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     // UMA Configuration
     bytes32 public constant IDENTIFIER = bytes32("YES_OR_NO_QUERY");
     uint64 public constant ASSERTION_LIVENESS = 7200; // 2 hours
-    uint256 public assertionBond = 100 * 1e18; // 100 tokens bond
+    uint256 public assertionBond = 500 * 1e18; // 500 tokens bond (configurable)
     
     struct Market {
         string question;
@@ -57,10 +58,10 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         bool resolved;
         bool outcome;
         uint256 subsidyPool;
-        bytes32 assertionId;      // UMA assertion ID
-        bool assertionPending;    // Whether assertion is in progress
-        address asserter;         // Who asserted the outcome
-        bool assertedOutcome;     // What outcome was asserted
+        bytes32 assertionId;
+        bool assertionPending;
+        address asserter;
+        bool assertedOutcome;
     }
     
     struct Position {
@@ -72,7 +73,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     uint256 public marketCount;
     mapping(uint256 => Market) public markets;
     mapping(uint256 => mapping(address => Position)) public positions;
-    mapping(bytes32 => uint256) public assertionToMarket; // Map assertion ID to market ID
+    mapping(bytes32 => uint256) public assertionToMarket;
     
     // User Balances (Deposited Funds)
     mapping(address => uint256) public userBalances;
@@ -94,9 +95,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         oracle = OptimisticOracleV3Interface(_oracle);
     }
 
-    /**
-     * @dev Deposit funds into the market contract
-     */
     function deposit(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
@@ -104,9 +102,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         emit Deposited(msg.sender, amount);
     }
 
-    /**
-     * @dev Deposit funds on behalf of another user (for Zap contracts)
-     */
     function depositFor(address beneficiary, uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
@@ -114,9 +109,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         emit Deposited(beneficiary, amount);
     }
 
-    /**
-     * @dev Withdraw funds from the market contract
-     */
     function withdraw(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
         require(userBalances[msg.sender] >= amount, "Insufficient balance");
@@ -125,9 +117,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         emit Withdrawn(msg.sender, amount);
     }
     
-    /**
-     * @dev Create market with initial liquidity subsidy
-     */
     function createMarket(
         string memory _question,
         uint256 _duration,
@@ -161,8 +150,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Assert market outcome via UMA Optimistic Oracle
-     * Anyone can call after market ends
+     * @dev Assert market outcome - bond deducted from PORTFOLIO balance
      */
     function assertOutcome(uint256 _marketId, bool _outcome) external {
         Market storage market = markets[_marketId];
@@ -170,30 +158,29 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         require(!market.resolved, "Already resolved");
         require(!market.assertionPending, "Assertion pending");
         
-        // Build claim string
         bytes memory claim = abi.encodePacked(
             "Market '", market.question, "' resolved as: ",
             _outcome ? "YES" : "NO"
         );
         
-        // Transfer bond from asserter (Direct transfer for bond)
-        require(token.transferFrom(msg.sender, address(this), assertionBond), "Bond transfer failed");
+        // Deduct bond from portfolio balance (not wallet)
+        require(userBalances[msg.sender] >= assertionBond, "Insufficient portfolio balance for bond");
+        userBalances[msg.sender] -= assertionBond;
+
         require(token.approve(address(oracle), assertionBond), "Approve failed");
         
-        // Submit assertion to UMA
         bytes32 assertionId = oracle.assertTruth(
             claim,
             msg.sender,
-            address(this),      // Callback recipient
-            address(0),         // No escalation manager
+            address(this),
+            address(0),
             ASSERTION_LIVENESS,
             token,
             assertionBond,
             IDENTIFIER,
-            bytes32(0)          // No domain ID
+            bytes32(0)
         );
         
-        // Store assertion info
         market.assertionId = assertionId;
         market.assertionPending = true;
         market.asserter = msg.sender;
@@ -203,44 +190,29 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         emit OutcomeAsserted(_marketId, msg.sender, _outcome, assertionId);
     }
     
-    /**
-     * @dev Settle assertion and finalize market outcome
-     * Called after liveness period ends
-     */
     function settleMarket(uint256 _marketId) external {
         Market storage market = markets[_marketId];
         require(market.assertionPending, "No assertion pending");
         require(!market.resolved, "Already resolved");
         
-        // Settle the assertion on UMA
         oracle.settleAssertion(market.assertionId);
         
-        // Get result
         OptimisticOracleV3Interface.Assertion memory assertion = oracle.getAssertion(market.assertionId);
         require(assertion.settled, "Not settled yet");
         
-        // Finalize market
         market.resolved = true;
         market.assertionPending = false;
         
         if (assertion.assertedTruthfully) {
-            // Assertion was valid, use asserted outcome
             market.outcome = market.assertedOutcome;
         } else {
-            // Assertion was disputed and failed, use opposite outcome
             market.outcome = !market.assertedOutcome;
         }
         
         emit MarketResolved(_marketId, market.outcome);
     }
     
-    /**
-     * @dev UMA callback when assertion is resolved (optional callback pattern)
-     */
-    function assertionResolvedCallback(
-        bytes32 _assertionId,
-        bool _assertedTruthfully
-    ) external {
+    function assertionResolvedCallback(bytes32 _assertionId, bool _assertedTruthfully) external {
         require(msg.sender == address(oracle), "Only oracle");
         
         uint256 marketId = assertionToMarket[_assertionId];
@@ -251,19 +223,16 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
             market.assertionPending = false;
             market.outcome = _assertedTruthfully ? market.assertedOutcome : !market.assertedOutcome;
             
+            // Return bond to asserter's portfolio if truthful
+            if (_assertedTruthfully) {
+                userBalances[market.asserter] += assertionBond;
+            }
+            
             emit MarketResolved(marketId, market.outcome);
         }
     }
     
-    /**
-     * @dev Buy outcome shares using LMSR pricing
-     */
-    function buyShares(
-        uint256 _marketId,
-        bool _isYes,
-        uint256 _shares,
-        uint256 _maxCost
-    ) external nonReentrant {
+    function buyShares(uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost) external nonReentrant {
         Market storage market = markets[_marketId];
         require(block.timestamp < market.endTime, "Market ended");
         require(!market.resolved, "Market resolved");
@@ -272,7 +241,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         uint256 cost = calculateCost(_marketId, _isYes, _shares);
         require(cost <= _maxCost, "Cost exceeds max");
         
-        // Use deposited balance
         require(userBalances[msg.sender] >= cost, "Insufficient deposited balance");
         userBalances[msg.sender] -= cost;
         
@@ -288,14 +256,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         emit SharesPurchased(_marketId, msg.sender, _isYes, _shares, cost);
     }
     
-    /**
-     * @dev Calculate cost using LMSR formula
-     */
-    function calculateCost(
-        uint256 _marketId,
-        bool _isYes,
-        uint256 _shares
-    ) public view returns (uint256) {
+    function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) public view returns (uint256) {
         Market storage market = markets[_marketId];
         uint256 b = market.liquidityParam;
         
@@ -311,9 +272,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         return (costAfter - costBefore) / PRECISION;
     }
     
-    /**
-     * @dev LMSR cost function: C = b * ln(e^(q_yes/b) + e^(q_no/b))
-     */
     function _lmsrCost(uint256 qYes, uint256 qNo, uint256 b) internal pure returns (uint256) {
         uint256 expYes = _exp((qYes * PRECISION) / b);
         uint256 expNo = _exp((qNo * PRECISION) / b);
@@ -322,9 +280,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         return (b * lnSum);
     }
     
-    /**
-     * @dev Approximate e^x using Taylor series
-     */
     function _exp(uint256 x) internal pure returns (uint256) {
         if (x > MAX_EXPONENT) x = MAX_EXPONENT;
         
@@ -339,9 +294,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         return result;
     }
     
-    /**
-     * @dev Approximate ln(x) using series expansion
-     */
     function _ln(uint256 x) internal pure returns (uint256) {
         require(x > 0, "ln(0)");
         
@@ -351,7 +303,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         
         while (x >= 2 * PRECISION) {
             x = x / 2;
-            result += 693147180559945309; // ln(2) * 1e18
+            result += 693147180559945309;
         }
         
         if (x > PRECISION) {
@@ -369,9 +321,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         return result;
     }
     
-    /**
-     * @dev Get YES probability (0-10000 basis points)
-     */
     function getPrice(uint256 _marketId) external view returns (uint256) {
         Market storage market = markets[_marketId];
         uint256 b = market.liquidityParam;
@@ -388,9 +337,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         return uint256(price);
     }
     
-    /**
-     * @dev Claim winnings after market is resolved
-     */
     function claimWinnings(uint256 _marketId) external nonReentrant {
         Market storage market = markets[_marketId];
         Position storage position = positions[_marketId][msg.sender];
@@ -402,34 +348,19 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         require(winningShares > 0, "No winnings");
         
         position.claimed = true;
-        
-        // Winners get $1 per share (in token decimals)
         uint256 payout = winningShares;
         
         require(token.transfer(msg.sender, payout), "Transfer failed");
         emit WinningsClaimed(_marketId, msg.sender, payout);
     }
     
-    /**
-     * @dev Get user position
-     */
-    function getUserPosition(uint256 _marketId, address _user) 
-        external view returns (uint256 yesShares, uint256 noShares, bool claimed) 
-    {
+    function getUserPosition(uint256 _marketId, address _user) external view returns (uint256 yesShares, uint256 noShares, bool claimed) {
         Position storage pos = positions[_marketId][_user];
         return (pos.yesShares, pos.noShares, pos.claimed);
     }
     
-    /**
-     * @dev Get market resolution status
-     */
     function getMarketStatus(uint256 _marketId) external view returns (
-        bool ended,
-        bool assertionPending,
-        bool resolved,
-        bool outcome,
-        address asserter,
-        bytes32 assertionId
+        bool ended, bool assertionPending, bool resolved, bool outcome, address asserter, bytes32 assertionId
     ) {
         Market storage market = markets[_marketId];
         return (
@@ -442,9 +373,6 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         );
     }
     
-    /**
-     * @dev Update assertion bond (owner only)
-     */
     function setAssertionBond(uint256 _bond) external onlyOwner {
         assertionBond = _bond;
     }

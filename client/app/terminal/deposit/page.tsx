@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // Get contract addresses
 const contracts = getContracts() as any;
 const USDC_ADDRESS = (contracts.mockUSDC || '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be') as `0x${string}`;
+const ZAP_ADDRESS = (contracts.zap || '0xEF9C67639CE5fbCE07E0448bcc59587797742B0A68') as `0x${string}`;
 const MARKET_CONTRACT = (contracts.predictionMarket || '0xEcB7195979Cb5781C2D6b4e97cD00b159922A6B3') as `0x${string}`;
 
 // Mock Tokens
