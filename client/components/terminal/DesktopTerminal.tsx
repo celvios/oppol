@@ -97,52 +97,53 @@ export function DesktopTerminal() {
         fetchPriceHistory();
     }, [selectedMarketId, market?.yesOdds]);
 
-    useEffect(() => {
-        // Only fetch data if wallet is connected
+    // Data fetching function (moved to component scope)
+    const fetchData = async () => {
         if (!isConnected || !address) {
             setLoading(false);
             return;
         }
 
-        async function fetchData() {
-            try {
-                // Fetch ALL markets first (always works, direct from blockchain)
-                const allMarkets = await web3Service.getMarkets();
-                setMarkets(allMarkets);
+        try {
+            // Fetch ALL markets first (always works, direct from blockchain)
+            const allMarkets = await web3Service.getMarkets();
+            setMarkets(allMarkets);
 
-                // Try to link wallet for custodial trading (requires backend)
-                try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                    if (apiUrl) {
-                        const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ walletAddress: address })
-                        });
-                        const linkData = await linkResponse.json();
-                        if (linkData.success) {
-                            setCustodialAddress(linkData.custodialAddress);
-                            // Fetch deposited balance from custodial wallet
-                            const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
-                            setBalance(depositedBalance);
-                        }
-                    } else {
-                        // No backend configured - use direct wallet deposited balance
-                        const depositedBalance = await web3Service.getDepositedBalance(address!);
+            // Try to link wallet for custodial trading (requires backend)
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                if (apiUrl) {
+                    const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ walletAddress: address })
+                    });
+                    const linkData = await linkResponse.json();
+                    if (linkData.success) {
+                        setCustodialAddress(linkData.custodialAddress);
+                        // Fetch deposited balance from custodial wallet
+                        const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
                         setBalance(depositedBalance);
                     }
-                } catch (apiError) {
-                    console.warn('Backend API not available, using direct wallet balance:', apiError);
-                    // Fallback: use connected wallet's deposited balance directly
+                } else {
+                    // No backend configured - use direct wallet deposited balance
                     const depositedBalance = await web3Service.getDepositedBalance(address!);
                     setBalance(depositedBalance);
                 }
-            } catch (error) {
-                console.error('Error fetching markets:', error);
-            } finally {
-                setLoading(false);
+            } catch (apiError) {
+                console.warn('Backend API not available, using direct wallet balance:', apiError);
+                // Fallback: use connected wallet's deposited balance directly
+                const depositedBalance = await web3Service.getDepositedBalance(address!);
+                setBalance(depositedBalance);
             }
+        } catch (error) {
+            console.error('Error fetching markets:', error);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
         fetchData();
 
         // Auto-refresh every 15 seconds
