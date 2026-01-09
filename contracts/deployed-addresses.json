@@ -1,0 +1,8 @@
+{
+  "mockUSDC": "0x87D45E316f5f1f2faffCb600c97160658B799Ee0",
+  "predictionMarket": "0x5F9C05bE2Af2adb520825950323774eFF308E353",
+  "umaOracle": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+  "network": "bscTestnet",
+  "chainId": 97,
+  "deployedAt": "2026-01-09T09:43:42.009Z"
+}

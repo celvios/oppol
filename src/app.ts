@@ -38,7 +38,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// BET ENDPOINT - CLEAN VERSION
+// BET ENDPOINT - PRODUCTION VERSION
 app.post('/api/bet', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
@@ -50,13 +50,19 @@ app.post('/api/bet', async (req, res) => {
 
     const isYes = side.toUpperCase() === 'YES';
 
-    // Use Hardhat account #0 via Mnemonic
-    const mnemonic = "test test test test test test test test test test test junk";
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545', undefined, { staticNetwork: true });
-    const signer = ethers.Wallet.fromPhrase(mnemonic).connect(provider);
+    // Use environment variables for production
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const privateKey = process.env.PRIVATE_KEY;
 
-    const MARKET_ADDR = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-    const USDC_ADDR = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+    if (!privateKey) {
+      return res.status(500).json({ success: false, error: 'Server wallet not configured' });
+    }
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
 
     const marketABI = [
       'function buyShares(uint256 marketId, bool isYes, uint256 shares, uint256 maxCost)',
@@ -126,12 +132,18 @@ app.post('/api/withdraw', async (req, res) => {
     // const userId = verifyToken(token).userId;
     // const userWallet = await getUserWallet(userId);
 
-    // For demo, use Hardhat account
-    const mnemonic = "test test test test test test test test test test test junk";
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545', undefined, { staticNetwork: true });
-    const signer = ethers.Wallet.fromPhrase(mnemonic).connect(provider);
+    // Use environment variables for production
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const privateKey = process.env.PRIVATE_KEY;
 
-    const USDC_ADDR = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+    if (!privateKey) {
+      return res.status(500).json({ success: false, error: 'Server wallet not configured' });
+    }
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
     const usdcABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -180,8 +192,9 @@ app.get('/api/markets', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545', undefined, { staticNetwork: true });
-    const MARKET_ADDR = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',

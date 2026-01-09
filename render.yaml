@@ -13,6 +13,10 @@ services:
         value: "3000"
       - key: BNB_RPC_URL
         value: https://bsc-testnet-rpc.publicnode.com
+      - key: MARKET_ADDRESS
+        value: "0x5F9C05bE2Af2adb520825950323774eFF308E353"
+      - key: USDC_ADDRESS
+        value: "0x87D45E316f5f1f2faffCb600c97160658B799Ee0"
       - key: DATABASE_URL
         sync: false
       - key: PRIVATE_KEY

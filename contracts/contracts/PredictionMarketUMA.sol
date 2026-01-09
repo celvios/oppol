@@ -74,19 +74,45 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(address => Position)) public positions;
     mapping(bytes32 => uint256) public assertionToMarket; // Map assertion ID to market ID
     
+    // User Balances (Deposited Funds)
+    mapping(address => uint256) public userBalances;
+
     // Fixed-point math constants
     uint256 constant PRECISION = 1e18;
     uint256 constant MAX_EXPONENT = 100 * PRECISION;
-    
+
     event MarketCreated(uint256 indexed marketId, string question, uint256 liquidity);
     event SharesPurchased(uint256 indexed marketId, address indexed user, bool isYes, uint256 shares, uint256 cost);
     event OutcomeAsserted(uint256 indexed marketId, address indexed asserter, bool outcome, bytes32 assertionId);
     event MarketResolved(uint256 indexed marketId, bool outcome);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
+    event Deposited(address indexed user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
     
     constructor(address _token, address _oracle) Ownable(msg.sender) {
         token = IERC20(_token);
         oracle = OptimisticOracleV3Interface(_oracle);
+    }
+
+    /**
+     * @dev Deposit funds into the market contract
+     */
+    function deposit(uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be > 0");
+        require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        userBalances[msg.sender] += amount;
+        emit Deposited(msg.sender, amount);
+    }
+
+    /**
+     * @dev Withdraw funds from the market contract
+     */
+    function withdraw(uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be > 0");
+        require(userBalances[msg.sender] >= amount, "Insufficient balance");
+        userBalances[msg.sender] -= amount;
+        require(token.transfer(msg.sender, amount), "Transfer failed");
+        emit Withdrawn(msg.sender, amount);
     }
     
     /**
@@ -140,7 +166,7 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
             _outcome ? "YES" : "NO"
         );
         
-        // Transfer bond from asserter
+        // Transfer bond from asserter (Direct transfer for bond)
         require(token.transferFrom(msg.sender, address(this), assertionBond), "Bond transfer failed");
         require(token.approve(address(oracle), assertionBond), "Approve failed");
         
@@ -236,7 +262,9 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         uint256 cost = calculateCost(_marketId, _isYes, _shares);
         require(cost <= _maxCost, "Cost exceeds max");
         
-        require(token.transferFrom(msg.sender, address(this), cost), "Transfer failed");
+        // Use deposited balance
+        require(userBalances[msg.sender] >= cost, "Insufficient deposited balance");
+        userBalances[msg.sender] -= cost;
         
         Position storage pos = positions[_marketId][msg.sender];
         if (_isYes) {
