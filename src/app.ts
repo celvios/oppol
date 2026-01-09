@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { initDatabase } from './models';
 import { startDepositWatcher, watchAddress, setDepositCallback } from './services/depositWatcher';
 import { sendDepositNotification } from './services/whatsappNotifications';
+import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 
 dotenv.config();
 
@@ -92,6 +93,9 @@ app.post('/api/bet', async (req, res) => {
     const receipt = await tx.wait();
 
     const newPrice = await market.getPrice(marketId);
+
+    // Record price to history for charts
+    recordMarketPrice(marketId).catch(err => console.warn('Price recording failed:', err));
 
     console.log(`Bet placed! TX: ${receipt.hash}`);
 
@@ -227,6 +231,25 @@ app.get('/api/markets', async (req, res) => {
   }
 });
 
+// PRICE HISTORY ENDPOINT - For charts
+app.get('/api/markets/:id/price-history', async (req, res) => {
+  try {
+    const marketId = parseInt(req.params.id);
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    if (isNaN(marketId)) {
+      return res.status(400).json({ success: false, error: 'Invalid market ID' });
+    }
+
+    const history = await getPriceHistory(marketId, limit);
+
+    return res.json({ success: true, history });
+  } catch (error: any) {
+    console.error('Price history error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DATABASE MIGRATION ENDPOINT
 app.post('/api/admin/migrate', async (req, res) => {
   try {
@@ -292,11 +315,21 @@ app.post('/api/admin/migrate', async (req, res) => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Price History Table (for charts)
+      CREATE TABLE IF NOT EXISTS price_history (
+        id SERIAL PRIMARY KEY,
+        market_id INTEGER NOT NULL,
+        price INTEGER NOT NULL,
+        recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
       CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
+      CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
+      CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
     `;
 
     await query(migrationQueries);
@@ -376,6 +409,13 @@ initDatabase().then(async () => {
   } else {
     console.log('ℹ️ Deposit watcher disabled (no valid BNB_WSS_URL configured)');
     console.log('   Set BNB_WSS_URL to enable real-time deposit monitoring');
+  }
+
+  // Start price tracker for chart history (every 5 minutes)
+  if (process.env.DATABASE_URL) {
+    startPriceTracker(5 * 60 * 1000);
+  } else {
+    console.log('ℹ️ Price tracker disabled (no DATABASE_URL configured)');
   }
 
 }).catch(err => {
