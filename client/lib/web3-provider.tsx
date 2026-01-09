@@ -22,13 +22,14 @@ const metadata = {
 const chains = [bsc, bscTestnet] as const;
 
 // Create wagmi config
-chains,
+const config = defaultWagmiConfig({
+    chains,
     projectId,
     metadata,
     ssr: false, // Disable SSR to rely on client-side localStorage
-        storage: createStorage({
-            storage: typeof window !== 'undefined' ? window.localStorage : undefined
-        }),
+    storage: createStorage({
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined
+    }),
 });
 
 // Create query client
