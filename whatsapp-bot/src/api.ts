@@ -64,6 +64,14 @@ export class ApiClient {
     }
 
     /**
+     * Generate a Magic Link for user authentication
+     */
+    async generateMagicLink(phone: string): Promise<string | null> {
+        // Disabled: Web Login is now distinct from WhatsApp
+        return null;
+    }
+
+    /**
      * Get user balance
      */
     async getBalance(phoneNumber: string): Promise<string> {

@@ -22,7 +22,6 @@ What would you like to do?
 *2.* 💼 Profile  
 *3.* 💰 Deposit
 *4.* 💸 Withdraw
-*5.* 🌐 Web Dashboard
 
 _Reply with a number_`,
 
@@ -190,19 +189,11 @@ Funds will arrive in ~5 minutes.
 *0.* ← Main Menu`,
 
     // ============ WEB LOGIN ============
-    webLogin: (link: string) => `🌐 *Web Dashboard*
+    webLogin: () => `🌐 *Web Dashboard*
 
-Access your full trading terminal:
+Visit our website to connect your wallet and trade on the professional terminal:
 
-🔗 ${link}
-
-✨ *Features:*
-• Real-time charts
-• Portfolio analytics
-• Trade history
-• Advanced orders
-
-⏰ _Link expires in 10 minutes_
+🔗 https://opoll.app
 
 *0.* ← Main Menu`,
 

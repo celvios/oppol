@@ -42,60 +42,10 @@ export const createWalletInternal = async (userId: string) => {
  * Creates user + custodial wallet if not exists
  * POST /api/wallet/link
  */
+/**
+ * Link a WalletConnect address to a custodial wallet
+ * DEPRECATED: Web and WhatsApp auth are now distinct
+ */
 export const linkWallet = async (req: Request, res: Response) => {
-    try {
-        const { walletAddress } = req.body;
-
-        if (!walletAddress) {
-            res.status(400).json({ success: false, error: 'Wallet address required' });
-            return;
-        }
-
-        // Normalize address to lowercase
-        const normalizedAddress = walletAddress.toLowerCase();
-
-        // Check if user already exists with this wallet address
-        let userResult = await query(
-            'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-            [normalizedAddress]
-        );
-
-        let userId: string;
-
-        if (userResult.rows.length === 0) {
-            // Create new user with wallet address as identifier
-            const newUser = await query(
-                'INSERT INTO users (wallet_address, phone) VALUES ($1, $2) RETURNING id',
-                [normalizedAddress, `web_${normalizedAddress.slice(0, 10)}`]
-            );
-            userId = newUser.rows[0].id;
-        } else {
-            userId = userResult.rows[0].id;
-        }
-
-        // Check if user has a custodial wallet
-        let walletResult = await query(
-            'SELECT id, public_address, balance FROM wallets WHERE user_id = $1',
-            [userId]
-        );
-
-        let custodialWallet;
-        if (walletResult.rows.length === 0) {
-            // Create custodial wallet
-            custodialWallet = await createWalletInternal(userId);
-            custodialWallet.balance = '0';
-        } else {
-            custodialWallet = walletResult.rows[0];
-        }
-
-        res.json({
-            success: true,
-            userId,
-            custodialAddress: custodialWallet.public_address,
-            balance: custodialWallet.balance || '0'
-        });
-    } catch (error) {
-        console.error('Error linking wallet:', error);
-        res.status(500).json({ success: false, error: 'Failed to link wallet' });
-    }
+    res.status(410).json({ error: 'Wallet linking is deprecated. Web and Mobile Auth are distinct.' });
 };
