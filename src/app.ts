@@ -11,9 +11,25 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS configuration - allow all origins in production
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? [
+      'https://oppol-gamma.vercel.app',
+      'https://oppol.vercel.app',
+      /\.vercel\.app$/,  // Any Vercel preview deployments
+      'http://localhost:3001',
+      'http://localhost:3000'
+    ]
+    : true,  // Allow all origins in development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret']
+};
+
 // Middleware
-app.use(helmet());
-app.use(cors());
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Request Logger
