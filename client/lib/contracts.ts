@@ -6,12 +6,13 @@ export const CONTRACTS = {
         predictionMarketLMSR: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // New LMSR ✅
         mockUSDC: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     },
-    // BSC Testnet (DEPLOYED ✅ - With Deposit System)
+    // BSC Testnet (DEPLOYED ✅ - With Zap System)
     bscTestnet: {
-        predictionMarket: '0x5F9C05bE2Af2adb520825950323774eFF308E353',
-        predictionMarketLMSR: '0x5F9C05bE2Af2adb520825950323774eFF308E353',
-        mockUSDC: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0',
-        umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+        predictionMarket: '0x57f3E8D7543ba4008708B80116aB7FAcc7D265e5',
+        predictionMarketLMSR: '0x57f3E8D7543ba4008708B80116aB7FAcc7D265e5',
+        mockUSDC: '0xA4FbcEe08b7AAA2F59D3469C0f28A32588740dc7',
+        umaOracle: '0x930D7cebd451B334f9DdF3d89deC931CFf588195',
+        zap: '0x358e8405FCC01Ea93a1422A667f62eec17Fb08cF7',
     },
     // BSC Mainnet
     bsc: {
