@@ -6,7 +6,7 @@ import { LogOut, Wallet, Shield } from 'lucide-react';
 import { useDisconnect } from 'wagmi';
 import Link from 'next/link';
 
-export function WalletConnectButton() {
+export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) {
     const { open } = useWeb3Modal();
     const { address, isConnected, usdcBalance, isAdmin, chain } = useWallet();
     const { disconnect } = useDisconnect();
@@ -15,10 +15,25 @@ export function WalletConnectButton() {
         return (
             <button
                 onClick={() => open()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded-lg text-primary font-medium transition-all duration-200"
+                className={`flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded-lg text-primary font-medium transition-all duration-200 ${minimal ? 'w-full justify-center px-0' : ''}`}
             >
                 <Wallet size={18} />
-                Connect Wallet
+                {!minimal && <span>Connect Wallet</span>}
+            </button>
+        );
+    }
+
+    if (minimal) {
+        return (
+            <button
+                onClick={() => open({ view: 'Account' })}
+                className="w-full flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 hover:border-white/20 border border-transparent rounded-lg transition-all"
+                title={address}
+            >
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
+                <span className="font-mono text-xs text-white">
+                    {address?.slice(0, 4)}...{address?.slice(-4)}
+                </span>
             </button>
         );
     }
