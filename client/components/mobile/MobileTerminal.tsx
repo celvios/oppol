@@ -89,20 +89,23 @@ export function MobileTerminal() {
         fetchPriceHistory();
     }, [selectedMarketId, market?.yesOdds]);
 
+    // Data fetching function (moved to component scope for reuse)
+    const fetchData = async () => {
+        if (!isConnected || !address) return;
+        try {
+            const allMarkets = await web3Service.getMarkets();
+            setMarkets(allMarkets);
+            const depositedBalance = await web3Service.getDepositedBalance(address);
+            setBalance(depositedBalance);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isConnected) { setLoading(false); return; }
-        async function fetchData() {
-            try {
-                const allMarkets = await web3Service.getMarkets();
-                setMarkets(allMarkets);
-                const depositedBalance = await web3Service.getDepositedBalance(address!);
-                setBalance(depositedBalance);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        }
         fetchData();
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
