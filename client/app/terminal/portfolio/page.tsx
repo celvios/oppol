@@ -44,6 +44,22 @@ export default function PortfolioPage() {
 
                 // Fetch all markets and user positions
                 const markets = await web3Service.getMarkets();
+
+                // Fetch portfolio stats (real avg entry price) from backend
+                let portfolioStats: Record<string, any> = {};
+                try {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    if (apiUrl) {
+                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${address}/stats`);
+                        const statsData = await statsRes.json();
+                        if (statsData.success) {
+                            portfolioStats = statsData.stats;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Failed to fetch portfolio stats:', err);
+                }
+
                 const userPositions: Position[] = [];
                 let aggregatePnL = 0;
 
@@ -57,7 +73,11 @@ export default function PortfolioPage() {
                     // Process YES position
                     if (yesShares > 0) {
                         const currentPrice = market.yesOdds / 100;
-                        const avgPrice = 0.50;
+
+                        // Get real avg price or fallback to 0.50
+                        const statsKey = `${market.id}-YES`;
+                        const avgPrice = portfolioStats[statsKey]?.avgPrice || 0.50;
+
                         const currentValue = yesShares * currentPrice;
                         const costBasis = yesShares * avgPrice;
                         const pnl = currentValue - costBasis;
@@ -79,7 +99,11 @@ export default function PortfolioPage() {
                     // Process NO position
                     if (noShares > 0) {
                         const currentPrice = (100 - market.yesOdds) / 100;
-                        const avgPrice = 0.50;
+
+                        // Get real avg price or fallback to 0.50
+                        const statsKey = `${market.id}-NO`;
+                        const avgPrice = portfolioStats[statsKey]?.avgPrice || 0.50;
+
                         const currentValue = noShares * currentPrice;
                         const costBasis = noShares * avgPrice;
                         const pnl = currentValue - costBasis;

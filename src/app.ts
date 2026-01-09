@@ -6,6 +6,7 @@ import { initDatabase } from './models';
 import { startDepositWatcher, watchAddress, setDepositCallback } from './services/depositWatcher';
 import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
+import { query } from './config/database';
 
 dotenv.config();
 
@@ -96,6 +97,29 @@ app.post('/api/bet', async (req, res) => {
 
     // Record price to history for charts
     recordMarketPrice(marketId).catch(err => console.warn('Price recording failed:', err));
+
+    // Record trade in database for PnL tracking
+    try {
+      const costEth = parseFloat(ethers.formatUnits(cost, 6)); // USDC uses 6 decimals
+      const sharesNum = parseFloat(ethers.formatEther(shares)); // Shares use 18 decimals
+      const pricePerShare = sharesNum > 0 ? costEth / sharesNum : 0;
+
+      await query(
+        `INSERT INTO trades (market_id, user_address, side, shares, price_per_share, total_cost, tx_hash) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          marketId,
+          'SERVER_WALLET', // Since we're using the server wallet for execution
+          side,
+          sharesNum,
+          pricePerShare,
+          costEth,
+          receipt.hash
+        ]
+      );
+    } catch (err) {
+      console.warn('Failed to record trade in DB:', err);
+    }
 
     console.log(`Bet placed! TX: ${receipt.hash}`);
 
@@ -250,6 +274,48 @@ app.get('/api/markets/:id/price-history', async (req, res) => {
   }
 });
 
+// PORTFOLIO STATS ENDPOINT - For PnL
+app.get('/api/portfolio/:address/stats', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { query } = await import('./config/database');
+
+    // Get weighted average entry price for each market and side
+    // Formula: Sum(Cost) / Sum(Shares)
+    // We filter by user address (case insensitive)
+    const result = await query(
+      `SELECT 
+            market_id, 
+            side, 
+            SUM(total_cost) as total_cost, 
+            SUM(shares) as total_shares,
+            SUM(total_cost) / NULLIF(SUM(shares), 0) as avg_price
+         FROM trades 
+         WHERE LOWER(user_address) = LOWER($1) OR LOWER(user_address) = 'external_wallet'
+         GROUP BY market_id, side`,
+      [address]
+    );
+
+    const stats: Record<string, any> = {};
+
+    result.rows.forEach((row: any) => {
+      const key = `${row.market_id}-${row.side}`;
+      stats[key] = {
+        marketId: row.market_id,
+        side: row.side,
+        avgPrice: parseFloat(row.avg_price),
+        totalCost: parseFloat(row.total_cost),
+        totalShares: parseFloat(row.total_shares)
+      };
+    });
+
+    return res.json({ success: true, stats });
+  } catch (error: any) {
+    console.error('Portfolio stats error:', error);
+    return res.json({ success: false, stats: {} }); // Fallback to empty on error
+  }
+});
+
 // DATABASE MIGRATION ENDPOINT
 app.post('/api/admin/migrate', async (req, res) => {
   try {
@@ -299,6 +365,19 @@ app.post('/api/admin/migrate', async (req, res) => {
         side VARCHAR(3) NOT NULL CHECK (side IN ('YES', 'NO')),
         shares DECIMAL(18, 6) NOT NULL,
         cost_basis DECIMAL(18, 6) NOT NULL,
+        tx_hash VARCHAR(66),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Trades Table (Granular trade history for PnL)
+      CREATE TABLE IF NOT EXISTS trades (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        market_id INTEGER NOT NULL,
+        user_address VARCHAR(42) NOT NULL,
+        side VARCHAR(3) NOT NULL CHECK (side IN ('YES', 'NO')),
+        shares DECIMAL(18, 6) NOT NULL,
+        price_per_share DECIMAL(18, 6) NOT NULL,
+        total_cost DECIMAL(18, 6) NOT NULL,
         tx_hash VARCHAR(66),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
