@@ -200,7 +200,40 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// GET BALANCE ENDPOINT
+// GET BALANCE ENDPOINT - Fetch deposited balance by wallet address
+app.get('/api/wallet/balance/:address', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { address } = req.params;
+
+    if (!address || !ethers.isAddress(address)) {
+      return res.status(400).json({ success: false, error: 'Invalid wallet address' });
+    }
+
+    // Read deposited balance from market contract
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+    const marketABI = ['function depositedBalances(address user) view returns (uint256)'];
+    const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+
+    const balanceWei = await market.depositedBalances(address);
+    const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
+
+    return res.json({
+      success: true,
+      address,
+      balance,
+      balanceFormatted: parseFloat(balance).toFixed(2)
+    });
+  } catch (error: any) {
+    console.error('Balance fetch error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Legacy endpoint for backwards compatibility
 app.get('/api/wallet/:userId/balance', async (req, res) => {
   try {
     // TODO: Fetch actual balance from user's custodial wallet
