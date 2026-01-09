@@ -140,7 +140,7 @@ export function DesktopTerminal() {
             } catch (error) {
                 console.error('Error fetching markets:', error);
             } finally {
-                setTimeout(() => setLoading(false), 600);
+                setLoading(false);
             }
         }
         fetchData();
@@ -363,6 +363,7 @@ export function DesktopTerminal() {
                             currentPrice={market.yesOdds || 50}
                             question={market.question}
                             balance={balance}
+                            onTradeSuccess={fetchData}
                         />
                     )}
 
@@ -403,7 +404,7 @@ export function DesktopTerminal() {
 }
 
 // Trade Panel Component
-function TradePanel({ marketId, currentPrice, question, balance }: { marketId: number; currentPrice: number, question: string, balance: string }) {
+function TradePanel({ marketId, currentPrice, question, balance, onTradeSuccess }: { marketId: number; currentPrice: number, question: string, balance: string, onTradeSuccess: () => void }) {
     const { isConnected, address } = useWallet();
     const [side, setSide] = useState<'YES' | 'NO'>('YES');
     const [amount, setAmount] = useState<string>('100'); // USDC amount to spend
@@ -523,7 +524,7 @@ function TradePanel({ marketId, currentPrice, question, balance }: { marketId: n
                 isOpen={isModalOpen}
                 onClose={() => {
                     setIsModalOpen(false);
-                    window.location.reload();
+                    onTradeSuccess(); // Refresh data immediately
                 }}
                 data={successData || {}}
             />

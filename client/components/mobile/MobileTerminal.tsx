@@ -254,6 +254,7 @@ export function MobileTerminal() {
                     market={market}
                     side={tradeSide}
                     balance={balance}
+                    onTradeSuccess={fetchData}
                 />
             )}
         </div>
@@ -261,7 +262,7 @@ export function MobileTerminal() {
 }
 
 // Mobile Trade Sheet Component
-function TradeBottomSheet({ isOpen, onClose, market, side, balance }: { isOpen: boolean; onClose: () => void; market: Market; side: 'YES' | 'NO'; balance: string }) {
+function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSuccess }: { isOpen: boolean; onClose: () => void; market: Market; side: 'YES' | 'NO'; balance: string; onTradeSuccess: () => void }) {
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const { address } = useWallet();
@@ -301,6 +302,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance }: { isOpen: 
                 });
             }
             onClose();
+            onTradeSuccess(); // Refresh data immediately
             // Ideally show success toast
         } catch (e) {
             console.error(e);

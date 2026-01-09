@@ -51,20 +51,27 @@ export class Web3Service {
     /**
      * Get all markets
      */
+    /**
+     * Get all markets
+     */
     async getMarkets() {
         try {
-            const count = await this.predictionMarket.marketCount();
-            const markets = [];
+            const count = Number(await this.predictionMarket.marketCount());
+            const ids = Array.from({ length: count }, (_, i) => i);
 
-            for (let i = 0; i < Number(count); i++) {
-                const market = await this.predictionMarket.markets(i);
-                const price = await this.predictionMarket.getPrice(i);
+            // Fetch all data in parallel
+            const [marketsData, pricesData] = await Promise.all([
+                Promise.all(ids.map(id => this.predictionMarket.markets(id))),
+                Promise.all(ids.map(id => this.predictionMarket.getPrice(id)))
+            ]);
 
-                // LMSR returns price in basis points (0-10000)
-                const yesOdds = Number(price) / 100; // Convert to percentage
+            return ids.map((id, index) => {
+                const market = marketsData[index];
+                const price = pricesData[index];
+                const yesOdds = Number(price) / 100;
 
-                markets.push({
-                    id: i,
+                return {
+                    id: id,
                     question: market.question,
                     endTime: Number(market.endTime),
                     yesShares: ethers.formatUnits(market.yesShares, 6),
@@ -76,10 +83,8 @@ export class Web3Service {
                     outcome: market.outcome,
                     yesOdds: yesOdds,
                     noOdds: 100 - yesOdds,
-                });
-            }
-
-            return markets;
+                };
+            });
         } catch (error) {
             console.error('Error fetching markets:', error);
             return [];
