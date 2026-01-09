@@ -215,10 +215,10 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
-    const marketABI = ['function depositedBalances(address user) view returns (uint256)'];
+    const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
-    const balanceWei = await market.depositedBalances(address);
+    const balanceWei = await market.userBalances(address);
     const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
 
     return res.json({
