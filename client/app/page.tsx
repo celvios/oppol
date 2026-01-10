@@ -41,8 +41,8 @@ export default function Home() {
             className="flex flex-col items-center"
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 hover:bg-white/10 transition-colors cursor-default">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <span className="text-xs font-mono font-bold tracking-[0.2em] text-neon-green">SYSTEM ONLINE</span>
+              <span className="w-2 h-2 rounded-full bg-outcome-a animate-pulse" />
+              <span className="text-xs font-mono font-bold tracking-[0.2em] text-outcome-a">SYSTEM ONLINE</span>
             </div>
 
             <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default">
@@ -166,7 +166,7 @@ export default function Home() {
       <footer className="py-12 relative z-10">
         <ScrollReveal>
           <div className="w-full max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-2xl font-bold mb-8">VANTAGE PROTOCOL</h2>
+            <h2 className="text-2xl font-bold mb-8">OPOLL</h2>
             <div className="flex justify-center gap-8 mb-8 text-text-secondary">
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Twitter</a>
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Discord</a>
