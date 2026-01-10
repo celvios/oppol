@@ -406,7 +406,7 @@ export default function DepositPage() {
                                         {estimatedUSDC}
                                     </div>
                                     <div className="flex items-center gap-2 px-3 py-2">
-                                        <span className="text-lg">💰</span>
+                                        <img src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png?v=024" alt="USDC" className="w-6 h-6" />
                                         <span className="font-bold text-white">USDC</span>
                                     </div>
                                 </div>
