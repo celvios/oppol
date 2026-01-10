@@ -127,26 +127,42 @@ app.post('/api/bet', async (req, res) => {
 app.post('/api/wallet/link', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
+    console.log(`[Wallet Link] Request received for body:`, req.body);
+
+    // Check if body is parsed
+    if (!req.body) {
+      console.error('[Wallet Link] Error: req.body is undefined. Is express.json() middleware enabled?');
+      return res.status(400).json({ success: false, error: 'Invalid request body' });
+    }
+
     const { walletAddress } = req.body;
 
     if (!walletAddress) {
+      console.error('[Wallet Link] Error: walletAddress missing in body');
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
 
     // Validate address
     if (!ethers.isAddress(walletAddress)) {
+      console.error(`[Wallet Link] Error: Invalid address ${walletAddress}`);
       return res.status(400).json({ success: false, error: 'Invalid wallet address' });
     }
 
     // Fetch balance from contract directly using connected wallet address
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    console.log(`[Wallet Link] Using Market Address: ${MARKET_ADDR}`);
+    console.log(`[Wallet Link] Using RPC: ${rpcUrl}`);
+
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
+    console.log(`[Wallet Link] Fetching balance for ${walletAddress}...`);
     const balanceWei = await market.userBalances(walletAddress);
     const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
+    console.log(`[Wallet Link] Balance: ${balance}`);
 
     return res.json({
       success: true,
@@ -155,8 +171,12 @@ app.post('/api/wallet/link', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Wallet link error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('[Wallet Link] CRITICAL ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
