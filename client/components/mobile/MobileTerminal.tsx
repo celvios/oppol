@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -138,27 +138,6 @@ export function MobileTerminal() {
             try {
                 const data = await web3Service.getMarkets();
                 setMarkets(data);
-
-                // If we are still at 0 (initial), set to first market
-                // unless URL param effect set it already (which we check via selectedMarketId)
-                // Actually, better logic: if selectedMarketId is 0, default to first.
-                // But wait for searchParams effect to run first? 
-                // It runs synchronously-ish after hydration.
-
-                // We will rely on selectedMarketId being updated by the searchParams effect.
-                // If it's still 0 after a short delay or if searchParams was empty, we default to markets[0].
-                // However, to keep it simple: we set default if 0, but only if we have data.
-
-                if (selectedMarketId === 0 && data.length > 0) {
-                    // Check URL one more time to be safe? 
-                    const urlId = Number(searchParams.get('marketId'));
-                    if (urlId && data.find(m => m.id === urlId)) {
-                        // It's handled by other effect, or we force it here if race condition
-                        setSelectedMarketId(urlId);
-                    } else {
-                        setSelectedMarketId(data[0].id);
-                    }
-                }
             } catch (error) {
                 console.error("Failed to fetch markets:", error);
             } finally {
@@ -168,7 +147,19 @@ export function MobileTerminal() {
         fetchMarkets();
     }, []); // Run once on mount
 
-    const fetchData = async () => {
+    // Set initial market selection
+    useEffect(() => {
+        if (selectedMarketId === 0 && markets.length > 0) {
+            const urlId = Number(searchParams.get('marketId'));
+            if (urlId && markets.find(m => m.id === urlId)) {
+                setSelectedMarketId(urlId);
+            } else {
+                setSelectedMarketId(markets[0].id);
+            }
+        }
+    }, [markets, selectedMarketId, searchParams]);
+
+    const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
         try {
             const allMarkets = await web3Service.getMarkets();
@@ -200,15 +191,17 @@ export function MobileTerminal() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isConnected, address]);
 
     useEffect(() => {
-        if (!isConnected) { setLoading(false); return; }
+        if (!isConnected) { 
+            setLoading(false); 
+            return; 
+        }
         fetchData();
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isConnected, address]);
+    }, [isConnected, address, fetchData]);
 
     if (!isConnected) {
         return (

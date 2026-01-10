@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -93,7 +93,7 @@ export function DesktopTerminal() {
 
     // --- Data Fetching ---
 
-    const fetchHistory = async (id: number) => {
+    const fetchHistory = useCallback(async (id: number) => {
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
             if (apiUrl) {
@@ -111,9 +111,9 @@ export function DesktopTerminal() {
             console.error("Failed to fetch history:", error);
             setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
         }
-    };
+    }, [market?.yesOdds]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
         try {
             const allMarkets = await web3Service.getMarkets();
@@ -145,21 +145,26 @@ export function DesktopTerminal() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isConnected, address]);
 
     useEffect(() => {
         if (isConnected) {
             fetchData();
-            if (markets.length > 0 && selectedMarketId === 0) setSelectedMarketId(markets[0].id);
         } else {
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, address]);
 
     useEffect(() => {
-        if (selectedMarketId) fetchHistory(selectedMarketId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (markets.length > 0 && selectedMarketId === 0) {
+            setSelectedMarketId(markets[0].id);
+        }
+    }, [markets, selectedMarketId]);
+
+    useEffect(() => {
+        if (selectedMarketId) {
+            fetchHistory(selectedMarketId);
+        }
     }, [selectedMarketId]);
 
     // --- Trading Logic ---
