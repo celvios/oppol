@@ -3,6 +3,9 @@
 import { DesktopTerminal } from "@/components/terminal/DesktopTerminal";
 import { MobileTerminal } from "@/components/mobile/MobileTerminal";
 
+import { Suspense } from "react"; // Add import
+import { SkeletonLoader } from "@/components/ui/SkeletonLoader"; // Add import
+
 export default function TerminalPage() {
     return (
         <>
@@ -10,7 +13,9 @@ export default function TerminalPage() {
                 <DesktopTerminal />
             </div>
             <div className="block md:hidden">
-                <MobileTerminal />
+                <Suspense fallback={<SkeletonLoader />}>
+                    <MobileTerminal />
+                </Suspense>
             </div>
         </>
     );
