@@ -1,61 +1,182 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { ArrowRight, MessageCircle, Terminal, Zap, Globe, Shield } from "lucide-react";
 import { motion } from "framer-motion";
+import dynamic from 'next/dynamic';
+import NeonButton from "@/components/ui/NeonButton";
+import GlassCard from "@/components/ui/GlassCard";
+import MarketGrid from "@/components/market/MarketGrid";
+import ScrambleText from "@/components/ui/ScrambleText";
+import ScrollReveal from "@/components/ui/ScrollReveal";
+import MobileHero from "@/components/mobile/MobileHero";
+import MobileFeatures from "@/components/mobile/MobileFeatures";
+import MobileMarketList from "@/components/mobile/MobileMarketList";
+
+// Dynamically load Interactive component with no SSR (though Framer Motion works in SSR, dynamic is safe for layout)
+const HeroInteractive = dynamic(() => import('@/components/landing/HeroInteractive'), { ssr: false });
+const MarketTicker = dynamic(() => import('@/components/landing/MarketTicker'), { ssr: false });
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background text-white relative overflow-hidden flex flex-col items-center justify-center">
-      {/* Background Gradients */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 blur-[150px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-success/5 blur-[120px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-void text-white relative overflow-x-hidden">
 
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="z-10 text-center max-w-2xl px-4"
-      >
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-xs font-mono mb-8 uppercase tracking-widest">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          System Online
+      {/* Hero Section */}
+      <MobileHero />
+      <div className="relative min-h-screen hidden md:flex flex-col items-center justify-center pt-20 overflow-hidden">
+        {/* Interactive Background Layer */}
+        <div className="absolute inset-0 z-0">
+          <HeroInteractive />
         </div>
 
-        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
-          OPOLL
-        </h1>
 
-        <p className="text-xl text-white/60 mb-10 leading-relaxed font-light">
-          The world's first <span className="text-white font-medium">WhatsApp-Native</span> Prediction Market.
-          Trade on information directly from your chat, or access the professional terminal for deep analytics.
-        </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Link
-            href="/terminal"
-            className="group flex items-center gap-3 bg-white text-black px-8 py-4 rounded-full font-bold transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+        {/* Content Layer - Centered */}
+        <div className="relative z-20 w-full max-w-5xl mx-auto px-6 flex flex-col items-center text-center">
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="flex flex-col items-center"
           >
-            Launch Terminal
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </Link>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 hover:bg-white/10 transition-colors cursor-default">
+              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+              <span className="text-xs font-mono font-bold tracking-[0.2em] text-neon-green">SYSTEM ONLINE</span>
+            </div>
 
-          <a
-            href="https://wa.me/+1234567890?text=Hi%20OPOLL"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-8 py-4 rounded-full border border-white/10 hover:bg-white/5 transition-colors text-white/80"
-          >
-            <MessageCircle className="w-5 h-5" />
-            Trade via WhatsApp
-          </a>
+            <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default">
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 block">
+                <ScrambleText text="OPOLL" />
+              </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-2">
+                PROTOCOL
+              </span>
+            </h1>
+
+            <p className="text-lg md:text-xl text-text-secondary mb-12 leading-relaxed max-w-2xl font-light">
+              The world's first <span className="text-white font-medium">WhatsApp-Native</span> Prediction Market.
+              <br className="hidden md:block" />
+              Experience liquidity that feels like water.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto justify-center">
+              <Link href="/terminal" className="w-full sm:w-auto">
+                <NeonButton variant="cyan" className="w-full sm:w-auto px-8 py-5 text-lg group">
+                  <Terminal className="w-5 h-5 mr-2 group-hover:text-black transition-colors" />
+                  LAUNCH TERMINAL
+                </NeonButton>
+              </Link>
+
+              <a
+                href="https://wa.me/+1234567890?text=Hi%20OPOLL"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto"
+              >
+                <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group">
+                  <MessageCircle className="w-5 h-5 mr-2 text-neon-green" />
+                  WHATSAPP TRADE
+                </NeonButton>
+              </a>
+            </div>
+          </motion.div>
+
         </div>
-      </motion.div>
+
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50 z-20">
+          <div className="w-6 h-10 rounded-full border-2 border-white flex justify-center pt-2">
+            <div className="w-1 h-3 bg-white rounded-full" />
+          </div>
+        </div>
+      </div>
+
+
+
+      {/* Features Section */}
+      <section className="py-24 relative z-10 w-full max-w-7xl mx-auto px-6">
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-neon-cyan/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
+
+        <ScrollReveal>
+          <div className="text-center mb-16">
+            <span className="text-neon-cyan font-mono text-sm tracking-widest uppercase mb-4 block">Why Vantage?</span>
+            <h2 className="text-4xl md:text-5xl font-heading font-bold">The Future of Prediction</h2>
+          </div>
+        </ScrollReveal>
+
+        <MobileFeatures />
+
+        <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-8">
+          <ScrollReveal delay={0.1}>
+            <GlassCard className="p-8 hover:border-neon-cyan/50 transition-colors group relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-32 h-32 bg-neon-cyan/10 rounded-full blur-2xl group-hover:bg-neon-cyan/20 transition-colors" />
+              <Zap className="w-12 h-12 text-neon-cyan mb-6 group-hover:scale-110 transition-transform duration-300" />
+              <h3 className="text-xl font-bold mb-4">Lightning Fast</h3>
+              <p className="text-text-secondary">Execute trades in milliseconds. Our high-frequency engine ensures you never miss a beat.</p>
+            </GlassCard>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.2}>
+            <GlassCard className="p-8 hover:border-neon-coral/50 transition-colors group relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-32 h-32 bg-neon-coral/10 rounded-full blur-2xl group-hover:bg-neon-coral/20 transition-colors" />
+              <Globe className="w-12 h-12 text-neon-coral mb-6 group-hover:scale-110 transition-transform duration-300" />
+              <h3 className="text-xl font-bold mb-4">Global Access</h3>
+              <p className="text-text-secondary">Trade from anywhere, on any device. WhatsApp integration means you can trade via simple text.</p>
+            </GlassCard>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.3}>
+            <GlassCard className="p-8 hover:border-neon-green/50 transition-colors group relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-32 h-32 bg-neon-green/10 rounded-full blur-2xl group-hover:bg-neon-green/20 transition-colors" />
+              <Shield className="w-12 h-12 text-neon-green mb-6 group-hover:scale-110 transition-transform duration-300" />
+              <h3 className="text-xl font-bold mb-4">Fully Decentralized</h3>
+              <p className="text-text-secondary">Your funds, your keys. Smart contracts audit every transaction for complete transparency.</p>
+            </GlassCard>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Live Markets Preview */}
+      <section className="py-24 relative z-10">
+        <div className="w-full max-w-7xl mx-auto px-6 relative z-10">
+          <ScrollReveal>
+            <div className="flex justify-between items-end mb-12">
+              <div>
+                <h2 className="text-4xl font-heading font-bold mb-4">Trending Markets</h2>
+                <p className="text-text-secondary max-w-xl">See what the world is predicting right now.</p>
+              </div>
+              <Link href="/markets">
+                <NeonButton variant="glass">View All Markets <ArrowRight className="w-4 h-4 ml-2" /></NeonButton>
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.2}>
+            <MobileMarketList />
+            <div className="hidden md:block">
+              <MarketGrid />
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
 
       {/* Footer */}
-      <div className="absolute bottom-8 text-white/20 text-xs font-mono uppercase tracking-widest">
-        Secured by BNB Chain • Powered by BSC
-      </div>
+      <footer className="py-12 relative z-10">
+        <ScrollReveal>
+          <div className="w-full max-w-7xl mx-auto px-6 text-center">
+            <h2 className="text-2xl font-bold mb-8">VANTAGE PROTOCOL</h2>
+            <div className="flex justify-center gap-8 mb-8 text-text-secondary">
+              <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Twitter</a>
+              <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Discord</a>
+              <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Docs</a>
+            </div>
+            <span className="text-white/20 text-xs font-mono uppercase tracking-[0.3em]">Secured by BNB Chain • Powered by OPOLL Engine</span>
+          </div>
+        </ScrollReveal>
+      </footer>
+
     </div>
   );
 }

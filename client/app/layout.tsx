@@ -1,21 +1,31 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
+import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/lib/web3-provider";
+import AnimatedBackground from "@/components/ui/AnimatedBackground";
+import { SettingsProvider } from "@/lib/settings-context";
+import SettingsToggle from "@/components/ui/SettingsToggle";
+import BottomNav from "@/components/mobile/BottomNav";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const robotoMono = Roboto_Mono({
-  variable: "--font-geist-mono",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "OPOLL | WhatsApp Prediction Market",
-  description: "Trade on information directly from WhatsApp, powered by BNB Chain",
+  title: "OPOLL | Decentralized Prediction Market",
+  description: "Predict the future. Own the outcome.",
+  themeColor: "#05050A",
 };
 
 export default function RootLayout({
@@ -26,11 +36,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${robotoMono.variable} antialiased bg-background text-foreground`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-void text-text-primary`}
         suppressHydrationWarning
       >
         <Web3Provider>
-          {children}
+          <SettingsProvider>
+            <AnimatedBackground />
+            {children}
+            <SettingsToggle />
+            <BottomNav />
+          </SettingsProvider>
         </Web3Provider>
       </body>
     </html>

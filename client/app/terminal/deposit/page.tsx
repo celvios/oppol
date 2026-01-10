@@ -53,7 +53,9 @@ const MARKET_ABI = [
 ] as const;
 
 // Zap Contract Address (Replace with actual deployment)
-const ZAP_ADDRESS = process.env.NEXT_PUBLIC_ZAP_ADDRESS as `0x${string}` || '0x358e8405FCC01Ea93a1422A667f62eec17Fb08cF7';
+// Zap Contract Address (Use constant from above)
+// const ZAP_ADDRESS removed
+
 
 // Zap ABI
 const ZAP_ABI = [

@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { TrendingUp, Wallet, ArrowDown } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
+import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
+import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AlertModal } from "@/components/ui/AlertModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
+import GlassCard from "@/components/ui/GlassCard";
+import NeonButton from "@/components/ui/NeonButton";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Reusing same constants - ideally these should be shared in a generic hook or config
+// Contract ABI
 const MARKET_ABI = [
     {
         name: 'buyShares',
@@ -47,6 +50,14 @@ interface Market {
     resolved: boolean;
 }
 
+interface TradeSuccessData {
+    marketId: number;
+    side: 'YES' | 'NO';
+    shares: number;
+    cost: number;
+    question: string;
+}
+
 export function MobileTerminal() {
     const [markets, setMarkets] = useState<Market[]>([]);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
@@ -67,7 +78,7 @@ export function MobileTerminal() {
             price: chartView === 'YES' ? point.price : (100 - point.price)
         }));
 
-    // Data Fetching Logic (Duplicated from Desktop for now, should be a hook)
+    // Data Fetching
     useEffect(() => {
         async function fetchPriceHistory() {
             if (selectedMarketId === undefined) return;
@@ -83,20 +94,40 @@ export function MobileTerminal() {
                     }
                 }
             } catch (error) {
+                // Fallback
+                console.error("Failed to fetch price history", error);
                 setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
             }
         }
         fetchPriceHistory();
     }, [selectedMarketId, market?.yesOdds]);
 
-    // Data fetching function (moved to component scope for reuse)
     const fetchData = async () => {
         if (!isConnected || !address) return;
         try {
             const allMarkets = await web3Service.getMarkets();
             setMarkets(allMarkets);
-            const depositedBalance = await web3Service.getDepositedBalance(address);
-            setBalance(depositedBalance);
+
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                if (apiUrl) {
+                    const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
+                        method: 'POST',
+                        body: JSON.stringify({ walletAddress: address })
+                    });
+                    const linkData = await linkResponse.json();
+                    if (linkData.success) {
+                        const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
+                        setBalance(depositedBalance);
+                    }
+                } else {
+                    const depositedBalance = await web3Service.getDepositedBalance(address);
+                    setBalance(depositedBalance);
+                }
+            } catch (e) {
+                const depositedBalance = await web3Service.getDepositedBalance(address);
+                setBalance(depositedBalance);
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -109,180 +140,223 @@ export function MobileTerminal() {
         fetchData();
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, address]);
 
     if (!isConnected) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
-                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                    <Wallet className="text-primary w-8 h-8" />
-                </div>
-                <h2 className="text-xl font-bold text-white mb-2">Connect to Trade</h2>
-                <p className="text-white/50 mb-8 text-sm">Access markets directly from your phone.</p>
-                <button
-                    onClick={() => open()}
-                    className="w-full py-4 bg-primary text-black font-bold rounded-xl shadow-[0_0_20px_rgba(0,255,148,0.3)]"
-                >
-                    Connect Wallet
-                </button>
+            <div className="flex flex-col items-center justify-center min-h-[80vh] relative overflow-hidden p-6">
+                <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/10 to-transparent opacity-50" />
+                <GlassCard className="p-8 text-center w-full max-w-sm relative z-10 border-neon-cyan/20 cursor-default">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-neon-cyan/5 border border-neon-cyan/20 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.1)]">
+                        <Wallet className="w-8 h-8 text-neon-cyan" />
+                    </div>
+                    <h2 className="text-2xl font-heading font-bold text-white mb-2">Connect to Trade</h2>
+                    <p className="text-text-secondary mb-8 text-sm">Access neural markets on the go.</p>
+                    <NeonButton onClick={() => open()} variant="cyan" className="w-full">
+                        CONNECT WALLET
+                    </NeonButton>
+                </GlassCard>
             </div>
         );
     }
 
     if (loading) return <div className="p-6"><SkeletonLoader /></div>;
-    if (!market) return <div className="p-6 text-white/50">No markets found.</div>;
+    if (!market) return <div className="p-6 text-white/50 flex items-center justify-center h-[80vh] font-mono">[SYSTEM: NO MARKETS]</div>;
 
     const currentPrice = chartView === 'YES' ? market.yesOdds : (100 - market.yesOdds);
-    const priceColor = chartView === 'YES' ? "#00FF94" : "#FF4444";
+    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
     return (
-        <div className="pb-32 relative"> {/* Padding for bottom nav + action bar */}
+        <div className="pb-32 relative min-h-screen">
 
-            {/* 1. Header: Market Selector */}
-            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#0A0A0C]/80 backdrop-blur-md sticky top-0 z-20">
-                <div onClick={() => {/* TODO: Open market drawer */ }} className="flex items-center gap-2">
-                    <div className="text-lg font-bold font-mono text-white">#{market.id}</div>
-                    <ArrowDown size={14} className="text-white/40" />
+            {/* 1. Header */}
+            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
+                <div
+                    onClick={() => {/* TODO: Open Drawer */ }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors"
+                >
+                    <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
+                    <span className="text-xs font-mono font-bold text-white tracking-widest">MARKET #{market.id}</span>
+                    <ArrowDown size={12} className="text-white/50" />
                 </div>
-                <div className="flex flex-col items-end">
-                    <div className="text-xs text-white/40">Balance</div>
-                    <div className="font-mono text-white text-sm">${parseFloat(balance).toLocaleString()}</div>
-                </div>
-            </div>
 
-            {/* 2. Main Price Header */}
-            <div className="px-4 py-6">
-                <h1 className="text-xl font-bold text-white mb-1 leading-snug">{market.question}</h1>
-                <div className="flex items-baseline gap-3 mt-2">
-                    <div className={`text-4xl font-mono font-bold ${chartView === 'YES' ? 'text-success' : 'text-danger'}`}>
+                <div className="text-right">
+                    <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
+                    <div className="font-mono text-sm text-white">
+                        <span className="text-neon-cyan">$</span>
+                        {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </div>
+                </div>
+            </header>
+
+            {/* 2. Price Hero */}
+            <div className="px-6 py-8">
+                <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight">{market.question}</h1>
+                <div className="flex items-end gap-3 mt-4">
+                    <div className={`text-5xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-neon-green text-shadow-green' : 'text-neon-coral text-shadow-red'}`}>
                         {currentPrice.toFixed(1)}%
                     </div>
-                    <div className="text-white/40 text-sm">Probability</div>
+                    <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Probability</div>
                 </div>
             </div>
 
-            {/* 3. Toggles */}
-            <div className="px-4 mb-4 flex gap-2">
+            {/* 3. Controls */}
+            <div className="px-6 mb-6 flex gap-3">
                 <button
                     onClick={() => setChartView('YES')}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${chartView === 'YES' ? 'bg-success/20 text-success border border-success/30' : 'bg-white/5 text-white/40'}`}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'YES'
+                            ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
+                            : 'bg-white/5 border-white/5 text-white/40'
+                        }`}
                 >
                     YES POOL
                 </button>
                 <button
                     onClick={() => setChartView('NO')}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${chartView === 'NO' ? 'bg-danger/20 text-danger border border-danger/30' : 'bg-white/5 text-white/40'}`}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'NO'
+                            ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
+                            : 'bg-white/5 border-white/5 text-white/40'
+                        }`}
                 >
                     NO POOL
                 </button>
             </div>
 
             {/* 4. Chart */}
-            <div className="h-[250px] w-full mb-6">
+            <div className="h-[280px] w-full mb-8 relative">
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                         <defs>
                             <linearGradient id="mobileColor" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={priceColor} stopOpacity={0.3} />
+                                <stop offset="5%" stopColor={priceColor} stopOpacity={0.4} />
                                 <stop offset="95%" stopColor={priceColor} stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis dataKey="time" hide />
                         <YAxis domain={[0, 100]} hide />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: 'rgba(5, 5, 10, 0.9)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '12px',
+                                backdropFilter: 'blur(10px)',
+                                fontSize: '12px'
+                            }}
+                            itemStyle={{ color: '#fff', fontFamily: 'var(--font-jetbrains-mono)' }}
+                        />
                         <Area
                             type="monotone"
                             dataKey="price"
                             stroke={priceColor}
-                            strokeWidth={2}
+                            strokeWidth={3}
                             fillOpacity={1}
                             fill="url(#mobileColor)"
+                            className="drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
 
-            {/* 5. Stats Grid */}
-            <div className="px-4 grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-white/5 p-3 rounded-xl">
-                    <div className="text-xs text-white/40 mb-1">Volume</div>
-                    <div className="font-mono text-white">${market.totalVolume}</div>
-                </div>
-                <div className="bg-white/5 p-3 rounded-xl">
-                    <div className="text-xs text-white/40 mb-1">Total Shares</div>
-                    <div className="font-mono text-white">
-                        {(parseFloat(market.yesShares) + parseFloat(market.noShares)).toFixed(0)}
+            {/* 5. Metrics Cards */}
+            <div className="px-4 grid grid-cols-2 gap-4 mb-10">
+                <GlassCard className="p-4 !bg-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity size={14} className="text-neon-cyan" />
+                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
                     </div>
-                </div>
+                    <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
+                </GlassCard>
+                <GlassCard className="p-4 !bg-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <BarChart2 size={14} className="text-neon-purple" />
+                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
+                    </div>
+                    <div className="font-mono text-lg text-white font-medium">
+                        ${(parseFloat(market.yesPool) + parseFloat(market.noPool)).toFixed(0)}
+                    </div>
+                </GlassCard>
             </div>
 
-            {/* 6. Upcoming: Market Scroll Area */}
+            {/* 6. Other Markets */}
             <div className="px-4 pb-4">
-                <h3 className="text-sm text-white/40 uppercase tracking-widest mb-4">Other Markets</h3>
+                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 px-2">Live Feeds</h3>
                 <div className="space-y-3">
                     {markets.filter(m => m.id !== market.id).map(m => (
-                        <div key={m.id} onClick={() => setSelectedMarketId(m.id)} className="p-4 bg-white/5 rounded-xl flex justify-between items-center active:bg-white/10 transition-colors">
-                            <div className="flex-1 mr-4">
-                                <div className="text-sm text-white line-clamp-1">{m.question}</div>
+                        <GlassCard
+                            key={m.id}
+                            className="p-4 active:scale-[0.98] transition-all duration-200"
+                            onClick={() => setSelectedMarketId(m.id)}
+                        >
+                            <div className="flex justify-between items-start">
+                                <h4 className="text-sm font-medium text-white line-clamp-2 w-3/4 leading-snug">{m.question}</h4>
+                                <span className={`font-mono text-sm font-bold ${m.yesOdds >= 50 ? 'text-neon-green' : 'text-neon-coral'}`}>
+                                    {m.yesOdds.toFixed(0)}%
+                                </span>
                             </div>
-                            <div className={`font-mono text-sm font-bold ${m.yesOdds >= 50 ? 'text-success' : 'text-danger'}`}>
-                                {m.yesOdds.toFixed(0)}%
-                            </div>
-                        </div>
+                        </GlassCard>
                     ))}
                 </div>
             </div>
 
-            {/* 7. Action Bar (Fixed above BottomNav) */}
-            <div className="fixed bottom-[65px] left-0 w-full px-4 py-3 bg-[#0A0A0C] border-t border-white/10 flex gap-3 z-40">
-                <button
+            {/* 7. Action Bar */}
+            <div className="fixed bottom-0 left-0 w-full p-4 pb-8 bg-gradient-to-t from-void via-void/95 to-transparent z-40 flex gap-4">
+                <NeonButton
+                    variant="green"
+                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(39,232,167,0.3)]"
                     onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
-                    className="flex-1 py-3 bg-success text-black font-bold rounded-xl active:scale-95 transition-transform"
                 >
-                    Buy YES
-                </button>
-                <button
+                    LONG YES
+                </NeonButton>
+                <NeonButton
+                    variant="red"
+                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(255,46,99,0.3)]"
                     onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
-                    className="flex-1 py-3 bg-danger text-black font-bold rounded-xl active:scale-95 transition-transform"
                 >
-                    Buy NO
-                </button>
+                    SHORT NO
+                </NeonButton>
             </div>
 
-            {/* Trade Bottom Sheet Overlay */}
-            {isTradeSheetOpen && (
-                <TradeBottomSheet
-                    isOpen={isTradeSheetOpen}
-                    onClose={() => setIsTradeSheetOpen(false)}
-                    market={market}
-                    side={tradeSide}
-                    balance={balance}
-                    onTradeSuccess={fetchData}
-                />
-            )}
+            {/* Bottom Sheet */}
+            <AnimatePresence>
+                {isTradeSheetOpen && (
+                    <TradeBottomSheet
+                        isOpen={isTradeSheetOpen}
+                        onClose={() => setIsTradeSheetOpen(false)}
+                        market={market}
+                        side={tradeSide}
+                        balance={balance}
+                        onTradeSuccess={fetchData}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-// Mobile Trade Sheet Component
+// Mobile Trade Sheet
 function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSuccess }: { isOpen: boolean; onClose: () => void; market: Market; side: 'YES' | 'NO'; balance: string; onTradeSuccess: () => void }) {
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const { address } = useWallet();
-    const { writeContract } = useWriteContract();
+    const { writeContract, data: hash } = useWriteContract();
+    const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
-    // ... duplicated trade logic or refactored hook ...
-    // Simplified for mobile view:
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
+
     const currentPrice = side === 'YES' ? market.yesOdds : (100 - market.yesOdds);
-    const estShares = parseFloat(amount) / (currentPrice / 100);
+    const estShares = parseFloat(amount || '0') / (currentPrice / 100);
 
     const handleBuy = async () => {
+        if (!amount || parseFloat(amount) <= 0) return;
         setLoading(true);
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
             if (apiUrl) {
-                // API Call
-                await fetch(`${apiUrl}/api/bet`, {
+                const response = await fetch(`${apiUrl}/api/bet`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -293,9 +367,19 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                         amount: parseFloat(amount)
                     })
                 });
+                const data = await response.json();
+                if (data.success) {
+                    setSuccessData({
+                        marketId: market.id,
+                        side,
+                        shares: data.transaction?.shares || estShares,
+                        cost: parseFloat(amount),
+                        question: market.question
+                    });
+                    setIsSuccessModalOpen(true);
+                }
             } else {
-                // Contract Call
-                const sharesInUnits = parseUnits(estShares.toString(), 6);
+                const sharesInUnits = parseUnits(estShares.toFixed(2), 6);
                 const maxCost = parseUnits(amount, 6);
                 writeContract({
                     address: MARKET_CONTRACT,
@@ -303,10 +387,15 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     functionName: 'buyShares',
                     args: [BigInt(market.id), side === 'YES', sharesInUnits, maxCost],
                 });
+                setSuccessData({
+                    marketId: market.id,
+                    side,
+                    shares: estShares,
+                    cost: parseFloat(amount),
+                    question: market.question
+                });
+                setIsSuccessModalOpen(true);
             }
-            onClose();
-            onTradeSuccess(); // Refresh data immediately
-            // Ideally show success toast
         } catch (e) {
             console.error(e);
         } finally {
@@ -314,47 +403,85 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
         }
     };
 
-    if (!isOpen) return null;
+    const colorClass = side === 'YES' ? 'text-neon-green' : 'text-neon-coral';
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end justify-center">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-            <div className="bg-[#121214] w-full rounded-t-3xl p-6 relative z-10 animate-in slide-in-from-bottom duration-300 border-t border-white/10">
-                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6" />
 
-                <h3 className="text-xl font-bold text-white mb-6">Buy {side}</h3>
+            <SuccessModal
+                isOpen={isSuccessModalOpen}
+                onClose={() => {
+                    setIsSuccessModalOpen(false);
+                    onClose();
+                    onTradeSuccess();
+                }}
+                data={successData || {}} // Fixed: Now types match or fallback empty object handles it if modal supports partial, but successData is typed
+            />
+
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                onClick={onClose}
+            />
+
+            <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="bg-surface border-t border-white/10 w-full rounded-t-3xl p-6 relative z-10 max-h-[80vh] overflow-y-auto"
+            >
+                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-8" />
+
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Position</div>
+                        <h3 className={`text-2xl font-heading font-bold ${colorClass}`}>LONG {side}</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
 
                 <div className="space-y-6">
                     <div>
-                        <div className="flex justify-between text-sm text-white/50 mb-2">
-                            <span>Amount</span>
+                        <div className="flex justify-between text-xs text-text-secondary uppercase tracking-widest mb-3">
+                            <span>Amount (USDC)</span>
                             <span>Bal: ${parseFloat(balance).toLocaleString()}</span>
                         </div>
-                        <div className="relative">
+                        <div className="relative group">
                             <input
                                 type="number"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-2xl font-mono text-white focus:outline-none focus:border-primary/50"
+                                className="w-full bg-void/50 border border-white/10 rounded-xl p-4 pl-12 text-2xl font-mono text-white focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30">USDC</span>
+                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-neon-cyan transition-colors" size={20} />
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl">
-                        <span className="text-white/50">Est. Shares</span>
-                        <span className="text-xl font-mono text-primary">{estShares.toFixed(2)}</span>
-                    </div>
+                    <GlassCard className="p-4 !bg-white/5 space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-white/50">Entry Price</span>
+                            <span className="font-mono text-white">${(currentPrice / 100).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm border-t border-white/5 pt-3">
+                            <span className="text-white/50">Est. Shares</span>
+                            <span className={`font-mono text-xl font-bold ${colorClass}`}>{estShares.toFixed(2)}</span>
+                        </div>
+                    </GlassCard>
 
-                    <SlideToConfirm
+                    <NeonSlider
                         onConfirm={handleBuy}
                         isLoading={loading}
-                        text={`SLIDE TO BUY ${side}`}
+                        text={`SLIDE TO TRADE`}
                         side={side}
                         disabled={loading || !amount}
                     />
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 }

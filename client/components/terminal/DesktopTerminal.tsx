@@ -1,21 +1,24 @@
 "use client";
 
-import { Activity, Users, DollarSign, TrendingUp, Clock, Wallet } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from "react";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
+import { useWallet } from "@/lib/use-wallet";
 import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
-import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
-import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
-import { useWallet } from "@/lib/use-wallet";
-import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { AlertModal } from "@/components/ui/AlertModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
+import GlassCard from "@/components/ui/GlassCard";
+import NeonButton from "@/components/ui/NeonButton";
+import { motion, AnimatePresence } from "framer-motion";
+import { formatDistanceToNow } from "date-fns";
 
-// Market Contract ABI for buyShares
+// Contract ABI
 const MARKET_ABI = [
     {
         name: 'buyShares',
@@ -48,555 +51,465 @@ interface Market {
     resolved: boolean;
 }
 
+interface PricePoint {
+    time: string;
+    price: number;
+}
+
+interface TradeSuccessData {
+    marketId: number;
+    side: 'YES' | 'NO';
+    shares: number;
+    cost: number;
+    question: string;
+}
+
 export function DesktopTerminal() {
     const [markets, setMarkets] = useState<Market[]>([]);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(true);
-    const [custodialAddress, setCustodialAddress] = useState<string>('');
-    const [priceHistory, setPriceHistory] = useState<{ time: string, price: number }[]>([]);
+    const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
 
-    // Wallet connection state
-    const { isConnected, isReconnecting, address } = useWallet();
-    const { open } = useWeb3Modal();
+    // Trade State
+    const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
+    const [amount, setAmount] = useState('100');
+    const [isTradeLoading, setIsTradeLoading] = useState(false);
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    // Get selected market
+    const { isConnected, address } = useWallet();
+    const { open } = useWeb3Modal();
+    const { writeContract, data: hash } = useWriteContract();
+    const { isSuccess } = useWaitForTransactionReceipt({ hash });
+
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
 
-    // Chart data - use real price history or fallback to current price
-    // Calculate NO price as (100 - YES) if NO view is selected
-    const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
-        .map(point => ({
-            time: point.time,
-            price: chartView === 'YES' ? point.price : (100 - point.price)
-        }));
+    // --- Data Fetching ---
 
-    // Fetch price history when market changes
-    useEffect(() => {
-        async function fetchPriceHistory() {
-            if (selectedMarketId === undefined) return;
-
-            try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                if (apiUrl) {
-                    const response = await fetch(`${apiUrl}/api/markets/${selectedMarketId}/price-history?limit=20`);
-                    const data = await response.json();
-                    if (data.success && data.history?.length > 0) {
-                        setPriceHistory(data.history);
-                    } else {
-                        // No history yet - show current price as single point
-                        setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
-                    }
+    const fetchHistory = async (id: number) => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (apiUrl) {
+                const response = await fetch(`${apiUrl}/api/markets/${id}/price-history?limit=50`);
+                const data = await response.json();
+                if (data.success && data.history?.length > 0) {
+                    setPriceHistory(data.history);
+                } else {
+                    setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
                 }
-            } catch (error) {
-                console.warn('Failed to fetch price history:', error);
+            } else {
                 setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
             }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
         }
-        fetchPriceHistory();
-    }, [selectedMarketId, market?.yesOdds]);
+    };
 
-    // Data fetching function (moved to component scope)
     const fetchData = async () => {
-        if (!isConnected || !address) {
-            setLoading(false);
-            return;
-        }
-
+        if (!isConnected || !address) return;
         try {
-            // Fetch ALL markets first (always works, direct from blockchain)
             const allMarkets = await web3Service.getMarkets();
             setMarkets(allMarkets);
-
-            // Try to link wallet for custodial trading (requires backend)
+            // If checking balance logic...
             try {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                 if (apiUrl) {
                     const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ walletAddress: address })
                     });
                     const linkData = await linkResponse.json();
                     if (linkData.success) {
-                        setCustodialAddress(linkData.custodialAddress);
-                        // Fetch deposited balance from custodial wallet
                         const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
                         setBalance(depositedBalance);
                     }
                 } else {
-                    // No backend configured - use direct wallet deposited balance
-                    const depositedBalance = await web3Service.getDepositedBalance(address!);
+                    const depositedBalance = await web3Service.getDepositedBalance(address);
                     setBalance(depositedBalance);
                 }
-            } catch (apiError) {
-                console.warn('Backend API not available, using direct wallet balance:', apiError);
-                // Fallback: use connected wallet's deposited balance directly
-                const depositedBalance = await web3Service.getDepositedBalance(address!);
+            } catch (e) {
+                const depositedBalance = await web3Service.getDepositedBalance(address);
                 setBalance(depositedBalance);
             }
         } catch (error) {
-            console.error('Error fetching markets:', error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
-
-        // Auto-refresh every 15 seconds
-        const interval = setInterval(fetchData, 15000);
-        return () => clearInterval(interval);
+        if (isConnected) {
+            fetchData();
+            if (markets.length > 0 && selectedMarketId === 0) setSelectedMarketId(markets[0].id);
+        } else {
+            setLoading(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, address]);
 
-    // WALLET CONNECTION GATE - Show connect prompt if not connected
-    if (!isConnected) {
-        return (
-            <div className="flex items-center justify-center min-h-[80vh]">
-                <div className="text-center max-w-md">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                        <Wallet className="w-10 h-10 text-primary" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                    <p className="text-white/50 mb-8">
-                        Connect your wallet to access the prediction markets, view your positions, and start trading.
-                    </p>
-                    <button
-                        onClick={() => open()}
-                        className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                    >
-                        Connect Wallet
-                    </button>
-                    <p className="text-white/30 text-xs mt-6">
-                        Supports MetaMask, WalletConnect, Coinbase Wallet & more
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return <SkeletonLoader />;
-    }
-
-    if (markets.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="text-white/60">No markets available</div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex justify-between items-end border-b border-white/10 pb-6">
-                <div>
-                    <h1 className="text-3xl font-mono font-bold text-white mb-2">MARKET OVERVIEW</h1>
-                    <p className="text-white/50 text-sm">
-                        {markets.length} Active Markets | Selected: <span className="text-primary">#{selectedMarketId}</span>
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="text-right">
-                        <div className="text-xs text-white/40 uppercase tracking-widest mb-1">Your Balance</div>
-                        <div className="text-xl font-mono text-white">
-                            $ {parseFloat(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Grid */}
-            <div className="grid grid-cols-12 gap-6">
-
-                {/* Left: Chart + Market Cards */}
-                <div className="col-span-12 lg:col-span-9 flex flex-col gap-6">
-
-                    {/* Featured Market Card */}
-                    {market && (
-                        <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                            <div className="flex justify-between items-start mb-4 z-10 relative">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="bg-danger/20 text-danger text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Live</span>
-                                        <span className="text-white/40 text-xs">Market #{market.id}</span>
-                                    </div>
-                                    <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                                        {market.question}
-                                    </h2>
-                                </div>
-                                <div className="text-right z-10">
-                                    <div className="text-4xl font-mono font-bold text-success">{market.yesOdds?.toFixed(1)}%</div>
-                                    <div className="text-xs text-success/80">Yes Probability</div>
-                                </div>
-                            </div>
-
-                            {/* Chart */}
-                            <div className="w-full h-[280px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData}>
-                                        <defs>
-                                            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={chartView === 'YES' ? "#00FF94" : "#FF4444"} stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor={chartView === 'YES' ? "#00FF94" : "#FF4444"} stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                        <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#0A0A0C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                            itemStyle={{ color: '#fff' }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="price"
-                                            stroke={chartView === 'YES' ? "#00FF94" : "#FF4444"}
-                                            strokeWidth={2}
-                                            fillOpacity={1}
-                                            fill="url(#colorPrice)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            {/* Stats Row */}
-                            <div className="grid grid-cols-3 gap-4 mt-4">
-                                <button
-                                    onClick={() => setChartView('YES')}
-                                    className={`bg-black/20 border rounded-xl p-3 flex items-center gap-3 transition-all ${chartView === 'YES' ? 'border-success/50 bg-success/5' : 'border-white/5 hover:bg-white/5'
-                                        }`}
-                                >
-                                    <div className="p-2 bg-white/5 rounded-lg text-success">
-                                        <Activity size={16} />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="text-white/40 text-[10px] uppercase tracking-wider">YES Pool</div>
-                                        <div className="text-lg font-mono font-medium text-white">${parseFloat(market.yesPool || '0').toFixed(2)}</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => setChartView('NO')}
-                                    className={`bg-black/20 border rounded-xl p-3 flex items-center gap-3 transition-all ${chartView === 'NO' ? 'border-danger/50 bg-danger/5' : 'border-white/5 hover:bg-white/5'
-                                        }`}
-                                >
-                                    <div className="p-2 bg-white/5 rounded-lg text-danger">
-                                        <Users size={16} />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="text-white/40 text-[10px] uppercase tracking-wider">NO Pool</div>
-                                        <div className="text-lg font-mono font-medium text-white">${parseFloat(market.noPool || '0').toFixed(2)}</div>
-                                    </div>
-                                </button>
-
-                                <div className="bg-black/20 border border-white/5 rounded-xl p-3 flex items-center gap-3">
-                                    <div className="p-2 bg-white/5 rounded-lg text-primary">
-                                        <DollarSign size={16} />
-                                    </div>
-                                    <div>
-                                        <div className="text-white/40 text-[10px] uppercase tracking-wider">Volume</div>
-                                        <div className="text-lg font-mono font-medium">${market.totalVolume || '0'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* All Markets Grid */}
-                    <div>
-                        <h3 className="text-sm font-bold text-white/60 mb-4 uppercase tracking-widest">All Markets</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {markets.map((m) => (
-                                <button
-                                    key={m.id}
-                                    onClick={() => setSelectedMarketId(m.id)}
-                                    className={`text-left p-4 rounded-xl backdrop-blur-md border transition-all duration-300 group
-                                        ${selectedMarketId === m.id
-                                            ? 'bg-primary/10 border-primary/50 shadow-[0_0_20px_rgba(0,224,255,0.15)]'
-                                            : 'bg-surface/30 border-white/10 hover:bg-surface/50 hover:border-white/20'
-                                        }`}
-                                >
-                                    {/* Selected Indicator */}
-                                    {selectedMarketId === m.id && (
-                                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#00E0FF]" />
-                                    )}
-
-                                    <div className="flex justify-between items-start mb-3">
-                                        <span className="text-[10px] text-white/40 font-mono">#{m.id}</span>
-                                        <div className="flex items-center gap-1">
-                                            <TrendingUp size={12} className={m.yesOdds >= 50 ? 'text-success' : 'text-danger'} />
-                                            <span className={`text-sm font-mono font-bold ${m.yesOdds >= 50 ? 'text-success' : 'text-danger'}`}>
-                                                {m.yesOdds?.toFixed(0)}%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <h4 className="text-sm font-medium text-white mb-3 line-clamp-2 leading-tight">
-                                        {m.question}
-                                    </h4>
-
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-white/30">Vol: ${m.totalVolume}</span>
-                                        <div className="flex gap-2">
-                                            <span className="text-success/70">Y: {parseFloat(m.yesShares || '0').toFixed(0)}</span>
-                                            <span className="text-danger/70">N: {parseFloat(m.noShares || '0').toFixed(0)}</span>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Panel: Trade Execution */}
-                <div className="col-span-12 lg:col-span-3 bg-surface/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6 flex flex-col h-fit lg:sticky lg:top-6">
-                    <h3 className="text-sm font-bold text-white/60 mb-6 uppercase tracking-widest">Trade Execution</h3>
-
-                    {market && (
-                        <TradePanel
-                            marketId={market.id}
-                            currentPrice={market.yesOdds || 50}
-                            question={market.question}
-                            balance={balance}
-                            onTradeSuccess={fetchData}
-                        />
-                    )}
-
-                    <div className="mt-auto pt-6 border-t border-white/5">
-                        <h4 className="text-xs text-white/30 uppercase mb-4">Market Info</h4>
-                        <div className="space-y-2 text-xs">
-                            <div className="flex justify-between">
-                                <span className="text-white/40">YES Shares</span>
-                                <span className="text-white font-mono">{parseFloat(market?.yesShares || '0').toFixed(0)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-white/40">NO Shares</span>
-                                <span className="text-white font-mono">{parseFloat(market?.noShares || '0').toFixed(0)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/5 pt-2">
-                                <span className="text-white/40">Algorithm</span>
-                                <span className="text-primary text-xs">LMSR</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* UMA Resolution Panel */}
-                    {market && (
-                        <div className="mt-6">
-                            <ResolutionPanel
-                                marketId={market.id}
-                                question={market.question}
-                                endTime={market.endTime}
-                                resolved={market.resolved}
-                            />
-                        </div>
-                    )}
-                </div>
-
-            </div>
-        </div>
-    );
-}
-
-// Trade Panel Component
-function TradePanel({ marketId, currentPrice, question, balance, onTradeSuccess }: { marketId: number; currentPrice: number, question: string, balance: string, onTradeSuccess: () => void }) {
-    const { isConnected, address } = useWallet();
-    const [side, setSide] = useState<'YES' | 'NO'>('YES');
-    const [amount, setAmount] = useState<string>('100'); // USDC amount to spend
-    const [estimatedShares, setEstimatedShares] = useState<string>('0');
-    const [loading, setLoading] = useState(false);
-
-    // Wagmi contract write
-    const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
-    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-    // Modal State
-    const [successData, setSuccessData] = useState<any>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("");
-    const [errorTitle, setErrorTitle] = useState("Error");
-
-    // Calculate estimated shares based on USDC amount
     useEffect(() => {
-        function calcShares() {
-            if (!amount || parseFloat(amount) <= 0) {
-                setEstimatedShares('0');
-                return;
-            }
-            // Use current price to estimate shares
-            // Price is in percentage (e.g., 50 = 50%)
-            const priceDecimal = (side === 'YES' ? currentPrice : 100 - currentPrice) / 100;
-            // Estimated shares = amount / price
-            const shares = parseFloat(amount) / priceDecimal;
-            setEstimatedShares(shares.toFixed(2));
-        }
-        calcShares();
-    }, [amount, side, currentPrice]);
+        if (selectedMarketId) fetchHistory(selectedMarketId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMarketId]);
 
-    const handleBuy = async () => {
-        // Check for insufficient balance
-        const cost = parseFloat(amount);
-        const currentBalance = parseFloat(balance.replace(/,/g, ''));
+    // --- Trading Logic ---
 
-        if (cost > currentBalance) {
-            setErrorTitle("Insufficient Balance");
-            setErrorMessage(`You need to deposit more funds.\n\nAmount: $${cost.toFixed(2)}\nDeposited Balance: $${currentBalance.toFixed(2)}\n\nGo to Deposit page to add funds.`);
-            setIsErrorModalOpen(true);
-            return;
-        }
+    const handleTrade = async () => {
+        if (!amount || parseFloat(amount) <= 0) return;
+        setIsTradeLoading(true);
 
-        setLoading(true);
+        const currentPrice = tradeSide === 'YES' ? market.yesOdds : (100 - market.yesOdds);
+        // Estimate: amount / (price/100)
+        const estShares = parseFloat(amount) / (currentPrice / 100);
+
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
             if (apiUrl) {
-                // Custodial trading via backend API (no wallet popup!)
+                // Custodial / API Trade
                 const response = await fetch(`${apiUrl}/api/bet`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         walletAddress: address,
-                        marketId,
-                        side,
-                        shares: parseFloat(estimatedShares),
+                        marketId: market.id,
+                        side: tradeSide,
+                        shares: estShares,
                         amount: parseFloat(amount)
                     })
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
                     setSuccessData({
-                        marketId,
-                        side,
-                        shares: data.transaction?.shares || parseFloat(estimatedShares),
-                        cost: data.transaction?.cost || parseFloat(amount),
-                        hash: data.transaction?.hash,
-                        question
+                        marketId: market.id,
+                        side: tradeSide,
+                        shares: data.transaction?.shares || estShares,
+                        cost: parseFloat(amount),
+                        question: market.question
                     });
-                    setIsModalOpen(true);
-                } else {
-                    setErrorTitle("Trade Failed");
-                    setErrorMessage(data.error || "Unknown error occurred");
-                    setIsErrorModalOpen(true);
+                    setIsSuccessModalOpen(true);
+                    fetchData(); // Refresh data
                 }
             } else {
-                // Direct contract call (requires wallet popup)
-                const sharesInUnits = parseUnits(estimatedShares, 6);
+                // Direct Contract Trade
+                const sharesInUnits = parseUnits(estShares.toFixed(2), 6);
                 const maxCost = parseUnits(amount, 6);
 
                 writeContract({
                     address: MARKET_CONTRACT,
                     abi: MARKET_ABI,
                     functionName: 'buyShares',
-                    args: [BigInt(marketId), side === 'YES', sharesInUnits, maxCost],
+                    args: [BigInt(market.id), tradeSide === 'YES', sharesInUnits, maxCost],
                 });
 
-                // Show success (transaction will confirm in wallet)
+                // Optimistic success update for UI demo (in reality wait for receipt)
                 setSuccessData({
-                    marketId,
-                    side,
-                    shares: parseFloat(estimatedShares),
+                    marketId: market.id,
+                    side: tradeSide,
+                    shares: estShares,
                     cost: parseFloat(amount),
-                    question
+                    question: market.question
                 });
-                setIsModalOpen(true);
+                setIsSuccessModalOpen(true);
             }
-        } catch (error: any) {
-            console.error('Error placing bet:', error);
-            setErrorTitle("Trade Error");
-            setErrorMessage(error.message || "Failed to execute trade");
-            setIsErrorModalOpen(true);
+        } catch (e) {
+            console.error("Trade failed:", e);
         } finally {
-            setLoading(false);
+            setIsTradeLoading(false);
         }
     };
 
+
+    if (!isConnected) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/5 to-transparent opacity-50" />
+                <GlassCard className="p-12 text-center max-w-md relative z-10 border-neon-cyan/30 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+                    <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center animate-pulse-slow">
+                        <Wallet className="w-10 h-10 text-neon-cyan" />
+                    </div>
+                    <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
+                    <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
+                    <NeonButton onClick={() => open()} variant="cyan" className="w-full text-lg py-6">
+                        ESTABLISH CONNECTION
+                    </NeonButton>
+                </GlassCard>
+            </div>
+        );
+    }
+
+    if (loading || !market) return <div className="p-10"><SkeletonLoader /></div>;
+
+    const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
+        .map(point => ({
+            time: point.time,
+            price: chartView === 'YES' ? point.price : (100 - point.price)
+        }));
+
+    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63"; // Neon Green : Neon Coral
+
     return (
-        <>
+        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
             <SuccessModal
-                isOpen={isModalOpen}
+                isOpen={isSuccessModalOpen}
                 onClose={() => {
-                    setIsModalOpen(false);
-                    onTradeSuccess(); // Refresh data immediately
+                    setIsSuccessModalOpen(false);
+                    fetchData();
                 }}
                 data={successData || {}}
             />
 
-            <AlertModal
-                isOpen={isErrorModalOpen}
-                onClose={() => setIsErrorModalOpen(false)}
-                title={errorTitle}
-                message={errorMessage}
-                type="error"
-            />
-
-            {/* Yes/No Selector */}
-            <div className="grid grid-cols-2 gap-2 mb-6">
-                <button
-                    onClick={() => setSide('YES')}
-                    className={`font-bold py-3 rounded-lg transition-all ${side === 'YES'
-                        ? 'bg-success text-black'
-                        : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
-                        }`}
-                >
-                    BUY YES
-                </button>
-                <button
-                    onClick={() => setSide('NO')}
-                    className={`font-bold py-3 rounded-lg transition-all ${side === 'NO'
-                        ? 'bg-danger text-black'
-                        : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
-                        }`}
-                >
-                    BUY NO
-                </button>
-            </div>
-
-            <div className="space-y-4 mb-6">
-                <div>
-                    <label className="text-xs text-white/40 block mb-2">Amount (USDC)</label>
-                    <div className="relative">
-                        <input
-                            type="number"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder="100"
-                            className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white font-mono focus:outline-none focus:border-primary/50 transition-colors"
-                        />
-                        <span className="absolute right-3 top-3 text-white/30 text-xs">USDC</span>
+            {/* LEFT COLUMN: Market List (3 cols) */}
+            <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
+                <GlassCard className="flex-none p-4 flex justify-between items-center bg-white/5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-neon-cyan rounded-full animate-pulse" />
+                        <span className="font-mono text-sm tracking-widest text-white/70">LIVE MARKETS</span>
                     </div>
-                </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-white/40">Est. Shares</span>
-                    <span className="font-mono text-primary">{parseFloat(estimatedShares).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-white/40">Price per Share</span>
-                    <span className="font-mono text-white/60">${(side === 'YES' ? currentPrice : 100 - currentPrice) / 100}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-white/40">Current {side} Price</span>
-                    <span className={`font-mono ${side === 'YES' ? 'text-success' : 'text-danger'}`}>
-                        {side === 'YES' ? currentPrice.toFixed(1) : (100 - currentPrice).toFixed(1)}%
-                    </span>
+                    <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{markets.length} ACTIVE</span>
+                </GlassCard>
+
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                    {markets.map((m) => (
+                        <motion.button
+                            key={m.id}
+                            onClick={() => setSelectedMarketId(m.id)}
+                            className={`w-full text-left group relative p-4 rounded-xl border transition-all duration-300 ${selectedMarketId === m.id
+                                ? "bg-white/10 border-neon-cyan/50 shadow-[0_0_20px_rgba(0,240,255,0.1)]"
+                                : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20"
+                                }`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <div className="flex justify-between items-start gap-4 mb-3">
+                                <h3 className={`font-heading text-sm leading-snug ${selectedMarketId === m.id ? "text-white" : "text-white/70"}`}>
+                                    {m.question}
+                                </h3>
+                                {selectedMarketId === m.id && (
+                                    <div className="absolute right-2 top-2 w-1.5 h-1.5 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]" />
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between font-mono text-xs">
+                                <div className="flex gap-3">
+                                    <span className="text-outcome-a">{m.yesOdds.toFixed(0)}% YES</span>
+                                    <span className="text-outcome-b">{m.noOdds.toFixed(0)}% NO</span>
+                                </div>
+                                <span className="text-white/30">${parseFloat(m.totalVolume).toLocaleString()}</span>
+                            </div>
+                        </motion.button>
+                    ))}
                 </div>
             </div>
 
-            <SlideToConfirm
-                onConfirm={handleBuy}
-                isLoading={loading}
-                disabled={loading || !amount || parseFloat(amount) <= 0}
-                text={`SLIDE TO BUY ${side}`}
-                side={side}
-            />
-        </>
+            {/* CENTER COLUMN: Chart & Info (6 cols) */}
+            <div className="col-span-12 lg:col-span-6 flex flex-col gap-6 h-full">
+
+                {/* Header Info */}
+                <GlassCard className="p-6 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Activity size={100} />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex gap-2 mb-2">
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
+                        </div>
+                        <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-6 max-w-2xl">
+                            {market.question}
+                        </h1>
+
+                        <div className="flex gap-8 items-end">
+                            <div>
+                                <div className="text-sm text-text-secondary uppercase tracking-widest mb-1">Probability</div>
+                                <div className={`text-6xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
+                                    {chartView === 'YES' ? market.yesOdds.toFixed(1) : market.noOdds.toFixed(1)}%
+                                </div>
+                            </div>
+
+                            <div className="h-12 w-px bg-white/10" />
+
+                            <div>
+                                <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Volume</div>
+                                <div className="text-xl font-mono text-white">${market.totalVolume}</div>
+                            </div>
+
+                            <div className="h-12 w-px bg-white/10" />
+
+                            <div>
+                                <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Liquidity</div>
+                                <div className="text-xl font-mono text-white">${(parseFloat(market.yesPool) + parseFloat(market.noPool)).toFixed(0)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </GlassCard>
+
+                {/* Chart Container */}
+                <GlassCard className="flex-1 min-h-[400px] p-6 flex flex-col relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-6 z-10 relative">
+                        <h2 className="text-lg font-heading text-white">Probability Wave</h2>
+                        <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
+                            <button
+                                onClick={() => setChartView('YES')}
+                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${chartView === 'YES' ? 'bg-neon-green/20 text-neon-green shadow-[0_0_10px_rgba(39,232,167,0.2)]' : 'text-white/40 hover:text-white'}`}
+                            >
+                                YES POOL
+                            </button>
+                            <button
+                                onClick={() => setChartView('NO')}
+                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${chartView === 'NO' ? 'bg-neon-coral/20 text-neon-coral shadow-[0_0_10px_rgba(255,46,99,0.2)]' : 'text-white/40 hover:text-white'}`}
+                            >
+                                NO POOL
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 w-full h-full min-h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={priceColor} stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor={priceColor} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: 'rgba(5, 5, 10, 0.9)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        backdropFilter: 'blur(10px)'
+                                    }}
+                                    itemStyle={{ color: '#fff', fontFamily: 'var(--font-jetbrains-mono)' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="price"
+                                    stroke={priceColor}
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorPrice)"
+                                    className="drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </GlassCard>
+            </div>
+
+            {/* RIGHT COLUMN: Trading Panel (3 cols) */}
+            <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full">
+                <GlassCard className="flex-none p-4 bg-gradient-to-br from-white/5 to-transparent border-neon-cyan/20">
+                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Available Balance</div>
+                    <div className="text-2xl font-mono text-white flex items-center gap-2">
+                        <span className="text-neon-cyan">$</span>
+                        {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        <NeonButton size="sm" variant="glass" className="ml-auto text-xs py-1 h-auto">DEPOSIT</NeonButton>
+                    </div>
+                </GlassCard>
+
+                <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
+
+                    <div>
+                        <h3 className="text-lg font-heading font-bold text-white mb-4">Execute Trade</h3>
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <button
+                                onClick={() => setTradeSide('YES')}
+                                className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${tradeSide === 'YES'
+                                    ? 'bg-outcome-a/10 border-outcome-a shadow-[0_0_20px_rgba(74,222,128,0.2)]'
+                                    : 'bg-white/5 border-white/5 opacity-50 hover:opacity-100'
+                                    }`}
+                            >
+                                <span className={`text-xl font-bold ${tradeSide === 'YES' ? 'text-outcome-a' : 'text-white'}`}>YES</span>
+                                <span className="text-xs font-mono text-white/50">LONG</span>
+                            </button>
+                            <button
+                                onClick={() => setTradeSide('NO')}
+                                className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${tradeSide === 'NO'
+                                    ? 'bg-outcome-b/10 border-outcome-b shadow-[0_0_20px_rgba(248,113,113,0.2)]'
+                                    : 'bg-white/5 border-white/5 opacity-50 hover:opacity-100'
+                                    }`}
+                            >
+                                <span className={`text-xl font-bold ${tradeSide === 'NO' ? 'text-outcome-b' : 'text-white'}`}>NO</span>
+                                <span className="text-xs font-mono text-white/50">SHORT</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs text-text-secondary uppercase tracking-widest mb-2 block">Amount (USDC)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white font-mono text-lg focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
+                                        placeholder="0.00"
+                                    />
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                                        {['10', '50', '100'].map(val => (
+                                            <button
+                                                key={val}
+                                                onClick={() => setAmount(val)}
+                                                className="px-2 py-1 bg-white/10 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white"
+                                            >
+                                                ${val}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-white/5 rounded-xl space-y-2 border border-white/5">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-text-secondary">Price</span>
+                                    <span className="font-mono text-white">{(tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds).toFixed(1)}c</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-text-secondary">Est. Shares</span>
+                                    <span className="font-mono text-neon-cyan">
+                                        {(parseFloat(amount || '0') / ((tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds) / 100)).toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
+                                    <span className="text-text-secondary">Fees</span>
+                                    <span className="font-mono text-white">0.00%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto">
+                        <NeonSlider
+                            side={tradeSide}
+                            onConfirm={handleTrade}
+                            isLoading={isTradeLoading}
+                            disabled={!amount || parseFloat(amount) <= 0}
+                            text={`SLIDE TO BUY ${tradeSide}`}
+                        />
+                    </div>
+                </GlassCard>
+
+                {/* Market Depth Mini-Vis (Optional) */}
+                <GlassCard className="flex-none p-4">
+                    <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Order Book Depth</h4>
+                    <div className="flex items-end gap-1 h-16">
+                        <div className="flex-1 bg-outcome-a/20 rounded-t relative group overflow-hidden" style={{ height: `${market.yesOdds}%` }}>
+                            <div className="absolute inset-0 bg-outcome-a/30 transform translate-y-full group-hover:translate-y-0 transition-transform" />
+                        </div>
+                        <div className="flex-1 bg-outcome-b/20 rounded-t relative group overflow-hidden" style={{ height: `${market.noOdds}%` }}>
+                            <div className="absolute inset-0 bg-outcome-b/30 transform translate-y-full group-hover:translate-y-0 transition-transform" />
+                        </div>
+                    </div>
+                </GlassCard>
+            </div>
+        </div>
     );
 }
