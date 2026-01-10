@@ -115,8 +115,10 @@ export function DesktopTerminal() {
 
     const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
+        console.log('[DesktopTerminal] fetchData called');
         try {
             const allMarkets = await web3Service.getMarkets();
+            console.log('[DesktopTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
             // If checking balance logic...
             try {
@@ -141,7 +143,7 @@ export function DesktopTerminal() {
                 setBalance(depositedBalance);
             }
         } catch (error) {
-            console.error(error);
+            console.error('[DesktopTerminal] Error in fetchData:', error);
         } finally {
             setLoading(false);
         }
@@ -153,7 +155,7 @@ export function DesktopTerminal() {
         } else {
             setLoading(false);
         }
-    }, [isConnected, address]);
+    }, [isConnected, address, fetchData]);
 
     useEffect(() => {
         if (markets.length > 0 && selectedMarketId === 0) {
@@ -165,7 +167,7 @@ export function DesktopTerminal() {
         if (selectedMarketId) {
             fetchHistory(selectedMarketId);
         }
-    }, [selectedMarketId]);
+    }, [selectedMarketId, fetchHistory]);
 
     // --- Trading Logic ---
 
