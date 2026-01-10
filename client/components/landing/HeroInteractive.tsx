@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { TrendingUp, Activity, Globe } from "lucide-react";
 
 // Mock Data for floating nodes
+// Desktop Nodes
 const NODES = [
     { id: 1, label: "BTC > 100k", color: "text-neon-cyan", icon: TrendingUp, x: 15, y: 25, v: 80 },
     { id: 2, label: "Fed Cut", color: "text-neon-coral", icon: Activity, x: 80, y: 35, v: -40 },
@@ -12,6 +13,15 @@ const NODES = [
     { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 85, y: 60, v: -60 },
     { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 45, y: 15, v: 30 },
     { id: 6, label: "Election", color: "text-neon-coral", icon: Globe, x: 75, y: 80, v: 70 },
+];
+
+// Mobile Nodes - Tighter Horizontal, Clear Vertical Center (30-60% usually text)
+const MOBILE_NODES = [
+    { id: 1, label: "BTC > 100k", color: "text-neon-cyan", icon: TrendingUp, x: 10, y: 15, v: 40 }, // Top Left
+    { id: 2, label: "Fed Cut", color: "text-neon-coral", icon: Activity, x: 65, y: 20, v: -30 }, // Top Right (moved in)
+    { id: 3, label: "GTA VI", color: "text-neon-green", icon: Globe, x: 15, y: 75, v: 40 }, // Bottom Left
+    { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 60, y: 80, v: -40 }, // Bottom Right (moved in)
+    { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 35, y: 10, v: 20 }, // Top Center (High)
 ];
 
 function FloatingNode({ node, mouseX, mouseY }: { node: typeof NODES[0], mouseX: any, mouseY: any }) {
@@ -37,19 +47,20 @@ function FloatingNode({ node, mouseX, mouseY }: { node: typeof NODES[0], mouseX:
                 ease: "easeInOut"
             }}
         >
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-lg shadow-black/20 hover:border-white/20 hover:bg-white/10 transition-colors cursor-pointer group">
-                <node.icon className={`w-4 h-4 ${node.color}`} />
-                <span className="text-xs font-mono font-bold tracking-wider text-white/80 group-hover:text-white transition-colors">
+            <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-lg shadow-black/20 hover:border-white/20 hover:bg-white/10 transition-colors cursor-pointer group whitespace-nowrap">
+                <node.icon className={`w-3 h-3 md:w-4 md:h-4 ${node.color}`} />
+                <span className="text-[10px] md:text-xs font-mono font-bold tracking-wider text-white/80 group-hover:text-white transition-colors">
                     {node.label}
                 </span>
                 {/* Status Dot */}
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-1" />
+                <span className="w-1.5 h-1.5 rounded-full bg-outcome-a animate-pulse ml-1" />
             </div>
         </motion.div>
     );
 }
 
-export default function HeroInteractive() {
+export default function HeroInteractive({ isMobile = false }: { isMobile?: boolean }) {
+    const activeNodes = isMobile ? MOBILE_NODES : NODES;
     const containerRef = useRef<HTMLDivElement>(null);
     const mouseX = useMotionValue(0);
     const mouseY = useMotionValue(0);
@@ -89,7 +100,7 @@ export default function HeroInteractive() {
             />
 
             {/* Interactive Floating Nodes */}
-            {NODES.map((node) => (
+            {activeNodes.map((node) => (
                 <FloatingNode key={node.id} node={node} mouseX={smoothX} mouseY={smoothY} />
             ))}
 

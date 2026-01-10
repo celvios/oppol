@@ -12,7 +12,7 @@ export default function MobileHero() {
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center p-6 text-center overflow-hidden md:hidden">
             {/* Background Decor - Interactive */}
             <div className="absolute inset-0 z-0">
-                <HeroInteractive />
+                <HeroInteractive isMobile={true} />
             </div>
 
             {/* Overlay Gradient to ensure text readability */}
@@ -25,9 +25,12 @@ export default function MobileHero() {
                 className="flex flex-col items-center gap-6 z-10"
             >
                 {/* Status Pill */}
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-                    <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
-                    <span className="text-[10px] font-mono font-bold tracking-widest text-neon-green">LIVE</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md relative overflow-hidden">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-outcome-a opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-outcome-a"></span>
+                    </span>
+                    <span className="text-[10px] font-mono font-bold tracking-widest text-outcome-a">LIVE</span>
                 </div>
 
                 {/* Typography */}
