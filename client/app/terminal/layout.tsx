@@ -22,7 +22,7 @@ export default function TerminalLayout({
 
             <main
                 className={cn(
-                    "flex-1 relative overflow-hidden transition-all duration-300",
+                    "flex-1 relative overflow-y-auto overflow-x-hidden transition-all duration-300",
                     "p-0 md:p-8", // No padding on mobile (MobileTerminal handles it), padding on desktop
                     // Margin logic for desktop sidebar
                     collapsed ? "md:ml-20" : "md:ml-64"
