@@ -40,9 +40,88 @@ app.use((req, res, next) => {
   next();
 });
 
-// BET ENDPOINT - CUSTODIAL (Per-User Wallet)
-import { placeBet } from './controllers/betController';
-app.post('/api/bet', placeBet);
+// BET ENDPOINT - CUSTODIAL (Uses buySharesFor on contract)
+app.post('/api/bet', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { walletAddress, marketId, side, shares, amount } = req.body;
+
+    if (!walletAddress) {
+      return res.status(400).json({ success: false, error: 'Wallet address required' });
+    }
+    if (marketId === undefined || !side) {
+      return res.status(400).json({ success: false, error: 'Missing marketId or side' });
+    }
+
+    const sharesAmount = shares || 100;
+    const isYes = side.toUpperCase() === 'YES';
+
+    // Server wallet (operator) configuration
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      return res.status(500).json({ success: false, error: 'Server wallet not configured' });
+    }
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const marketABI = [
+      'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
+      'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
+      'function userBalances(address) view returns (uint256)',
+      'function getPrice(uint256 _marketId) view returns (uint256)',
+    ];
+
+    const market = new ethers.Contract(MARKET_ADDR, marketABI, signer);
+
+    // Check user's portfolio balance
+    const userBalance = await market.userBalances(walletAddress);
+    const balanceFormatted = ethers.formatUnits(userBalance, 6);
+    console.log(`User ${walletAddress} portfolio balance: $${balanceFormatted}`);
+
+    // Calculate cost
+    const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 6);
+    const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
+    const costFormatted = ethers.formatUnits(cost, 6);
+    console.log(`Trade cost: $${costFormatted} for ${sharesAmount} ${side} shares`);
+
+    if (userBalance < cost) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient portfolio balance. Have: $${balanceFormatted}, Need: $${costFormatted}`
+      });
+    }
+
+    // Execute trade using buySharesFor (operator function)
+    const maxCost = cost + (cost * BigInt(5)) / BigInt(100); // 5% slippage
+    console.log(`Executing buySharesFor(${walletAddress}, ${marketId}, ${isYes}, ${sharesInUnits}, ${maxCost})`);
+
+    const tx = await market.buySharesFor(walletAddress, marketId, isYes, sharesInUnits, maxCost, { gasLimit: 500000 });
+    const receipt = await tx.wait();
+
+    const newPrice = await market.getPrice(marketId);
+
+    console.log(`Trade executed! TX: ${receipt.hash}`);
+
+    return res.json({
+      success: true,
+      transaction: {
+        hash: receipt.hash,
+        marketId,
+        side,
+        shares: sharesAmount,
+        cost: costFormatted,
+        newPrice: Number(newPrice) / 100,
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Bet error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // WALLET LINK ENDPOINT - Returns on-chain balance for connected wallet
 app.post('/api/wallet/link', async (req, res) => {

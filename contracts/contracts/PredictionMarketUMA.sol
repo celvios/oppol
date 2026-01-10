@@ -49,6 +49,9 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     uint64 public constant ASSERTION_LIVENESS = 7200; // 2 hours
     uint256 public assertionBond = 500 * 1e18; // 500 tokens bond (configurable)
     
+    // Operator (can execute trades on behalf of users)
+    mapping(address => bool) public operators;
+    
     struct Market {
         string question;
         uint256 endTime;
@@ -89,10 +92,21 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
+    event OperatorUpdated(address indexed operator, bool status);
+    
+    modifier onlyOperator() {
+        require(operators[msg.sender] || msg.sender == owner(), "Not operator");
+        _;
+    }
     
     constructor(address _token, address _oracle) Ownable(msg.sender) {
         token = IERC20(_token);
         oracle = OptimisticOracleV3Interface(_oracle);
+    }
+    
+    function setOperator(address _operator, bool _status) external onlyOwner {
+        operators[_operator] = _status;
+        emit OperatorUpdated(_operator, _status);
     }
 
     function deposit(uint256 amount) external nonReentrant {
@@ -254,6 +268,46 @@ contract PredictionMarketUMA is Ownable, ReentrancyGuard {
         }
         
         emit SharesPurchased(_marketId, msg.sender, _isYes, _shares, cost);
+    }
+    
+    /**
+     * @dev Buy shares on behalf of a user (custodial trading)
+     * @notice Only callable by operators or owner
+     * @param _user The user whose portfolio balance will be used
+     * @param _marketId The market to buy shares in
+     * @param _isYes True for YES shares, false for NO shares
+     * @param _shares Number of shares to buy
+     * @param _maxCost Maximum cost willing to pay (slippage protection)
+     */
+    function buySharesFor(
+        address _user,
+        uint256 _marketId,
+        bool _isYes,
+        uint256 _shares,
+        uint256 _maxCost
+    ) external nonReentrant onlyOperator {
+        require(_user != address(0), "Invalid user");
+        Market storage market = markets[_marketId];
+        require(block.timestamp < market.endTime, "Market ended");
+        require(!market.resolved, "Market resolved");
+        require(_shares > 0, "Zero shares");
+        
+        uint256 cost = calculateCost(_marketId, _isYes, _shares);
+        require(cost <= _maxCost, "Cost exceeds max");
+        
+        require(userBalances[_user] >= cost, "Insufficient deposited balance");
+        userBalances[_user] -= cost;
+        
+        Position storage pos = positions[_marketId][_user];
+        if (_isYes) {
+            market.yesShares += _shares;
+            pos.yesShares += _shares;
+        } else {
+            market.noShares += _shares;
+            pos.noShares += _shares;
+        }
+        
+        emit SharesPurchased(_marketId, _user, _isYes, _shares, cost);
     }
     
     function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) public view returns (uint256) {
