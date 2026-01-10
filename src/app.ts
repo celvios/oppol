@@ -44,6 +44,52 @@ app.use((req, res, next) => {
 import { placeBet } from './controllers/betController';
 app.post('/api/bet', placeBet);
 
+// WALLET LINK ENDPOINT - Links external wallet to user & returns custodial address
+app.post('/api/wallet/link', async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+
+    if (!walletAddress) {
+      return res.status(400).json({ success: false, error: 'Wallet address required' });
+    }
+
+    // Look up user by wallet address
+    const userResult = await query(
+      'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+      [walletAddress.toLowerCase()]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found. Please register first.' });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // Get user's custodial wallet
+    const walletResult = await query(
+      'SELECT public_address, balance FROM wallets WHERE user_id = $1',
+      [userId]
+    );
+
+    if (walletResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+    }
+
+    const custodialWallet = walletResult.rows[0];
+
+    return res.json({
+      success: true,
+      userId,
+      custodialAddress: custodialWallet.public_address,
+      balance: custodialWallet.balance || '0'
+    });
+
+  } catch (error: any) {
+    console.error('Wallet link error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // WITHDRAW ENDPOINT - For custodial users
 app.post('/api/withdraw', async (req, res) => {
   try {
