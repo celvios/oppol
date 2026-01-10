@@ -22,7 +22,7 @@ function FloatingNode({ node, mouseX, mouseY }: { node: typeof NODES[0], mouseX:
     return (
         <motion.div
             style={{ left: `${node.x}%`, top: `${node.y}%`, x, y }}
-            className="absolute z-10 hidden md:flex"
+            className="absolute z-10 flex"
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{
                 opacity: 1,

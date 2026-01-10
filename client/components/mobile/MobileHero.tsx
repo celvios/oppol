@@ -5,12 +5,18 @@ import { Terminal } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
 import ScrambleText from "@/components/ui/ScrambleText";
 import { motion } from "framer-motion";
+import HeroInteractive from "../landing/HeroInteractive";
 
 export default function MobileHero() {
     return (
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center p-6 text-center overflow-hidden md:hidden">
-            {/* Background Decor */}
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-neon-cyan/5 rounded-full blur-[80px] -z-10" />
+            {/* Background Decor - Interactive */}
+            <div className="absolute inset-0 z-0">
+                <HeroInteractive />
+            </div>
+
+            {/* Overlay Gradient to ensure text readability */}
+            <div className="absolute inset-0 z-0 bg-gradient-to-b from-void/20 via-void/50 to-void pointer-events-none" />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
