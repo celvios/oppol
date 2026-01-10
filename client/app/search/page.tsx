@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, X, TrendingUp, Cpu, Globe, Zap } from "lucide-react";
-import { web3Service, Market } from "@/lib/web3";
+import { web3Service } from "@/lib/web3"; // Removed Market import if it doesn't exist
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
@@ -15,6 +15,14 @@ const FILTERS = [
     { id: 'tech', label: 'Tech', icon: Cpu },
     { id: 'culture', label: 'Culture', icon: Globe },
 ];
+
+interface Market {
+    id: number;
+    question: string;
+    yesOdds: number;
+    noOdds: number;
+    totalVolume: string;
+}
 
 export default function SearchPage() {
     const [query, setQuery] = useState("");
@@ -86,8 +94,8 @@ export default function SearchPage() {
                             key={filter.id}
                             onClick={() => setActiveFilter(filter.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap ${isActive
-                                    ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                                    : 'bg-white/5 border-white/10 text-text-secondary hover:bg-white/10 hover:text-white'
+                                ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan shadow-[0_0_15px_rgba(0,240,255,0.2)]'
+                                : 'bg-white/5 border-white/10 text-text-secondary hover:bg-white/10 hover:text-white'
                                 }`}
                         >
                             <Icon size={14} />
@@ -110,7 +118,7 @@ export default function SearchPage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
                             >
-                                <Link href={`/markets/${m.id}`}>
+                                <Link href={`/?marketId=${m.id}`}>
                                     <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
                                         <div className="flex justify-between items-start mb-3">
                                             <h4 className="text-base font-medium text-white line-clamp-2 w-3/4">{m.question}</h4>

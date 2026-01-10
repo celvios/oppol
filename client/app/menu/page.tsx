@@ -29,40 +29,48 @@ export default function MenuPage() {
     const [reduceMotion, setReduceMotion] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
 
+    // WALLET CONNECTION GATE
+    if (!isConnected) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center -mt-20 p-6 text-center">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                    <Wallet className="w-8 h-8 text-white/50" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Connect Wallet</h2>
+                <p className="text-white/50 mb-8 max-w-xs">
+                    Connect your wallet to access your profile, portfolio, and settings.
+                </p>
+                <NeonButton
+                    variant="cyan"
+                    onClick={() => open()}
+                    className="w-full max-w-xs"
+                >
+                    Connect Wallet
+                </NeonButton>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen pb-24 pt-8 px-4">
             <h1 className="text-3xl font-heading font-bold text-white mb-8">Menu</h1>
 
             {/* Profile Section */}
             <GlassCard className="p-6 mb-8 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-neon-cyan to-blue-600 flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white flex items-center justify-center border border-white/10">
                     <User size={32} />
                 </div>
                 <div className="flex-1 overflow-hidden">
-                    {isConnected && address ? (
-                        <>
-                            <h3 className="font-mono text-lg font-bold text-white truncate">{address}</h3>
-                            <button className="text-xs text-neon-cyan hover:underline mt-1">
-                                View on Explorer
-                            </button>
-                        </>
-                    ) : (
-                        <div>
-                            <h3 className="text-white font-medium mb-1">Not Connected</h3>
-                            <button
-                                onClick={() => open()}
-                                className="text-xs font-bold text-neon-cyan border border-neon-cyan/30 px-3 py-1 rounded-full hover:bg-neon-cyan/10 transition-colors"
-                            >
-                                Connect Wallet
-                            </button>
-                        </div>
-                    )}
+                    <h3 className="font-mono text-lg font-bold text-white truncate">{address}</h3>
+                    <button className="text-xs text-neon-cyan hover:underline mt-1">
+                        View on Explorer
+                    </button>
                 </div>
             </GlassCard>
 
             {/* Navigation Links */}
-            <div className="space-y-4 mb-8">
-                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest px-2">Navigation</h3>
+            <div className="flex flex-col gap-6 mb-10">
+                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest px-2 -mb-2">Navigation</h3>
 
                 <Link href="/">
                     <GlassCard className="p-4 flex items-center justify-between active:scale-[0.98] transition-all">

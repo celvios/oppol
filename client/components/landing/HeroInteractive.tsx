@@ -18,10 +18,10 @@ const NODES = [
 // Mobile Nodes - Tighter Horizontal, Clear Vertical Center (30-60% usually text)
 const MOBILE_NODES = [
     { id: 1, label: "BTC > 100k", color: "text-neon-cyan", icon: TrendingUp, x: 10, y: 15, v: 40 }, // Top Left
-    { id: 2, label: "Fed Cut", color: "text-neon-coral", icon: Activity, x: 65, y: 20, v: -30 }, // Top Right (moved in)
-    { id: 3, label: "GTA VI", color: "text-neon-green", icon: Globe, x: 15, y: 75, v: 40 }, // Bottom Left
-    { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 60, y: 80, v: -40 }, // Bottom Right (moved in)
-    { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 35, y: 10, v: 20 }, // Top Center (High)
+    { id: 2, label: "Fed Cut", color: "text-neon-coral", icon: Activity, x: 75, y: 20, v: -30 }, // Top Right
+    { id: 3, label: "GTA VI", color: "text-neon-green", icon: Globe, x: 10, y: 65, v: 40 }, // Bottom Left (Higher up)
+    { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 75, y: 70, v: -40 }, // Bottom Right (Higher up)
+    { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 42, y: 12, v: 20 }, // Top Center (High)
 ];
 
 function FloatingNode({ node, mouseX, mouseY }: { node: typeof NODES[0], mouseX: any, mouseY: any }) {

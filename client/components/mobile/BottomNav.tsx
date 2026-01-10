@@ -6,8 +6,13 @@ import { Home, BarChart2, Search, Menu } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 
+import { useUIStore } from "@/lib/store";
+
 export default function BottomNav() {
     const pathname = usePathname();
+    const { isTradeModalOpen } = useUIStore();
+
+    if (isTradeModalOpen) return null;
 
     const navItems = [
         { name: "Terminal", icon: Home, href: "/" },
