@@ -480,13 +480,15 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                         </div>
                     </GlassCard>
 
-                    <NeonSlider
-                        onConfirm={handleBuy}
-                        isLoading={loading}
-                        text={`SLIDE TO TRADE`}
-                        side={side}
-                        disabled={loading || !amount}
-                    />
+                    <div className="mt-6">
+                        <NeonSlider
+                            onConfirm={handleBuy}
+                            isLoading={loading}
+                            text={`SLIDE TO TRADE`}
+                            side={side}
+                            disabled={loading || !amount}
+                        />
+                    </div>
                 </div>
             </motion.div>
         </div>
