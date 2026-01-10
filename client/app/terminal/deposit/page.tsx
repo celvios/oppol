@@ -52,11 +52,6 @@ const MARKET_ABI = [
     },
 ] as const;
 
-// Zap Contract Address (Replace with actual deployment)
-// Zap Contract Address (Use constant from above)
-// const ZAP_ADDRESS removed
-
-
 // Zap ABI
 const ZAP_ABI = [
     {
@@ -76,7 +71,16 @@ export default function DepositPage() {
     const { isConnected, address } = useWallet();
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
-    const [loading, setLoading] = useState(true);
+
+    // Optimistic: Default to false if we have a cache or if we are connected
+    const [loading, setLoading] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const hasCache = !!localStorage.getItem('cached_wallet_address');
+            // If we have cache, we are not loading. If we are waiting for initial mount, we might be loading.
+            return !hasCache;
+        }
+        return true;
+    });
 
     // Deposit State
     const [depositAmount, setDepositAmount] = useState('');
@@ -127,26 +131,44 @@ export default function DepositPage() {
         }
     }, [isSuccess]);
 
-    // Fetch custodial wallet
+    // Fetch custodial wallet logic with caching
     useEffect(() => {
         let mounted = true;
         const controller = new AbortController();
 
         async function fetchWallet() {
             try {
+                // 1. Check Cache First (Instant Render)
+                const cachedWallet = localStorage.getItem('cached_wallet_address');
+                if (cachedWallet && mounted) {
+                    setCustodialAddress(cachedWallet);
+                    setLoading(false);
+                }
+
                 const sessionToken = localStorage.getItem('session_token');
                 if (!sessionToken) {
                     if (mounted) {
-                        setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                        // Default fallback if no session and no cache
+                        if (!cachedWallet) {
+                            setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                        }
                         setLoading(false);
                     }
                     return;
                 }
 
                 const payload = JSON.parse(atob(sessionToken.split('.')[1]));
+                // Cache key per user
+                const cacheKey = `cached_wallet_${payload.userId}`;
+                const userCachedWallet = localStorage.getItem(cacheKey);
 
-                // Add explicit timeout
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                if (userCachedWallet && mounted) {
+                    setCustodialAddress(userCachedWallet);
+                    setLoading(false);
+                }
+
+                // 2. Network Fetch (Background Revalidation)
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/wallet/${payload.userId}`, {
                     signal: controller.signal
@@ -159,12 +181,19 @@ export default function DepositPage() {
                 const data = await response.json();
 
                 if (mounted) {
-                    if (data.success && data.wallet) setCustodialAddress(data.wallet.public_address);
-                    else setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                    if (data.success && data.wallet) {
+                        setCustodialAddress(data.wallet.public_address);
+                        // Update Caches
+                        localStorage.setItem('cached_wallet_address', data.wallet.public_address);
+                        localStorage.setItem(cacheKey, data.wallet.public_address);
+                    } else if (!userCachedWallet && !cachedWallet) {
+                        setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                    }
                 }
             } catch (e) {
-                console.warn('Failed to fetch custodial wallet, using default:', e);
-                if (mounted) {
+                console.warn('Background wallet fetch failed/aborted:', e);
+                // If we don't have a cached value and fetch failed, show default
+                if (mounted && !custodialAddress) {
                     setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
                 }
             } finally {
@@ -257,7 +286,9 @@ export default function DepositPage() {
         }
     };
 
-    if (loading) return <SkeletonLoader />;
+    // If we are NOT loading, OR if we are Connected, show the UI.
+    // This allows connected users to skip the loader entirely.
+    if (loading && !isConnected) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
