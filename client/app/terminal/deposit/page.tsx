@@ -415,7 +415,7 @@ export default function DepositPage() {
                             <button
                                 onClick={handleApprove}
                                 disabled={!depositAmount || parseFloat(depositAmount) <= 0}
-                                className="w-full py-4 bg-primary hover:bg-primary/80 disabled:bg-white/10 disabled:text-white/30 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                             >
                                 {selectedToken.symbol === 'USDC' ? 'Approve & Deposit' : `Swap & Deposit`}
                                 <ArrowRight className="w-5 h-5" />
