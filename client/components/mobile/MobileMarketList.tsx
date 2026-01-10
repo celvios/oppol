@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { TrendingUp, Clock, Users } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ interface Market {
 export default function MobileMarketList() {
     const [markets, setMarkets] = useState<Market[]>([]);
     const [loading, setLoading] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         async function fetchMarkets() {
@@ -39,6 +40,24 @@ export default function MobileMarketList() {
         fetchMarkets();
     }, []);
 
+    // Auto-scroll effect
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (scrollRef.current) {
+                const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+                // If reached end (approx), wrap to start
+                if (scrollLeft + clientWidth >= scrollWidth - 10) {
+                    scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                } else {
+                    // Scroll by card width (approx 85vw)
+                    scrollRef.current.scrollBy({ left: clientWidth * 0.85, behavior: 'smooth' });
+                }
+            }
+        }, 4000); // 4 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
     if (loading) return <div className="p-4"><SkeletonLoader /></div>;
 
     return (
@@ -48,7 +67,10 @@ export default function MobileMarketList() {
                 <h2 className="text-xl font-heading font-bold">Trending Feed</h2>
             </div>
 
-            <div className="flex overflow-x-auto snap-x snap-mandatory px-4 gap-4 pb-4 no-scrollbar">
+            <div
+                ref={scrollRef}
+                className="flex overflow-x-auto snap-x snap-mandatory px-4 gap-4 pb-4 no-scrollbar scroll-smooth"
+            >
                 {markets.slice(0, 5).map((market) => (
                     <div key={market.id} className="min-w-[85vw] snap-center">
                         <Link href={`/terminal?marketId=${market.id}`} className="block h-full">
