@@ -1,6 +1,7 @@
 "use client";
 
-import { PieChart, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet } from "lucide-react";
+import { PieChart, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, Plus, Minus } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
@@ -202,6 +203,32 @@ export default function PortfolioPage() {
                     </p>
                     <p className="text-white/30 text-xs mt-2">Based on 50% avg entry</p>
                 </div>
+            </div>
+
+            {/* Fund Management Actions */}
+            <div className="grid grid-cols-2 gap-4">
+                <Link href="/terminal/deposit">
+                    <button className="w-full p-4 bg-outcome-a/10 border border-outcome-a/30 rounded-xl hover:bg-outcome-a/20 transition-all group flex items-center justify-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-outcome-a/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Plus className="w-5 h-5 text-outcome-a" strokeWidth={3} />
+                        </div>
+                        <div className="text-left">
+                            <div className="text-white font-bold">Deposit</div>
+                            <div className="text-xs text-white/50">Add USDC</div>
+                        </div>
+                    </button>
+                </Link>
+                <Link href="/terminal/withdraw">
+                    <button className="w-full p-4 bg-outcome-b/10 border border-outcome-b/30 rounded-xl hover:bg-outcome-b/20 transition-all group flex items-center justify-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-outcome-b/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Minus className="w-5 h-5 text-outcome-b" strokeWidth={3} />
+                        </div>
+                        <div className="text-left">
+                            <div className="text-white font-bold">Withdraw</div>
+                            <div className="text-xs text-white/50">Transfer out</div>
+                        </div>
+                    </button>
+                </Link>
             </div>
 
             {/* Positions Table */}
