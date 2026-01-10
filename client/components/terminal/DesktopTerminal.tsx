@@ -15,6 +15,7 @@ import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
+import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 
@@ -49,6 +50,10 @@ interface Market {
     totalVolume: string;
     endTime: number;
     resolved: boolean;
+    outcome?: boolean;
+    assertionPending?: boolean;
+    assertedOutcome?: boolean;
+    asserter?: string;
 }
 
 interface PricePoint {
@@ -486,14 +491,30 @@ export function DesktopTerminal() {
                         </div>
                     </div>
 
-                    <div className="mt-auto">
-                        <NeonSlider
-                            side={tradeSide}
-                            onConfirm={handleTrade}
-                            isLoading={isTradeLoading}
-                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0}
-                        />
-                    </div>
+                    {/* Market Resolution or Trade Form */}
+                    {(Date.now() / 1000 > market.endTime || market.resolved || market.assertionPending) ? (
+                        <div className="flex-none p-6 bg-white/5 border-t border-white/5">
+                            <ResolutionPanel
+                                marketId={market.id}
+                                question={market.question}
+                                endTime={market.endTime}
+                                resolved={market.resolved}
+                                outcome={market.outcome}
+                                assertionPending={market.assertionPending}
+                                assertedOutcome={market.assertedOutcome}
+                                asserter={market.asserter}
+                            />
+                        </div>
+                    ) : (
+                        <div className="mt-auto">
+                            <NeonSlider
+                                side={tradeSide}
+                                onConfirm={handleTrade}
+                                isLoading={isTradeLoading}
+                                disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0}
+                            />
+                        </div>
+                    )}
                 </GlassCard>
 
                 {/* Market Depth Mini-Vis (Optional) */}

@@ -15,6 +15,7 @@ import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
+import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
 import { motion, AnimatePresence } from "framer-motion";
 import { useUIStore } from "@/lib/store"; // Add missing import
 
@@ -49,6 +50,10 @@ interface Market {
     totalVolume: string;
     endTime: number;
     resolved: boolean;
+    outcome?: boolean;
+    assertionPending?: boolean;
+    assertedOutcome?: boolean;
+    asserter?: string;
 }
 
 interface TradeSuccessData {
@@ -341,23 +346,39 @@ export function MobileTerminal() {
                 </GlassCard>
             </div>
 
-            {/* 6. Action Bar (Static) */}
-            <div className="px-4 mb-8 flex gap-4">
-                <NeonButton
-                    variant="green"
-                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(74,222,128,0.3)]"
-                    onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
-                >
-                    LONG YES
-                </NeonButton>
-                <NeonButton
-                    variant="red"
-                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(248,113,113,0.3)]"
-                    onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
-                >
-                    SHORT NO
-                </NeonButton>
-            </div>
+            {/* Market Status or Trade Actions */}
+            {market && (Date.now() / 1000 > market.endTime || market.resolved || market.assertionPending) ? (
+                <div className="px-6 pb-24">
+                    <ResolutionPanel
+                        marketId={market.id}
+                        question={market.question}
+                        endTime={market.endTime}
+                        resolved={market.resolved}
+                        outcome={market.outcome}
+                        assertionPending={market.assertionPending}
+                        assertedOutcome={market.assertedOutcome}
+                        asserter={market.asserter}
+                    />
+                </div>
+            ) : (
+                <>
+                    {/* Action Buttons */}
+                    <div className="fixed bottom-24 left-6 right-6 flex gap-4 z-40">
+                        <button
+                            onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
+                            className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            LONG YES
+                        </button>
+                        <button
+                            onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
+                            className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            SHORT NO
+                        </button>
+                    </div>
+                </>
+            )}
 
             {/* 7. Other Markets */}
             <div className="px-4 pb-4">

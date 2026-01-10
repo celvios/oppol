@@ -4,7 +4,7 @@ import { getContracts, getCurrentNetwork } from './contracts';
 // ABI for PredictionMarketLMSR contract (with Deposit System)
 const PREDICTION_MARKET_LMSR_ABI = [
     'function marketCount() view returns (uint256)',
-    'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)',
+    'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool, bytes32 assertionId, bool assertionPending, address asserter, bool assertedOutcome)',
     'function getPrice(uint256 marketId) view returns (uint256)',
     'function calculateCost(uint256 marketId, bool isYes, uint256 shares) view returns (uint256)',
     'function buyShares(uint256 marketId, bool isYes, uint256 shares, uint256 maxCost)',
@@ -83,6 +83,9 @@ export class Web3Service {
                     outcome: market.outcome,
                     yesOdds: yesOdds,
                     noOdds: 100 - yesOdds,
+                    assertionPending: market.assertionPending,
+                    assertedOutcome: market.assertedOutcome,
+                    asserter: market.asserter,
                 };
             });
         } catch (error) {
