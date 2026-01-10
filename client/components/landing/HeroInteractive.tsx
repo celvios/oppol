@@ -2,7 +2,7 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { TrendingUp, Activity, Globe } from "lucide-react";
+import { TrendingUp, Activity, Globe, Zap } from "lucide-react";
 
 // Mock Data for floating nodes
 // Desktop Nodes
@@ -13,6 +13,10 @@ const NODES = [
     { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 85, y: 60, v: -60 },
     { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 45, y: 15, v: 30 },
     { id: 6, label: "Election", color: "text-neon-coral", icon: Globe, x: 75, y: 80, v: 70 },
+    // New Nodes
+    { id: 7, label: "AI Alts", color: "text-neon-purple", icon: Zap, x: 62, y: 18, v: 45 },
+    { id: 8, label: "Rates", color: "text-neon-cyan", icon: TrendingUp, x: 50, y: 88, v: -50 },
+    { id: 9, label: "SOL ETF", color: "text-white", icon: Globe, x: 5, y: 48, v: 60 },
 ];
 
 // Mobile Nodes - Tighter Horizontal, Clear Vertical Center (30-60% usually text)
@@ -22,6 +26,10 @@ const MOBILE_NODES = [
     { id: 3, label: "GTA VI", color: "text-neon-green", icon: Globe, x: 10, y: 65, v: 40 }, // Bottom Left (Higher up)
     { id: 4, label: "SpaceX", color: "text-white", icon: TrendingUp, x: 75, y: 70, v: -40 }, // Bottom Right (Higher up)
     { id: 5, label: "Nvidia", color: "text-neon-cyan", icon: Activity, x: 42, y: 12, v: 20 }, // Top Center (High)
+    // New Mobile Nodes
+    { id: 6, label: "AI Agents", color: "text-neon-purple", icon: Zap, x: 45, y: 85, v: 35 },
+    { id: 7, label: "Memes", color: "text-neon-coral", icon: Activity, x: 85, y: 45, v: -25 },
+    { id: 8, label: "DeFi", color: "text-neon-green", icon: Globe, x: 5, y: 40, v: 45 },
 ];
 
 function FloatingNode({ node, mouseX, mouseY }: { node: typeof NODES[0], mouseX: any, mouseY: any }) {
