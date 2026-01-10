@@ -172,45 +172,33 @@ export function DesktopTerminal() {
         const estShares = parseFloat(amount) / (currentPrice / 100);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            if (apiUrl) {
-                // Custodial / API Trade
-                const response = await fetch(`${apiUrl}/api/bet`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: address,
-                        marketId: market.id,
-                        side: tradeSide,
-                        shares: estShares,
-                        amount: parseFloat(amount)
-                    })
+            // Always use custodial API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            const response = await fetch(`${apiUrl}/api/bet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: address,
+                    marketId: market.id,
+                    side: tradeSide,
+                    shares: estShares,
+                    amount: parseFloat(amount)
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setSuccessData({
+                    marketId: market.id,
+                    side: tradeSide,
+                    shares: data.transaction?.shares || estShares,
+                    cost: parseFloat(amount),
+                    question: market.question
                 });
-                const data = await response.json();
-                if (data.success) {
-                    setSuccessData({
-                        marketId: market.id,
-                        side: tradeSide,
-                        shares: data.transaction?.shares || estShares,
-                        cost: parseFloat(amount),
-                        question: market.question
-                    });
-                    setIsSuccessModalOpen(true);
-                    fetchData(); // Refresh data
-                }
+                setIsSuccessModalOpen(true);
+                fetchData(); // Refresh data
             } else {
-                // Direct Contract Trade
-                const sharesInUnits = parseUnits(estShares.toFixed(2), 6);
-                const maxCost = parseUnits(amount, 6);
-
-                writeContract({
-                    address: MARKET_CONTRACT,
-                    abi: MARKET_ABI,
-                    functionName: 'buyShares',
-                    args: [BigInt(market.id), tradeSide === 'YES', sharesInUnits, maxCost],
-                });
-
-                // Optimistic UI removed here - waiting for useEffect
+                console.error("Trade API error:", data.error);
+                // Optionally show error modal here
             }
         } catch (e) {
             console.error("Trade failed:", e);
