@@ -44,7 +44,7 @@ app.use((req, res, next) => {
 import { placeBet } from './controllers/betController';
 app.post('/api/bet', placeBet);
 
-// WALLET LINK ENDPOINT - Links external wallet to user & returns custodial address
+// WALLET LINK ENDPOINT - Returns on-chain balance for connected wallet
 app.post('/api/wallet/link', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
@@ -54,44 +54,24 @@ app.post('/api/wallet/link', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
 
-    // Look up user by wallet address
-    const userResult = await query(
-      'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-      [walletAddress.toLowerCase()]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found. Please register first.' });
+    // Validate address
+    if (!ethers.isAddress(walletAddress)) {
+      return res.status(400).json({ success: false, error: 'Invalid wallet address' });
     }
 
-    const userId = userResult.rows[0].id;
-
-    // Get user's custodial wallet
-    const walletResult = await query(
-      'SELECT public_address FROM wallets WHERE user_id = $1',
-      [userId]
-    );
-
-    if (walletResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
-    }
-
-    const custodialWallet = walletResult.rows[0];
-
-    // Fetch REAL balance from contract (not database)
+    // Fetch balance from contract directly using connected wallet address
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
-    const balanceWei = await market.userBalances(custodialWallet.public_address);
+    const balanceWei = await market.userBalances(walletAddress);
     const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
 
     return res.json({
       success: true,
-      userId,
-      custodialAddress: custodialWallet.public_address,
+      custodialAddress: walletAddress, // Same as connected wallet
       balance: parseFloat(balance).toFixed(2)
     });
 
