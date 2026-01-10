@@ -443,7 +443,9 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Position</div>
-                        <h3 className={`text-2xl font-heading font-bold ${colorClass}`}>LONG {side}</h3>
+                        <h3 className={`text-2xl font-heading font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
+                            {side === 'YES' ? 'LONG YES' : 'SHORT NO'}
+                        </h3>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-colors">
                         <X size={20} />
@@ -461,7 +463,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                                 type="number"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="w-full bg-void/50 border border-white/10 rounded-xl p-4 pl-12 text-2xl font-mono text-white focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 text-2xl font-mono text-white focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
                             />
                             <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-neon-cyan transition-colors" size={20} />
                         </div>
@@ -474,7 +476,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                         </div>
                         <div className="flex justify-between items-center text-sm border-t border-white/5 pt-3">
                             <span className="text-white/50">Est. Shares</span>
-                            <span className={`font-mono text-xl font-bold ${colorClass}`}>{estShares.toFixed(2)}</span>
+                            <span className={`font-mono text-xl font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>{estShares.toFixed(2)}</span>
                         </div>
                     </GlassCard>
 

@@ -42,7 +42,7 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
     }, [isLoading, complete, x]);
 
     return (
-        <div className={twMerge("relative w-full h-14 rounded-full bg-surface border border-white/10 overflow-hidden select-none", disabled && "opacity-50 cursor-not-allowed")}>
+        <div className={twMerge("relative w-full h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden select-none", disabled && "opacity-50 cursor-not-allowed")}>
             {/* Background Fill */}
             <motion.div
                 style={{ opacity: backgroundOpacity, width: x }}
