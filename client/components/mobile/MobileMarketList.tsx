@@ -49,7 +49,7 @@ export default function MobileMarketList() {
             </div>
 
             <div className="flex flex-col gap-6">
-                {markets.map((market) => (
+                {markets.slice(0, 3).map((market) => (
                     <Link key={market.id} href={`/markets/${market.id}`} className="block">
                         <GlassCard className="p-5 active:scale-98 transition-transform border border-white/5 active:border-outcome-a focus:border-outcome-a">
 

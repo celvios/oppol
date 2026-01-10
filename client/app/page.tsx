@@ -101,7 +101,7 @@ export default function Home() {
 
         <ScrollReveal>
           <div className="text-center mb-16">
-            <span className="text-neon-cyan font-mono text-sm tracking-widest uppercase mb-4 block">Why Vantage?</span>
+            <span className="text-neon-cyan font-mono text-sm tracking-widest uppercase mb-4 block">Why Oppol?</span>
             <h2 className="text-4xl md:text-5xl font-heading font-bold">The Future of Prediction</h2>
           </div>
         </ScrollReveal>

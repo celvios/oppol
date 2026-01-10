@@ -18,9 +18,9 @@ const MARKET_CONTRACT = (contracts.predictionMarket || '0xEcB7195979Cb5781C2D6b4
 
 // Mock Tokens
 const TOKENS = [
-    { symbol: 'USDC', name: 'USD Coin', icon: '💰', address: USDC_ADDRESS },
-    { symbol: 'USDT', name: 'Tether', icon: '💵', address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd' },
-    { symbol: 'BNB', name: 'Binance Coin', icon: '🟡', address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' }, // WBNB
+    { symbol: 'USDC', name: 'USD Coin', icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png?v=024', address: USDC_ADDRESS },
+    { symbol: 'USDT', name: 'Tether', icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png?v=024', address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd' },
+    { symbol: 'BNB', name: 'Binance Coin', icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png?v=024', address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' }, // WBNB
 ];
 
 // ABI for Standard ERC20
@@ -280,7 +280,7 @@ export default function DepositPage() {
                                             onClick={() => setShowTokenList(!showTokenList)}
                                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-colors min-w-[120px]"
                                         >
-                                            <span className="text-lg">{selectedToken.icon}</span>
+                                            <img src={selectedToken.icon} alt={selectedToken.symbol} className="w-6 h-6" />
                                             <span className="font-bold text-white">{selectedToken.symbol}</span>
                                             <ChevronDown size={16} className="text-white/50 ml-auto" />
                                         </button>
@@ -293,7 +293,7 @@ export default function DepositPage() {
                                                         onClick={() => { setSelectedToken(token); setShowTokenList(false); }}
                                                         className="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left"
                                                     >
-                                                        <span className="text-lg">{token.icon}</span>
+                                                        <img src={token.icon} alt={token.symbol} className="w-6 h-6" />
                                                         <span className="text-white font-medium">{token.symbol}</span>
                                                     </button>
                                                 ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Zap, Globe, Shield } from "lucide-react";
+import { useEffect, useRef } from "react"; // Add hooks
 import GlassCard from "@/components/ui/GlassCard";
 
 const FEATURES = [
@@ -28,11 +29,34 @@ const FEATURES = [
 ];
 
 export default function MobileFeatures() {
+    // Add Auto Scroll Ref
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (scrollRef.current) {
+                const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+                // If reached end, wrap to start
+                if (scrollLeft + clientWidth >= scrollWidth - 10) {
+                    scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                } else {
+                    // Scroll by card width (approx 85vw + gap)
+                    scrollRef.current.scrollBy({ left: clientWidth * 0.85, behavior: 'smooth' });
+                }
+            }
+        }, 3000); // 3 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div className="w-full py-16 md:hidden overflow-x-hidden">
-            <h2 className="text-2xl font-heading font-bold text-center mb-8">Why Vantage?</h2>
+            <h2 className="text-2xl font-heading font-bold text-center mb-8">Why Oppol?</h2>
 
-            <div className="flex overflow-x-auto snap-x snap-mandatory px-6 gap-4 pb-8 no-scrollbar">
+            <div
+                ref={scrollRef}
+                className="flex overflow-x-auto snap-x snap-mandatory px-6 gap-4 pb-8 no-scrollbar scroll-smooth"
+            >
                 {FEATURES.map((feat, i) => {
                     const Icon = feat.icon;
                     return (
