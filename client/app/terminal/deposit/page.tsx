@@ -95,7 +95,146 @@ export default function DepositPage() {
         if (address) setTargetMintAddress(address);
     }, [address]);
 
-    // ... (keep existing useEffects)
+    // Swap State (Mock)
+    const [estimatedUSDC, setEstimatedUSDC] = useState('0.00');
+    useEffect(() => {
+        if (!depositAmount) {
+            setEstimatedUSDC('0.00');
+            return;
+        }
+        // Mock Rate Calculation
+        const amount = parseFloat(depositAmount);
+        let rate = 1;
+        if (selectedToken.symbol === 'USDT') rate = 0.999;
+        if (selectedToken.symbol === 'BNB') rate = 620.50;
+
+        setEstimatedUSDC((amount * rate).toFixed(2));
+    }, [depositAmount, selectedToken]);
+
+
+    // Contract Write
+    const { writeContract, data: hash, isPending, error } = useWriteContract();
+    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+    // Watch for success
+    useEffect(() => {
+        if (isSuccess) {
+            if (step === 'approving') {
+                handleDeposit();
+            } else if (step === 'depositing' || step === 'swapping') {
+                setStep('complete');
+            }
+        }
+    }, [isSuccess]);
+
+    // Fetch custodial wallet
+    useEffect(() => {
+        let mounted = true;
+        const controller = new AbortController();
+
+        async function fetchWallet() {
+            try {
+                const sessionToken = localStorage.getItem('session_token');
+                if (!sessionToken) {
+                    if (mounted) {
+                        setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                const payload = JSON.parse(atob(sessionToken.split('.')[1]));
+
+                // Add explicit timeout
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/wallet/${payload.userId}`, {
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const data = await response.json();
+
+                if (mounted) {
+                    if (data.success && data.wallet) setCustodialAddress(data.wallet.public_address);
+                    else setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                }
+            } catch (e) {
+                console.warn('Failed to fetch custodial wallet, using default:', e);
+                if (mounted) {
+                    setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
+                }
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        }
+
+        fetchWallet();
+
+        return () => {
+            mounted = false;
+            controller.abort();
+        };
+    }, []);
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleApprove = async () => {
+        if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+        setStep('approving');
+
+        const isZap = selectedToken.symbol !== 'USDC';
+        const spender = isZap ? ZAP_ADDRESS : MARKET_CONTRACT;
+        const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+
+        try {
+            writeContract({
+                address: tokenAddress,
+                abi: ERC20_ABI,
+                functionName: 'approve',
+                args: [spender, parseUnits(depositAmount, 6)],
+            });
+        } catch (err) {
+            console.error(err);
+            setStep('input');
+        }
+    };
+
+    const handleDeposit = async () => {
+        const isZap = selectedToken.symbol !== 'USDC';
+        setStep(isZap ? 'swapping' : 'depositing');
+
+        try {
+            if (isZap) {
+                const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
+                const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+
+                writeContract({
+                    address: ZAP_ADDRESS,
+                    abi: ZAP_ABI,
+                    functionName: 'zapInToken',
+                    args: [tokenAddress, parseUnits(depositAmount, 6), minUSDC],
+                });
+            } else {
+                writeContract({
+                    address: MARKET_CONTRACT,
+                    abi: MARKET_ABI,
+                    functionName: 'deposit',
+                    args: [parseUnits(depositAmount, 6)],
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            setStep('input');
+        }
+    };
 
     const handleMintUSDC = async (target?: string) => {
         const recipient = target || address;
