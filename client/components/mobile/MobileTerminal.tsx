@@ -206,8 +206,8 @@ export function MobileTerminal() {
                 <button
                     onClick={() => setChartView('YES')}
                     className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'YES'
-                            ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
-                            : 'bg-white/5 border-white/5 text-white/40'
+                        ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
+                        : 'bg-white/5 border-white/5 text-white/40'
                         }`}
                 >
                     YES POOL
@@ -215,8 +215,8 @@ export function MobileTerminal() {
                 <button
                     onClick={() => setChartView('NO')}
                     className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'NO'
-                            ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
-                            : 'bg-white/5 border-white/5 text-white/40'
+                        ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
+                        : 'bg-white/5 border-white/5 text-white/40'
                         }`}
                 >
                     NO POOL
@@ -280,7 +280,25 @@ export function MobileTerminal() {
                 </GlassCard>
             </div>
 
-            {/* 6. Other Markets */}
+            {/* 6. Action Bar (Static) */}
+            <div className="px-4 mb-8 flex gap-4">
+                <NeonButton
+                    variant="green"
+                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(74,222,128,0.3)]"
+                    onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
+                >
+                    LONG YES
+                </NeonButton>
+                <NeonButton
+                    variant="red"
+                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(248,113,113,0.3)]"
+                    onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
+                >
+                    SHORT NO
+                </NeonButton>
+            </div>
+
+            {/* 7. Other Markets */}
             <div className="px-4 pb-4">
                 <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 px-2">Live Feeds</h3>
                 <div className="space-y-3">
@@ -288,7 +306,10 @@ export function MobileTerminal() {
                         <GlassCard
                             key={m.id}
                             className="p-4 active:scale-[0.98] transition-all duration-200"
-                            onClick={() => setSelectedMarketId(m.id)}
+                            onClick={() => {
+                                setSelectedMarketId(m.id);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
                         >
                             <div className="flex justify-between items-start">
                                 <h4 className="text-sm font-medium text-white line-clamp-2 w-3/4 leading-snug">{m.question}</h4>
@@ -301,23 +322,7 @@ export function MobileTerminal() {
                 </div>
             </div>
 
-            {/* 7. Action Bar */}
-            <div className="fixed bottom-0 left-0 w-full p-4 pb-8 bg-gradient-to-t from-void via-void/95 to-transparent z-40 flex gap-4">
-                <NeonButton
-                    variant="green"
-                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(39,232,167,0.3)]"
-                    onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
-                >
-                    LONG YES
-                </NeonButton>
-                <NeonButton
-                    variant="red"
-                    className="flex-1 py-4 text-base shadow-[0_0_20px_rgba(255,46,99,0.3)]"
-                    onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
-                >
-                    SHORT NO
-                </NeonButton>
-            </div>
+
 
             {/* Bottom Sheet */}
             <AnimatePresence>
