@@ -47,6 +47,7 @@ app.post('/api/bet', placeBet);
 // WALLET LINK ENDPOINT - Links external wallet to user & returns custodial address
 app.post('/api/wallet/link', async (req, res) => {
   try {
+    const { ethers } = await import('ethers');
     const { walletAddress } = req.body;
 
     if (!walletAddress) {
@@ -67,7 +68,7 @@ app.post('/api/wallet/link', async (req, res) => {
 
     // Get user's custodial wallet
     const walletResult = await query(
-      'SELECT public_address, balance FROM wallets WHERE user_id = $1',
+      'SELECT public_address FROM wallets WHERE user_id = $1',
       [userId]
     );
 
@@ -77,11 +78,21 @@ app.post('/api/wallet/link', async (req, res) => {
 
     const custodialWallet = walletResult.rows[0];
 
+    // Fetch REAL balance from contract (not database)
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const marketABI = ['function userBalances(address user) view returns (uint256)'];
+    const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+
+    const balanceWei = await market.userBalances(custodialWallet.public_address);
+    const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
+
     return res.json({
       success: true,
       userId,
       custodialAddress: custodialWallet.public_address,
-      balance: custodialWallet.balance || '0'
+      balance: parseFloat(balance).toFixed(2)
     });
 
   } catch (error: any) {
