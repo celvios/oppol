@@ -129,8 +129,8 @@ export function DesktopTerminal() {
                     });
                     const linkData = await linkResponse.json();
                     if (linkData.success) {
-                        const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
-                        setBalance(depositedBalance);
+                        // Use the balance returned by the API (which is fresh from contract)
+                        setBalance(linkData.balance);
                     }
                 } else {
                     const depositedBalance = await web3Service.getDepositedBalance(address);
