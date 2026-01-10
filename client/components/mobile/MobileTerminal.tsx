@@ -16,6 +16,7 @@ import { useWeb3Modal } from '@web3modal/wagmi/react';
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUIStore } from "@/lib/store"; // Add missing import
 
 // Contract ABI
 const MARKET_ABI = [
