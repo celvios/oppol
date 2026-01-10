@@ -1,7 +1,10 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    console.log("Deploying LMSR contracts...");
+    console.log("Deploying LMSR contracts with UMA integration...");
+
+    // UMA Optimistic Oracle V3 on BSC Testnet
+    const UMA_ORACLE_BSC_TESTNET = "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd";
 
     // Deploy MockUSDC
     const MockUSDC = await ethers.getContractFactory("MockUSDC");
@@ -10,12 +13,17 @@ async function main() {
     const usdcAddress = await usdc.getAddress();
     console.log("MockUSDC:", usdcAddress);
 
-    // Deploy LMSR Market
-    const Market = await ethers.getContractFactory("PredictionMarketLMSR");
-    const market = await Market.deploy(usdcAddress);
+    // Deploy Market with UMA Oracle
+    const Market = await ethers.getContractFactory("PredictionMarketUMA");
+    const market = await Market.deploy(usdcAddress, UMA_ORACLE_BSC_TESTNET);
     await market.waitForDeployment();
     const marketAddress = await market.getAddress();
-    console.log("PredictionMarketLMSR:", marketAddress);
+    console.log("PredictionMarketUMA:", marketAddress);
+    console.log("UMA Oracle:", UMA_ORACLE_BSC_TESTNET);
+
+    // Set assertion bond to $100 (100 * 10^6 for USDC)
+    await market.setAssertionBond(ethers.parseUnits("100", 6));
+    console.log("Assertion bond set to $100 USDC");
 
     // Approve and create market
     try {
@@ -36,6 +44,10 @@ async function main() {
     }
 
     console.log("\nDeployment complete!");
+    console.log("Update client/lib/contracts.ts with:");
+    console.log(`  predictionMarketLMSR: '${marketAddress}',`);
+    console.log(`  mockUSDC: '${usdcAddress}',`);
+    console.log(`  umaOracle: '${UMA_ORACLE_BSC_TESTNET}',`);
 }
 
 main().catch((error) => {

@@ -260,7 +260,7 @@ export function ResolutionPanel({
                     </motion.div>
                 )}
 
-                {/* ENDED - Awaiting admin resolution */}
+                {/* ENDED - Ready for assertion */}
                 {status === MarketStatus.ENDED && (
                     <motion.div
                         key="ended"
@@ -271,21 +271,36 @@ export function ResolutionPanel({
                     >
                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
                             <Gavel className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                            <p className="text-amber-400 font-medium">Awaiting Resolution</p>
+                            <p className="text-amber-400 font-medium">Market Ready for Resolution</p>
                             <p className="text-white/50 text-sm mt-1">
-                                This market has ended and is pending admin resolution.
+                                Assert the outcome to begin resolution process
                             </p>
                         </div>
 
-                        <p className="text-white/60 text-sm text-center">{question}</p>
+                        <p className="text-white/60 text-sm text-center mb-2">{question}</p>
 
-                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                            <Clock className="w-6 h-6 text-white/40 mx-auto mb-2" />
-                            <p className="text-white/50 text-sm">
-                                The outcome will be determined by the platform administrator.
-                                Check back soon for resolution.
-                            </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => handleAssert(true)}
+                                disabled={!isConnected || assertPending}
+                                className="py-3 bg-green-500/20 border border-green-500/50 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {assertPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                Assert YES
+                            </button>
+                            <button
+                                onClick={() => handleAssert(false)}
+                                disabled={!isConnected || assertPending}
+                                className="py-3 bg-red-500/20 border border-red-500/50 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {assertPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                Assert NO
+                            </button>
                         </div>
+
+                        <p className="text-white/40 text-xs text-center">
+                            Requires $100 bond from portfolio. 2-hour dispute window via UMA.
+                        </p>
                     </motion.div>
                 )}
 
