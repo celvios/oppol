@@ -69,6 +69,7 @@ app.post('/api/bet', async (req, res) => {
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
     const marketABI = [
       'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
+      'function buyShares(uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
       'function userBalances(address) view returns (uint256)',
       'function getPrice(uint256 _marketId) view returns (uint256)',
@@ -94,26 +95,12 @@ app.post('/api/bet', async (req, res) => {
       });
     }
 
-    // Execute trade using buySharesFor (operator function)
-    const maxCost = cost + (cost * BigInt(5)) / BigInt(100); // 5% slippage
-    console.log(`Executing buySharesFor(${walletAddress}, ${marketId}, ${isYes}, ${sharesInUnits}, ${maxCost})`);
-
-    const tx = await market.buySharesFor(walletAddress, marketId, isYes, sharesInUnits, maxCost, { gasLimit: 500000 });
-    const receipt = await tx.wait();
-
-    const newPrice = await market.getPrice(marketId);
-
-    console.log(`Trade executed! TX: ${receipt.hash}`);
-
-    return res.json({
-      success: true,
-      transaction: {
-        hash: receipt.hash,
-        marketId,
-        side,
-        shares: sharesAmount,
-        cost: costFormatted,
-        newPrice: Number(newPrice) / 100,
+    return res.status(400).json({
+      success: false,
+      error: 'Custodial trading not supported by this contract. Please use direct wallet trading.',
+      contractInfo: {
+        hasBuySharesFor: false,
+        suggestion: 'Connect wallet and trade directly on-chain'
       }
     });
 
@@ -240,7 +227,64 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// GET BALANCE ENDPOINT - Fetch deposited balance by wallet address
+// GET COMPREHENSIVE BALANCE ENDPOINT - Check all balance sources
+app.get('/api/balance/:walletAddress', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { walletAddress } = req.params;
+    
+    if (!walletAddress || !ethers.isAddress(walletAddress)) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+
+    const marketABI = ['function userBalances(address) view returns (uint256)'];
+    const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+
+    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+    const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+
+    const [depositedBalance, walletUsdcBalance] = await Promise.all([
+      marketContract.userBalances(walletAddress),
+      usdcContract.balanceOf(walletAddress)
+    ]);
+
+    const depositedFormatted = parseFloat(ethers.formatUnits(depositedBalance, 6));
+    const walletUsdcFormatted = parseFloat(ethers.formatUnits(walletUsdcBalance, 6));
+
+    return res.json({
+      success: true,
+      balances: {
+        connectedWallet: {
+          address: walletAddress,
+          usdcBalance: walletUsdcFormatted
+        },
+        custodialWallet: {
+          address: walletAddress,
+          usdcBalance: walletUsdcFormatted,
+          depositedInContract: depositedFormatted,
+          databaseBalance: 0
+        },
+        totalAvailableForTrading: depositedFormatted,
+        discrepancy: {
+          exists: Math.abs(walletUsdcFormatted - depositedFormatted) > 0.01,
+          difference: walletUsdcFormatted - depositedFormatted
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Balance check error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get balance'
+    });
+  }
+});
 app.get('/api/wallet/balance/:address', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
@@ -324,6 +368,157 @@ app.get('/api/markets', async (req, res) => {
     return res.json({ success: true, markets });
   } catch (error: any) {
     console.error('Markets error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET COMPREHENSIVE BALANCE ENDPOINT
+app.get('/api/balance/:walletAddress', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { walletAddress } = req.params;
+    
+    if (!walletAddress || !ethers.isAddress(walletAddress)) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+
+    const marketABI = ['function userBalances(address) view returns (uint256)'];
+    const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+
+    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+    const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+
+    const [depositedBalance, walletUsdcBalance] = await Promise.all([
+      marketContract.userBalances(walletAddress),
+      usdcContract.balanceOf(walletAddress)
+    ]);
+
+    const depositedFormatted = parseFloat(ethers.formatUnits(depositedBalance, 6));
+    const walletUsdcFormatted = parseFloat(ethers.formatUnits(walletUsdcBalance, 6));
+
+    return res.json({
+      success: true,
+      balances: {
+        connectedWallet: {
+          address: walletAddress,
+          usdcBalance: walletUsdcFormatted
+        },
+        custodialWallet: {
+          address: walletAddress,
+          usdcBalance: walletUsdcFormatted,
+          depositedInContract: depositedFormatted,
+          databaseBalance: 0
+        },
+        totalAvailableForTrading: depositedFormatted,
+        discrepancy: {
+          exists: Math.abs(walletUsdcFormatted - depositedFormatted) > 0.01,
+          difference: walletUsdcFormatted - depositedFormatted
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Balance check error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get balance'
+    });
+  }
+});
+
+// CONTRACT DIAGNOSTICS ENDPOINT
+app.get('/api/contract/check', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    
+    // Get contract code
+    const code = await provider.getCode(MARKET_ADDR);
+    
+    // Check if buySharesFor function exists
+    const buySharesForSelector = ethers.id('buySharesFor(address,uint256,bool,uint256,uint256)').slice(0, 10);
+    const hasBuySharesFor = code.includes(buySharesForSelector.slice(2));
+    
+    // Get server wallet address
+    const privateKey = process.env.PRIVATE_KEY;
+    let serverWallet = 'Not configured';
+    if (privateKey) {
+      const wallet = new ethers.Wallet(privateKey);
+      serverWallet = wallet.address;
+    }
+    
+    return res.json({
+      success: true,
+      contract: {
+        address: MARKET_ADDR,
+        hasCode: code !== '0x',
+        hasBuySharesFor,
+        buySharesForSelector
+      },
+      serverWallet,
+      rpcUrl
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// GET USER PORTFOLIO ENDPOINT
+app.get('/api/portfolio/:walletAddress', async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    
+    if (!walletAddress) {
+      return res.status(400).json({ success: false, error: 'Wallet address required' });
+    }
+
+    try {
+      // Get user's trades from database
+      const tradesResult = await query(
+        `SELECT market_id, side, SUM(shares) as total_shares, 
+                AVG(price_per_share) as avg_price, SUM(total_cost) as total_cost
+         FROM trades 
+         WHERE LOWER(user_address) = $1 
+         GROUP BY market_id, side
+         ORDER BY market_id, side`,
+        [walletAddress.toLowerCase()]
+      );
+      
+      const positions = tradesResult.rows.map((row: any) => ({
+        marketId: row.market_id,
+        side: row.side,
+        shares: parseFloat(row.total_shares),
+        avgPrice: parseFloat(row.avg_price),
+        totalCost: parseFloat(row.total_cost)
+      }));
+      
+      return res.json({
+        success: true,
+        positions,
+        totalPositions: positions.length
+      });
+    } catch (dbError) {
+      // Database not available, return empty portfolio
+      return res.json({
+        success: true,
+        positions: [],
+        totalPositions: 0,
+        note: 'Database unavailable - positions not tracked'
+      });
+    }
+  } catch (error: any) {
+    console.error('Portfolio error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });

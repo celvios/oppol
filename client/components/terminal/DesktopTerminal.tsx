@@ -17,6 +17,7 @@ import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
 import { motion, AnimatePresence } from "framer-motion";
+import { BalanceChecker } from "@/components/ui/BalanceChecker";
 import { formatDistanceToNow } from "date-fns";
 
 // Contract ABI
@@ -76,6 +77,7 @@ export function DesktopTerminal() {
     const [loading, setLoading] = useState(true);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
+    const [mounted, setMounted] = useState(false);
 
     // Trade State
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
@@ -90,6 +92,10 @@ export function DesktopTerminal() {
     const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // --- Data Fetching ---
 
@@ -180,6 +186,8 @@ export function DesktopTerminal() {
         const estShares = parseFloat(amount) / (currentPrice / 100);
 
         try {
+            console.log('Starting trade:', { address, marketId: market.id, side: tradeSide, amount });
+            
             // Always use Custodial API
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const response = await fetch(`${apiUrl}/api/bet`, {
@@ -193,7 +201,11 @@ export function DesktopTerminal() {
                     amount: parseFloat(amount)
                 })
             });
+            
+            console.log('API response status:', response.status);
             const data = await response.json();
+            console.log('API response data:', data);
+            
             if (data.success) {
                 setSuccessData({
                     marketId: market.id,
@@ -206,16 +218,18 @@ export function DesktopTerminal() {
                 fetchData(); // Refresh data
             } else {
                 console.error("Trade API error:", data.error);
+                alert(`Trade failed: ${data.error}`);
             }
         } catch (e) {
             console.error("Trade failed:", e);
+            alert(`Trade failed: ${e.message}`);
         } finally {
             setIsTradeLoading(false);
         }
     };
 
 
-    if (!isConnected) {
+    if (!mounted || (!isConnected && mounted)) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/5 to-transparent opacity-50" />
@@ -404,6 +418,11 @@ export function DesktopTerminal() {
                         {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         <NeonButton size="sm" variant="glass" className="ml-auto text-xs py-1 h-auto">DEPOSIT</NeonButton>
                     </div>
+                </GlassCard>
+
+                {/* Balance Checker */}
+                <GlassCard className="flex-none p-4">
+                    <BalanceChecker />
                 </GlassCard>
 
                 <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">

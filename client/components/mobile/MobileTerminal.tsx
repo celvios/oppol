@@ -68,8 +68,13 @@ import { useSearchParams } from "next/navigation"; // Add import
 
 export function MobileTerminal() {
     const searchParams = useSearchParams();
+    const [mounted, setMounted] = useState(false);
     // Initialize with 0 to prevent hydration mismatch, update in effect
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Initial Sync with URL
     useEffect(() => {
@@ -194,29 +199,19 @@ export function MobileTerminal() {
     }, [isConnected, address]);
 
     useEffect(() => {
-        if (!isConnected) { 
-            setLoading(false); 
-            return; 
+        if (!isConnected) {
+            setLoading(false);
+            return;
         }
         fetchData();
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
     }, [isConnected, address, fetchData]);
 
-    if (!isConnected) {
+    if (!mounted || (!isConnected && mounted)) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[80vh] relative overflow-hidden p-6">
-                <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/10 to-transparent opacity-50" />
-                <GlassCard className="p-8 text-center w-full max-w-sm relative z-10 border-neon-cyan/20 cursor-default">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-neon-cyan/5 border border-neon-cyan/20 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.1)]">
-                        <Wallet className="w-8 h-8 text-neon-cyan" />
-                    </div>
-                    <h2 className="text-2xl font-heading font-bold text-white mb-2">Connect to Trade</h2>
-                    <p className="text-text-secondary mb-8 text-sm">Access neural markets on the go.</p>
-                    <NeonButton onClick={() => open()} variant="cyan" className="w-full">
-                        CONNECT WALLET
-                    </NeonButton>
-                </GlassCard>
+            <div className="p-6">
+                <SkeletonLoader />
             </div>
         );
     }
@@ -228,7 +223,7 @@ export function MobileTerminal() {
     const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
     return (
-        <div className="pb-32 relative min-h-screen">
+        <div className="pb-12 relative min-h-screen">
 
             {/* 1. Header */}
             <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
@@ -357,7 +352,7 @@ export function MobileTerminal() {
             ) : (
                 <>
                     {/* Action Buttons */}
-                    <div className="fixed bottom-24 left-6 right-6 flex gap-4 z-40">
+                    <div className="px-6 mb-8 flex gap-4">
                         <button
                             onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
                             className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"

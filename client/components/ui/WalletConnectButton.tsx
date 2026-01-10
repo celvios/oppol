@@ -5,11 +5,29 @@ import { useWallet } from '@/lib/use-wallet';
 import { LogOut, Wallet, Shield } from 'lucide-react';
 import { useDisconnect } from 'wagmi';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) {
     const { open } = useWeb3Modal();
     const { address, isConnected, usdcBalance, isAdmin, chain } = useWallet();
     const { disconnect } = useDisconnect();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Prevent hydration mismatch by not rendering wallet state until mounted
+    if (!mounted) {
+        return (
+            <button
+                className={`flex items-center gap-2 px-4 py-2 bg-primary/20 border border-primary/50 rounded-lg text-primary font-medium transition-all duration-200 ${minimal ? 'w-full justify-center px-0' : ''}`}
+            >
+                <Wallet size={18} />
+                {!minimal && <span>Connect Wallet</span>}
+            </button>
+        );
+    }
 
     if (!isConnected) {
         return (

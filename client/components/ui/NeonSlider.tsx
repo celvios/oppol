@@ -21,10 +21,18 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
     const [dragLimit, setDragLimit] = useState(230);
 
     useEffect(() => {
-        if (containerRef.current) {
-            const containerWidth = containerRef.current.offsetWidth;
-            setDragLimit(containerWidth - 56); // Container width minus handle size
-        }
+        const updateDragLimit = () => {
+            if (containerRef.current) {
+                const containerWidth = containerRef.current.offsetWidth;
+                const newLimit = containerWidth - 56; // Container width minus handle size
+                setDragLimit(newLimit);
+                console.log('Updated drag limit:', newLimit);
+            }
+        };
+        
+        updateDragLimit();
+        window.addEventListener('resize', updateDragLimit);
+        return () => window.removeEventListener('resize', updateDragLimit);
     }, []);
 
     const backgroundWidth = useTransform(x, [0, dragLimit], [56, dragLimit + 56]);
@@ -36,12 +44,15 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
 
     const handleDragEnd = () => {
         const currentX = x.get();
-        // More forgiving threshold: 70% of the way
-        if (currentX > dragLimit * 0.7) {
-            // Snap to end
+        const threshold = dragLimit * 0.6; // Lower threshold for easier completion
+        
+        console.log('Drag ended:', { currentX, threshold, dragLimit });
+        
+        if (currentX >= threshold && !disabled && !isLoading) {
+            // Snap to end and confirm
             animate(x, dragLimit, { type: "spring", stiffness: 400, damping: 30 });
             setComplete(true);
-            onConfirm();
+            setTimeout(() => onConfirm(), 100); // Small delay for visual feedback
         } else {
             // Snap back smoothly
             animate(x, 0, { type: "spring", stiffness: 400, damping: 30 });
