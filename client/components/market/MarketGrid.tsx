@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import MarketCard from "./MarketCard";
 import { motion } from "framer-motion";
 import { web3Service } from "@/lib/web3";
+import Link from "next/link";
 
 interface Market {
     id: number;
@@ -48,16 +49,18 @@ export default function MarketGrid() {
                         whileInView={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
                     >
-                        {/* Adapter for MarketCard to accept the new data structure */}
-                        <MarketCard
-                            id={market.id.toString()}
-                            title={market.question}
-                            volume={`$${market.totalVolume}`}
-                            outcomeA="Yes"
-                            outcomeB="No"
-                            probA={market.yesOdds / 100}
-                            color="green" // Default or calculate based on trend
-                        />
+                        <Link href={`/terminal?marketId=${market.id}`}>
+                            {/* Adapter for MarketCard to accept the new data structure */}
+                            <MarketCard
+                                id={market.id.toString()}
+                                title={market.question}
+                                volume={`$${market.totalVolume}`}
+                                outcomeA="Yes"
+                                outcomeB="No"
+                                probA={market.yesOdds / 100}
+                                color="green" // Default or calculate based on trend
+                            />
+                        </Link>
                     </motion.div>
                 ))}
             </div>

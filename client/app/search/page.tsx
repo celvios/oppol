@@ -118,7 +118,7 @@ export default function SearchPage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
                             >
-                                <Link href={`/?marketId=${m.id}`}>
+                                <Link href={`/terminal?marketId=${m.id}`}>
                                     <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
                                         <div className="flex justify-between items-start mb-3">
                                             <h4 className="text-base font-medium text-white line-clamp-2 w-3/4">{m.question}</h4>
