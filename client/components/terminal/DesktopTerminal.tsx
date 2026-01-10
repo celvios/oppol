@@ -491,8 +491,7 @@ export function DesktopTerminal() {
                             side={tradeSide}
                             onConfirm={handleTrade}
                             isLoading={isTradeLoading}
-                            disabled={!amount || parseFloat(amount) <= 0}
-                            text={`SLIDE TO BUY ${tradeSide}`}
+                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0}
                         />
                     </div>
                 </GlassCard>

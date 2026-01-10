@@ -545,9 +545,8 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                         <NeonSlider
                             onConfirm={handleBuy}
                             isLoading={loading}
-                            text={`SLIDE TO TRADE`}
                             side={side}
-                            disabled={loading || !amount}
+                            disabled={loading || !amount || parseFloat(balance) === 0}
                         />
                     </div>
                 </div>
