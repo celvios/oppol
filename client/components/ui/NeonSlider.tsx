@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 
 interface NeonSliderProps {
@@ -14,70 +14,102 @@ interface NeonSliderProps {
 
 export default function NeonSlider({ onConfirm, isLoading, disabled, side }: NeonSliderProps) {
     const [complete, setComplete] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
-    const width = 280; // Slider width
-    const dragLimit = width - 50; // Max drag distance
 
-    const backgroundOpacity = useTransform(x, [0, dragLimit], [0.1, 1]);
-    const glowOpacity = useTransform(x, [0, dragLimit], [0, 0.8]);
+    // Dynamic width calculation
+    const [dragLimit, setDragLimit] = useState(230);
+
+    useEffect(() => {
+        if (containerRef.current) {
+            const containerWidth = containerRef.current.offsetWidth;
+            setDragLimit(containerWidth - 56); // Container width minus handle size
+        }
+    }, []);
+
+    const backgroundWidth = useTransform(x, [0, dragLimit], [56, dragLimit + 56]);
+    const progressOpacity = useTransform(x, [0, dragLimit * 0.5, dragLimit], [0.3, 0.6, 1]);
 
     const colorClass = side === "YES" ? "bg-outcome-a" : "bg-outcome-b";
-    const shadowClass = side === "YES" ? "shadow-[0_0_20px_rgba(74,222,128,0.5)]" : "shadow-[0_0_20px_rgba(248,113,113,0.5)]";
+    const shadowClass = side === "YES" ? "shadow-[0_0_30px_rgba(74,222,128,0.6)]" : "shadow-[0_0_30px_rgba(248,113,113,0.6)]";
     const textClass = side === "YES" ? "text-outcome-a" : "text-outcome-b";
 
     const handleDragEnd = () => {
-        if (x.get() > dragLimit - 20) {
+        const currentX = x.get();
+        // More forgiving threshold: 70% of the way
+        if (currentX > dragLimit * 0.7) {
+            // Snap to end
+            animate(x, dragLimit, { type: "spring", stiffness: 400, damping: 30 });
             setComplete(true);
             onConfirm();
         } else {
-            animate(x, 0, { type: "spring", stiffness: 300, damping: 20 });
+            // Snap back smoothly
+            animate(x, 0, { type: "spring", stiffness: 400, damping: 30 });
         }
     };
 
+    // Reset when loading completes
     useEffect(() => {
         if (!isLoading && complete) {
-            setComplete(false);
-            x.set(0);
+            setTimeout(() => {
+                setComplete(false);
+                animate(x, 0, { type: "spring", stiffness: 300, damping: 25 });
+            }, 500);
         }
     }, [isLoading, complete, x]);
 
     return (
-        <div className={twMerge("relative w-full h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden select-none", disabled && "opacity-50 cursor-not-allowed")}>
-            {/* Background Fill */}
+        <div
+            ref={containerRef}
+            className={twMerge(
+                "relative w-full h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden select-none",
+                disabled && "opacity-50 cursor-not-allowed"
+            )}
+            style={{ touchAction: 'pan-y' }} // Allow vertical scroll, capture horizontal
+        >
+            {/* Progress Fill */}
             <motion.div
-                style={{ opacity: backgroundOpacity, width: x }}
-                className={twMerge("absolute inset-y-0 left-0 h-full", colorClass, "opacity-20")}
-            />
-
-            {/* Glow Effect */}
-            <motion.div
-                style={{ opacity: glowOpacity }}
-                className={twMerge("absolute inset-y-0 left-0 w-full h-full blur-xl", colorClass)}
+                style={{ width: backgroundWidth, opacity: progressOpacity }}
+                className={twMerge("absolute inset-y-0 left-0 h-full rounded-full", colorClass)}
             />
 
             {/* Text */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <span className={twMerge("font-heading font-bold tracking-widest text-sm", textClass)}>
-                    {isLoading ? "EXECUTING..." : `SLIDE TO ${side}`}
+                <span className={twMerge("font-heading font-bold tracking-widest text-sm", isLoading ? "text-white" : textClass)}>
+                    {isLoading ? (
+                        <span className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            EXECUTING...
+                        </span>
+                    ) : complete ? (
+                        "CONFIRMED!"
+                    ) : (
+                        `SLIDE TO ${side}`
+                    )}
                 </span>
             </div>
 
             {/* Draggable Handle */}
             <motion.div
-                drag={disabled || isLoading ? false : "x"}
+                drag={disabled || isLoading || complete ? false : "x"}
                 dragConstraints={{ left: 0, right: dragLimit }}
-                dragElastic={0.1}
+                dragElastic={0} // No elastic/bounce
                 dragMomentum={false}
                 onDragEnd={handleDragEnd}
                 style={{ x }}
+                whileDrag={{ scale: 1.05 }}
                 className={twMerge(
-                    "absolute top-1 left-1 w-12 h-12 rounded-full cursor-grab active:cursor-grabbing flex items-center justify-center z-20 transition-colors",
+                    "absolute top-1 left-1 w-12 h-12 rounded-full cursor-grab active:cursor-grabbing flex items-center justify-center z-20",
                     colorClass,
                     shadowClass,
-                    "border border-white/20"
+                    "border border-white/30 backdrop-blur-sm"
                 )}
             >
-                <ChevronRight className="text-void w-6 h-6" strokeWidth={3} />
+                {isLoading ? (
+                    <Loader2 className="text-void w-5 h-5 animate-spin" />
+                ) : (
+                    <ChevronRight className="text-void w-6 h-6" strokeWidth={3} />
+                )}
             </motion.div>
         </div>
     );
