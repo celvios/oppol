@@ -62,10 +62,18 @@ import { useSearchParams } from "next/navigation"; // Add import
 
 export function MobileTerminal() {
     const searchParams = useSearchParams();
-    const initialMarketId = Number(searchParams.get('marketId')) || 0;
+    // Initialize with 0 to prevent hydration mismatch, update in effect
+    const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
+
+    // Initial Sync with URL
+    useEffect(() => {
+        const urlId = Number(searchParams.get('marketId'));
+        if (urlId && !isNaN(urlId)) {
+            setSelectedMarketId(urlId);
+        }
+    }, [searchParams]);
 
     const [markets, setMarkets] = useState<Market[]>([]);
-    const [selectedMarketId, setSelectedMarketId] = useState<number>(initialMarketId);
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(true);
     const [priceHistory, setPriceHistory] = useState<{ time: string, price: number }[]>([]);
@@ -124,11 +132,26 @@ export function MobileTerminal() {
             try {
                 const data = await web3Service.getMarkets();
                 setMarkets(data);
-                // If URL has marketId, switch to it once markets are loaded
-                if (initialMarketId && data.find(m => m.id === initialMarketId)) {
-                    setSelectedMarketId(initialMarketId);
-                } else if (data.length > 0 && selectedMarketId === 0) {
-                    setSelectedMarketId(data[0].id);
+
+                // If we are still at 0 (initial), set to first market
+                // unless URL param effect set it already (which we check via selectedMarketId)
+                // Actually, better logic: if selectedMarketId is 0, default to first.
+                // But wait for searchParams effect to run first? 
+                // It runs synchronously-ish after hydration.
+
+                // We will rely on selectedMarketId being updated by the searchParams effect.
+                // If it's still 0 after a short delay or if searchParams was empty, we default to markets[0].
+                // However, to keep it simple: we set default if 0, but only if we have data.
+
+                if (selectedMarketId === 0 && data.length > 0) {
+                    // Check URL one more time to be safe? 
+                    const urlId = Number(searchParams.get('marketId'));
+                    if (urlId && data.find(m => m.id === urlId)) {
+                        // It's handled by other effect, or we force it here if race condition
+                        setSelectedMarketId(urlId);
+                    } else {
+                        setSelectedMarketId(data[0].id);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch markets:", error);
@@ -137,7 +160,7 @@ export function MobileTerminal() {
             }
         };
         fetchMarkets();
-    }, [initialMarketId]); // Add dependency on initialMarketId
+    }, []); // Run once on mount
 
     const fetchData = async () => {
         if (!isConnected || !address) return;
