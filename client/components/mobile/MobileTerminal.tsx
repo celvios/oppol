@@ -179,6 +179,7 @@ export function MobileTerminal() {
                 if (apiUrl) {
                     const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
                         method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ walletAddress: address })
                     });
                     const linkData = await linkResponse.json();
