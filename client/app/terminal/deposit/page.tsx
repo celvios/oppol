@@ -68,7 +68,7 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address } = useWallet();
+    const { isConnected, address, usdcBalance, bnbBalance } = useWallet();
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
 
@@ -98,6 +98,22 @@ export default function DepositPage() {
     useEffect(() => {
         if (address) setTargetMintAddress(address);
     }, [address]);
+
+    // Helper to get balance for selected token
+    const getBalance = () => {
+        if (selectedToken.symbol === 'USDC') return usdcBalance;
+        if (selectedToken.symbol === 'BNB') return bnbBalance;
+        return '0.00';
+    };
+
+    // Helper to set max balance
+    const handleMax = () => {
+        const balance = getBalance();
+        if (balance && balance !== '0.00') {
+            // Remove commas for input
+            setDepositAmount(balance.replace(/,/g, ''));
+        }
+    };
 
     // Swap State (Mock)
     const [estimatedUSDC, setEstimatedUSDC] = useState('0.00');
@@ -330,7 +346,12 @@ export default function DepositPage() {
                             <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                                 <div className="flex justify-between mb-2">
                                     <label className="text-sm font-medium text-white/60">You pay</label>
-                                    <span className="text-xs text-secondary hover:text-white cursor-pointer">Balance: --</span>
+                                    <button
+                                        onClick={handleMax}
+                                        className="text-xs text-secondary hover:text-white cursor-pointer transition-colors"
+                                    >
+                                        Balance: {getBalance()}
+                                    </button>
                                 </div>
 
                                 <div className="flex gap-4">
