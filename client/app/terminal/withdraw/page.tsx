@@ -37,10 +37,10 @@ export default function WithdrawPage() {
     const [errorMessage, setErrorMessage] = useState('');
 
     const contracts = getContracts() as any;
-    const MARKET_CONTRACT = (contracts.predictionMarket || '0x5F9C05bE2Af2adb520825950323774eFF308E353') as `0x${string}`;
+    const MARKET_CONTRACT = (contracts.predictionMarket || '0xbBE2811Ab064bd76667D49346a025530310AD03E') as `0x${string}`;
 
     // 1. Read Balance from Contract
-    const { data: balanceData, refetch: refetchBalance, isLoading: isBalanceLoading } = useReadContract({
+    const { data: balanceData, refetch: refetchBalance, isLoading: isBalanceLoading, error: balanceError } = useReadContract({
         address: MARKET_CONTRACT,
         abi: MARKET_ABI,
         functionName: 'userBalances',
@@ -123,8 +123,24 @@ export default function WithdrawPage() {
         );
     }
 
-    if (isBalanceLoading && !balanceData) {
+    if (isBalanceLoading && !balanceData && !balanceError) {
         return <SkeletonLoader />;
+    }
+
+    if (balanceError) {
+        return (
+            <div className="max-w-2xl mx-auto pt-8 text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-white font-bold mb-2">Failed to load balance</h3>
+                <p className="text-white/50 mb-4">{balanceError.message}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20"
+                >
+                    Retry
+                </button>
+            </div>
+        );
     }
 
     const availableBalance = parseFloat(depositedBalance);
