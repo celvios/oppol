@@ -6,13 +6,13 @@ export const CONTRACTS = {
         predictionMarketLMSR: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // New LMSR ✅
         mockUSDC: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     },
-    // BSC Testnet (DEPLOYED ✅ - With UMA Oracle Integration)
+    // BSC Testnet (DEPLOYED ✅ - With UMA Oracle + Markets)
     bscTestnet: {
-        predictionMarket: '0x797aBDb1BE8A0D5e3d922D014B9525c07A3F0749', // PredictionMarketUMA (new)
-        predictionMarketLMSR: '0x797aBDb1BE8A0D5e3d922D014B9525c07A3F0749', // Same as above
-        mockUSDC: '0x797aBDb1BE8A0D5e3d922D014B9525c07A3F0749', // New MockUSDC
+        predictionMarket: '0x7DF49AcDB3c81853801bC1938A03d36205243b0b', // PredictionMarketUMA with 3 markets
+        predictionMarketLMSR: '0x7DF49AcDB3c81853801bC1938A03d36205243b0b', // Same
+        mockUSDC: '0x4D5988a2660F7eaffd2113E2268e90bc1f186523', // Fresh MockUSDC
         umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', // UMA OOv3
-        zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Old Zap (may need update)
+        zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Old Zap
     },
     // BSC Mainnet
     bsc: {

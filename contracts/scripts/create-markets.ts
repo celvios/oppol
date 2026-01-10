@@ -1,52 +1,118 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    console.log("Creating 5 Real Prediction Markets...\n");
+    console.log("Creating 5 Prediction Markets on PredictionMarketUMA...\n");
 
-    const MARKET_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-    const USDC_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    // New deployment addresses
+    const MARKET_ADDRESS = "0x797aBDb1BE8A0D5e3d922D014B9525c07A3F0749";
+    const USDC_ADDRESS = "0x797aBDb1BE8A0D5e3d922D014B9525c07A3F0749"; // MockUSDC from same deployment
 
     const [deployer] = await ethers.getSigners();
+    console.log("Deployer:", deployer.address);
 
-    const market = await ethers.getContractAt("PredictionMarketLMSR", MARKET_ADDRESS);
-    const usdc = await ethers.getContractAt("MockUSDC", USDC_ADDRESS);
+    // Get the MockUSDC contract - try to mint some tokens first
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    const usdc = await MockUSDC.deploy();
+    await usdc.waitForDeployment();
+    const usdcAddress = await usdc.getAddress();
+    console.log("Fresh MockUSDC deployed:", usdcAddress);
 
-    const balance = await usdc.balanceOf(deployer.address);
-    console.log(`USDC balance: ${ethers.formatUnits(balance, 6)}\n`);
+    // Deploy a fresh market with this USDC
+    const UMA_ORACLE = "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd";
+    const Market = await ethers.getContractFactory("PredictionMarketUMA");
+    const market = await Market.deploy(usdcAddress, UMA_ORACLE);
+    await market.waitForDeployment();
+    const marketAddress = await market.getAddress();
+    console.log("Fresh PredictionMarketUMA deployed:", marketAddress);
+
+    // Set assertion bond to $100
+    await market.setAssertionBond(ethers.parseUnits("100", 6));
+    console.log("Assertion bond set to $100 USDC\n");
+
+    // Check deployer balance and mint more if needed
+    let balance = await usdc.balanceOf(deployer.address);
+    console.log(`USDC balance: ${ethers.formatUnits(balance, 6)}`);
+
+    // Mint 100,000 USDC for markets
+    await usdc.mint(deployer.address, ethers.parseUnits("100000", 6));
+    balance = await usdc.balanceOf(deployer.address);
+    console.log(`After mint: ${ethers.formatUnits(balance, 6)}\n`);
+
+    // 3 months = 90 days in seconds
+    const THREE_MONTHS = 90 * 24 * 60 * 60;
+    // 30 minutes in seconds
+    const THIRTY_MINUTES = 30 * 60;
 
     const markets = [
-        { question: "Will Bitcoin reach $100,000 by end of 2026?", duration: 365 * 24 * 60 * 60, liquidity: 1000, subsidy: 1000 },
-        { question: "Will Ethereum ETF be approved in Q1 2026?", duration: 90 * 24 * 60 * 60, liquidity: 800, subsidy: 800 },
-        { question: "Will Fed cut interest rates in next 6 months?", duration: 180 * 24 * 60 * 60, liquidity: 1200, subsidy: 1200 },
-        { question: "Will Trump win 2024 US Presidential Election?", duration: 300 * 24 * 60 * 60, liquidity: 2000, subsidy: 2000 },
-        { question: "Will AI replace 10% of jobs by 2027?", duration: 730 * 24 * 60 * 60, liquidity: 1500, subsidy: 1500 }
+        // 3 markets ending in 3 months
+        {
+            question: "Will Bitcoin reach $150,000 by April 2026?",
+            duration: THREE_MONTHS,
+            liquidity: 2000,
+            subsidy: 1000
+        },
+        {
+            question: "Will Ethereum 2.0 staking reach 50M ETH by Q2 2026?",
+            duration: THREE_MONTHS,
+            liquidity: 1500,
+            subsidy: 800
+        },
+        {
+            question: "Will Apple release AR glasses in 2026?",
+            duration: THREE_MONTHS,
+            liquidity: 1800,
+            subsidy: 900
+        },
+        // 2 markets ending in 30 minutes (for testing assertions)
+        {
+            question: "TEST: Will this market resolve YES? (30 min)",
+            duration: THIRTY_MINUTES,
+            liquidity: 500,
+            subsidy: 200
+        },
+        {
+            question: "TEST: Quick market for assertion testing (30 min)",
+            duration: THIRTY_MINUTES,
+            liquidity: 500,
+            subsidy: 200
+        }
     ];
 
-    const startCount = await market.marketCount();
-    console.log(`Creating ${markets.length} markets (starting from ID ${startCount})...\n`);
+    console.log(`Creating ${markets.length} markets...\n`);
 
     for (let i = 0; i < markets.length; i++) {
         const m = markets[i];
 
         try {
             const subsidyAmount = ethers.parseUnits(m.subsidy.toString(), 6);
-            await usdc.approve(MARKET_ADDRESS, subsidyAmount);
+            const liquidityParam = ethers.parseUnits(m.liquidity.toString(), 6);
 
-            const tx = await market.createMarket(m.question, m.duration, ethers.parseUnits(m.liquidity.toString(), 6), subsidyAmount);
+            await usdc.approve(marketAddress, subsidyAmount);
+
+            const tx = await market.createMarket(
+                m.question,
+                m.duration,
+                liquidityParam,
+                subsidyAmount
+            );
             await tx.wait();
 
-            const newMarketId = Number(startCount) + i;
-            const price = await market.getPrice(newMarketId);
+            const price = await market.getPrice(i);
+            const endTime = new Date(Date.now() + m.duration * 1000);
 
-            console.log(`Market ${newMarketId}: ${m.question}`);
-            console.log(`  Price: ${Number(price) / 100}% YES | Liquidity: $${m.liquidity}\n`);
+            console.log(`✅ Market ${i}: ${m.question}`);
+            console.log(`   Price: ${Number(price) / 100}% YES`);
+            console.log(`   Ends: ${endTime.toLocaleString()}\n`);
         } catch (error: any) {
-            console.log(`Failed: ${error.message.substring(0, 80)}\n`);
+            console.log(`❌ Failed Market ${i}: ${error.message.substring(0, 100)}\n`);
         }
     }
 
     const finalCount = await market.marketCount();
-    console.log(`Complete! Total markets: ${finalCount}`);
+    console.log(`\n✨ Complete! Total markets: ${finalCount}`);
+    console.log(`\n📝 UPDATE contracts.ts with:`);
+    console.log(`   predictionMarket: '${marketAddress}'`);
+    console.log(`   mockUSDC: '${usdcAddress}'`);
 }
 
 main().catch((error) => {
