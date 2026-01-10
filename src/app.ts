@@ -66,7 +66,7 @@ app.post('/api/bet', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
     const marketABI = [
       'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
