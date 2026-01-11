@@ -10,7 +10,7 @@ export const CONTRACTS = {
     bscTestnet: {
         predictionMarket: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0xbBE2811Ab064bd76667D49346a025530310AD03E', // New Custodial Contract
         predictionMarketLMSR: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0xbBE2811Ab064bd76667D49346a025530310AD03E', // Same
-        mockUSDC: '0x792D979781F0E53A51D0cD837cd03827fA8d83A1', // New MockUSDC
+        mockUSDC: '0x792D979781F0E53A51D0cD837cd03827fA8d83A1', // Old USDC with your balance
         umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', // UMA OOv3
         zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Old Zap
     },

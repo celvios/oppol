@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -66,8 +66,10 @@ interface TradeSuccessData {
     marketId: number;
     side: 'YES' | 'NO';
     shares: number;
-    cost: number;
+    cost: string;
     question: string;
+    newPrice: number;
+    hash: string;
 }
 
 export function DesktopTerminal() {
@@ -92,6 +94,11 @@ export function DesktopTerminal() {
     const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+    const marketRef = useRef(market);
+
+    useEffect(() => {
+        marketRef.current = market;
+    }, [market]);
 
     useEffect(() => {
         setMounted(true);
@@ -100,24 +107,46 @@ export function DesktopTerminal() {
     // --- Data Fetching ---
 
     const fetchHistory = useCallback(async (id: number) => {
+        const generatePlaceholder = (price: number) => {
+            const now = new Date();
+            return Array.from({ length: 50 }).map((_, i) => ({
+                time: new Date(now.getTime() - (49 - i) * 1000).toLocaleTimeString(),
+                price: price
+            }));
+        };
+
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
             if (apiUrl) {
                 const response = await fetch(`${apiUrl}/api/markets/${id}/price-history?limit=50`);
                 const data = await response.json();
+
                 if (data.success && data.history?.length > 0) {
-                    setPriceHistory(data.history);
+                    let history = data.history;
+                    // If history is too short (e.g. just created), pad it with the first value
+                    // so we always show a "line" (wave) instead of a single dot.
+                    if (history.length < 50) {
+                        const needed = 50 - history.length;
+                        const firstPrice = history[0].price;
+                        // We do not worry about exact timestamps for padding, just visual continuity
+                        const padding = Array.from({ length: needed }).map((_, i) => ({
+                            time: '',
+                            price: firstPrice
+                        }));
+                        history = [...padding, ...history];
+                    }
+                    setPriceHistory(history);
                 } else {
-                    setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
+                    setPriceHistory(generatePlaceholder(marketRef.current?.yesOdds || 50));
                 }
             } else {
-                setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
+                setPriceHistory(generatePlaceholder(marketRef.current?.yesOdds || 50));
             }
         } catch (error) {
             console.error("Failed to fetch history:", error);
-            setPriceHistory([{ time: 'Now', price: market?.yesOdds || 50 }]);
+            setPriceHistory(generatePlaceholder(marketRef.current?.yesOdds || 50));
         }
-    }, [market?.yesOdds]);
+    }, []);
 
     const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
@@ -156,12 +185,60 @@ export function DesktopTerminal() {
     }, [isConnected, address]);
 
     useEffect(() => {
+        let interval: NodeJS.Timeout;
         if (isConnected) {
             fetchData();
+            interval = setInterval(fetchData, 5000); // Poll slower (5s) for real data, animation handles visual
         } else {
             setLoading(false);
         }
+        return () => clearInterval(interval);
     }, [isConnected, address, fetchData]);
+
+    // --- Animation / Heartbeat Logic ---
+    useEffect(() => {
+        // Heartbeat interval to create a "live" wave effect even if price is static
+        const interval = setInterval(() => {
+            if (!marketRef.current) return;
+
+            setPriceHistory(prev => {
+                const now = Date.now();
+                const timeString = new Date(now).toLocaleTimeString();
+
+                // Base price is the real market odds
+                const basePrice = marketRef.current?.yesOdds || 50;
+
+                // Add a gentle sine wave: Amplitude 0.5%, Period ~5 seconds
+                const waveOffset = Math.sin(now / 800) * 0.5;
+                const animatedPrice = basePrice + waveOffset;
+
+                const newPoint = {
+                    time: timeString,
+                    price: animatedPrice
+                };
+
+                // Maintain buffer of 50 points
+                // If history is empty, seed it
+                if (prev.length === 0) {
+                    return Array(50).fill(null).map((_, i) => ({
+                        time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
+                        price: basePrice + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
+                    }));
+                }
+
+                // Append new point, remove oldest
+                const newHistory = [...prev, newPoint];
+                return newHistory.slice(-50);
+            });
+        }, 1000); // 1 update per second for smooth-ish "ticker" look
+
+        return () => clearInterval(interval);
+    }, []); // Run continuously, only depending on mount
+
+    // We no longer rely on market.yesOdds dependency to trigger updates directly,
+    // the interval handles it using the ref. 
+    // This allows visual "life" (wave) independently of contract events.
+
 
     useEffect(() => {
         if (markets.length > 0 && selectedMarketId === 0) {
@@ -187,7 +264,7 @@ export function DesktopTerminal() {
 
         try {
             console.log('Starting trade:', { address, marketId: market.id, side: tradeSide, amount });
-            
+
             // Always use Custodial API
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const response = await fetch(`${apiUrl}/api/bet`, {
@@ -201,18 +278,20 @@ export function DesktopTerminal() {
                     amount: parseFloat(amount)
                 })
             });
-            
+
             console.log('API response status:', response.status);
             const data = await response.json();
             console.log('API response data:', data);
-            
+
             if (data.success) {
                 setSuccessData({
                     marketId: market.id,
                     side: tradeSide,
                     shares: data.transaction?.shares || estShares,
-                    cost: parseFloat(amount),
-                    question: market.question
+                    cost: amount,
+                    question: market.question,
+                    newPrice: data.transaction?.newPrice || (tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds),
+                    hash: data.transaction?.hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
                 fetchData(); // Refresh data
@@ -220,7 +299,7 @@ export function DesktopTerminal() {
                 console.error("Trade API error:", data.error);
                 alert(`Trade failed: ${data.error}`);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Trade failed:", e);
             alert(`Trade failed: ${e.message}`);
         } finally {
@@ -416,7 +495,7 @@ export function DesktopTerminal() {
                     <div className="text-2xl font-mono text-white flex items-center gap-2">
                         <span className="text-neon-cyan">$</span>
                         {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        <NeonButton size="sm" variant="glass" className="ml-auto text-xs py-1 h-auto">DEPOSIT</NeonButton>
+                        <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/terminal/deposit'}>DEPOSIT</NeonButton>
                     </div>
                 </GlassCard>
 

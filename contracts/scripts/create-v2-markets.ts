@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    const MARKET_ADDRESS = "0x58c957342B8cABB9bE745BeBc09C267b70137959";
+    const MARKET_ADDRESS = "0x0d0279825957d13c74E6C187Cc37D502E0c3D168";
 
     const [deployer] = await ethers.getSigners();
     console.log("Creating markets with:", deployer.address);

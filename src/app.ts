@@ -53,7 +53,7 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing marketId or side' });
     }
 
-    const sharesAmount = shares || 100;
+    const sharesAmount = Math.floor(shares || 100);
     const isYes = side.toUpperCase() === 'YES';
 
     // Server wallet (operator) configuration
@@ -95,12 +95,24 @@ app.post('/api/bet', async (req, res) => {
       });
     }
 
-    return res.status(400).json({
-      success: false,
-      error: 'Custodial trading not supported by this contract. Please use direct wallet trading.',
-      contractInfo: {
-        hasBuySharesFor: false,
-        suggestion: 'Connect wallet and trade directly on-chain'
+    // Execute buySharesFor
+    const tx = await market.buySharesFor(
+      walletAddress,
+      marketId,
+      isYes,
+      sharesInUnits,
+      cost * BigInt(110) / BigInt(100) // 10% slippage
+    );
+    const receipt = await tx.wait();
+
+    console.log(`Trade executed! TX: ${receipt.hash}`);
+
+    return res.json({
+      success: true,
+      transaction: {
+        hash: receipt.hash,
+        shares: sharesAmount,
+        cost: costFormatted
       }
     });
 
@@ -298,7 +310,7 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x58c957342B8cABB9bE745BeBc09C267b70137959';
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
@@ -339,7 +351,7 @@ app.get('/api/markets', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x58c957342B8cABB9bE745BeBc09C267b70137959';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',

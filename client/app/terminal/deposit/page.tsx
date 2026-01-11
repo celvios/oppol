@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const contracts = getContracts() as any;
 const USDC_ADDRESS = (contracts.mockUSDC || '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be') as `0x${string}`;
 const ZAP_ADDRESS = (contracts.zap || '0xEF9C67639CE5fbCE07E0448bcc59587797742B0A68') as `0x${string}`;
-const MARKET_CONTRACT = (contracts.predictionMarket || '0xEcB7195979Cb5781C2D6b4e97cD00b159922A6B3') as `0x${string}`;
+const MARKET_CONTRACT = (contracts.predictionMarketLMSR || contracts.predictionMarket || '0x58c957342B8cABB9bE745BeBc09C267b70137959') as `0x${string}`;
 
 // Mock Tokens
 const TOKENS = [
@@ -136,16 +136,25 @@ export default function DepositPage() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
+    const [needsDeposit, setNeedsDeposit] = useState(false);
+
     // Watch for success
     useEffect(() => {
-        if (isSuccess) {
+        if (isSuccess && hash) {
             if (step === 'approving') {
-                handleDeposit();
+                setNeedsDeposit(true);
             } else if (step === 'depositing' || step === 'swapping') {
                 setStep('complete');
             }
         }
-    }, [isSuccess]);
+    }, [isSuccess, hash, step]);
+
+    useEffect(() => {
+        if (needsDeposit && !isPending && !isConfirming) {
+            setNeedsDeposit(false);
+            setTimeout(() => handleDeposit(), 1000);
+        }
+    }, [needsDeposit, isPending, isConfirming]);
 
     // Fetch custodial wallet logic with caching
     useEffect(() => {

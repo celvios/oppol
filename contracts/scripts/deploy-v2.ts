@@ -5,7 +5,7 @@ async function main() {
   console.log("Deploying with:", deployer.address);
 
   // Use your existing USDC token address
-  const USDC_ADDRESS = "0x64544969ed7EBf5f083679233325356EbE738930"; // From your previous deployment
+  const USDC_ADDRESS = "0x792D979781F0E53A51D0cD837cd03827fA8d83A1";
 
   const PredictionMarketV2 = await ethers.getContractFactory("PredictionMarketV2");
   const market = await PredictionMarketV2.deploy(USDC_ADDRESS);
