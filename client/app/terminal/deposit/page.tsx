@@ -278,6 +278,14 @@ export default function DepositPage() {
         }
     };
 
+    // Check if user is custodial (Google/WhatsApp login)
+    const [isCustodial, setIsCustodial] = useState(false);
+
+    useEffect(() => {
+        const sessionToken = localStorage.getItem('session_token');
+        setIsCustodial(!!sessionToken);
+    }, []);
+
     // If we are NOT loading, OR if we are Connected, show the UI.
     // This allows connected users to skip the loader entirely.
     if (loading && !isConnected) return <SkeletonLoader />;
@@ -289,8 +297,8 @@ export default function DepositPage() {
                 <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>
             </div>
 
-            {/* WalletConnect User */}
-            {isConnected ? (
+            {/* WalletConnect User - Only show if NOT custodial */}
+            {isConnected && !isCustodial ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
