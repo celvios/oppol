@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'https://sepolia.base.org');
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'https://sepolia.base.org', undefined, { staticNetwork: true });
 
 export const createRandomWallet = () => {
     const wallet = ethers.Wallet.createRandom();
