@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useEIP6963 } from "@/lib/useEIP6963";
+import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 interface Position {
@@ -25,14 +26,27 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
+    const [showWalletModal, setShowWalletModal] = useState(false);
 
     // Wallet connection state
     const { isConnected, address } = useWallet();
-    const { open } = useWeb3Modal();
+    const {
+        wallets,
+        walletState,
+        isConnecting,
+        error,
+        connect,
+        connectMetaMaskSDK,
+        isMobile,
+    } = useEIP6963();
+
+    // Consider connected if either Wagmi or EIP-6963 is connected
+    const effectiveConnected = isConnected || walletState.isConnected;
+    const effectiveAddress = address || walletState.address;
 
     useEffect(() => {
         // Only fetch data if wallet is connected
-        if (!isConnected || !address) {
+        if (!effectiveConnected || !effectiveAddress) {
             setLoading(false);
             return;
         }
@@ -40,7 +54,7 @@ export default function PortfolioPage() {
         async function fetchData() {
             try {
                 // Fetch user DEPOSITED balance (Polymarket-style)
-                const userBalance = await web3Service.getDepositedBalance(address!);
+                const userBalance = await web3Service.getDepositedBalance(effectiveAddress!);
                 setBalance(userBalance);
 
                 // Fetch all markets and user positions
@@ -51,7 +65,7 @@ export default function PortfolioPage() {
                 try {
                     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                     if (apiUrl) {
-                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${address}/stats`);
+                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`);
                         const statsData = await statsRes.json();
                         if (statsData.success) {
                             portfolioStats = statsData.stats;
@@ -65,7 +79,7 @@ export default function PortfolioPage() {
                 let aggregatePnL = 0;
 
                 for (const market of markets) {
-                    const position = await web3Service.getUserPosition(market.id, address!);
+                    const position = await web3Service.getUserPosition(market.id, effectiveAddress!);
                     if (!position) continue;
 
                     const yesShares = parseFloat(position.yesShares) || 0;
@@ -141,28 +155,47 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [isConnected, address]);
+    }, [effectiveConnected, effectiveAddress]);
 
     // WALLET CONNECTION GATE - Show connect prompt if not connected
-    if (!isConnected) {
+    if (!effectiveConnected) {
         return (
-            <div className="flex items-center justify-center min-h-[80vh]">
-                <div className="text-center max-w-md">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                        <Wallet className="w-10 h-10 text-primary" />
+            <>
+                <div className="flex items-center justify-center min-h-[80vh]">
+                    <div className="text-center max-w-md">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                            <Wallet className="w-10 h-10 text-primary" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
+                        <p className="text-white/50 mb-8">
+                            Connect your wallet to view your portfolio, positions, and trading history.
+                        </p>
+                        <button
+                            onClick={() => setShowWalletModal(true)}
+                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                        >
+                            Connect Wallet
+                        </button>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                    <p className="text-white/50 mb-8">
-                        Connect your wallet to view your portfolio, positions, and trading history.
-                    </p>
-                    <button
-                        onClick={() => open()}
-                        className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                    >
-                        Connect Wallet
-                    </button>
                 </div>
-            </div>
+
+                <WalletSelectorModal
+                    isOpen={showWalletModal}
+                    onClose={() => setShowWalletModal(false)}
+                    wallets={wallets}
+                    onSelectWallet={async (wallet) => {
+                        await connect(wallet);
+                        setShowWalletModal(false);
+                    }}
+                    onConnectMetaMaskSDK={async () => {
+                        await connectMetaMaskSDK();
+                        setShowWalletModal(false);
+                    }}
+                    isConnecting={isConnecting}
+                    error={error}
+                    isMobile={isMobile}
+                />
+            </>
         );
     }
 
