@@ -29,9 +29,9 @@ export default function BottomNav() {
     if (isTradeModalOpen) return null;
 
     const navItems = [
-        { name: "Terminal", icon: Home, href: "/" },
-        { name: "Markets", icon: BarChart2, href: "/markets" },
-        { name: "Search", icon: Search, href: "/search" },
+        { name: "Terminal", icon: Home, href: "/terminal" },
+        { name: "Portfolio", icon: BarChart2, href: "/terminal/portfolio" },
+        { name: "Deposit", icon: Search, href: "/terminal/deposit" },
     ];
 
     return (
