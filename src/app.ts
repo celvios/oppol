@@ -177,14 +177,21 @@ app.post('/api/bet', async (req, res) => {
       shares: sharesInUnits.toString(),
       maxCost: (actualCost * BigInt(110) / BigInt(100)).toString()
     });
-    // Execute buySharesFor
-    const tx = await market.buySharesFor(
+    
+    // Execute buySharesFor using sendTransaction (NO ENS RESOLUTION)
+    const buyData = iface.encodeFunctionData('buySharesFor', [
       normalizedAddress,
       marketId,
       isYes,
       sharesInUnits,
-      actualCost * BigInt(110) / BigInt(100) // 10% slippage
-    );
+      actualCost * BigInt(110) / BigInt(100)
+    ]);
+
+    const tx = await signer.sendTransaction({
+      to: MARKET_ADDR,
+      data: buyData,
+      gasLimit: 500000
+    });
     const receipt = await tx.wait();
 
     console.log(`Trade executed! TX: ${receipt.hash}`);
