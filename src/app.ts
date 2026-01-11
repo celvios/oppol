@@ -90,6 +90,11 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing marketId, side, or amount' });
     }
 
+    // Validate address format
+    if (!ethers.isAddress(walletAddress)) {
+      return res.status(400).json({ success: false, error: 'Invalid wallet address format' });
+    }
+
     // Normalize address to prevent ENS resolution
     const normalizedAddress = ethers.getAddress(walletAddress);
     const maxCost = parseFloat(amount);
@@ -203,8 +208,8 @@ app.post('/api/wallet/link', async (req, res) => {
 
     // Validate address format only (no ENS resolution)
     if (!ethers.isAddress(walletAddress)) {
-      console.error(`[Wallet Link] Error: Invalid address ${walletAddress}`);
-      return res.status(400).json({ success: false, error: 'Invalid wallet address' });
+      console.error(`[Wallet Link] Error: Invalid address format ${walletAddress}`);
+      return res.status(400).json({ success: false, error: 'Invalid wallet address format. ENS names not supported on BSC.' });
     }
 
     // Normalize address to checksum format
@@ -254,7 +259,7 @@ app.post('/api/withdraw', async (req, res) => {
 
     // Validate address
     if (!ethers.isAddress(toAddress)) {
-      return res.status(400).json({ success: false, error: 'Invalid destination address' });
+      return res.status(400).json({ success: false, error: 'Invalid destination address format' });
     }
 
     // TODO: In production, verify user identity from JWT token
