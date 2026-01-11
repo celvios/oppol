@@ -68,7 +68,7 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, usdcBalance, bnbBalance } = useWallet();
+    const { isConnected, address, usdcBalance, bnbBalance, refetchUsdc } = useWallet();
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
 
@@ -308,6 +308,7 @@ export default function DepositPage() {
             if (data.success) {
                 setMintSuccess(true);
                 setTimeout(() => setMintSuccess(false), 3000);
+                refetchUsdc?.();
             } else {
                 console.error('Faucet error:', data.error);
             }

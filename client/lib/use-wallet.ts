@@ -53,7 +53,7 @@ export function useWallet() {
     });
 
     // Get USDC balance
-    const { data: usdcBalance } = useReadContract({
+    const { data: usdcBalance, refetch: refetchUsdc } = useReadContract({
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
@@ -93,6 +93,7 @@ export function useWallet() {
         rawTokenBalance: tokenBalance,
         usdcBalance: formattedUsdcBalance,
         rawUsdcBalance: usdcBalance,
+        refetchUsdc,
         isAdmin,
     };
 }
