@@ -108,10 +108,10 @@ export function DesktopTerminal() {
 
     const fetchHistory = useCallback(async (id: number) => {
         const generatePlaceholder = (price: number) => {
-            const now = new Date();
+            const now = Date.now();
             return Array.from({ length: 50 }).map((_, i) => ({
-                time: new Date(now.getTime() - (49 - i) * 1000).toLocaleTimeString(),
-                price: price
+                time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
+                price: price + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
             }));
         };
 
@@ -128,10 +128,11 @@ export function DesktopTerminal() {
                     if (history.length < 50) {
                         const needed = 50 - history.length;
                         const firstPrice = history[0].price;
+                        const now = Date.now();
                         // We do not worry about exact timestamps for padding, just visual continuity
                         const padding = Array.from({ length: needed }).map((_, i) => ({
                             time: '',
-                            price: firstPrice
+                            price: firstPrice + (Math.sin((now - (49 + needed - i) * 1000) / 800) * 0.5)
                         }));
                         history = [...padding, ...history];
                     }
@@ -258,14 +259,10 @@ export function DesktopTerminal() {
         if (!amount || parseFloat(amount) <= 0) return;
         setIsTradeLoading(true);
 
-        const currentPrice = tradeSide === 'YES' ? market.yesOdds : (100 - market.yesOdds);
-        // Estimate: amount / (price/100)
-        const estShares = parseFloat(amount) / (currentPrice / 100);
-
         try {
             console.log('Starting trade:', { address, marketId: market.id, side: tradeSide, amount });
 
-            // Always use Custodial API
+            // Use the amount directly as maxCost - let backend calculate shares
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const response = await fetch(`${apiUrl}/api/bet`, {
                 method: 'POST',
@@ -274,8 +271,7 @@ export function DesktopTerminal() {
                     walletAddress: address,
                     marketId: market.id,
                     side: tradeSide,
-                    shares: estShares,
-                    amount: parseFloat(amount)
+                    amount: parseFloat(amount) // Send amount as dollars to spend
                 })
             });
 
@@ -287,8 +283,8 @@ export function DesktopTerminal() {
                 setSuccessData({
                     marketId: market.id,
                     side: tradeSide,
-                    shares: data.transaction?.shares || estShares,
-                    cost: amount,
+                    shares: data.transaction?.shares || 0,
+                    cost: data.transaction?.cost || amount,
                     question: market.question,
                     newPrice: data.transaction?.newPrice || (tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds),
                     hash: data.transaction?.hash || '0x'
@@ -344,7 +340,15 @@ export function DesktopTerminal() {
                     setIsSuccessModalOpen(false);
                     fetchData();
                 }}
-                data={successData || {}}
+                data={successData || {
+                    marketId: 0,
+                    side: 'YES',
+                    shares: 0,
+                    cost: '0',
+                    question: '',
+                    newPrice: 0,
+                    hash: ''
+                }}
             />
 
             {/* LEFT COLUMN: Market List (3 cols) */}
@@ -500,9 +504,9 @@ export function DesktopTerminal() {
                 </GlassCard>
 
                 {/* Balance Checker */}
-                <GlassCard className="flex-none p-4">
+                {/* <GlassCard className="flex-none p-4">
                     <BalanceChecker />
-                </GlassCard>
+                </GlassCard> */}
 
                 <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
@@ -565,12 +569,17 @@ export function DesktopTerminal() {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-text-secondary">Est. Shares</span>
                                     <span className="font-mono text-neon-cyan">
-                                        {(parseFloat(amount || '0') / ((tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds) / 100)).toFixed(2)}
+                                        {(() => {
+                                            const amt = parseFloat(amount || '0');
+                                            const price = (tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds) / 100;
+                                            if (amt === 0 || price === 0) return '0';
+                                            return `~${(amt / price).toFixed(0)}`;
+                                        })()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
-                                    <span className="text-text-secondary">Fees</span>
-                                    <span className="font-mono text-white">0.00%</span>
+                                    <span className="text-text-secondary">Max Spend</span>
+                                    <span className="font-mono text-white">${parseFloat(amount || '0').toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>

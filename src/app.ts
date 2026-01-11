@@ -40,20 +40,57 @@ app.use((req, res, next) => {
   next();
 });
 
+// CALCULATE COST ENDPOINT - Preview trade cost
+app.post('/api/calculate-cost', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { marketId, side, shares } = req.body;
+
+    if (marketId === undefined || !side || !shares) {
+      return res.status(400).json({ success: false, error: 'Missing marketId, side, or shares' });
+    }
+
+    const sharesAmount = Math.floor(shares);
+    const isYes = side.toUpperCase() === 'YES';
+
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const marketABI = [
+      'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
+    ];
+
+    const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+    const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 6);
+    const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
+    const costFormatted = ethers.formatUnits(cost, 6);
+
+    return res.json({
+      success: true,
+      cost: costFormatted,
+      shares: sharesAmount
+    });
+  } catch (error: any) {
+    console.error('Calculate cost error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // BET ENDPOINT - CUSTODIAL (Uses buySharesFor on contract)
 app.post('/api/bet', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
-    const { walletAddress, marketId, side, shares, amount } = req.body;
+    const { walletAddress, marketId, side, amount } = req.body;
 
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
-    if (marketId === undefined || !side) {
-      return res.status(400).json({ success: false, error: 'Missing marketId or side' });
+    if (marketId === undefined || !side || !amount) {
+      return res.status(400).json({ success: false, error: 'Missing marketId, side, or amount' });
     }
 
-    const sharesAmount = Math.floor(shares || 100);
+    const maxCost = parseFloat(amount);
     const isYes = side.toUpperCase() === 'YES';
 
     // Server wallet (operator) configuration
@@ -69,7 +106,6 @@ app.post('/api/bet', async (req, res) => {
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
     const marketABI = [
       'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
-      'function buyShares(uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
       'function userBalances(address) view returns (uint256)',
       'function getPrice(uint256 _marketId) view returns (uint256)',
@@ -82,13 +118,35 @@ app.post('/api/bet', async (req, res) => {
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`User ${walletAddress} portfolio balance: $${balanceFormatted}`);
 
-    // Calculate cost
-    const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 6);
-    const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
-    const costFormatted = ethers.formatUnits(cost, 6);
-    console.log(`Trade cost: $${costFormatted} for ${sharesAmount} ${side} shares`);
+    // Binary search to find max shares we can buy with maxCost
+    const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
+    let low = 1;
+    let high = Math.floor(maxCost * 2); // Start with 2x as upper bound
+    let bestShares = 0;
 
-    if (userBalance < cost) {
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
+      const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
+
+      if (cost <= maxCostInUnits) {
+        bestShares = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    if (bestShares === 0) {
+      return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
+    }
+
+    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
+    const actualCost = await market.calculateCost(marketId, isYes, sharesInUnits);
+    const costFormatted = ethers.formatUnits(actualCost, 6);
+    console.log(`Buying ${bestShares} shares for $${costFormatted} (max: $${maxCost})`);
+
+    if (userBalance < actualCost) {
       return res.status(400).json({
         success: false,
         error: `Insufficient portfolio balance. Have: $${balanceFormatted}, Need: $${costFormatted}`
@@ -101,7 +159,7 @@ app.post('/api/bet', async (req, res) => {
       marketId,
       isYes,
       sharesInUnits,
-      cost * BigInt(110) / BigInt(100) // 10% slippage
+      actualCost * BigInt(110) / BigInt(100) // 10% slippage
     );
     const receipt = await tx.wait();
 
@@ -111,7 +169,7 @@ app.post('/api/bet', async (req, res) => {
       success: true,
       transaction: {
         hash: receipt.hash,
-        shares: sharesAmount,
+        shares: bestShares,
         cost: costFormatted
       }
     });
