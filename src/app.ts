@@ -199,11 +199,14 @@ app.post('/api/wallet/link', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
 
-    // Validate address
+    // Validate address format only (no ENS resolution)
     if (!ethers.isAddress(walletAddress)) {
       console.error(`[Wallet Link] Error: Invalid address ${walletAddress}`);
       return res.status(400).json({ success: false, error: 'Invalid wallet address' });
     }
+
+    // Normalize address to checksum format
+    const normalizedAddress = ethers.getAddress(walletAddress);
 
     // Fetch balance from contract directly using connected wallet address
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
@@ -216,8 +219,8 @@ app.post('/api/wallet/link', async (req, res) => {
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
-    console.log(`[Wallet Link] Fetching balance for ${walletAddress}...`);
-    const balanceWei = await market.userBalances(walletAddress);
+    console.log(`[Wallet Link] Fetching balance for ${normalizedAddress}...`);
+    const balanceWei = await market.userBalances(normalizedAddress);
     const balance = ethers.formatUnits(balanceWei, 6); // USDC has 6 decimals
     console.log(`[Wallet Link] Balance: ${balance}`);
 
