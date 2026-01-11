@@ -15,10 +15,11 @@ import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
+import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { BalanceChecker } from "@/components/ui/BalanceChecker";
 import { formatDistanceToNow } from "date-fns";
+import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Contract ABI
 const MARKET_ABI = [
@@ -95,6 +96,7 @@ export function DesktopTerminal() {
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
+    const metadata = market ? getMarketMetadata(market.question, market.id) : null;
 
     useEffect(() => {
         marketRef.current = market;
@@ -123,13 +125,10 @@ export function DesktopTerminal() {
 
                 if (data.success && data.history?.length > 0) {
                     let history = data.history;
-                    // If history is too short (e.g. just created), pad it with the first value
-                    // so we always show a "line" (wave) instead of a single dot.
                     if (history.length < 50) {
                         const needed = 50 - history.length;
                         const firstPrice = history[0].price;
                         const now = Date.now();
-                        // We do not worry about exact timestamps for padding, just visual continuity
                         const padding = Array.from({ length: needed }).map((_, i) => ({
                             time: '',
                             price: firstPrice + (Math.sin((now - (49 + needed - i) * 1000) / 800) * 0.5)
@@ -156,7 +155,6 @@ export function DesktopTerminal() {
             const allMarkets = await web3Service.getMarkets();
             console.log('[DesktopTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
-            // Fetch deposited balance directly from contract (same as Portfolio page)
             try {
                 const depositedBalance = await web3Service.getDepositedBalance(address);
                 setBalance(depositedBalance);
@@ -175,7 +173,7 @@ export function DesktopTerminal() {
         let interval: NodeJS.Timeout;
         if (isConnected) {
             fetchData();
-            interval = setInterval(fetchData, 5000); // Poll slower (5s) for real data, animation handles visual
+            interval = setInterval(fetchData, 5000);
         } else {
             setLoading(false);
         }
@@ -184,18 +182,13 @@ export function DesktopTerminal() {
 
     // --- Animation / Heartbeat Logic ---
     useEffect(() => {
-        // Heartbeat interval to create a "live" wave effect even if price is static
         const interval = setInterval(() => {
             if (!marketRef.current) return;
 
             setPriceHistory(prev => {
                 const now = Date.now();
                 const timeString = new Date(now).toLocaleTimeString();
-
-                // Base price is the real market odds
                 const basePrice = marketRef.current?.yesOdds || 50;
-
-                // Add a gentle sine wave: Amplitude 0.5%, Period ~5 seconds
                 const waveOffset = Math.sin(now / 800) * 0.5;
                 const animatedPrice = basePrice + waveOffset;
 
@@ -204,8 +197,6 @@ export function DesktopTerminal() {
                     price: animatedPrice
                 };
 
-                // Maintain buffer of 50 points
-                // If history is empty, seed it
                 if (prev.length === 0) {
                     return Array(50).fill(null).map((_, i) => ({
                         time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
@@ -213,19 +204,13 @@ export function DesktopTerminal() {
                     }));
                 }
 
-                // Append new point, remove oldest
                 const newHistory = [...prev, newPoint];
                 return newHistory.slice(-50);
             });
-        }, 1000); // 1 update per second for smooth-ish "ticker" look
+        }, 1000);
 
         return () => clearInterval(interval);
-    }, []); // Run continuously, only depending on mount
-
-    // We no longer rely on market.yesOdds dependency to trigger updates directly,
-    // the interval handles it using the ref. 
-    // This allows visual "life" (wave) independently of contract events.
-
+    }, []);
 
     useEffect(() => {
         if (markets.length > 0 && selectedMarketId === 0) {
@@ -248,7 +233,6 @@ export function DesktopTerminal() {
         try {
             console.log('Starting trade:', { address, marketId: market.id, side: tradeSide, amount });
 
-            // Use the amount directly as maxCost - let backend calculate shares
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const response = await fetch(`${apiUrl}/api/bet`, {
                 method: 'POST',
@@ -257,7 +241,7 @@ export function DesktopTerminal() {
                     walletAddress: address,
                     marketId: market.id,
                     side: tradeSide,
-                    amount: parseFloat(amount) // Send amount as dollars to spend
+                    amount: parseFloat(amount)
                 })
             });
 
@@ -276,7 +260,7 @@ export function DesktopTerminal() {
                     hash: data.transaction?.hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
-                fetchData(); // Refresh data
+                fetchData();
             } else {
                 console.error("Trade API error:", data.error);
                 alert(`Trade failed: ${data.error}`);
@@ -316,7 +300,7 @@ export function DesktopTerminal() {
             price: chartView === 'YES' ? point.price : (100 - point.price)
         }));
 
-    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63"; // Neon Green : Neon Coral
+    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
     return (
         <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
@@ -386,18 +370,43 @@ export function DesktopTerminal() {
                 {/* Header Info */}
                 <GlassCard className="p-6 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Activity size={100} />
+                        {metadata ? (
+                            <img
+                                src={metadata.image}
+                                alt="market"
+                                className="w-[300px] h-[300px] object-cover rounded-full blur-[60px] opacity-100"
+                            />
+                        ) : (
+                            <Activity size={100} />
+                        )}
                     </div>
+                    {/* Background Image for premium feel */}
+                    {metadata && (
+                        <div className="absolute top-0 right-0 h-full w-2/3 opacity-20 mask-image-linear-to-l pointer-events-none mix-blend-screen">
+                            <img
+                                src={metadata.image}
+                                alt=""
+                                className="h-full w-full object-cover object-center"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-l from-transparent to-surface" />
+                        </div>
+                    )}
+
                     <div className="relative z-10">
                         <div className="flex gap-2 mb-2">
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-6 max-w-2xl">
+                        <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">
                             {market.question}
                         </h1>
+                        {metadata && (
+                            <p className="text-white/60 text-sm max-w-xl mb-6 leading-relaxed bg-black/20 p-2 rounded-lg backdrop-blur-sm border border-white/5">
+                                {metadata.description}
+                            </p>
+                        )}
 
-                        <div className="flex gap-8 items-end">
+                        <div className="flex gap-8 items-end mt-4">
                             <div>
                                 <div className="text-sm text-text-secondary uppercase tracking-widest mb-1">Probability</div>
                                 <div className={`text-6xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
@@ -488,11 +497,6 @@ export function DesktopTerminal() {
                         <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/terminal/deposit'}>DEPOSIT</NeonButton>
                     </div>
                 </GlassCard>
-
-                {/* Balance Checker */}
-                {/* <GlassCard className="flex-none p-4">
-                    <BalanceChecker />
-                </GlassCard> */}
 
                 <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
