@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, BarChart2, Search, Wallet, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, BarChart2, Search, Wallet, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { useUIStore } from "@/lib/store";
 import { useEIP6963 } from "@/lib/useEIP6963";
@@ -13,6 +13,7 @@ import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 
 export default function BottomNav() {
     const pathname = usePathname();
+    const router = useRouter();
     const { isTradeModalOpen } = useUIStore();
     const {
         wallets,
@@ -25,6 +26,28 @@ export default function BottomNav() {
         isMobile,
     } = useEIP6963();
     const [showWalletModal, setShowWalletModal] = useState(false);
+
+    // Custodial session detection
+    const [isCustodial, setIsCustodial] = useState(false);
+    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
+
+    useEffect(() => {
+        const sessionToken = localStorage.getItem('session_token');
+        const cachedAddress = localStorage.getItem('cached_wallet_address');
+        setIsCustodial(!!sessionToken);
+        setCustodialAddress(cachedAddress);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('cached_wallet_address');
+        if (walletState.isConnected) {
+            disconnect();
+        }
+        router.push('/login');
+    };
+
+    const isLoggedIn = walletState.isConnected || isCustodial;
 
     if (isTradeModalOpen) return null;
 
@@ -75,18 +98,27 @@ export default function BottomNav() {
                     })}
 
                     {/* Wallet Button */}
-                    {walletState.isConnected ? (
+                    {isLoggedIn ? (
                         <div className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative">
                             <button
-                                onClick={disconnect}
+                                onClick={handleLogout}
                                 className="flex flex-col items-center gap-1"
                             >
                                 <div className="relative">
-                                    <Wallet className="w-6 h-6 text-primary" />
+                                    {walletState.isConnected ? (
+                                        <Wallet className="w-6 h-6 text-primary" />
+                                    ) : (
+                                        <User className="w-6 h-6 text-primary" />
+                                    )}
                                     <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
                                 </div>
                                 <span className="text-primary text-[10px] font-mono">
-                                    {walletState.address?.slice(0, 4)}...{walletState.address?.slice(-3)}
+                                    {walletState.isConnected
+                                        ? `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-3)}`
+                                        : custodialAddress
+                                            ? `${custodialAddress.slice(0, 4)}...${custodialAddress.slice(-3)}`
+                                            : 'Logout'
+                                    }
                                 </span>
                             </button>
                         </div>

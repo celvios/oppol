@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useEIP6963 } from "@/lib/useEIP6963";
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -23,6 +23,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const { isAdmin, isConnected } = useWallet();
     const {
         wallets,
@@ -35,6 +36,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         isMobile,
     } = useEIP6963();
     const [showWalletModal, setShowWalletModal] = useState(false);
+
+    // Custodial session detection
+    const [isCustodial, setIsCustodial] = useState(false);
+    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
+
+    useEffect(() => {
+        const sessionToken = localStorage.getItem('session_token');
+        const cachedAddress = localStorage.getItem('cached_wallet_address');
+        setIsCustodial(!!sessionToken);
+        setCustodialAddress(cachedAddress);
+    }, []);
+
+    const handleLogout = () => {
+        // Clear all session data
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('cached_wallet_address');
+        // Also disconnect EIP-6963 wallet if connected
+        if (walletState.isConnected) {
+            disconnect();
+        }
+        // Redirect to login
+        router.push('/login');
+    };
+
+    // Either connected via EIP-6963 or via custodial session
+    const isLoggedIn = walletState.isConnected || isCustodial;
 
     return (
         <>
@@ -92,8 +119,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         );
                     })}
 
-                    {/* Wallet Menu Item */}
-                    {walletState.isConnected ? (
+                    {/* Wallet/Account Menu Item */}
+                    {isLoggedIn ? (
                         <div
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary border border-primary/20",
@@ -101,20 +128,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             )}
                         >
                             <div className="relative">
-                                <Wallet className="w-5 h-5" />
+                                {walletState.isConnected ? (
+                                    <Wallet className="w-5 h-5" />
+                                ) : (
+                                    <User className="w-5 h-5" />
+                                )}
                                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
                             </div>
                             {!collapsed && (
                                 <>
                                     <div className="flex-1">
                                         <span className="font-mono text-xs">
-                                            {walletState.address?.slice(0, 6)}...{walletState.address?.slice(-4)}
+                                            {walletState.isConnected
+                                                ? `${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`
+                                                : custodialAddress
+                                                    ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
+                                                    : 'Logged In'
+                                            }
                                         </span>
                                     </div>
                                     <button
-                                        onClick={disconnect}
+                                        onClick={handleLogout}
                                         className="p-1 hover:bg-red-500/20 rounded-lg transition-colors group"
-                                        title="Disconnect"
+                                        title="Logout"
                                     >
                                         <LogOut size={14} className="text-white/40 group-hover:text-red-400" />
                                     </button>
@@ -122,9 +158,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             )}
                             {collapsed && (
                                 <button
-                                    onClick={disconnect}
+                                    onClick={handleLogout}
                                     className="absolute inset-0"
-                                    title="Disconnect"
+                                    title="Logout"
                                 />
                             )}
                         </div>
