@@ -81,16 +81,25 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
 
     if (minimal) {
         return (
-            <button
-                onClick={copyAddress}
-                className="w-full flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 hover:border-white/20 border border-transparent rounded-lg transition-all"
-                title={copied ? 'Copied!' : walletState.address || ''}
-            >
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
-                <span className="font-mono text-xs text-white">
-                    {copied ? 'Copied!' : `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-4)}`}
-                </span>
-            </button>
+            <div className="w-full flex items-center gap-2">
+                <button
+                    onClick={copyAddress}
+                    className="flex-1 flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 hover:border-white/20 border border-transparent rounded-lg transition-all"
+                    title={copied ? 'Copied!' : walletState.address || ''}
+                >
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
+                    <span className="font-mono text-xs text-white">
+                        {copied ? 'Copied!' : `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-4)}`}
+                    </span>
+                </button>
+                <button
+                    onClick={disconnect}
+                    className="p-2 text-white/40 hover:text-red-400 transition-colors"
+                    title="Disconnect"
+                >
+                    <LogOut size={16} />
+                </button>
+            </div>
         );
     }
 
