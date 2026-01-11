@@ -90,6 +90,8 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing marketId, side, or amount' });
     }
 
+    // Normalize address to prevent ENS resolution
+    const normalizedAddress = ethers.getAddress(walletAddress);
     const maxCost = parseFloat(amount);
     const isYes = side.toUpperCase() === 'YES';
 
@@ -114,9 +116,9 @@ app.post('/api/bet', async (req, res) => {
     const market = new ethers.Contract(MARKET_ADDR, marketABI, signer);
 
     // Check user's portfolio balance
-    const userBalance = await market.userBalances(walletAddress);
+    const userBalance = await market.userBalances(normalizedAddress);
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
-    console.log(`User ${walletAddress} portfolio balance: $${balanceFormatted}`);
+    console.log(`User ${normalizedAddress} portfolio balance: $${balanceFormatted}`);
 
     // Binary search to find max shares we can buy with maxCost
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
@@ -155,7 +157,7 @@ app.post('/api/bet', async (req, res) => {
 
     // Execute buySharesFor
     const tx = await market.buySharesFor(
-      walletAddress,
+      normalizedAddress,
       marketId,
       isYes,
       sharesInUnits,
