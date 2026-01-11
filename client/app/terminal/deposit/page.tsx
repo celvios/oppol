@@ -4,6 +4,8 @@ import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "l
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
+import { useEIP6963 } from "@/lib/useEIP6963";
+import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { getContracts } from "@/lib/contracts";
@@ -70,6 +72,24 @@ export default function DepositPage() {
     const { isConnected, address, usdcBalance, bnbBalance } = useWallet();
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
+
+    // EIP-6963 Wallet Discovery
+    const {
+        wallets,
+        walletState,
+        isConnecting,
+        error: walletError,
+        connect,
+        connectMetaMaskSDK,
+        disconnect,
+        switchToBSCTestnet,
+        isMobile,
+    } = useEIP6963();
+    const [showWalletModal, setShowWalletModal] = useState(false);
+
+    // Determine if user is connected via EIP-6963 or Wagmi
+    const effectiveAddress = walletState.address || address;
+    const effectiveConnected = walletState.isConnected || isConnected;
 
     // Optimistic: Default to false if we have a cache or if we are connected
     const [loading, setLoading] = useState(() => {
@@ -297,17 +317,30 @@ export default function DepositPage() {
                 <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>
             </div>
 
-            {/* WalletConnect User - Only show if NOT custodial */}
-            {isConnected && !isCustodial ? (
+            {/* WalletConnect User - Show if connected via EIP-6963 or Wagmi, and NOT custodial */}
+            {effectiveConnected && !isCustodial ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Wallet className="w-5 h-5 text-primary" />
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                <Wallet className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">Direct Deposit</h2>
+                                <p className="text-sm text-white/50">
+                                    {effectiveAddress?.slice(0, 8)}...{effectiveAddress?.slice(-6)}
+                                    {walletState.walletName && <span className="ml-2 text-xs text-primary">({walletState.walletName})</span>}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white">Direct Deposit</h2>
-                            <p className="text-sm text-white/50">{address?.slice(0, 8)}...{address?.slice(-6)}</p>
-                        </div>
+                        {walletState.isConnected && (
+                            <button
+                                onClick={disconnect}
+                                className="text-xs text-white/40 hover:text-white/70 transition-colors"
+                            >
+                                Disconnect
+                            </button>
+                        )}
                     </div>
 
                     {step === 'input' ? (
@@ -424,7 +457,7 @@ export default function DepositPage() {
                         </div>
                     )}
                 </div>
-            ) : (
+            ) : isCustodial ? (
                 /* Custodial View */
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center">
                     <h2 className="text-lg font-bold text-white mb-4">Scan to Deposit</h2>
@@ -442,7 +475,42 @@ export default function DepositPage() {
                         <br />It will be automatically converted to USDC.
                     </p>
                 </div>
+            ) : (
+                /* Connect Wallet Section for non-connected, non-custodial users */
+                <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+                        <Wallet className="w-8 h-8 text-primary" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">Connect Your Wallet</h2>
+                    <p className="text-white/50 mb-6">
+                        Connect MetaMask or Trust Wallet to deposit funds
+                    </p>
+                    <button
+                        onClick={() => setShowWalletModal(true)}
+                        className="px-8 py-4 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
+                    >
+                        Connect Wallet
+                    </button>
+                </div>
             )}
+
+            {/* Wallet Selector Modal */}
+            <WalletSelectorModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+                wallets={wallets}
+                onSelectWallet={async (wallet) => {
+                    await connect(wallet);
+                    setShowWalletModal(false);
+                }}
+                onConnectMetaMaskSDK={async () => {
+                    await connectMetaMaskSDK();
+                    setShowWalletModal(false);
+                }}
+                isConnecting={isConnecting}
+                error={walletError}
+                isMobile={isMobile}
+            />
         </div>
     );
 }
