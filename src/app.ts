@@ -7,6 +7,7 @@ import { startDepositWatcher, watchAddress, setDepositCallback } from './service
 import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 import { query } from './config/database';
+import { validateAddress } from './utils/addressValidator';
 
 dotenv.config();
 
@@ -96,16 +97,8 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing marketId, side, or amount' });
     }
 
-    // Validate address format
-    if (!ethers.isAddress(walletAddress)) {
-      return res.status(400).json({ success: false, error: 'Invalid wallet address format' });
-    }
-
-    console.log('🔍 [BET DEBUG] Before getAddress normalization');
-    console.log('🔍 [BET DEBUG] Before getAddress normalization');
-    // Normalize address to prevent ENS resolution
-    const normalizedAddress = ethers.getAddress(walletAddress);
-    console.log('🔍 [BET DEBUG] Normalized address:', normalizedAddress);
+    // Validate and normalize address
+    const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
     console.log('🔍 [BET DEBUG] Normalized address:', normalizedAddress);
     
     const maxCost = parseFloat(amount);
@@ -232,13 +225,7 @@ app.post('/api/wallet/link', async (req, res) => {
     }
 
     // Validate address format only (no ENS resolution)
-    if (!ethers.isAddress(walletAddress)) {
-      console.error(`[Wallet Link] Error: Invalid address format ${walletAddress}`);
-      return res.status(400).json({ success: false, error: 'Invalid wallet address format. ENS names not supported on BSC.' });
-    }
-
-    // Normalize address to checksum format
-    const normalizedAddress = ethers.getAddress(walletAddress);
+    const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
 
     // Fetch balance from contract directly using connected wallet address
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
