@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Smartphone, Loader2 } from 'lucide-react';
 import { DetectedWallet } from '@/lib/useEIP6963';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 
 interface WalletSelectorModalProps {
     isOpen: boolean;
@@ -25,6 +26,8 @@ export function WalletSelectorModal({
     error,
     isMobile,
 }: WalletSelectorModalProps) {
+    const { open } = useWeb3Modal();
+
     if (!isOpen) return null;
 
     return (
@@ -111,25 +114,28 @@ export function WalletSelectorModal({
                                 </button>
                             ))}
 
-                            {/* No wallets detected */}
-                            {wallets.length === 0 && !isMobile && (
-                                <div className="text-center py-8">
-                                    <p className="text-white/50 mb-4">No wallets detected</p>
-                                    <a
-                                        href="https://metamask.io/download/"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#f6851b] text-white font-bold rounded-lg hover:bg-[#e2761b] transition-colors"
-                                    >
-                                        <span>🦊</span> Install MetaMask
-                                    </a>
+                            {/* Reown / WalletConnect Button */}
+                            <button
+                                onClick={() => {
+                                    open();
+                                    onClose();
+                                }}
+                                disabled={isConnecting}
+                                className="w-full flex items-center gap-4 p-4 bg-[#3B99FC]/10 hover:bg-[#3B99FC]/20 border border-[#3B99FC]/30 rounded-xl transition-all disabled:opacity-50"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-[#3B99FC] flex items-center justify-center">
+                                    <span className="text-xl">📡</span>
                                 </div>
-                            )}
+                                <div className="flex-1 text-left">
+                                    <p className="font-bold text-white">WalletConnect</p>
+                                    <p className="text-xs text-white/50">Reown / Other Wallets</p>
+                                </div>
+                            </button>
 
-                            {/* Mobile: No wallets but show MetaMask SDK */}
+                            {/* Mobile: No wallets but show MetaMask SDK (only if SDK not already shown above logic) */}
                             {wallets.length === 0 && isMobile && !isConnecting && (
                                 <p className="text-center text-white/40 text-sm py-2">
-                                    Tap above to open MetaMask
+                                    Or use WalletConnect above
                                 </p>
                             )}
                         </div>
