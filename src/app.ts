@@ -83,6 +83,12 @@ app.post('/api/bet', async (req, res) => {
     const { ethers } = await import('ethers');
     const { walletAddress, marketId, side, amount } = req.body;
 
+    console.log('🔍 [BET DEBUG] Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🔍 [BET DEBUG] walletAddress type:', typeof walletAddress);
+    console.log('🔍 [BET DEBUG] walletAddress value:', walletAddress);
+    console.log('🔍 [BET DEBUG] Contains .eth:', walletAddress?.includes?.('.eth'));
+    console.log('🔍 [BET DEBUG] Is valid hex:', /^0x[a-fA-F0-9]{40}$/.test(walletAddress));
+
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
@@ -95,8 +101,13 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid wallet address format' });
     }
 
+    console.log('🔍 [BET DEBUG] Before getAddress normalization');
+    console.log('🔍 [BET DEBUG] Before getAddress normalization');
     // Normalize address to prevent ENS resolution
     const normalizedAddress = ethers.getAddress(walletAddress);
+    console.log('🔍 [BET DEBUG] Normalized address:', normalizedAddress);
+    console.log('🔍 [BET DEBUG] Normalized address:', normalizedAddress);
+    
     const maxCost = parseFloat(amount);
     const isYes = side.toUpperCase() === 'YES';
 
@@ -107,8 +118,10 @@ app.post('/api/bet', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
+    console.log('🔍 [BET DEBUG] Creating provider with staticNetwork');
     const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true });
     const signer = new ethers.Wallet(privateKey, provider);
+    console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
     const marketABI = [
@@ -120,6 +133,7 @@ app.post('/api/bet', async (req, res) => {
 
     const market = new ethers.Contract(MARKET_ADDR, marketABI, signer);
 
+    console.log('🔍 [BET DEBUG] Calling userBalances with:', normalizedAddress);
     // Check user's portfolio balance
     const userBalance = await market.userBalances(normalizedAddress);
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
@@ -160,6 +174,13 @@ app.post('/api/bet', async (req, res) => {
       });
     }
 
+    console.log('🔍 [BET DEBUG] Calling buySharesFor with args:', {
+      user: normalizedAddress,
+      marketId,
+      isYes,
+      shares: sharesInUnits.toString(),
+      maxCost: (actualCost * BigInt(110) / BigInt(100)).toString()
+    });
     // Execute buySharesFor
     const tx = await market.buySharesFor(
       normalizedAddress,
@@ -182,7 +203,11 @@ app.post('/api/bet', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Bet error:', error);
+    console.error('❌ [BET ERROR] Full error:', error);
+    console.error('❌ [BET ERROR] Error message:', error.message);
+    console.error('❌ [BET ERROR] Error code:', error.code);
+    console.error('❌ [BET ERROR] Error operation:', error.operation);
+    console.error('❌ [BET ERROR] Error stack:', error.stack);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
