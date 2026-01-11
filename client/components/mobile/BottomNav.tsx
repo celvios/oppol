@@ -6,6 +6,7 @@ import { Home, BarChart2, Search, Wallet, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState, useEffect } from "react";
+import { useDisconnect } from "wagmi";
 
 import { useUIStore } from "@/lib/store";
 import { useEIP6963 } from "@/lib/useEIP6963";
@@ -17,6 +18,7 @@ export default function BottomNav() {
     const router = useRouter();
     const { isTradeModalOpen } = useUIStore();
     const { isConnected, address: wagmiAddress } = useWallet();
+    const { disconnect: wagmiDisconnect } = useDisconnect();
     const {
         wallets,
         walletState,
@@ -41,12 +43,22 @@ export default function BottomNav() {
     }, []);
 
     const handleLogout = () => {
+        // Clear all session data
         localStorage.removeItem('session_token');
         localStorage.removeItem('cached_wallet_address');
+        localStorage.removeItem('connected_wallet_uuid');
+        localStorage.removeItem('connected_wallet_name');
+
+        // Disconnect Wagmi/Reown
+        wagmiDisconnect();
+
+        // Disconnect EIP-6963 wallet if connected
         if (walletState.isConnected) {
             disconnect();
         }
-        router.push('/login');
+
+        // Redirect to homepage
+        router.push('/');
     };
 
     // Wagmi, EIP-6963, or custodial

@@ -8,6 +8,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { useEIP6963 } from "@/lib/useEIP6963";
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { useState, useEffect } from "react";
+import { useDisconnect } from "wagmi";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -25,6 +26,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { isAdmin, isConnected, address: wagmiAddress } = useWallet();
+    const { disconnect: wagmiDisconnect } = useDisconnect();
     const {
         wallets,
         walletState,
@@ -52,12 +54,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         // Clear all session data
         localStorage.removeItem('session_token');
         localStorage.removeItem('cached_wallet_address');
-        // Also disconnect EIP-6963 wallet if connected
+        localStorage.removeItem('connected_wallet_uuid');
+        localStorage.removeItem('connected_wallet_name');
+
+        // Disconnect Wagmi/Reown
+        wagmiDisconnect();
+
+        // Disconnect EIP-6963 wallet if connected
         if (walletState.isConnected) {
             disconnect();
         }
-        // Redirect to login
-        router.push('/login');
+
+        // Redirect to homepage
+        router.push('/');
     };
 
     // Either connected via Wagmi, EIP-6963, or custodial session
