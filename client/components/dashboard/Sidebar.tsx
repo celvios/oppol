@@ -24,7 +24,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isAdmin, isConnected } = useWallet();
+    const { isAdmin, isConnected, address: wagmiAddress } = useWallet();
     const {
         wallets,
         walletState,
@@ -60,8 +60,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         router.push('/login');
     };
 
-    // Either connected via EIP-6963 or via custodial session
-    const isLoggedIn = walletState.isConnected || isCustodial;
+    // Either connected via Wagmi, EIP-6963, or custodial session
+    const isLoggedIn = isConnected || walletState.isConnected || isCustodial;
 
     return (
         <>
@@ -128,7 +128,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             )}
                         >
                             <div className="relative">
-                                {walletState.isConnected ? (
+                                {(isConnected || walletState.isConnected) ? (
                                     <Wallet className="w-5 h-5" />
                                 ) : (
                                     <User className="w-5 h-5" />
@@ -139,11 +139,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 <>
                                     <div className="flex-1">
                                         <span className="font-mono text-xs">
-                                            {walletState.isConnected
-                                                ? `${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`
-                                                : custodialAddress
-                                                    ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
-                                                    : 'Logged In'
+                                            {isConnected && wagmiAddress
+                                                ? `${wagmiAddress.slice(0, 6)}...${wagmiAddress.slice(-4)}`
+                                                : walletState.isConnected
+                                                    ? `${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`
+                                                    : custodialAddress
+                                                        ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
+                                                        : 'Logged In'
                                             }
                                         </span>
                                     </div>

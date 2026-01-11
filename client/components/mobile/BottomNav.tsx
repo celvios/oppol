@@ -9,12 +9,14 @@ import { useState, useEffect } from "react";
 
 import { useUIStore } from "@/lib/store";
 import { useEIP6963 } from "@/lib/useEIP6963";
+import { useWallet } from "@/lib/use-wallet";
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen } = useUIStore();
+    const { isConnected, address: wagmiAddress } = useWallet();
     const {
         wallets,
         walletState,
@@ -47,7 +49,8 @@ export default function BottomNav() {
         router.push('/login');
     };
 
-    const isLoggedIn = walletState.isConnected || isCustodial;
+    // Wagmi, EIP-6963, or custodial
+    const isLoggedIn = isConnected || walletState.isConnected || isCustodial;
 
     if (isTradeModalOpen) return null;
 
@@ -105,7 +108,7 @@ export default function BottomNav() {
                                 className="flex flex-col items-center gap-1"
                             >
                                 <div className="relative">
-                                    {walletState.isConnected ? (
+                                    {(isConnected || walletState.isConnected) ? (
                                         <Wallet className="w-6 h-6 text-primary" />
                                     ) : (
                                         <User className="w-6 h-6 text-primary" />
@@ -113,11 +116,13 @@ export default function BottomNav() {
                                     <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
                                 </div>
                                 <span className="text-primary text-[10px] font-mono">
-                                    {walletState.isConnected
-                                        ? `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-3)}`
-                                        : custodialAddress
-                                            ? `${custodialAddress.slice(0, 4)}...${custodialAddress.slice(-3)}`
-                                            : 'Logout'
+                                    {isConnected && wagmiAddress
+                                        ? `${wagmiAddress.slice(0, 4)}...${wagmiAddress.slice(-3)}`
+                                        : walletState.isConnected
+                                            ? `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-3)}`
+                                            : custodialAddress
+                                                ? `${custodialAddress.slice(0, 4)}...${custodialAddress.slice(-3)}`
+                                                : 'Logout'
                                     }
                                 </span>
                             </button>
