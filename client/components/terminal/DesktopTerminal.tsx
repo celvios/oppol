@@ -156,27 +156,13 @@ export function DesktopTerminal() {
             const allMarkets = await web3Service.getMarkets();
             console.log('[DesktopTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
-            // If checking balance logic...
+            // Fetch deposited balance directly from contract (same as Portfolio page)
             try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                if (apiUrl) {
-                    const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ walletAddress: address })
-                    });
-                    const linkData = await linkResponse.json();
-                    if (linkData.success) {
-                        // Use the balance returned by the API (which is fresh from contract)
-                        setBalance(linkData.balance);
-                    }
-                } else {
-                    const depositedBalance = await web3Service.getDepositedBalance(address);
-                    setBalance(depositedBalance);
-                }
-            } catch (e) {
                 const depositedBalance = await web3Service.getDepositedBalance(address);
                 setBalance(depositedBalance);
+            } catch (e) {
+                console.error('[DesktopTerminal] Balance fetch error:', e);
+                setBalance('0');
             }
         } catch (error) {
             console.error('[DesktopTerminal] Error in fetchData:', error);
