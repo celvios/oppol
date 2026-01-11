@@ -9,10 +9,12 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AlertModal } from "@/components/ui/AlertModal";
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useEIP6963 } from "@/lib/useEIP6963"; // Add import
+import { useRouter } from "next/navigation"; // Add import
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
@@ -61,16 +63,20 @@ interface TradeSuccessData {
     marketId: number;
     side: 'YES' | 'NO';
     shares: number;
-    cost: number;
+    cost: string;
     question: string;
+    newPrice: number;
+    hash: string;
 }
 
 import { useSearchParams } from "next/navigation"; // Add import
 
 export function MobileTerminal() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false); // New state
     // Initialize with 0 to prevent hydration mismatch, update in effect
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
 
@@ -105,6 +111,19 @@ export function MobileTerminal() {
     const { isConnected, address } = useWallet();
     const { open } = useWeb3Modal();
     const { setTradeModalOpen } = useUIStore();
+    const { disconnect: wagmiDisconnect } = useDisconnect();
+    const { disconnect: eipDisconnect, walletState } = useEIP6963();
+
+    const handleLogout = () => {
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('cached_wallet_address');
+        localStorage.removeItem('connected_wallet_uuid');
+        localStorage.removeItem('connected_wallet_name');
+        wagmiDisconnect();
+        if (walletState.isConnected) eipDisconnect();
+        router.push('/');
+        setIsHeaderMenuOpen(false);
+    };
 
     // Toggle Menu Visibility based on Trade Sheet
     useEffect(() => {
@@ -225,14 +244,41 @@ export function MobileTerminal() {
 
             {/* 1. Header */}
             <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
-                <div
-                    onClick={copyAddress}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors cursor-pointer"
-                >
-                    <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-                    <span className="text-xs font-mono font-bold text-white tracking-widest">
-                        {copied ? 'COPIED!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
-                    </span>
+                <div className="relative">
+                    <div
+                        onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors cursor-pointer"
+                    >
+                        <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
+                        <span className="text-xs font-mono font-bold text-white tracking-widest">
+                            {copied ? 'COPIED!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
+                        </span>
+                    </div>
+
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                        {isHeaderMenuOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className="absolute top-full left-0 mt-2 min-w-[160px] bg-surface border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 backdrop-blur-xl"
+                            >
+                                <button
+                                    onClick={() => { copyAddress(); setIsHeaderMenuOpen(false); }}
+                                    className="w-full text-left px-4 py-3 text-xs font-mono text-white hover:bg-white/5 transition-colors border-b border-white/5"
+                                >
+                                    Copy Address
+                                </button>
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full text-left px-4 py-3 text-xs font-mono text-neon-coral hover:bg-neon-coral/10 transition-colors font-bold"
+                                >
+                                    Disconnect
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 <div className="text-right">
@@ -396,21 +442,24 @@ export function MobileTerminal() {
                 <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 px-2">Live Feeds</h3>
                 <div className="space-y-3">
                     {markets.filter(m => m.id !== market.id).map(m => (
-                        <GlassCard
+                        <div
                             key={m.id}
-                            className="p-4 active:scale-[0.98] transition-all duration-200"
                             onClick={() => {
                                 setSelectedMarketId(m.id);
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                         >
-                            <div className="flex justify-between items-start">
-                                <h4 className="text-sm font-medium text-white line-clamp-2 w-3/4 leading-snug">{m.question}</h4>
-                                <span className={`font-mono text-sm font-bold ${m.yesOdds >= 50 ? 'text-neon-green' : 'text-neon-coral'}`}>
-                                    {m.yesOdds.toFixed(0)}%
-                                </span>
-                            </div>
-                        </GlassCard>
+                            <GlassCard
+                                className="p-4 active:scale-[0.98] transition-all duration-200"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <h4 className="text-sm font-medium text-white line-clamp-2 w-3/4 leading-snug">{m.question}</h4>
+                                    <span className={`font-mono text-sm font-bold ${m.yesOdds >= 50 ? 'text-neon-green' : 'text-neon-coral'}`}>
+                                        {m.yesOdds.toFixed(0)}%
+                                    </span>
+                                </div>
+                            </GlassCard>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -471,8 +520,10 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                         marketId: market.id,
                         side,
                         shares: data.transaction?.shares || estShares,
-                        cost: parseFloat(amount),
-                        question: market.question
+                        cost: amount,
+                        question: market.question,
+                        newPrice: currentPrice, // Placeholder
+                        hash: '0x' // Placeholder
                     });
                     setIsSuccessModalOpen(true);
                 }
@@ -489,8 +540,10 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     marketId: market.id,
                     side,
                     shares: estShares,
-                    cost: parseFloat(amount),
-                    question: market.question
+                    cost: amount,
+                    question: market.question,
+                    newPrice: currentPrice, // Placeholder
+                    hash: hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
             }
@@ -513,7 +566,15 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     onClose();
                     onTradeSuccess();
                 }}
-                data={successData || {}} // Fixed: Now types match or fallback empty object handles it if modal supports partial, but successData is typed
+                data={successData || {
+                    marketId: 0,
+                    side: 'YES',
+                    shares: 0,
+                    cost: '0',
+                    question: '',
+                    newPrice: 0,
+                    hash: ''
+                }}
             />
 
             <motion.div

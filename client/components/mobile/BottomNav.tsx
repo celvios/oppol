@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, BarChart2, Search, Wallet, User } from "lucide-react";
+import { Home, BarChart2, Search, Wallet, User, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState, useEffect } from "react";
@@ -17,7 +17,7 @@ export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen } = useUIStore();
-    const { isConnected, address: wagmiAddress } = useWallet();
+    const { isConnected, address } = useWallet();
     const { disconnect: wagmiDisconnect } = useDisconnect();
     const {
         wallets,
@@ -30,17 +30,6 @@ export default function BottomNav() {
         isMobile,
     } = useEIP6963();
     const [showWalletModal, setShowWalletModal] = useState(false);
-
-    // Custodial session detection
-    const [isCustodial, setIsCustodial] = useState(false);
-    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
-
-    useEffect(() => {
-        const sessionToken = localStorage.getItem('session_token');
-        const cachedAddress = localStorage.getItem('cached_wallet_address');
-        setIsCustodial(!!sessionToken);
-        setCustodialAddress(cachedAddress);
-    }, []);
 
     const handleLogout = () => {
         // Clear all session data
@@ -61,15 +50,16 @@ export default function BottomNav() {
         router.push('/');
     };
 
-    // Wagmi, EIP-6963, or custodial
-    const isLoggedIn = isConnected || walletState.isConnected || isCustodial;
+    // Wagmi (includes custodial via useWallet) or EIP-6963
+    const isLoggedIn = isConnected || walletState.isConnected;
 
     if (isTradeModalOpen) return null;
 
     const navItems = [
         { name: "Terminal", icon: Home, href: "/terminal" },
+        { name: "Markets", icon: LayoutGrid, href: "/markets" },
+        { name: "Search", icon: Search, href: "/search" },
         { name: "Portfolio", icon: BarChart2, href: "/terminal/portfolio" },
-        { name: "Deposit", icon: Search, href: "/terminal/deposit" },
     ];
 
     return (
@@ -128,13 +118,11 @@ export default function BottomNav() {
                                     <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
                                 </div>
                                 <span className="text-primary text-[10px] font-mono">
-                                    {isConnected && wagmiAddress
-                                        ? `${wagmiAddress.slice(0, 4)}...${wagmiAddress.slice(-3)}`
+                                    {isConnected && address
+                                        ? `${address.slice(0, 4)}...${address.slice(-3)}`
                                         : walletState.isConnected
                                             ? `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-3)}`
-                                            : custodialAddress
-                                                ? `${custodialAddress.slice(0, 4)}...${custodialAddress.slice(-3)}`
-                                                : 'Logout'
+                                            : 'Logout'
                                     }
                                 </span>
                             </button>
