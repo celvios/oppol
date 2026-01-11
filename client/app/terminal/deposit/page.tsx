@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Wallet, ArrowRight, CheckCircle, AlertCircle, ChevronDown, RefreshCcw, ArrowDown } from "lucide-react";
+import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
@@ -8,7 +8,6 @@ import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { getContracts } from "@/lib/contracts";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { motion, AnimatePresence } from "framer-motion";
 
 // Get contract addresses
 const contracts = getContracts() as any;
@@ -68,7 +67,7 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, usdcBalance, bnbBalance, refetchUsdc } = useWallet();
+    const { isConnected, address, usdcBalance, bnbBalance } = useWallet();
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
 
@@ -87,17 +86,6 @@ export default function DepositPage() {
     const [selectedToken, setSelectedToken] = useState(TOKENS[0]); // Default USDC
     const [showTokenList, setShowTokenList] = useState(false);
     const [step, setStep] = useState<'input' | 'approving' | 'swapping' | 'depositing' | 'complete'>('input');
-
-    // Faucet State
-    const [isMinting, setIsMinting] = useState(false);
-    const [mintSuccess, setMintSuccess] = useState(false);
-    const [showMintModal, setShowMintModal] = useState(false);
-    const [targetMintAddress, setTargetMintAddress] = useState('');
-
-    // Pre-fill target address when wallet connects
-    useEffect(() => {
-        if (address) setTargetMintAddress(address);
-    }, [address]);
 
     // Helper to get balance for selected token
     const getBalance = () => {
@@ -290,36 +278,6 @@ export default function DepositPage() {
         }
     };
 
-    const handleMintUSDC = async (target?: string) => {
-        const recipient = target || address;
-        if (!recipient) return;
-
-        setIsMinting(true);
-        setMintSuccess(false);
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/faucet`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: recipient })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                setMintSuccess(true);
-                setTimeout(() => setMintSuccess(false), 3000);
-                refetchUsdc?.();
-            } else {
-                console.error('Faucet error:', data.error);
-            }
-            setShowMintModal(false);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setIsMinting(false);
-        }
-    };
-
     // If we are NOT loading, OR if we are Connected, show the UI.
     // This allows connected users to skip the loader entirely.
     if (loading && !isConnected) return <SkeletonLoader />;
@@ -342,20 +300,6 @@ export default function DepositPage() {
                             <h2 className="text-lg font-bold text-white">Direct Deposit</h2>
                             <p className="text-sm text-white/50">{address?.slice(0, 8)}...{address?.slice(-6)}</p>
                         </div>
-                    </div>
-
-                    {/* Faucet */}
-                    <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between">
-                        <div>
-                            <h3 className="text-amber-400 font-bold text-sm">🚰 Testnet Faucet</h3>
-                            <p className="text-white/50 text-xs">Mint 10,000 test USDC</p>
-                        </div>
-                        <button
-                            onClick={() => setShowMintModal(true)}
-                            className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg text-sm hover:bg-amber-600 transition-colors"
-                        >
-                            Open Faucet
-                        </button>
                     </div>
 
                     {step === 'input' ? (
@@ -491,72 +435,6 @@ export default function DepositPage() {
                     </p>
                 </div>
             )}
-            {/* Mint Modal */}
-            <AnimatePresence>
-                {showMintModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-surface border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
-                        >
-                            <div className="p-6 relative">
-                                <button
-                                    onClick={() => setShowMintModal(false)}
-                                    className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
-                                >
-                                    <div className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10">
-                                        <Copy size={16} className="rotate-45" /> {/* Using Copy as X placeholder or import X */}
-                                    </div>
-                                </button>
-
-                                <h2 className="text-xl font-bold text-white mb-6">Mint Testnet USDC</h2>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider block mb-2">Target Wallet Address</label>
-                                        <input
-                                            type="text"
-                                            value={targetMintAddress}
-                                            onChange={(e) => setTargetMintAddress(e.target.value)}
-                                            placeholder="0x..."
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                        />
-                                    </div>
-
-                                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3">
-                                        <div className="mt-1">
-                                            <AlertCircle size={16} className="text-amber-500" />
-                                        </div>
-                                        <p className="text-sm text-amber-200/80">
-                                            You are about to mint <strong className="text-white">10,000 USDC</strong> to this address on BSC Testnet.
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        onClick={() => handleMintUSDC(targetMintAddress)}
-                                        disabled={isMinting || !targetMintAddress || !targetMintAddress.startsWith('0x')}
-                                        className="w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-amber-500 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-2"
-                                    >
-                                        {isMinting ? (
-                                            <>
-                                                <RefreshCcw className="w-4 h-4 animate-spin" />
-                                                Minting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Mint 10,000 USDC
-                                                <ArrowRight className="w-4 h-4" />
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
         </div>
     );
 }
