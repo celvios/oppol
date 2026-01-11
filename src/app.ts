@@ -85,10 +85,6 @@ app.post('/api/bet', async (req, res) => {
     const { walletAddress, marketId, side, amount } = req.body;
 
     console.log('🔍 [BET DEBUG] Request body:', JSON.stringify(req.body, null, 2));
-    console.log('🔍 [BET DEBUG] walletAddress type:', typeof walletAddress);
-    console.log('🔍 [BET DEBUG] walletAddress value:', walletAddress);
-    console.log('🔍 [BET DEBUG] Contains .eth:', walletAddress?.includes?.('.eth'));
-    console.log('🔍 [BET DEBUG] Is valid hex:', /^0x[a-fA-F0-9]{40}$/.test(walletAddress));
 
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
@@ -111,43 +107,64 @@ app.post('/api/bet', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
-    console.log('🔍 [BET DEBUG] Creating provider with staticNetwork');
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97); // Explicitly set chainId 97 for BSC testnet
+    console.log('🔍 [BET DEBUG] Creating provider');
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const MARKET_ADDR = ethers.getAddress(
+      process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b'
+    );
+    console.log('🔍 [BET DEBUG] Market address:', MARKET_ADDR);
+    
     const marketABI = [
       'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
       'function userBalances(address) view returns (uint256)',
-      'function getPrice(uint256 _marketId) view returns (uint256)',
     ];
 
-    const market = new ethers.Contract(MARKET_ADDR, marketABI, signer);
-
-    console.log('🔍 [BET DEBUG] Calling userBalances with:', normalizedAddress);
-    // Use interface to call contract directly without signer resolution
     const iface = new ethers.Interface(marketABI);
-    const data = iface.encodeFunctionData('userBalances', [normalizedAddress]);
-    const result = await provider.call({ to: MARKET_ADDR, data });
-    const userBalance = iface.decodeFunctionResult('userBalances', result)[0];
-    const balanceFormatted = ethers.formatUnits(userBalance, 6);
-    console.log(`User ${normalizedAddress} portfolio balance: $${balanceFormatted}`);
 
-    // Binary search to find max shares we can buy with maxCost
+    // RAW JSON-RPC CALL FUNCTION (bypasses all ethers.js address resolution)
+    async function rawCall(to: string, data: string): Promise<string> {
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_call',
+          params: [{ to, data }, 'latest']
+        })
+      });
+      const result = await response.json();
+      if (result.error) {
+        throw new Error(`RPC Error: ${result.error.message}`);
+      }
+      return result.result;
+    }
+
+    // Get user balance using raw RPC
+    console.log('🔍 [BET DEBUG] Calling userBalances');
+    const balanceData = iface.encodeFunctionData('userBalances', [normalizedAddress]);
+    const balanceResult = await rawCall(MARKET_ADDR, balanceData);
+    const userBalance = iface.decodeFunctionResult('userBalances', balanceResult)[0];
+    const balanceFormatted = ethers.formatUnits(userBalance, 6);
+    console.log(`✅ User balance: $${balanceFormatted}`);
+
+    // Binary search using raw RPC
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
     let low = 1;
-    let high = Math.floor(maxCost * 2); // Start with 2x as upper bound
+    let high = Math.floor(maxCost * 2);
     let bestShares = 0;
 
+    console.log('🔍 [BET DEBUG] Starting binary search');
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
       
-      // Use direct provider call to avoid ENS
       const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
-      const costResult = await provider.call({ to: MARKET_ADDR, data: costData });
+      const costResult = await rawCall(MARKET_ADDR, costData);
       const cost = iface.decodeFunctionResult('calculateCost', costResult)[0];
 
       if (cost <= maxCostInUnits) {
@@ -162,29 +179,23 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
     }
 
+    // Get final cost using raw RPC
     const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
     const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
-    const costResult = await provider.call({ to: MARKET_ADDR, data: costData });
+    const costResult = await rawCall(MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
     const costFormatted = ethers.formatUnits(actualCost, 6);
-    console.log(`Buying ${bestShares} shares for $${costFormatted} (max: $${maxCost})`);
+    console.log(`✅ Cost: $${costFormatted} for ${bestShares} shares`);
 
     if (userBalance < actualCost) {
       return res.status(400).json({
         success: false,
-        error: `Insufficient portfolio balance. Have: $${balanceFormatted}, Need: $${costFormatted}`
+        error: `Insufficient balance. Have: $${balanceFormatted}, Need: $${costFormatted}`
       });
     }
 
-    console.log('🔍 [BET DEBUG] Calling buySharesFor with args:', {
-      user: normalizedAddress,
-      marketId,
-      isYes,
-      shares: sharesInUnits.toString(),
-      maxCost: (actualCost * BigInt(110) / BigInt(100)).toString()
-    });
-    
-    // Execute buySharesFor using sendTransaction (NO ENS RESOLUTION)
+    // Execute transaction (this part still uses ethers for signing)
+    console.log('🔍 [BET DEBUG] Encoding transaction');
     const buyData = iface.encodeFunctionData('buySharesFor', [
       normalizedAddress,
       marketId,
@@ -193,18 +204,20 @@ app.post('/api/bet', async (req, res) => {
       actualCost * BigInt(110) / BigInt(100)
     ]);
 
+    console.log('🔍 [BET DEBUG] Sending transaction');
     const tx = await signer.sendTransaction({
       to: MARKET_ADDR,
       data: buyData,
       gasLimit: 500000
     });
+    
     const receipt = await tx.wait();
-
+    
     if (!receipt) {
       throw new Error('Transaction receipt is null');
     }
 
-    console.log(`Trade executed! TX: ${receipt.hash}`);
+    console.log(`✅ Trade executed! TX: ${receipt.hash}`);
 
     return res.json({
       success: true,
@@ -216,11 +229,8 @@ app.post('/api/bet', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('❌ [BET ERROR] Full error:', error);
-    console.error('❌ [BET ERROR] Error message:', error.message);
-    console.error('❌ [BET ERROR] Error code:', error.code);
-    console.error('❌ [BET ERROR] Error operation:', error.operation);
-    console.error('❌ [BET ERROR] Error stack:', error.stack);
+    console.error('❌ [BET ERROR]:', error.message);
+    console.error('❌ [BET ERROR] Stack:', error.stack);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -397,6 +407,7 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
     });
   }
 });
+
 app.get('/api/wallet/balance/:address', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
@@ -481,65 +492,6 @@ app.get('/api/markets', async (req, res) => {
   } catch (error: any) {
     console.error('Markets error:', error);
     return res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET COMPREHENSIVE BALANCE ENDPOINT
-app.get('/api/balance/:walletAddress', async (req, res) => {
-  try {
-    const { ethers } = await import('ethers');
-    const { walletAddress } = req.params;
-    
-    if (!walletAddress || !ethers.isAddress(walletAddress)) {
-      return res.status(400).json({ error: 'Invalid wallet address' });
-    }
-
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
-    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
-
-    const marketABI = ['function userBalances(address) view returns (uint256)'];
-    const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
-
-    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-    const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
-
-    const [depositedBalance, walletUsdcBalance] = await Promise.all([
-      marketContract.userBalances(walletAddress),
-      usdcContract.balanceOf(walletAddress)
-    ]);
-
-    const depositedFormatted = parseFloat(ethers.formatUnits(depositedBalance, 6));
-    const walletUsdcFormatted = parseFloat(ethers.formatUnits(walletUsdcBalance, 6));
-
-    return res.json({
-      success: true,
-      balances: {
-        connectedWallet: {
-          address: walletAddress,
-          usdcBalance: walletUsdcFormatted
-        },
-        custodialWallet: {
-          address: walletAddress,
-          usdcBalance: walletUsdcFormatted,
-          depositedInContract: depositedFormatted,
-          databaseBalance: 0
-        },
-        totalAvailableForTrading: depositedFormatted,
-        discrepancy: {
-          exists: Math.abs(walletUsdcFormatted - depositedFormatted) > 0.01,
-          difference: walletUsdcFormatted - depositedFormatted
-        }
-      }
-    });
-  } catch (error: any) {
-    console.error('Balance check error:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get balance'
-    });
   }
 });
 
