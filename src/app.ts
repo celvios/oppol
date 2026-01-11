@@ -127,8 +127,11 @@ app.post('/api/bet', async (req, res) => {
     const market = new ethers.Contract(MARKET_ADDR, marketABI, signer);
 
     console.log('🔍 [BET DEBUG] Calling userBalances with:', normalizedAddress);
-    // Check user's portfolio balance
-    const userBalance = await market.userBalances(normalizedAddress);
+    // Use interface to call contract directly without signer resolution
+    const iface = new ethers.Interface(marketABI);
+    const data = iface.encodeFunctionData('userBalances', [normalizedAddress]);
+    const result = await provider.call({ to: MARKET_ADDR, data });
+    const userBalance = iface.decodeFunctionResult('userBalances', result)[0];
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`User ${normalizedAddress} portfolio balance: $${balanceFormatted}`);
 
