@@ -12,10 +12,19 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
     const { address, isConnected, usdcBalance, isAdmin, chain } = useWallet();
     const { disconnect } = useDisconnect();
     const [mounted, setMounted] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const copyAddress = () => {
+        if (address) {
+            navigator.clipboard.writeText(address);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     // Prevent hydration mismatch by not rendering wallet state until mounted
     if (!mounted) {
@@ -44,13 +53,13 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
     if (minimal) {
         return (
             <button
-                onClick={() => open({ view: 'Account' })}
+                onClick={copyAddress}
                 className="w-full flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 hover:border-white/20 border border-transparent rounded-lg transition-all"
-                title={address}
+                title={copied ? 'Copied!' : address}
             >
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
                 <span className="font-mono text-xs text-white">
-                    {address?.slice(0, 4)}...{address?.slice(-4)}
+                    {copied ? 'Copied!' : `${address?.slice(0, 4)}...${address?.slice(-4)}`}
                 </span>
             </button>
         );
@@ -71,14 +80,15 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
 
             {/* Wallet Info */}
             <button
-                onClick={() => open({ view: 'Account' })}
+                onClick={copyAddress}
                 className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all duration-200"
+                title={copied ? 'Copied!' : 'Click to copy address'}
             >
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 <div className="flex flex-col items-start">
                     <span className="text-xs text-white/60">{chain?.name || 'Unknown'}</span>
                     <span className="text-sm font-mono text-white">
-                        {address?.slice(0, 6)}...{address?.slice(-4)}
+                        {copied ? 'Copied!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
                     </span>
                 </div>
                 <span className="text-xs text-success font-medium ml-1">
