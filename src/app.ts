@@ -289,6 +289,57 @@ app.post('/api/wallet/link', async (req, res) => {
   }
 });
 
+// FAUCET ENDPOINT - Mint test USDC
+app.post('/api/faucet', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { address: toAddress } = req.body;
+
+    if (!toAddress || !ethers.isAddress(toAddress)) {
+      return res.status(400).json({ success: false, error: 'Valid address required' });
+    }
+
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const privateKey = process.env.PRIVATE_KEY;
+
+    if (!privateKey) {
+      return res.status(500).json({ success: false, error: 'Server wallet not configured' });
+    }
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    const USDC_ADDR = process.env.USDC_ADDRESS || '0x792D979781F0E53A51D0cD837cd03827fA8d83A1';
+    const usdcABI = ['function mint(address to, uint256 amount)'];
+    const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
+
+    const amount = ethers.parseUnits('10000', 6);
+
+    console.log(`Faucet: Minting 10,000 USDC to ${toAddress}`);
+
+    const tx = await usdc.mint(toAddress, amount);
+    const receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+
+    console.log(`Faucet complete! TX: ${receipt.hash}`);
+
+    return res.json({
+      success: true,
+      transaction: {
+        hash: receipt.hash,
+        amount: '10000',
+        to: toAddress,
+      }
+    });
+  } catch (error: any) {
+    console.error('Faucet error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // WITHDRAW ENDPOINT - For custodial users
 app.post('/api/withdraw', async (req, res) => {
   try {

@@ -297,12 +297,20 @@ export default function DepositPage() {
         setIsMinting(true);
         setMintSuccess(false);
         try {
-            writeContract({
-                address: USDC_ADDRESS,
-                abi: ERC20_ABI,
-                functionName: 'mint',
-                args: [recipient, parseUnits('10000', 6)],
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/faucet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: recipient })
             });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setMintSuccess(true);
+                setTimeout(() => setMintSuccess(false), 3000);
+            } else {
+                console.error('Faucet error:', data.error);
+            }
             setShowMintModal(false);
         } catch (err) {
             console.error(err);
