@@ -18,6 +18,7 @@ import NeonButton from "@/components/ui/NeonButton";
 import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
 import { motion, AnimatePresence } from "framer-motion";
 import { useUIStore } from "@/lib/store"; // Add missing import
+import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Contract ABI
 const MARKET_ABI = [
@@ -111,6 +112,7 @@ export function MobileTerminal() {
     }, [isTradeSheetOpen, setTradeModalOpen]);
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+    const metadata = market ? getMarketMetadata(market.question, market.id) : null;
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
         .map(point => ({
             time: point.time,
@@ -243,13 +245,36 @@ export function MobileTerminal() {
             </header>
 
             {/* 2. Price Hero */}
-            <div className="px-6 py-8">
-                <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight">{market.question}</h1>
-                <div className="flex items-end gap-3 mt-4">
-                    <div className={`text-5xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-neon-green text-shadow-green' : 'text-neon-coral text-shadow-red'}`}>
-                        {currentPrice.toFixed(1)}%
+            <div className="relative overflow-hidden mb-6">
+                {/* Background Image */}
+                {metadata && (
+                    <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
+                        <img
+                            src={metadata.image}
+                            alt=""
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-void via-void/80 to-transparent" />
                     </div>
-                    <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Probability</div>
+                )}
+
+                <div className="px-6 py-8 relative z-10">
+                    <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md relative z-10">
+                        {market.question}
+                    </h1>
+
+                    {metadata && (
+                        <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
+                            {metadata.description}
+                        </p>
+                    )}
+
+                    <div className="flex items-end gap-3 mt-4">
+                        <div className={`text-5xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-neon-green text-shadow-green' : 'text-neon-coral text-shadow-red'}`}>
+                            {currentPrice.toFixed(1)}%
+                        </div>
+                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Probability</div>
+                    </div>
                 </div>
             </div>
 
