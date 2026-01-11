@@ -69,12 +69,21 @@ import { useSearchParams } from "next/navigation"; // Add import
 export function MobileTerminal() {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
+    const [copied, setCopied] = useState(false);
     // Initialize with 0 to prevent hydration mismatch, update in effect
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const copyAddress = () => {
+        if (address) {
+            navigator.clipboard.writeText(address);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     // Initial Sync with URL
     useEffect(() => {
@@ -215,12 +224,13 @@ export function MobileTerminal() {
             {/* 1. Header */}
             <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
                 <div
-                    onClick={() => {/* TODO: Open Drawer */ }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors"
+                    onClick={copyAddress}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors cursor-pointer"
                 >
                     <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-                    <span className="text-xs font-mono font-bold text-white tracking-widest">MARKET #{market.id}</span>
-                    <ArrowDown size={12} className="text-white/50" />
+                    <span className="text-xs font-mono font-bold text-white tracking-widest">
+                        {copied ? 'COPIED!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
+                    </span>
                 </div>
 
                 <div className="text-right">
