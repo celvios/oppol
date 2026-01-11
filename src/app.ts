@@ -144,7 +144,11 @@ app.post('/api/bet', async (req, res) => {
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
-      const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
+      
+      // Use direct provider call to avoid ENS
+      const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
+      const costResult = await provider.call({ to: MARKET_ADDR, data: costData });
+      const cost = iface.decodeFunctionResult('calculateCost', costResult)[0];
 
       if (cost <= maxCostInUnits) {
         bestShares = mid;
@@ -159,7 +163,9 @@ app.post('/api/bet', async (req, res) => {
     }
 
     const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
-    const actualCost = await market.calculateCost(marketId, isYes, sharesInUnits);
+    const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
+    const costResult = await provider.call({ to: MARKET_ADDR, data: costData });
+    const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
     const costFormatted = ethers.formatUnits(actualCost, 6);
     console.log(`Buying ${bestShares} shares for $${costFormatted} (max: $${maxCost})`);
 
