@@ -170,26 +170,13 @@ export function MobileTerminal() {
             const allMarkets = await web3Service.getMarkets();
             setMarkets(allMarkets);
 
+            // Fetch deposited balance directly from contract (same as Portfolio page)
             try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                if (apiUrl) {
-                    const linkResponse = await fetch(`${apiUrl}/api/wallet/link`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ walletAddress: address })
-                    });
-                    const linkData = await linkResponse.json();
-                    if (linkData.success) {
-                        const depositedBalance = await web3Service.getDepositedBalance(linkData.custodialAddress);
-                        setBalance(depositedBalance);
-                    }
-                } else {
-                    const depositedBalance = await web3Service.getDepositedBalance(address);
-                    setBalance(depositedBalance);
-                }
-            } catch (e) {
                 const depositedBalance = await web3Service.getDepositedBalance(address);
                 setBalance(depositedBalance);
+            } catch (e) {
+                console.error('[MobileTerminal] Balance fetch error:', e);
+                setBalance('0');
             }
         } catch (error) {
             console.error(error);
