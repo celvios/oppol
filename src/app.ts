@@ -200,6 +200,10 @@ app.post('/api/bet', async (req, res) => {
     });
     const receipt = await tx.wait();
 
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+
     console.log(`Trade executed! TX: ${receipt.hash}`);
 
     return res.json({
