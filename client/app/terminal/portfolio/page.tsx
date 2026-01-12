@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
-import { useEIP6963 } from "@/lib/useEIP6963";
-import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 interface Position {
@@ -26,21 +25,12 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    const { open } = useWeb3Modal();
     const [isCustodial, setIsCustodial] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
 
-    // Wallet connection state
+    // Wallet connection state - Use Wagmi only (Web3Modal)
     const { isConnected, address } = useWallet();
-    const {
-        wallets,
-        walletState,
-        isConnecting,
-        error,
-        connect,
-        connectMetaMaskSDK,
-        isMobile,
-    } = useEIP6963();
 
     // Check for Google login custodial user on mount
     useEffect(() => {
@@ -53,9 +43,9 @@ export default function PortfolioPage() {
         }
     }, []);
 
-    // Consider connected if either Wagmi, EIP-6963, or Google custodial
-    const effectiveConnected = isConnected || walletState.isConnected || isCustodial;
-    const effectiveAddress = address || walletState.address || custodialAddress;
+    // Consider connected if either Wagmi or Google custodial
+    const effectiveConnected = isConnected || isCustodial;
+    const effectiveAddress = address || custodialAddress;
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -184,30 +174,13 @@ export default function PortfolioPage() {
                             Connect your wallet to view your portfolio, positions, and trading history.
                         </p>
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => open()}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
                         </button>
                     </div>
                 </div>
-
-                <WalletSelectorModal
-                    isOpen={showWalletModal}
-                    onClose={() => setShowWalletModal(false)}
-                    wallets={wallets}
-                    onSelectWallet={async (wallet) => {
-                        await connect(wallet);
-                        setShowWalletModal(false);
-                    }}
-                    onConnectMetaMaskSDK={async () => {
-                        await connectMetaMaskSDK();
-                        setShowWalletModal(false);
-                    }}
-                    isConnecting={isConnecting}
-                    error={error}
-                    isMobile={isMobile}
-                />
             </>
         );
     }
