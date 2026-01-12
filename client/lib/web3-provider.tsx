@@ -14,8 +14,8 @@ const projectId = '70415295a4738286445072f5c2392457';
 const metadata = {
     name: 'OPoll',
     description: 'Decentralized Prediction Market',
-    url: 'https://opoll.app',
-    icons: ['https://opoll.app/logo.png']
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://oppollbnb.vercel.app',
+    icons: ['https://oppollbnb.vercel.app/logo.png']
 };
 
 // Configure chains (BNB Mainnet and Testnet)
@@ -45,7 +45,20 @@ createWeb3Modal({
     themeVariables: {
         '--w3m-accent': '#00FF94',
         '--w3m-border-radius-master': '8px',
-    }
+    },
+    featuredWalletIds: [
+        'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+    ],
+    mobileWallets: [
+        {
+            id: 'metamask',
+            name: 'MetaMask',
+            links: {
+                native: 'metamask://',
+                universal: 'https://metamask.app.link'
+            }
+        }
+    ]
 });
 
 interface Web3ProviderProps {
