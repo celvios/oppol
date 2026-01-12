@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
+import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { LoginModal } from "@/components/ui/LoginModal";
 import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
@@ -89,8 +91,8 @@ export function DesktopTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address } = useWallet();
-    const { open } = useWeb3Modal();
+    const { isConnected, address, login } = useCustodialWallet();
+    const [showLoginModal, setShowLoginModal] = useState(false);
     const { writeContract, data: hash } = useWriteContract();
     const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -276,19 +278,26 @@ export function DesktopTerminal() {
 
     if (!mounted || (!isConnected && mounted)) {
         return (
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/5 to-transparent opacity-50" />
-                <GlassCard className="p-12 text-center max-w-md relative z-10 border-neon-cyan/30 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
-                    <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center animate-pulse-slow">
-                        <Wallet className="w-10 h-10 text-neon-cyan" />
-                    </div>
-                    <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
-                    <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
-                    <NeonButton onClick={() => open()} variant="cyan" className="w-full text-lg py-6">
-                        ESTABLISH CONNECTION
-                    </NeonButton>
-                </GlassCard>
-            </div>
+            <>
+                <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/5 to-transparent opacity-50" />
+                    <GlassCard className="p-12 text-center max-w-md relative z-10 border-neon-cyan/30 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+                        <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center animate-pulse-slow">
+                            <Wallet className="w-10 h-10 text-neon-cyan" />
+                        </div>
+                        <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
+                        <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
+                        <NeonButton onClick={() => setShowLoginModal(true)} variant="cyan" className="w-full text-lg py-6">
+                            ESTABLISH CONNECTION
+                        </NeonButton>
+                    </GlassCard>
+                </div>
+                <LoginModal 
+                    isOpen={showLoginModal} 
+                    onClose={() => setShowLoginModal(false)}
+                    onLogin={login}
+                />
+            </>
         );
     }
 
