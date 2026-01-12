@@ -7,6 +7,7 @@ import { useWallet } from "@/lib/use-wallet";
 // import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { parseUnits, formatUnits } from 'viem';
 import { getContracts } from "@/lib/contracts";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
