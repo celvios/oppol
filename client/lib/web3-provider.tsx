@@ -5,7 +5,7 @@ import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 const projectId = '70415295a4738286445072f5c2392457';
 
@@ -23,9 +23,9 @@ const config = defaultWagmiConfig({
     projectId,
     metadata,
     ssr: true,
+    enableInjected: true,
+    enableCoinbase: true,
 });
-
-const queryClient = new QueryClient();
 
 createWeb3Modal({
     wagmiConfig: config,
@@ -35,6 +35,7 @@ createWeb3Modal({
     themeVariables: {
         '--w3m-accent': '#00FF94',
     },
+    enableOnramp: false,
 });
 
 interface Web3ProviderProps {
@@ -42,8 +43,18 @@ interface Web3ProviderProps {
 }
 
 export function Web3Provider({ children }: Web3ProviderProps) {
+    const [queryClient] = useState(() => new QueryClient({
+        defaultOptions: {
+            queries: {
+                refetchOnWindowFocus: false,
+                retry: false,
+                staleTime: 60000,
+            },
+        },
+    }));
+
     return (
-        <WagmiProvider config={config}>
+        <WagmiProvider config={config} reconnectOnMount={true}>
             <QueryClientProvider client={queryClient}>
                 {children}
             </QueryClientProvider>

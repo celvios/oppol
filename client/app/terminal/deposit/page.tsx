@@ -70,7 +70,7 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, usdcBalance, bnbBalance, isCustodial, isReconnecting, isConnecting } = useWallet();
+    const { isConnected, address, usdcBalance, bnbBalance, isReconnecting, isConnecting } = useWallet();
     const [copied, setCopied] = useState(false);
 
     // EIP-6963 Removed
@@ -254,8 +254,8 @@ export default function DepositPage() {
                 <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>
             </div>
 
-            {/* WalletConnect User - Show if connected via EIP-6963 or Wagmi, and NOT custodial */}
-            {isConnected && !isCustodial ? (
+            {/* WalletConnect User - Show if connected */}
+            {isConnected ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
@@ -385,24 +385,6 @@ export default function DepositPage() {
                             )}
                         </div>
                     )}
-                </div>
-            ) : isCustodial ? (
-                /* Custodial View */
-                <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center">
-                    <h2 className="text-lg font-bold text-white mb-4">Scan to Deposit</h2>
-                    <div className="bg-white p-6 rounded-xl inline-block mb-6">
-                        <QRCodeSVG value={effectiveAddress || ''} size={180} />
-                    </div>
-                    <div className="bg-black/40 border border-white/10 p-4 rounded-xl flex items-center justify-between mb-6 max-w-sm mx-auto">
-                        <code className="text-primary font-mono text-sm break-all">{effectiveAddress}</code>
-                        <button onClick={() => copyToClipboard(effectiveAddress || '')}>
-                            {copied ? <CheckCircle size={18} className="text-success" /> : <Copy size={18} className="text-white/60" />}
-                        </button>
-                    </div>
-                    <p className="text-white/40 text-sm">
-                        Send any base token (BNB, USDT, USDC) on <strong className="text-white">BNB Chain</strong>.
-                        <br />It will be automatically converted to USDC.
-                    </p>
                 </div>
             ) : (
                 /* Connect Wallet Section for non-connected, non-custodial users */

@@ -21,7 +21,7 @@ const ERC20_ABI = [
 ] as const;
 
 export function useWallet() {
-    const { address, isConnected, chain } = useAccount();
+    const { address, isConnected, chain, isReconnecting, isConnecting } = useAccount();
 
     const { data: bnbBalance } = useBalance({
         address,
@@ -47,6 +47,8 @@ export function useWallet() {
     return {
         address,
         isConnected,
+        isReconnecting,
+        isConnecting,
         chain,
         isMainnet: chain?.id === bsc.id,
         isTestnet: chain?.id === bscTestnet.id,
