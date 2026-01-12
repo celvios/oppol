@@ -4,7 +4,7 @@ import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "l
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
-import { useEIP6963 } from "@/lib/useEIP6963";
+// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
@@ -73,23 +73,13 @@ export default function DepositPage() {
     const [copied, setCopied] = useState(false);
     const [custodialAddress, setCustodialAddress] = useState<string>('');
 
-    // EIP-6963 Wallet Discovery
-    const {
-        wallets,
-        walletState,
-        isConnecting,
-        error: walletError,
-        connect,
-        connectMetaMaskSDK,
-        disconnect,
-        switchToBSCTestnet,
-        isMobile,
-    } = useEIP6963();
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    // EIP-6963 Removed
+    const { open } = useWeb3Modal(); // Add useWeb3Modal
+    // const [showWalletModal, setShowWalletModal] = useState(false); // Can remove if just calling open() directly
 
-    // Determine if user is connected via EIP-6963 or Wagmi
-    const effectiveAddress = walletState.address || address;
-    const effectiveConnected = walletState.isConnected || isConnected;
+    // Use standard Wagmi hooks
+    const effectiveAddress = address; // Removed walletState.address
+    const effectiveConnected = isConnected; // Removed walletState.isConnected
 
     // Optimistic: Default to false if we have a cache or if we are connected
     const [loading, setLoading] = useState(() => {
@@ -261,16 +251,16 @@ export default function DepositPage() {
             if (typeof window !== 'undefined' && (window as any).ethereum) {
                 const ethereum = (window as any).ethereum;
                 const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-                
+
                 // Use direct ethereum.request for better compatibility
                 const { ethers } = await import('ethers');
                 const provider = new ethers.BrowserProvider(ethereum);
                 const signer = await provider.getSigner();
                 const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-                
+
                 const tx = await contract.approve(spender, parseUnits(depositAmount, 6));
                 await tx.wait();
-                
+
                 setNeedsDeposit(true);
             } else {
                 // Fallback to Wagmi
@@ -298,12 +288,12 @@ export default function DepositPage() {
                 const { ethers } = await import('ethers');
                 const provider = new ethers.BrowserProvider(ethereum);
                 const signer = await provider.getSigner();
-                
+
                 if (isZap) {
                     const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
                     const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
                     const contract = new ethers.Contract(ZAP_ADDRESS, ZAP_ABI, signer);
-                    
+
                     const tx = await contract.zapInToken(tokenAddress, parseUnits(depositAmount, 6), minUSDC);
                     await tx.wait();
                 } else {
@@ -311,7 +301,7 @@ export default function DepositPage() {
                     const tx = await contract.deposit(parseUnits(depositAmount, 6));
                     await tx.wait();
                 }
-                
+
                 setStep('complete');
             } else {
                 // Fallback to Wagmi
@@ -371,18 +361,10 @@ export default function DepositPage() {
                                 <h2 className="text-lg font-bold text-white">Direct Deposit</h2>
                                 <p className="text-sm text-white/50">
                                     {effectiveAddress?.slice(0, 8)}...{effectiveAddress?.slice(-6)}
-                                    {walletState.walletName && <span className="ml-2 text-xs text-primary">({walletState.walletName})</span>}
                                 </p>
                             </div>
                         </div>
-                        {walletState.isConnected && (
-                            <button
-                                onClick={disconnect}
-                                className="text-xs text-white/40 hover:text-white/70 transition-colors"
-                            >
-                                Disconnect
-                            </button>
-                        )}
+                        {/* Disconnect handled by Web3Modal UI mostly, but we can add a disconnect button if needed using wagmi's disconnect */}
                     </div>
 
                     {step === 'input' ? (
@@ -528,7 +510,7 @@ export default function DepositPage() {
                         Connect MetaMask or Trust Wallet to deposit funds
                     </p>
                     <button
-                        onClick={() => setShowWalletModal(true)}
+                        onClick={() => open()}
                         className="px-8 py-4 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
                     >
                         Connect Wallet
@@ -536,23 +518,8 @@ export default function DepositPage() {
                 </div>
             )}
 
-            {/* Wallet Selector Modal */}
-            <WalletSelectorModal
-                isOpen={showWalletModal}
-                onClose={() => setShowWalletModal(false)}
-                wallets={wallets}
-                onSelectWallet={async (wallet) => {
-                    await connect(wallet);
-                    setShowWalletModal(false);
-                }}
-                onConnectMetaMaskSDK={async () => {
-                    await connectMetaMaskSDK();
-                    setShowWalletModal(false);
-                }}
-                isConnecting={isConnecting}
-                error={walletError}
-                isMobile={isMobile}
-            />
+            {/* Wallet Selector Modal Removed - reusing Web3Modal */
+            /* <WalletSelectorModal ... /> */}
         </div>
     );
 }

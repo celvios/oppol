@@ -13,7 +13,7 @@ import { useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'w
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
-import { useEIP6963 } from "@/lib/useEIP6963"; // Add import
+// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
 import { useRouter } from "next/navigation"; // Add import
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
@@ -137,15 +137,10 @@ export function MobileTerminal() {
         const disconnectHook = useDisconnect();
         wagmiDisconnect = disconnectHook.disconnect;
 
-        const eipHook = useEIP6963();
-        wallets = eipHook.wallets || [];
-        walletState = eipHook.walletState || {};
-        isConnecting = eipHook.isConnecting || false;
-        error = eipHook.error;
-        connect = eipHook.connect;
-        connectMetaMaskSDK = eipHook.connectMetaMaskSDK;
-        eipDisconnect = eipHook.disconnect;
-        isMobile = eipHook.isMobile || false;
+        // Legacy variables removed
+        isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // isConnecting = false; // Handled by useWallet now if needed, or local state logic
+        // error = null;
     } catch (err: any) {
         setErrorInfo(err.message || 'Hook initialization error');
     }
@@ -158,8 +153,8 @@ export function MobileTerminal() {
         localStorage.removeItem('connected_wallet_uuid');
         localStorage.removeItem('connected_wallet_name');
         localStorage.clear(); // Clear all localStorage to prevent auto-reconnect
+        // if (walletState.isConnected) eipDisconnect(); // Removed
         wagmiDisconnect();
-        if (walletState.isConnected) eipDisconnect();
         router.push('/');
         setIsHeaderMenuOpen(false);
     };
@@ -326,9 +321,9 @@ export function MobileTerminal() {
                                 <p className="text-blue-400 text-sm font-semibold mb-2">📱 Mobile Users:</p>
                                 <p className="text-blue-300 text-xs leading-relaxed">
                                     For best experience, open this site in your wallet's browser:
-                                    <br/>• MetaMask: Tap Browser → Enter URL
-                                    <br/>• Trust Wallet: Tap Browser → Enter URL
-                                    <br/>• Coinbase Wallet: Tap Browser → Enter URL
+                                    <br />• MetaMask: Tap Browser → Enter URL
+                                    <br />• Trust Wallet: Tap Browser → Enter URL
+                                    <br />• Coinbase Wallet: Tap Browser → Enter URL
                                 </p>
                             </div>
                         )}
