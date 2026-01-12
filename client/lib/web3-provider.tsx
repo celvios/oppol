@@ -14,8 +14,9 @@ const projectId = '70415295a4738286445072f5c2392457';
 const metadata = {
     name: 'OPoll',
     description: 'Decentralized Prediction Market',
-    url: typeof window !== 'undefined' ? window.location.origin : 'https://oppollbnb.vercel.app',
-    icons: ['https://oppollbnb.vercel.app/logo.png']
+    url: 'https://oppollbnb.vercel.app',
+    icons: ['https://oppollbnb.vercel.app/icon.png'],
+    verifyUrl: 'https://oppollbnb.vercel.app',
 };
 
 // Configure chains (BNB Mainnet and Testnet)
@@ -26,10 +27,10 @@ const config = defaultWagmiConfig({
     chains,
     projectId,
     metadata,
-    ssr: false, // Disable SSR to rely on client-side localStorage
-    storage: createStorage({
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined
-    }),
+    ssr: true,
+    enableCoinbase: true,
+    enableInjected: true,
+    enableWalletConnect: true,
 });
 
 // Create query client
@@ -46,19 +47,14 @@ createWeb3Modal({
         '--w3m-accent': '#00FF94',
         '--w3m-border-radius-master': '8px',
     },
-    featuredWalletIds: [
+    allowUnsupportedChain: false,
+    allWallets: 'SHOW',
+    includeWalletIds: [
         'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+        '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
+        'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase Wallet
     ],
-    mobileWallets: [
-        {
-            id: 'metamask',
-            name: 'MetaMask',
-            links: {
-                native: 'metamask://',
-                universal: 'https://metamask.app.link'
-            }
-        }
-    ]
+    excludeWalletIds: [],
 });
 
 interface Web3ProviderProps {

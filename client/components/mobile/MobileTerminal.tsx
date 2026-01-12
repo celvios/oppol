@@ -321,6 +321,17 @@ export function MobileTerminal() {
                         <p className="text-white/50 mb-8">
                             Connect your wallet to start trading on prediction markets.
                         </p>
+                        {isMobile && (
+                            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl text-left">
+                                <p className="text-blue-400 text-sm font-semibold mb-2">📱 Mobile Users:</p>
+                                <p className="text-blue-300 text-xs leading-relaxed">
+                                    For best experience, open this site in your wallet's browser:
+                                    <br/>• MetaMask: Tap Browser → Enter URL
+                                    <br/>• Trust Wallet: Tap Browser → Enter URL
+                                    <br/>• Coinbase Wallet: Tap Browser → Enter URL
+                                </p>
+                            </div>
+                        )}
                         <button
                             onClick={() => open()}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
