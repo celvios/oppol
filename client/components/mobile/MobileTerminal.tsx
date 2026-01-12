@@ -77,10 +77,10 @@ export function MobileTerminal() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false); // New state
-    const [showWalletModal, setShowWalletModal] = useState(false); // Add wallet modal state
-    // Initialize with 0 to prevent hydration mismatch, update in effect
+    const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+    const [showWalletModal, setShowWalletModal] = useState(false);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
+    const [errorInfo, setErrorInfo] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -94,7 +94,6 @@ export function MobileTerminal() {
         }
     };
 
-    // Initial Sync with URL
     useEffect(() => {
         const urlId = Number(searchParams.get('marketId'));
         if (urlId && !isNaN(urlId)) {
@@ -110,21 +109,46 @@ export function MobileTerminal() {
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
 
-    const { isConnected, address } = useWallet();
-    const { open } = useWeb3Modal();
-    const { setTradeModalOpen } = useUIStore();
-    const { disconnect: wagmiDisconnect } = useDisconnect();
-    const eipHook = useEIP6963();
-    const {
-        wallets = [],
-        walletState,
-        isConnecting = false,
-        error = null,
-        connect,
-        connectMetaMaskSDK,
-        disconnect: eipDisconnect,
-        isMobile = false,
-    } = eipHook || {};
+    let isConnected = false;
+    let address: string | undefined;
+    let open: any;
+    let setTradeModalOpen: any;
+    let wagmiDisconnect: any;
+    let wallets: any[] = [];
+    let walletState: any = {};
+    let isConnecting = false;
+    let error: any = null;
+    let connect: any;
+    let connectMetaMaskSDK: any;
+    let eipDisconnect: any;
+    let isMobile = false;
+
+    try {
+        const walletHook = useWallet();
+        isConnected = walletHook.isConnected;
+        address = walletHook.address;
+        
+        const modalHook = useWeb3Modal();
+        open = modalHook.open;
+        
+        const uiStore = useUIStore();
+        setTradeModalOpen = uiStore.setTradeModalOpen;
+        
+        const disconnectHook = useDisconnect();
+        wagmiDisconnect = disconnectHook.disconnect;
+        
+        const eipHook = useEIP6963();
+        wallets = eipHook.wallets || [];
+        walletState = eipHook.walletState || {};
+        isConnecting = eipHook.isConnecting || false;
+        error = eipHook.error;
+        connect = eipHook.connect;
+        connectMetaMaskSDK = eipHook.connectMetaMaskSDK;
+        eipDisconnect = eipHook.disconnect;
+        isMobile = eipHook.isMobile || false;
+    } catch (err: any) {
+        setErrorInfo(err.message || 'Hook initialization error');
+    }
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
@@ -275,6 +299,15 @@ export function MobileTerminal() {
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
     }, [isConnected, address, fetchData]);
+
+    if (errorInfo) {
+        return (
+            <div className="p-6 text-white">
+                <h2 className="text-xl font-bold mb-4">Error</h2>
+                <p className="text-red-500 font-mono text-sm">{errorInfo}</p>
+            </div>
+        );
+    }
 
     if (!mounted || (!isConnected && mounted)) {
         return (
