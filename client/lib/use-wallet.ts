@@ -58,8 +58,26 @@ export function useWallet() {
         return () => clearInterval(interval);
     }, []);
 
-    const effectiveConnected = wagmiConnected || custodialState.isConnected;
-    const effectiveAddress = (wagmiAddress || custodialState.address) as `0x${string}` | undefined;
+    // Optimistic Connection Logic
+    // If we are reconnecting, assume we are connected if we have a cached address
+    // This prevents the UI from flashing the "Connect Wallet" screen during page loads/refresh
+    const cachedAddress = typeof window !== 'undefined' ? localStorage.getItem('cached_wallet_address') as `0x${string}` | null : null;
+
+    // We are "effectively" connected if:
+    // 1. Wagmi says we are connected
+    // 2. We are custodial connected
+    // 3. Wagmi is currently reconnecting AND we have a valid cached address (Optimistic)
+    const effectiveConnected = wagmiConnected || custodialState.isConnected || (isReconnecting && !!cachedAddress);
+
+    // The effective address follows the same logic
+    const effectiveAddress = (wagmiAddress || custodialState.address || (isReconnecting ? cachedAddress : undefined)) as `0x${string}` | undefined;
+
+    // Cache the address when we are truly connected via Wagmi
+    useEffect(() => {
+        if (wagmiConnected && wagmiAddress) {
+            localStorage.setItem('cached_wallet_address', wagmiAddress);
+        }
+    }, [wagmiConnected, wagmiAddress]);
 
     // Get native BNB balance
     const { data: bnbBalance } = useBalance({

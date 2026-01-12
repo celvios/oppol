@@ -109,41 +109,21 @@ export function MobileTerminal() {
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
 
-    let isConnected = false;
-    let address: string | undefined;
-    let open: any;
-    let setTradeModalOpen: any;
-    let wagmiDisconnect: any;
-    let wallets: any[] = [];
-    let walletState: any = {};
-    let isConnecting = false;
-    let error: any = null;
-    let connect: any;
-    let connectMetaMaskSDK: any;
-    let eipDisconnect: any;
-    let isMobile = false;
+    const walletHook = useWallet();
+    const isConnected = walletHook.isConnected;
+    const address = walletHook.address;
 
-    try {
-        const walletHook = useWallet();
-        isConnected = walletHook.isConnected;
-        address = walletHook.address;
+    const { open } = useWeb3Modal();
+    const { setTradeModalOpen } = useUIStore();
+    const { disconnect: wagmiDisconnect } = useDisconnect();
 
-        const modalHook = useWeb3Modal();
-        open = modalHook.open;
+    const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        const uiStore = useUIStore();
-        setTradeModalOpen = uiStore.setTradeModalOpen;
-
-        const disconnectHook = useDisconnect();
-        wagmiDisconnect = disconnectHook.disconnect;
-
-        // Legacy variables removed
-        isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        // isConnecting = false; // Handled by useWallet now if needed, or local state logic
-        // error = null;
-    } catch (err: any) {
-        setErrorInfo(err.message || 'Hook initialization error');
-    }
+    const wallets: any[] = [];
+    const walletState: any = {};
+    const isConnecting = false;
+    const error: any = null;
+    const connectMetaMaskSDK: any = () => { };
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
