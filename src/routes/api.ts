@@ -16,6 +16,16 @@ router.get('/wallet/:userId', getWallet);
 // Balance Routes
 router.use('/balance', balanceRoutes);
 
+// Market & Category Routes
+import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories } from '../controllers/marketController';
+
+router.post('/markets', createMarketMetadata);
+router.get('/markets', getAllMarketMetadata);
+router.get('/markets/:marketId', getMarketMetadata);
+
+router.post('/categories', createCategory);
+router.get('/categories', getCategories);
+
 router.get('/health', (req, res) => {
     res.json({ status: 'API Operational' });
 });

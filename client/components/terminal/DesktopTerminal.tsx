@@ -424,7 +424,7 @@ export function DesktopTerminal() {
 
                             <div>
                                 <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Liquidity</div>
-                                <div className="text-xl font-mono text-white">${(parseFloat(market.yesPool) + parseFloat(market.noPool)).toFixed(0)}</div>
+                                <div className="text-xl font-mono text-white">${parseFloat(market.liquidityParam || '0').toFixed(0)}</div>
                             </div>
                         </div>
                     </div>

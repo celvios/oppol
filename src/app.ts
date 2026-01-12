@@ -524,6 +524,19 @@ app.get('/api/markets', async (req, res) => {
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
     const count = await market.marketCount();
 
+    // Get volume from database
+    let volumeByMarket: Record<number, number> = {};
+    try {
+      const volumeResult = await query(
+        `SELECT market_id, SUM(total_cost) as volume FROM trades GROUP BY market_id`
+      );
+      volumeResult.rows.forEach((row: any) => {
+        volumeByMarket[row.market_id] = parseFloat(row.volume);
+      });
+    } catch (e) {
+      console.log('Database not available for volume calculation');
+    }
+
     const markets = [];
     for (let i = 0; i < count; i++) {
       const m = await market.markets(i);
@@ -533,7 +546,8 @@ app.get('/api/markets', async (req, res) => {
         question: m.question,
         yesOdds: Number(price) / 100,
         noOdds: 100 - Number(price) / 100,
-        volume: ethers.formatUnits(m.yesShares + m.noShares, 6),
+        volume: (volumeByMarket[i] || 0).toFixed(2),
+        liquidity: ethers.formatUnits(m.liquidityParam, 6),
         endTime: Number(m.endTime),
         resolved: m.resolved,
       });

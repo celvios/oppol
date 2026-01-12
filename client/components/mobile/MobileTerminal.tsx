@@ -127,16 +127,16 @@ export function MobileTerminal() {
         const walletHook = useWallet();
         isConnected = walletHook.isConnected;
         address = walletHook.address;
-        
+
         const modalHook = useWeb3Modal();
         open = modalHook.open;
-        
+
         const uiStore = useUIStore();
         setTradeModalOpen = uiStore.setTradeModalOpen;
-        
+
         const disconnectHook = useDisconnect();
         wagmiDisconnect = disconnectHook.disconnect;
-        
+
         const eipHook = useEIP6963();
         wallets = eipHook.wallets || [];
         walletState = eipHook.walletState || {};
@@ -559,7 +559,7 @@ export function MobileTerminal() {
                         <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
                     </div>
                     <div className="font-mono text-lg text-white font-medium">
-                        ${(parseFloat(market.yesPool) + parseFloat(market.noPool)).toFixed(0)}
+                        ${parseFloat(market.liquidityParam || '0').toFixed(0)}
                     </div>
                 </GlassCard>
             </div>
