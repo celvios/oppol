@@ -25,7 +25,7 @@ const config = defaultWagmiConfig({
     metadata,
     ssr: true,
     storage: createStorage({
-        storage: typeof window !== 'undefined' ? window.localStorage : cookieStorage,
+        storage: cookieStorage,
     }),
 });
 
@@ -49,7 +49,6 @@ export function Web3Provider({ children }: Web3ProviderProps) {
             queries: {
                 refetchOnWindowFocus: false,
                 retry: false,
-                staleTime: 60000,
             },
         },
     }));

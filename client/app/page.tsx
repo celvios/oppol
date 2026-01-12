@@ -61,23 +61,12 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto justify-center">
-              {isConnected ? (
-                <Link href="/terminal" className="w-full sm:w-auto">
-                  <NeonButton variant="cyan" className="w-full sm:w-auto px-8 py-5 text-lg group">
-                    <Terminal className="w-5 h-5 mr-2 group-hover:text-black transition-colors" />
-                    JOIN POLL
-                  </NeonButton>
-                </Link>
-              ) : (
-                <NeonButton 
-                  variant="cyan" 
-                  className="w-full sm:w-auto px-8 py-5 text-lg group"
-                  onClick={() => open()}
-                >
+              <Link href="/terminal" className="w-full sm:w-auto">
+                <NeonButton variant="cyan" className="w-full sm:w-auto px-8 py-5 text-lg group">
                   <Terminal className="w-5 h-5 mr-2 group-hover:text-black transition-colors" />
-                  CONNECT & JOIN
+                  JOIN POLL
                 </NeonButton>
-              )}
+              </Link>
 
               <a
                 href="https://wa.me/+1234567890?text=Hi%20OPOLL"
