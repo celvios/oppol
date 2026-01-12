@@ -114,7 +114,16 @@ export function MobileTerminal() {
     const { open } = useWeb3Modal();
     const { setTradeModalOpen } = useUIStore();
     const { disconnect: wagmiDisconnect } = useDisconnect();
-    const { disconnect: eipDisconnect, walletState } = useEIP6963();
+    const {
+        wallets,
+        walletState,
+        isConnecting,
+        error,
+        connect,
+        connectMetaMaskSDK,
+        disconnect: eipDisconnect,
+        isMobile,
+    } = useEIP6963();
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
@@ -267,6 +276,15 @@ export function MobileTerminal() {
     }, [isConnected, address, fetchData]);
 
     if (!mounted || (!isConnected && mounted)) {
+        const {
+            wallets = [],
+            isConnecting = false,
+            error = null,
+            connect,
+            connectMetaMaskSDK,
+            isMobile = false,
+        } = useEIP6963();
+
         return (
             <>
                 <div className="flex items-center justify-center min-h-screen p-6">
@@ -287,22 +305,24 @@ export function MobileTerminal() {
                     </div>
                 </div>
 
-                <WalletSelectorModal
-                    isOpen={showWalletModal}
-                    onClose={() => setShowWalletModal(false)}
-                    wallets={wallets}
-                    onSelectWallet={async (wallet) => {
-                        await connect(wallet);
-                        setShowWalletModal(false);
-                    }}
-                    onConnectMetaMaskSDK={async () => {
-                        await connectMetaMaskSDK();
-                        setShowWalletModal(false);
-                    }}
-                    isConnecting={isConnecting}
-                    error={error}
-                    isMobile={isMobile}
-                />
+                {showWalletModal && (
+                    <WalletSelectorModal
+                        isOpen={showWalletModal}
+                        onClose={() => setShowWalletModal(false)}
+                        wallets={wallets}
+                        onSelectWallet={async (wallet) => {
+                            if (connect) await connect(wallet);
+                            setShowWalletModal(false);
+                        }}
+                        onConnectMetaMaskSDK={async () => {
+                            if (connectMetaMaskSDK) await connectMetaMaskSDK();
+                            setShowWalletModal(false);
+                        }}
+                        isConnecting={isConnecting}
+                        error={error}
+                        isMobile={isMobile}
+                    />
+                )}
             </>
         );
     }
