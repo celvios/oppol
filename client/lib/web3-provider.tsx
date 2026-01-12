@@ -23,10 +23,6 @@ const config = defaultWagmiConfig({
     projectId,
     metadata,
     ssr: true,
-    enableCoinbase: true,
-    enableInjected: true,
-    enableEIP6963: true,
-    enableWalletConnect: true,
 });
 
 const queryClient = new QueryClient();
@@ -35,11 +31,9 @@ createWeb3Modal({
     wagmiConfig: config,
     projectId,
     enableAnalytics: false,
-    enableOnramp: false,
     themeMode: 'dark',
     themeVariables: {
         '--w3m-accent': '#00FF94',
-        '--w3m-border-radius-master': '8px',
     },
 });
 
