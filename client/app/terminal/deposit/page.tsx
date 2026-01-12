@@ -85,9 +85,10 @@ export default function DepositPage() {
     // Optimistic: Default to false if we have a cache or if we are connected
     const [loading, setLoading] = useState(() => {
         if (typeof window !== 'undefined') {
-            const hasCache = !!localStorage.getItem('cached_wallet_address');
+            const hasWagmiCache = !!localStorage.getItem('wagmi_cached_address');
+            const hasCustodialCache = !!localStorage.getItem('wallet_address');
             // If we have cache, we are not loading. If we are waiting for initial mount, we might be loading.
-            return !hasCache;
+            return !hasWagmiCache && !hasCustodialCache;
         }
         return true;
     });
@@ -163,7 +164,7 @@ export default function DepositPage() {
         async function fetchWallet() {
             try {
                 // 1. Check Cache First (Instant Render)
-                const cachedWallet = localStorage.getItem('cached_wallet_address');
+                const cachedWallet = localStorage.getItem('wallet_address');
                 if (cachedWallet && mounted) {
                     setCustodialAddress(cachedWallet);
                     setLoading(false);
@@ -208,7 +209,7 @@ export default function DepositPage() {
                     if (data.success && data.wallet) {
                         setCustodialAddress(data.wallet.public_address);
                         // Update Caches
-                        localStorage.setItem('cached_wallet_address', data.wallet.public_address);
+                        localStorage.setItem('wallet_address', data.wallet.public_address);
                         localStorage.setItem(cacheKey, data.wallet.public_address);
                     } else if (!userCachedWallet && !cachedWallet) {
                         setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');

@@ -45,7 +45,7 @@ export function useWallet() {
     useEffect(() => {
         const checkCustodial = () => {
             const token = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null;
-            const addr = typeof window !== 'undefined' ? localStorage.getItem('cached_wallet_address') : null;
+            const addr = typeof window !== 'undefined' ? localStorage.getItem('wallet_address') : null;
 
             setCustodialState(prev => {
                 if (prev.isConnected === !!token && prev.address === addr) return prev;
@@ -59,23 +59,23 @@ export function useWallet() {
     }, []);
 
     // Optimistic Connection Logic
-    // If we are reconnecting, assume we are connected if we have a cached address
+    // If we are reconnecting, assume we are connected if we have a wagmi cached address
     // This prevents the UI from flashing the "Connect Wallet" screen during page loads/refresh
-    const cachedAddress = typeof window !== 'undefined' ? localStorage.getItem('cached_wallet_address') as `0x${string}` | null : null;
+    const wagmiCachedAddress = typeof window !== 'undefined' ? localStorage.getItem('wagmi_cached_address') as `0x${string}` | null : null;
 
     // We are "effectively" connected if:
     // 1. Wagmi says we are connected
     // 2. We are custodial connected
     // 3. Wagmi is currently reconnecting AND we have a valid cached address (Optimistic)
-    const effectiveConnected = wagmiConnected || custodialState.isConnected || (isReconnecting && !!cachedAddress);
+    const effectiveConnected = wagmiConnected || custodialState.isConnected || (isReconnecting && !!wagmiCachedAddress);
 
     // The effective address follows the same logic
-    const effectiveAddress = (wagmiAddress || custodialState.address || (isReconnecting ? cachedAddress : undefined)) as `0x${string}` | undefined;
+    const effectiveAddress = (wagmiAddress || custodialState.address || (isReconnecting ? wagmiCachedAddress : undefined)) as `0x${string}` | undefined;
 
     // Cache the address when we are truly connected via Wagmi
     useEffect(() => {
         if (wagmiConnected && wagmiAddress) {
-            localStorage.setItem('cached_wallet_address', wagmiAddress);
+            localStorage.setItem('wagmi_cached_address', wagmiAddress);
         }
     }, [wagmiConnected, wagmiAddress]);
 

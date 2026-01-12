@@ -177,8 +177,9 @@ export class Web3Service {
         try {
             const balance = await this.predictionMarket.userBalances(address);
             return ethers.formatUnits(balance, 6);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching deposited balance:', error);
+            // Return 0 if user has no balance or contract call fails
             return '0';
         }
     }
