@@ -54,6 +54,10 @@ const getMetaMaskSDK = () => {
             },
             preferDesktop: false,
             checkInstallationImmediately: false,
+            openDeeplink: (link: string) => {
+                window.location.href = link;
+            },
+            useDeeplink: true,
             logging: {
                 developerMode: false,
             },

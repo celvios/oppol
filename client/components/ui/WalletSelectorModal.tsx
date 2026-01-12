@@ -63,7 +63,25 @@ export function WalletSelectorModal({
                         )}
 
                         <div className="space-y-3">
-                            {/* MetaMask SDK Button (Mobile Priority) */}
+                            {/* WalletConnect - Priority on Mobile */}
+                            <button
+                                onClick={() => {
+                                    open();
+                                    onClose();
+                                }}
+                                disabled={isConnecting}
+                                className="w-full flex items-center gap-4 p-4 bg-[#3B99FC]/10 hover:bg-[#3B99FC]/20 border border-[#3B99FC]/30 rounded-xl transition-all disabled:opacity-50"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-[#3B99FC] flex items-center justify-center">
+                                    <span className="text-xl">📡</span>
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <p className="font-bold text-white">WalletConnect</p>
+                                    <p className="text-xs text-white/50">{isMobile ? 'Recommended for mobile' : 'Connect any wallet'}</p>
+                                </div>
+                            </button>
+
+                            {/* MetaMask SDK Button (Mobile) - Secondary option */}
                             {isMobile && (
                                 <button
                                     onClick={async () => {
@@ -87,8 +105,8 @@ export function WalletSelectorModal({
                                         <span className="text-xl">🦊</span>
                                     </div>
                                     <div className="flex-1 text-left">
-                                        <p className="font-bold text-white">MetaMask</p>
-                                        <p className="text-xs text-white/50">{isConnecting ? 'Waiting for approval...' : 'Open in MetaMask app'}</p>
+                                        <p className="font-bold text-white">MetaMask Direct</p>
+                                        <p className="text-xs text-white/50">{isConnecting ? 'Waiting for approval...' : 'Open MetaMask app'}</p>
                                     </div>
                                     {isConnecting ? (
                                         <Loader2 className="w-5 h-5 text-[#f6851b] animate-spin" />
@@ -98,8 +116,8 @@ export function WalletSelectorModal({
                                 </button>
                             )}
 
-                            {/* Detected Wallets */}
-                            {wallets.map((wallet) => (
+                            {/* Detected Wallets - Desktop only */}
+                            {!isMobile && wallets.map((wallet) => (
                                 <button
                                     key={wallet.uuid}
                                     onClick={() => onSelectWallet(wallet)}
@@ -126,31 +144,6 @@ export function WalletSelectorModal({
                                     )}
                                 </button>
                             ))}
-
-                            {/* Reown / WalletConnect Button */}
-                            <button
-                                onClick={() => {
-                                    open();
-                                    onClose();
-                                }}
-                                disabled={isConnecting}
-                                className="w-full flex items-center gap-4 p-4 bg-[#3B99FC]/10 hover:bg-[#3B99FC]/20 border border-[#3B99FC]/30 rounded-xl transition-all disabled:opacity-50"
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-[#3B99FC] flex items-center justify-center">
-                                    <span className="text-xl">📡</span>
-                                </div>
-                                <div className="flex-1 text-left">
-                                    <p className="font-bold text-white">WalletConnect</p>
-                                    <p className="text-xs text-white/50">Reown / Other Wallets</p>
-                                </div>
-                            </button>
-
-                            {/* Mobile: No wallets but show MetaMask SDK (only if SDK not already shown above logic) */}
-                            {wallets.length === 0 && isMobile && !isConnecting && (
-                                <p className="text-center text-white/40 text-sm py-2">
-                                    Or use WalletConnect above
-                                </p>
-                            )}
                         </div>
                     </div>
                 </motion.div>
