@@ -5,15 +5,18 @@ dotenv.config();
 
 // MOCK DATABASE IMPLEMENTATION
 class MockPool {
+    private markets = new Map(); // Store market data if needed
     private users = new Map();
     private wallets = new Map();
     private tokens = new Map();
+    private marketMetadata = new Map();
+    private categories = new Map();
 
     async query(text: string, params: any[] = []) {
         console.log('📝 [MOCK DB] Query:', text);
-
-        // Normalize text for simple matching
         const q = text.toLowerCase();
+
+        // --- AUTH & WALLET ---
 
         // 1. SELECT User (Auth)
         if (q.includes('select id from users')) {
@@ -41,7 +44,6 @@ class MockPool {
         if (q.includes('select * from auth_tokens')) {
             const token = params[0];
             const data = this.tokens.get(token);
-            // Handle "Demo Token" for manual testing
             if (token === 'demo-token') {
                 return { rows: [{ token: 'demo-token', user_id: 'demo-user-123', expires_at: new Date(Date.now() + 9999999), used: false }] };
             }
@@ -50,8 +52,7 @@ class MockPool {
 
         // 5. UPDATE Token (Mark Used)
         if (q.includes('update auth_tokens')) {
-            const token = params[0]; // Assuming token is the last param or the WHERE clause param. 
-            // In the controller: UPDATE ... WHERE token = $1
+            const token = params[0];
             if (this.tokens.has(token)) {
                 const t = this.tokens.get(token);
                 t.used = true;
@@ -63,19 +64,70 @@ class MockPool {
         // 6. INSERT Wallet
         if (q.includes('insert into wallets')) {
             const newWallet = { id: 'wallet-' + Math.random(), user_id: params[0], public_address: params[1], encrypted_private_key: params[2], balance: 0 };
-            this.wallets.set(params[0], newWallet); // Map Key = UserID for easier lookup
+            this.wallets.set(params[0], newWallet);
             return { rows: [newWallet] };
         }
 
         // 7. GET Wallet
         if (q.includes('select id, public_address, balance from wallets')) {
             const userId = params[0];
-            // Return Mock if demo user
             if (userId === 'demo-user-123') {
                 return { rows: [{ id: 'demo-wallet', public_address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', balance: 50.00 }] };
             }
             const w = this.wallets.get(userId);
             return { rows: w ? [w] : [] };
+        }
+
+        // --- MARKET METADATA ---
+
+        // 8. INSERT Market Metadata
+        if (q.includes('insert into market_metadata')) {
+            const marketId = params[0];
+            const meta = {
+                market_id: marketId,
+                question: params[1],
+                description: params[2],
+                image_url: params[3],
+                category_id: params[4],
+                created_at: new Date()
+            };
+            this.marketMetadata.set(marketId.toString(), meta);
+            return { rows: [meta] };
+        }
+
+        // 9. SELECT Market Metadata (Single)
+        if (q.includes('select * from market_metadata where market_id')) {
+            const marketId = params[0].toString();
+            const meta = this.marketMetadata.get(marketId);
+            return { rows: meta ? [meta] : [] };
+        }
+
+        // 10. SELECT All Metadata
+        if (q.includes('select * from market_metadata')) {
+            return { rows: Array.from(this.marketMetadata.values()) };
+        }
+
+        // --- CATEGORIES ---
+
+        // 11. INSERT Category
+        if (q.includes('insert into categories')) {
+            const id = 'cat-' + Math.random().toString(36).substr(2, 9);
+            const cat = { id, name: params[0], slug: params[0].toLowerCase().replace(/\s+/g, '-') };
+            this.categories.set(cat.id, cat);
+            return { rows: [cat] };
+        }
+
+        // 12. SELECT Categories
+        if (q.includes('select * from categories')) {
+            // Seed defaults if empty
+            if (this.categories.size === 0) {
+                const defaults = ['Crypto', 'Sports', 'Politics', 'Pop Culture'];
+                defaults.forEach(d => {
+                    const id = d.toLowerCase();
+                    this.categories.set(id, { id, name: d, slug: id });
+                });
+            }
+            return { rows: Array.from(this.categories.values()) };
         }
 
         return { rows: [] };

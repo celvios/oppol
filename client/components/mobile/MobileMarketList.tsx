@@ -125,7 +125,7 @@ export default function MobileMarketList() {
                                 <div className="mt-4 flex justify-between items-center relative z-10">
                                     <span className="text-xs text-text-secondary bg-white/5 px-2 py-1 rounded-md">Vol: ${market.totalVolume}</span>
                                     <span className="text-xs font-bold text-neon-cyan flex items-center gap-1 bg-neon-cyan/10 px-3 py-1.5 rounded-full border border-neon-cyan/20">
-                                        Trade Now <TrendingUp size={12} />
+                                        Join Poll <TrendingUp size={12} />
                                     </span>
                                 </div>
 
@@ -133,6 +133,34 @@ export default function MobileMarketList() {
                         </Link>
                     </div>
                 ))}
+            </div>
+
+            {/* All Markets List */}
+            <div className="mt-8 px-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <TrendingUp className="w-5 h-5 text-neon-purple" />
+                    <h2 className="text-xl font-heading font-bold">All Markets</h2>
+                </div>
+
+                <div className="space-y-4">
+                    {markets.map((market) => (
+                        <Link key={market.id} href={`/terminal?marketId=${market.id}`} className="block">
+                            <GlassCard className="p-4 active:scale-[0.98] transition-transform border border-white/5 flex items-center gap-4">
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-sm mb-2 line-clamp-2">{market.question}</h3>
+                                    <div className="flex items-center gap-3 text-xs font-mono">
+                                        <span className="text-outcome-a">YES {market.yesOdds.toFixed(0)}%</span>
+                                        <span className="text-outcome-b">NO {market.noOdds.toFixed(0)}%</span>
+                                        <span className="text-white/30">Vol: ${market.totalVolume}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded-lg">
+                                    <TrendingUp className="w-4 h-4 text-neon-cyan" />
+                                </div>
+                            </GlassCard>
+                        </Link>
+                    ))}
+                </div>
             </div>
         </div>
     );
