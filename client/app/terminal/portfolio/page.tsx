@@ -4,9 +4,8 @@ import { PieChart, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, Plus, Minus
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
-import { useWallet } from "@/lib/use-wallet";
-import { useWalletStatus } from "@/lib/use-wallet-status";
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { LoginModal } from "@/components/ui/LoginModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 interface Position {
@@ -26,10 +25,9 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
-    const { open } = useWeb3Modal();
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
-    // Wallet connection state - useWallet handles both wagmi and custodial
-    const { isConnected, address, isLoading } = useWalletStatus();
+    const { isConnected, address, isLoading, login } = useCustodialWallet();
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -144,8 +142,6 @@ export default function PortfolioPage() {
         return () => clearInterval(interval);
     }, [address]);
 
-    // WALLET CONNECTION GATE - Show connect prompt if not connected
-    // Show loader if we are in the middle of connecting/reconnecting
     if (isLoading) {
         return <SkeletonLoader />;
     }
@@ -158,18 +154,23 @@ export default function PortfolioPage() {
                         <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
                             <Wallet className="w-10 h-10 text-primary" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
+                        <h2 className="text-2xl font-bold text-white mb-3">Sign In to Continue</h2>
                         <p className="text-white/50 mb-8">
-                            Connect your wallet to view your portfolio, positions, and trading history.
+                            Sign in to view your portfolio, positions, and trading history.
                         </p>
                         <button
-                            onClick={() => open()}
+                            onClick={() => setShowLoginModal(true)}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
-                            Connect Wallet
+                            Sign In
                         </button>
                     </div>
                 </div>
+                <LoginModal 
+                    isOpen={showLoginModal} 
+                    onClose={() => setShowLoginModal(false)}
+                    onLogin={login}
+                />
             </>
         );
     }

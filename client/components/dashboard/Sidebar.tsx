@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, User } from "lucide-react";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
-// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
-// import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal"; // Removed or kept for layout but logic stripped
-import { useState, useEffect } from "react";
-import { useDisconnect, useAccount } from "wagmi";
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { LoginModal } from "@/components/ui/LoginModal";
+import { useState } from "react";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -26,42 +24,14 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isAdmin, isConnected, address: wagmiAddress } = useWallet();
-    const { disconnect: wagmiDisconnect } = useDisconnect();
-    // EIP-6963 logic removed
-    const { open } = useWeb3Modal();
-    const [showWalletModal, setShowWalletModal] = useState(false);
-
-    // Custodial session detection
-    const [isCustodial, setIsCustodial] = useState(false);
-    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
-
-    useEffect(() => {
-        const sessionToken = localStorage.getItem('session_token');
-        const cachedAddress = localStorage.getItem('cached_wallet_address');
-        setIsCustodial(!!sessionToken);
-        setCustodialAddress(cachedAddress);
-    }, []);
+    const { isAdmin } = useWallet();
+    const { isConnected, address, logout, login } = useCustodialWallet();
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     const handleLogout = () => {
-        // Clear all session data
-        localStorage.removeItem('session_token');
-        localStorage.removeItem('cached_wallet_address');
-        localStorage.removeItem('connected_wallet_uuid');
-        localStorage.removeItem('connected_wallet_name');
-
-        // Disconnect Wagmi/Reown
-        wagmiDisconnect();
-
-        // Disconnect EIP-6963 wallet if connected
-        // Disconnect EIP-6963 wallet if connected (Removed)
-
-        // Redirect to homepage
+        logout();
         router.push('/');
     };
-
-    // Either connected via Wagmi or custodial session
-    const isLoggedIn = isConnected || isCustodial;
 
     return (
         <>
@@ -119,8 +89,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         );
                     })}
 
-                    {/* Wallet/Account Menu Item */}
-                    {isLoggedIn ? (
+                    {isConnected ? (
                         <div
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary border border-primary/20",
@@ -128,23 +97,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             )}
                         >
                             <div className="relative">
-                                {isConnected ? (
-                                    <Wallet className="w-5 h-5" />
-                                ) : (
-                                    <User className="w-5 h-5" />
-                                )}
+                                <Wallet className="w-5 h-5" />
                                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
                             </div>
                             {!collapsed && (
                                 <>
                                     <div className="flex-1">
                                         <span className="font-mono text-xs">
-                                            {isConnected && wagmiAddress
-                                                ? `${wagmiAddress.slice(0, 6)}...${wagmiAddress.slice(-4)}`
-                                                : custodialAddress
-                                                    ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
-                                                    : 'Logged In'
-                                            }
+                                            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Logged In'}
                                         </span>
                                     </div>
                                     <button
@@ -166,20 +126,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => open()}
+                            onClick={() => setShowLoginModal(true)}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
                                 collapsed ? "justify-center" : ""
                             )}
-                            title={collapsed ? "Connect Wallet" : undefined}
+                            title={collapsed ? "Sign In" : undefined}
                         >
                             <Wallet className="w-5 h-5 transition-transform group-hover:scale-110" />
-                            {!collapsed && <span className="font-medium text-sm">Connect Wallet</span>}
+                            {!collapsed && <span className="font-medium text-sm">Sign In</span>}
                         </button>
                     )}
 
-                    {/* Admin Link - Only visible if user has 50M+ tokens */}
                     {isConnected && isAdmin && (
                         <Link
                             href="/admin"
@@ -205,8 +164,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
             </div>
 
-            {/* Wallet Selector Modal Removed */
-            /* <WalletSelectorModal ... /> */}
+            <LoginModal 
+                isOpen={showLoginModal} 
+                onClose={() => setShowLoginModal(false)}
+                onLogin={login}
+            />
         </>
     );
 }

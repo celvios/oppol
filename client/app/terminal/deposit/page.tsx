@@ -4,9 +4,8 @@ import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "l
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
-import { useWalletStatus } from "@/lib/use-wallet-status";
-// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
-import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
+import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { LoginModal } from "@/components/ui/LoginModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { parseUnits, formatUnits } from 'viem';
@@ -71,12 +70,10 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, isLoading } = useWalletStatus();
+    const { isConnected, address, isLoading, login } = useCustodialWallet();
     const { usdcBalance, bnbBalance } = useWallet();
     const [copied, setCopied] = useState(false);
-
-    // EIP-6963 Removed
-    const { open } = useWeb3Modal();
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     // USE HOOK STATE DIRECTLY
     const effectiveAddress = address;
@@ -242,8 +239,6 @@ export default function DepositPage() {
         }
     };
 
-    // If we are NOT loading, OR if we are Connected, show the UI.
-    // This allows connected users to skip the loader entirely.
     if (isLoading) return <SkeletonLoader />;
 
     return (
@@ -253,7 +248,6 @@ export default function DepositPage() {
                 <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>
             </div>
 
-            {/* WalletConnect User - Show if connected */}
             {isConnected ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-6">
@@ -386,26 +380,28 @@ export default function DepositPage() {
                     )}
                 </div>
             ) : (
-                /* Connect Wallet Section for non-connected, non-custodial users */
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
                     <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
                         <Wallet className="w-8 h-8 text-primary" />
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-2">Connect Your Wallet</h2>
+                    <h2 className="text-xl font-bold text-white mb-2">Sign In to Deposit</h2>
                     <p className="text-white/50 mb-6">
-                        Connect MetaMask or Trust Wallet to deposit funds
+                        Sign in to deposit funds and start trading
                     </p>
                     <button
-                        onClick={() => open()}
+                        onClick={() => setShowLoginModal(true)}
                         className="px-8 py-4 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
                     >
-                        Connect Wallet
+                        Sign In
                     </button>
                 </div>
             )}
 
-            {/* Wallet Selector Modal Removed - reusing Web3Modal */
-            /* <WalletSelectorModal ... /> */}
+            <LoginModal 
+                isOpen={showLoginModal} 
+                onClose={() => setShowLoginModal(false)}
+                onLogin={login}
+            />
         </div>
     );
 }
