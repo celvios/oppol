@@ -257,12 +257,30 @@ export default function DepositPage() {
         const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
 
         try {
-            writeContract({
-                address: tokenAddress,
-                abi: ERC20_ABI,
-                functionName: 'approve',
-                args: [spender, parseUnits(depositAmount, 6)],
-            });
+            // Check if in MetaMask browser
+            if (typeof window !== 'undefined' && (window as any).ethereum) {
+                const ethereum = (window as any).ethereum;
+                const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Use direct ethereum.request for better compatibility
+                const { ethers } = await import('ethers');
+                const provider = new ethers.BrowserProvider(ethereum);
+                const signer = await provider.getSigner();
+                const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+                
+                const tx = await contract.approve(spender, parseUnits(depositAmount, 6));
+                await tx.wait();
+                
+                setNeedsDeposit(true);
+            } else {
+                // Fallback to Wagmi
+                writeContract({
+                    address: tokenAddress,
+                    abi: ERC20_ABI,
+                    functionName: 'approve',
+                    args: [spender, parseUnits(depositAmount, 6)],
+                });
+            }
         } catch (err) {
             console.error(err);
             setStep('input');
@@ -274,23 +292,47 @@ export default function DepositPage() {
         setStep(isZap ? 'swapping' : 'depositing');
 
         try {
-            if (isZap) {
-                const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
-                const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
-
-                writeContract({
-                    address: ZAP_ADDRESS,
-                    abi: ZAP_ABI,
-                    functionName: 'zapInToken',
-                    args: [tokenAddress, parseUnits(depositAmount, 6), minUSDC],
-                });
+            // Check if in MetaMask browser
+            if (typeof window !== 'undefined' && (window as any).ethereum) {
+                const ethereum = (window as any).ethereum;
+                const { ethers } = await import('ethers');
+                const provider = new ethers.BrowserProvider(ethereum);
+                const signer = await provider.getSigner();
+                
+                if (isZap) {
+                    const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
+                    const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+                    const contract = new ethers.Contract(ZAP_ADDRESS, ZAP_ABI, signer);
+                    
+                    const tx = await contract.zapInToken(tokenAddress, parseUnits(depositAmount, 6), minUSDC);
+                    await tx.wait();
+                } else {
+                    const contract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+                    const tx = await contract.deposit(parseUnits(depositAmount, 6));
+                    await tx.wait();
+                }
+                
+                setStep('complete');
             } else {
-                writeContract({
-                    address: MARKET_CONTRACT,
-                    abi: MARKET_ABI,
-                    functionName: 'deposit',
-                    args: [parseUnits(depositAmount, 6)],
-                });
+                // Fallback to Wagmi
+                if (isZap) {
+                    const minUSDC = parseUnits((parseFloat(estimatedUSDC) * 0.98).toString(), 6);
+                    const tokenAddress = (selectedToken as any).address || USDC_ADDRESS;
+
+                    writeContract({
+                        address: ZAP_ADDRESS,
+                        abi: ZAP_ABI,
+                        functionName: 'zapInToken',
+                        args: [tokenAddress, parseUnits(depositAmount, 6), minUSDC],
+                    });
+                } else {
+                    writeContract({
+                        address: MARKET_CONTRACT,
+                        abi: MARKET_ABI,
+                        functionName: 'deposit',
+                        args: [parseUnits(depositAmount, 6)],
+                    });
+                }
             }
         } catch (err) {
             console.error(err);
