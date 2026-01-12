@@ -188,6 +188,29 @@ export function useEIP6963() {
                 localStorage.setItem('connected_wallet_name', wallet.name);
             }
 
+            // Auto-switch to BSC Testnet if not already on it
+            if (chainId !== '0x61') {
+                try {
+                    await wallet.provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x61' }],
+                    });
+                } catch (switchError: any) {
+                    if (switchError.code === 4902) {
+                        await wallet.provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x61',
+                                chainName: 'BSC Testnet',
+                                nativeCurrency: { name: 'BNB', symbol: 'tBNB', decimals: 18 },
+                                rpcUrls: ['https://bsc-testnet-rpc.publicnode.com'],
+                                blockExplorerUrls: ['https://testnet.bscscan.com'],
+                            }],
+                        });
+                    }
+                }
+            }
+
             return accounts[0];
         } catch (err: any) {
             console.error('Wallet connection failed:', err);
@@ -207,7 +230,6 @@ export function useEIP6963() {
             const sdk = getMetaMaskSDK();
             if (!sdk) throw new Error('MetaMask SDK not available');
 
-            // Set a flag to track connection attempt
             const connectionTimeout = setTimeout(() => {
                 setIsConnecting(false);
                 setError('Connection timed out. Please try again.');
@@ -227,7 +249,6 @@ export function useEIP6963() {
                 method: 'eth_chainId',
             }) as string;
 
-            // Set up listeners
             provider.on('accountsChanged', handleAccountsChanged);
             provider.on('chainChanged', handleChainChanged);
 
@@ -241,6 +262,29 @@ export function useEIP6963() {
 
             localStorage.setItem('connected_wallet_uuid', 'metamask-sdk');
             localStorage.setItem('connected_wallet_name', 'MetaMask');
+
+            // Auto-switch to BSC Testnet
+            if (chainId !== '0x61') {
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x61' }],
+                    });
+                } catch (switchError: any) {
+                    if (switchError.code === 4902) {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x61',
+                                chainName: 'BSC Testnet',
+                                nativeCurrency: { name: 'BNB', symbol: 'tBNB', decimals: 18 },
+                                rpcUrls: ['https://bsc-testnet-rpc.publicnode.com'],
+                                blockExplorerUrls: ['https://testnet.bscscan.com'],
+                            }],
+                        });
+                    }
+                }
+            }
 
             return accounts[0];
         } catch (err: any) {
