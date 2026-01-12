@@ -21,6 +21,7 @@ import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
 import { motion, AnimatePresence } from "framer-motion";
 import { useUIStore } from "@/lib/store"; // Add missing import
 import { getMarketMetadata } from "@/lib/market-metadata";
+import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal"; // Add import
 
 // Contract ABI
 const MARKET_ABI = [
@@ -77,6 +78,7 @@ export function MobileTerminal() {
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
     const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false); // New state
+    const [showWalletModal, setShowWalletModal] = useState(false); // Add wallet modal state
     // Initialize with 0 to prevent hydration mismatch, update in effect
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
 
@@ -266,23 +268,42 @@ export function MobileTerminal() {
 
     if (!mounted || (!isConnected && mounted)) {
         return (
-            <div className="flex items-center justify-center min-h-screen p-6">
-                <div className="text-center max-w-md">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                        <Wallet className="w-10 h-10 text-primary" />
+            <>
+                <div className="flex items-center justify-center min-h-screen p-6">
+                    <div className="text-center max-w-md">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                            <Wallet className="w-10 h-10 text-primary" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
+                        <p className="text-white/50 mb-8">
+                            Connect your wallet to start trading on prediction markets.
+                        </p>
+                        <button
+                            onClick={() => setShowWalletModal(true)}
+                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                        >
+                            Connect Wallet
+                        </button>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                    <p className="text-white/50 mb-8">
-                        Connect your wallet to start trading on prediction markets.
-                    </p>
-                    <button
-                        onClick={() => open()}
-                        className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                    >
-                        Connect Wallet
-                    </button>
                 </div>
-            </div>
+
+                <WalletSelectorModal
+                    isOpen={showWalletModal}
+                    onClose={() => setShowWalletModal(false)}
+                    wallets={wallets}
+                    onSelectWallet={async (wallet) => {
+                        await connect(wallet);
+                        setShowWalletModal(false);
+                    }}
+                    onConnectMetaMaskSDK={async () => {
+                        await connectMetaMaskSDK();
+                        setShowWalletModal(false);
+                    }}
+                    isConnecting={isConnecting}
+                    error={error}
+                    isMobile={isMobile}
+                />
+            </>
         );
     }
 
