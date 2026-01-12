@@ -81,9 +81,6 @@ export default function DepositPage() {
     // USE HOOK STATE DIRECTLY
     const effectiveAddress = address;
 
-    // Loading if we aren't connected but might be connecting
-    const loading = !isConnected && (isReconnecting || isConnecting);
-
     // Deposit State
     const [depositAmount, setDepositAmount] = useState('');
     const [selectedToken, setSelectedToken] = useState(TOKENS[0]); // Default USDC
