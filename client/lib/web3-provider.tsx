@@ -28,6 +28,9 @@ const config = defaultWagmiConfig({
     projectId,
     metadata,
     ssr: true,
+    storage: createStorage({
+        storage: typeof window !== 'undefined' ? window.localStorage : cookieStorage,
+    }),
     enableCoinbase: true,
     enableInjected: true,
     enableWalletConnect: true,
