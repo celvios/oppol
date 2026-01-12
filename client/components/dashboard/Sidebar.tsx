@@ -5,10 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
-import { useEIP6963 } from "@/lib/useEIP6963";
-import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
+// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
+// import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal"; // Removed or kept for layout but logic stripped
 import { useState, useEffect } from "react";
-import { useDisconnect } from "wagmi";
+import { useDisconnect, useAccount } from "wagmi";
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -27,16 +28,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const router = useRouter();
     const { isAdmin, isConnected, address: wagmiAddress } = useWallet();
     const { disconnect: wagmiDisconnect } = useDisconnect();
-    const {
-        wallets,
-        walletState,
-        isConnecting,
-        error,
-        connect,
-        connectMetaMaskSDK,
-        disconnect,
-        isMobile,
-    } = useEIP6963();
+    // EIP-6963 logic removed
+    const { open } = useWeb3Modal();
     const [showWalletModal, setShowWalletModal] = useState(false);
 
     // Custodial session detection
@@ -61,16 +54,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         wagmiDisconnect();
 
         // Disconnect EIP-6963 wallet if connected
-        if (walletState.isConnected) {
-            disconnect();
-        }
+        // Disconnect EIP-6963 wallet if connected (Removed)
 
         // Redirect to homepage
         router.push('/');
     };
 
-    // Either connected via Wagmi, EIP-6963, or custodial session
-    const isLoggedIn = isConnected || walletState.isConnected || isCustodial;
+    // Either connected via Wagmi or custodial session
+    const isLoggedIn = isConnected || isCustodial;
 
     return (
         <>
@@ -137,7 +128,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             )}
                         >
                             <div className="relative">
-                                {(isConnected || walletState.isConnected) ? (
+                                {isConnected ? (
                                     <Wallet className="w-5 h-5" />
                                 ) : (
                                     <User className="w-5 h-5" />
@@ -150,11 +141,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                         <span className="font-mono text-xs">
                                             {isConnected && wagmiAddress
                                                 ? `${wagmiAddress.slice(0, 6)}...${wagmiAddress.slice(-4)}`
-                                                : walletState.isConnected
-                                                    ? `${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`
-                                                    : custodialAddress
-                                                        ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
-                                                        : 'Logged In'
+                                                : custodialAddress
+                                                    ? `${custodialAddress.slice(0, 6)}...${custodialAddress.slice(-4)}`
+                                                    : 'Logged In'
                                             }
                                         </span>
                                     </div>
@@ -177,7 +166,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => open()}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
@@ -216,23 +205,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
             </div>
 
-            {/* Wallet Selector Modal */}
-            <WalletSelectorModal
-                isOpen={showWalletModal}
-                onClose={() => setShowWalletModal(false)}
-                wallets={wallets}
-                onSelectWallet={async (wallet) => {
-                    await connect(wallet);
-                    setShowWalletModal(false);
-                }}
-                onConnectMetaMaskSDK={async () => {
-                    await connectMetaMaskSDK();
-                    setShowWalletModal(false);
-                }}
-                isConnecting={isConnecting}
-                error={error}
-                isMobile={isMobile}
-            />
+            {/* Wallet Selector Modal Removed */
+            /* <WalletSelectorModal ... /> */}
         </>
     );
 }

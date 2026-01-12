@@ -9,9 +9,9 @@ import { useState, useEffect } from "react";
 import { useDisconnect } from "wagmi";
 
 import { useUIStore } from "@/lib/store";
-import { useEIP6963 } from "@/lib/useEIP6963";
+// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { useWallet } from "@/lib/use-wallet";
-import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -19,17 +19,8 @@ export default function BottomNav() {
     const { isTradeModalOpen } = useUIStore();
     const { isConnected, address } = useWallet();
     const { disconnect: wagmiDisconnect } = useDisconnect();
-    const {
-        wallets,
-        walletState,
-        isConnecting,
-        error,
-        connect,
-        connectMetaMaskSDK,
-        disconnect,
-        isMobile,
-    } = useEIP6963();
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    // EIP-6963 logic removed
+    const { open } = useWeb3Modal();
 
     const handleLogout = () => {
         // Clear all session data
@@ -42,16 +33,14 @@ export default function BottomNav() {
         wagmiDisconnect();
 
         // Disconnect EIP-6963 wallet if connected
-        if (walletState.isConnected) {
-            disconnect();
-        }
+        // Disconnect EIP-6963 wallet if connected (Removed)
 
         // Redirect to homepage
         router.push('/');
     };
 
-    // Wagmi (includes custodial via useWallet) or EIP-6963
-    const isLoggedIn = isConnected || walletState.isConnected;
+    // Wagmi (includes custodial via useWallet)
+    const isLoggedIn = isConnected;
 
     if (isTradeModalOpen) return null;
 
@@ -110,7 +99,7 @@ export default function BottomNav() {
                                 className="flex flex-col items-center gap-1"
                             >
                                 <div className="relative">
-                                    {(isConnected || walletState.isConnected) ? (
+                                    {isConnected ? (
                                         <Wallet className="w-6 h-6 text-primary" />
                                     ) : (
                                         <User className="w-6 h-6 text-primary" />
@@ -120,16 +109,14 @@ export default function BottomNav() {
                                 <span className="text-primary text-[10px] font-mono">
                                     {isConnected && address
                                         ? `${address.slice(0, 4)}...${address.slice(-3)}`
-                                        : walletState.isConnected
-                                            ? `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-3)}`
-                                            : 'Logout'
+                                        : 'Logout'
                                     }
                                 </span>
                             </button>
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => open()}
                             className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                         >
                             <Wallet className="w-6 h-6 text-text-secondary" />
@@ -140,22 +127,8 @@ export default function BottomNav() {
             </div>
 
             {/* Wallet Selector Modal */}
-            <WalletSelectorModal
-                isOpen={showWalletModal}
-                onClose={() => setShowWalletModal(false)}
-                wallets={wallets}
-                onSelectWallet={async (wallet) => {
-                    await connect(wallet);
-                    setShowWalletModal(false);
-                }}
-                onConnectMetaMaskSDK={async () => {
-                    await connectMetaMaskSDK();
-                    setShowWalletModal(false);
-                }}
-                isConnecting={isConnecting}
-                error={error}
-                isMobile={isMobile}
-            />
+            {/* Wallet Selector Modal Removed */
+            /* <WalletSelectorModal ... /> */}
         </>
     );
 }
