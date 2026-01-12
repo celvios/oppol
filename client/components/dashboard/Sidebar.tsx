@@ -87,7 +87,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50">
                                 <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_#00E0FF]" />
                             </div>
-                            <span className="font-mono font-bold text-lg tracking-wider text-white">OPOLL</span>
+                            <span className="font-mono font-bold text-lg tracking-wider text-white">OPoll</span>
                         </div>
                     )}
                     <button

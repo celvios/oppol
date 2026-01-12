@@ -51,7 +51,7 @@ export default function MobileFeatures() {
 
     return (
         <div className="w-full py-16 md:hidden overflow-x-hidden">
-            <h2 className="text-2xl font-heading font-bold text-center mb-8">Why Oppol?</h2>
+            <h2 className="text-2xl font-heading font-bold text-center mb-8">Why OPoll?</h2>
 
             <div
                 ref={scrollRef}

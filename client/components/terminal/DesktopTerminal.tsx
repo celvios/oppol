@@ -475,26 +475,53 @@ export function DesktopTerminal() {
                                     }}
                                     itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)' }}
                                 />
-                                <Area
-                                    type="monotone"
-                                    dataKey="yesPrice"
-                                    name="YES"
-                                    stroke="#27E8A7"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#colorYes)"
-                                    className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)]"
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="noPrice"
-                                    name="NO"
-                                    stroke="#FF2E63"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#colorNo)"
-                                    className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)]"
-                                />
+                                {chartView === 'YES' ? (
+                                    <>
+                                        <Area
+                                            type="monotone"
+                                            dataKey="noPrice"
+                                            name="NO"
+                                            stroke="#FF2E63"
+                                            strokeWidth={3}
+                                            fillOpacity={1}
+                                            fill="url(#colorNo)"
+                                            className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)] transition-all duration-500"
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="yesPrice"
+                                            name="YES"
+                                            stroke="#27E8A7"
+                                            strokeWidth={3}
+                                            fillOpacity={1}
+                                            fill="url(#colorYes)"
+                                            className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)] transition-all duration-500"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Area
+                                            type="monotone"
+                                            dataKey="yesPrice"
+                                            name="YES"
+                                            stroke="#27E8A7"
+                                            strokeWidth={3}
+                                            fillOpacity={1}
+                                            fill="url(#colorYes)"
+                                            className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)] transition-all duration-500"
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="noPrice"
+                                            name="NO"
+                                            stroke="#FF2E63"
+                                            strokeWidth={3}
+                                            fillOpacity={1}
+                                            fill="url(#colorNo)"
+                                            className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)] transition-all duration-500"
+                                        />
+                                    </>
+                                )}
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>

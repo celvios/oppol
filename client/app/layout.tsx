@@ -23,7 +23,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OPOLL | Decentralized Prediction Market",
+  title: "OPoll | Decentralized Prediction Market",
   description: "Predict the future. Own the outcome.",
   themeColor: "#05050A",
 };

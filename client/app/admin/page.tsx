@@ -39,11 +39,11 @@ export default function AdminPage() {
                     <Shield className="w-16 h-16 text-amber-400 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold mb-2">Admin Access Required</h1>
                     <p className="text-white/60 mb-4">
-                        You need at least <span className="text-amber-400 font-bold">50,000,000 OPOLL tokens</span> to access admin features.
+                        You need at least <span className="text-amber-400 font-bold">50,000,000 OPoll tokens</span> to access admin features.
                     </p>
                     <div className="bg-white/5 rounded-xl p-4 mb-6">
                         <p className="text-sm text-white/40">Your Balance</p>
-                        <p className="text-xl font-mono text-white">{tokenBalance} OPOLL</p>
+                        <p className="text-xl font-mono text-white">{tokenBalance} OPoll</p>
                     </div>
                     <Link href="/terminal" className="text-primary hover:underline">
                         ← Go to Terminal
@@ -206,7 +206,7 @@ export default function AdminPage() {
                         <strong>Admin Wallet:</strong> {address?.slice(0, 10)}...{address?.slice(-8)}
                     </p>
                     <p className="text-sm text-amber-400/60 mt-1">
-                        Token Balance: {tokenBalance} OPOLL
+                        Token Balance: {tokenBalance} OPoll
                     </p>
                 </div>
             </motion.div>

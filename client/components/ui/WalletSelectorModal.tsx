@@ -52,7 +52,7 @@ export function WalletSelectorModal({
 
                         <h2 className="text-xl font-bold text-white mb-2">Connect Wallet</h2>
                         <p className="text-white/50 text-sm mb-6">
-                            Choose a wallet to connect to OPOLL
+                            Choose a wallet to connect to OPoll
                         </p>
 
                         {/* Error Message */}

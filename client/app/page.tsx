@@ -47,7 +47,7 @@ export default function Home() {
 
             <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default">
               <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 block">
-                <ScrambleText text="OPOLL" />
+                <ScrambleText text="OPoll" />
               </span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-2">
                 PROTOCOL
@@ -64,7 +64,7 @@ export default function Home() {
               <Link href="/terminal" className="w-full sm:w-auto">
                 <NeonButton variant="cyan" className="w-full sm:w-auto px-8 py-5 text-lg group">
                   <Terminal className="w-5 h-5 mr-2 group-hover:text-black transition-colors" />
-                  LAUNCH TERMINAL
+                  JOIN POLL
                 </NeonButton>
               </Link>
 
@@ -76,7 +76,7 @@ export default function Home() {
               >
                 <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group">
                   <MessageCircle className="w-5 h-5 mr-2 text-neon-green" />
-                  WHATSAPP TRADE
+                  JOIN ON WHATSAPP
                 </NeonButton>
               </a>
             </div>
@@ -101,7 +101,7 @@ export default function Home() {
 
         <ScrollReveal>
           <div className="text-center mb-16">
-            <span className="text-neon-cyan font-mono text-sm tracking-widest uppercase mb-4 block">Why Oppol?</span>
+            <span className="text-neon-cyan font-mono text-sm tracking-widest uppercase mb-4 block">Why OPoll?</span>
             <h2 className="text-4xl md:text-5xl font-heading font-bold">The Future of Prediction</h2>
           </div>
         </ScrollReveal>
@@ -166,13 +166,13 @@ export default function Home() {
       <footer className="py-12 relative z-10">
         <ScrollReveal>
           <div className="w-full max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-2xl font-bold mb-8">OPOLL</h2>
+            <h2 className="text-2xl font-bold mb-8">OPoll</h2>
             <div className="flex justify-center gap-8 mb-8 text-text-secondary">
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Twitter</a>
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Discord</a>
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Docs</a>
             </div>
-            <span className="text-white/20 text-xs font-mono uppercase tracking-[0.3em]">Secured by BNB Chain • Powered by OPOLL Engine</span>
+            <span className="text-white/20 text-xs font-mono uppercase tracking-[0.3em]">Secured by BNB Chain • Powered by OPoll Engine</span>
           </div>
         </ScrollReveal>
       </footer>

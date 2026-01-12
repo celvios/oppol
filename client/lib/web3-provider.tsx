@@ -12,7 +12,7 @@ const projectId = '70415295a4738286445072f5c2392457';
 
 // Metadata
 const metadata = {
-    name: 'OPOLL',
+    name: 'OPoll',
     description: 'Decentralized Prediction Market',
     url: 'https://opoll.app',
     icons: ['https://opoll.app/logo.png']

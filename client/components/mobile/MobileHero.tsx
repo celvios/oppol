@@ -36,7 +36,7 @@ export default function MobileHero() {
                 {/* Typography */}
                 <h1 className="font-heading font-bold leading-tight">
                     <span className="text-6xl block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-2">
-                        <ScrambleText text="OPOLL" />
+                        <ScrambleText text="OPoll" />
                     </span>
                     <span className="text-2xl tracking-[0.3em] block text-neon-cyan/80">
                         PROTOCOL
@@ -53,18 +53,18 @@ export default function MobileHero() {
                     <Link href="/terminal" className="w-full">
                         <NeonButton variant="cyan" className="w-full justify-center">
                             <Terminal className="w-4 h-4 mr-2" />
-                            LAUNCH TERMINAL
+                            JOIN POLL
                         </NeonButton>
                     </Link>
 
                     <a
-                        href="https://wa.me/+1234567890?text=Hi%20OPOLL"
+                        href="https://wa.me/+1234567890?text=Hi%20OPoll"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full"
                     >
                         <NeonButton variant="glass" className="w-full justify-center text-sm">
-                            TRADE ON WHATSAPP
+                            JOIN ON WHATSAPP
                         </NeonButton>
                     </a>
                 </div>

@@ -46,7 +46,7 @@ export default function SettingsPage() {
 
             <div className="pt-8 text-center">
                 <p className="text-white/20 text-xs uppercase tracking-widest">
-                    OPOLL Terminal v1.0.0 (Beta)
+                    OPoll Terminal v1.0.0 (Beta)
                 </p>
             </div>
         </div>

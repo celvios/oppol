@@ -143,7 +143,7 @@ export default function MenuPage() {
             </div>
 
             <div className="mt-12 text-center">
-                <p className="text-white/20 text-xs font-mono">OPOLL v1.0.0 (Beta)</p>
+                <p className="text-white/20 text-xs font-mono">OPoll v1.0.0 (Beta)</p>
             </div>
         </div>
     );

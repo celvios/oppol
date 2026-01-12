@@ -49,7 +49,7 @@ const getMetaMaskSDK = () => {
     if (!metamaskSDK && typeof window !== 'undefined') {
         metamaskSDK = new MetaMaskSDK({
             dappMetadata: {
-                name: 'OPOLL Prediction Market',
+                name: 'OPoll Prediction Market',
                 url: typeof window !== 'undefined' ? window.location.origin : '',
             },
             preferDesktop: false,
