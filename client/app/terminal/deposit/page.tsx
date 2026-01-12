@@ -70,28 +70,17 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, usdcBalance, bnbBalance } = useWallet();
+    const { isConnected, address, usdcBalance, bnbBalance, isCustodial, isReconnecting, isConnecting } = useWallet();
     const [copied, setCopied] = useState(false);
-    const [custodialAddress, setCustodialAddress] = useState<string>('');
 
     // EIP-6963 Removed
-    const { open } = useWeb3Modal(); // Add useWeb3Modal
-    // const [showWalletModal, setShowWalletModal] = useState(false); // Can remove if just calling open() directly
+    const { open } = useWeb3Modal();
 
-    // Use standard Wagmi hooks
-    const effectiveAddress = address; // Removed walletState.address
-    const effectiveConnected = isConnected; // Removed walletState.isConnected
+    // USE HOOK STATE DIRECTLY
+    const effectiveAddress = address;
 
-    // Optimistic: Default to false if we have a cache or if we are connected
-    const [loading, setLoading] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const hasWagmiCache = !!localStorage.getItem('wagmi_cached_address');
-            const hasCustodialCache = !!localStorage.getItem('wallet_address');
-            // If we have cache, we are not loading. If we are waiting for initial mount, we might be loading.
-            return !hasWagmiCache && !hasCustodialCache;
-        }
-        return true;
-    });
+    // Loading if we aren't connected but might be connecting
+    const loading = !isConnected && (isReconnecting || isConnecting);
 
     // Deposit State
     const [depositAmount, setDepositAmount] = useState('');
@@ -155,84 +144,6 @@ export default function DepositPage() {
             setTimeout(() => handleDeposit(), 1000);
         }
     }, [needsDeposit, isPending, isConfirming]);
-
-    // Fetch custodial wallet logic with caching
-    useEffect(() => {
-        let mounted = true;
-        const controller = new AbortController();
-
-        async function fetchWallet() {
-            try {
-                // 1. Check Cache First (Instant Render)
-                const cachedWallet = localStorage.getItem('wallet_address');
-                if (cachedWallet && mounted) {
-                    setCustodialAddress(cachedWallet);
-                    setLoading(false);
-                }
-
-                const sessionToken = localStorage.getItem('session_token');
-                if (!sessionToken) {
-                    if (mounted) {
-                        // Default fallback if no session and no cache
-                        if (!cachedWallet) {
-                            setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
-                        }
-                        setLoading(false);
-                    }
-                    return;
-                }
-
-                const payload = JSON.parse(atob(sessionToken.split('.')[1]));
-                // Cache key per user
-                const cacheKey = `cached_wallet_${payload.userId}`;
-                const userCachedWallet = localStorage.getItem(cacheKey);
-
-                if (userCachedWallet && mounted) {
-                    setCustodialAddress(userCachedWallet);
-                    setLoading(false);
-                }
-
-                // 2. Network Fetch (Background Revalidation)
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/wallet/${payload.userId}`, {
-                    signal: controller.signal
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) throw new Error('Network response was not ok');
-
-                const data = await response.json();
-
-                if (mounted) {
-                    if (data.success && data.wallet) {
-                        setCustodialAddress(data.wallet.public_address);
-                        // Update Caches
-                        localStorage.setItem('wallet_address', data.wallet.public_address);
-                        localStorage.setItem(cacheKey, data.wallet.public_address);
-                    } else if (!userCachedWallet && !cachedWallet) {
-                        setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
-                    }
-                }
-            } catch (e) {
-                console.warn('Background wallet fetch failed/aborted:', e);
-                // If we don't have a cached value and fetch failed, show default
-                if (mounted && !custodialAddress) {
-                    setCustodialAddress('0x71C7656EC7ab88b098defB751B7401B5f6d8976F');
-                }
-            } finally {
-                if (mounted) setLoading(false);
-            }
-        }
-
-        fetchWallet();
-
-        return () => {
-            mounted = false;
-            controller.abort();
-        };
-    }, []);
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -332,17 +243,9 @@ export default function DepositPage() {
         }
     };
 
-    // Check if user is custodial (Google/WhatsApp login)
-    const [isCustodial, setIsCustodial] = useState(false);
-
-    useEffect(() => {
-        const sessionToken = localStorage.getItem('session_token');
-        setIsCustodial(!!sessionToken);
-    }, []);
-
     // If we are NOT loading, OR if we are Connected, show the UI.
     // This allows connected users to skip the loader entirely.
-    if (loading && !isConnected) return <SkeletonLoader />;
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
@@ -352,7 +255,7 @@ export default function DepositPage() {
             </div>
 
             {/* WalletConnect User - Show if connected via EIP-6963 or Wagmi, and NOT custodial */}
-            {effectiveConnected && !isCustodial ? (
+            {isConnected && !isCustodial ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
@@ -488,11 +391,11 @@ export default function DepositPage() {
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center">
                     <h2 className="text-lg font-bold text-white mb-4">Scan to Deposit</h2>
                     <div className="bg-white p-6 rounded-xl inline-block mb-6">
-                        <QRCodeSVG value={custodialAddress} size={180} />
+                        <QRCodeSVG value={effectiveAddress || ''} size={180} />
                     </div>
                     <div className="bg-black/40 border border-white/10 p-4 rounded-xl flex items-center justify-between mb-6 max-w-sm mx-auto">
-                        <code className="text-primary font-mono text-sm break-all">{custodialAddress}</code>
-                        <button onClick={() => copyToClipboard(custodialAddress)}>
+                        <code className="text-primary font-mono text-sm break-all">{effectiveAddress}</code>
+                        <button onClick={() => copyToClipboard(effectiveAddress || '')}>
                             {copied ? <CheckCircle size={18} className="text-success" /> : <Copy size={18} className="text-white/60" />}
                         </button>
                     </div>

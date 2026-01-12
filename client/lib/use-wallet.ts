@@ -66,11 +66,11 @@ export function useWallet() {
     // We are "effectively" connected if:
     // 1. Wagmi says we are connected
     // 2. We are custodial connected
-    // 3. Wagmi is currently reconnecting AND we have a valid cached address (Optimistic)
-    const effectiveConnected = wagmiConnected || custodialState.isConnected || (isReconnecting && !!wagmiCachedAddress);
+    // 3. Wagmi is currently reconnecting OR connecting AND we have a valid cached address (Optimistic)
+    const effectiveConnected = wagmiConnected || custodialState.isConnected || ((isReconnecting || isConnecting) && !!wagmiCachedAddress);
 
     // The effective address follows the same logic
-    const effectiveAddress = (wagmiAddress || custodialState.address || (isReconnecting ? wagmiCachedAddress : undefined)) as `0x${string}` | undefined;
+    const effectiveAddress = (wagmiAddress || custodialState.address || ((isReconnecting || isConnecting) ? wagmiCachedAddress : undefined)) as `0x${string}` | undefined;
 
     // Cache the address when we are truly connected via Wagmi
     useEffect(() => {

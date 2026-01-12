@@ -26,30 +26,13 @@ export default function PortfolioPage() {
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const { open } = useWeb3Modal();
-    const [isCustodial, setIsCustodial] = useState(false);
-    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
 
-    // Wallet connection state - Use Wagmi only (Web3Modal)
-    const { isConnected, address } = useWallet();
-
-    // Check for Google login custodial user on mount
-    useEffect(() => {
-        const sessionToken = localStorage.getItem('session_token');
-        const storedAddress = localStorage.getItem('wallet_address');
-        const loginMethod = localStorage.getItem('login_method');
-        if (sessionToken && storedAddress && loginMethod === 'google') {
-            setIsCustodial(true);
-            setCustodialAddress(storedAddress);
-        }
-    }, []);
-
-    // Consider connected if either Wagmi or Google custodial
-    const effectiveConnected = isConnected || isCustodial;
-    const effectiveAddress = address || custodialAddress;
+    // Wallet connection state - useWallet handles both wagmi and custodial
+    const { isConnected, address, isReconnecting, isConnecting } = useWallet();
 
     useEffect(() => {
         // Only fetch data if wallet is connected
-        if (!effectiveAddress) {
+        if (!address) {
             setLoading(false);
             return;
         }
@@ -57,7 +40,7 @@ export default function PortfolioPage() {
         async function fetchData() {
             try {
                 // Fetch user DEPOSITED balance (Polymarket-style)
-                const userBalance = await web3Service.getDepositedBalance(effectiveAddress!);
+                const userBalance = await web3Service.getDepositedBalance(address!);
                 setBalance(userBalance);
 
                 // Fetch all markets and user positions
@@ -68,7 +51,7 @@ export default function PortfolioPage() {
                 try {
                     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                     if (apiUrl) {
-                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`);
+                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${address}/stats`);
                         const statsData = await statsRes.json();
                         if (statsData.success) {
                             portfolioStats = statsData.stats;
@@ -82,7 +65,7 @@ export default function PortfolioPage() {
                 let aggregatePnL = 0;
 
                 for (const market of markets) {
-                    const position = await web3Service.getUserPosition(market.id, effectiveAddress!);
+                    const position = await web3Service.getUserPosition(market.id, address!);
                     if (!position) continue;
 
                     const yesShares = parseFloat(position.yesShares) || 0;
@@ -158,10 +141,15 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [effectiveAddress]);
+    }, [address]);
 
     // WALLET CONNECTION GATE - Show connect prompt if not connected
-    if (!effectiveConnected) {
+    // Show loader if we are in the middle of connecting/reconnecting
+    if (loading || isReconnecting || isConnecting) {
+        return <SkeletonLoader />;
+    }
+
+    if (!isConnected) {
         return (
             <>
                 <div className="flex items-center justify-center min-h-[80vh]">
