@@ -322,32 +322,13 @@ export function MobileTerminal() {
                             Connect your wallet to start trading on prediction markets.
                         </p>
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => open()}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
                         </button>
                     </div>
                 </div>
-
-                {showWalletModal && (
-                    <WalletSelectorModal
-                        isOpen={showWalletModal}
-                        onClose={() => setShowWalletModal(false)}
-                        wallets={wallets}
-                        onSelectWallet={async (wallet) => {
-                            if (connect) await connect(wallet);
-                            setShowWalletModal(false);
-                        }}
-                        onConnectMetaMaskSDK={async () => {
-                            if (connectMetaMaskSDK) await connectMetaMaskSDK();
-                            setShowWalletModal(false);
-                        }}
-                        isConnecting={isConnecting}
-                        error={error}
-                        isMobile={isMobile}
-                    />
-                )}
             </>
         );
     }
