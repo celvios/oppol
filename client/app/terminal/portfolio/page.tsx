@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
+import { useWalletStatus } from "@/lib/use-wallet-status";
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
@@ -28,7 +29,7 @@ export default function PortfolioPage() {
     const { open } = useWeb3Modal();
 
     // Wallet connection state - useWallet handles both wagmi and custodial
-    const { isConnected, address, isReconnecting, isConnecting } = useWallet();
+    const { isConnected, address, isLoading } = useWalletStatus();
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -145,7 +146,7 @@ export default function PortfolioPage() {
 
     // WALLET CONNECTION GATE - Show connect prompt if not connected
     // Show loader if we are in the middle of connecting/reconnecting
-    if (loading || isReconnecting || isConnecting) {
+    if (isLoading) {
         return <SkeletonLoader />;
     }
 
@@ -173,9 +174,7 @@ export default function PortfolioPage() {
         );
     }
 
-    if (loading) {
-        return <SkeletonLoader />;
-    }
+
 
     const pnlDisplay = totalPnL >= 0
         ? `+$${totalPnL.toFixed(2)}`

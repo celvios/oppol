@@ -4,6 +4,7 @@ import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "l
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
+import { useWalletStatus } from "@/lib/use-wallet-status";
 // import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
 import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal";
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -70,7 +71,8 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isConnected, address, usdcBalance, bnbBalance, isReconnecting, isConnecting } = useWallet();
+    const { isConnected, address, isLoading } = useWalletStatus();
+    const { usdcBalance, bnbBalance } = useWallet();
     const [copied, setCopied] = useState(false);
 
     // EIP-6963 Removed
@@ -245,7 +247,7 @@ export default function DepositPage() {
 
     // If we are NOT loading, OR if we are Connected, show the UI.
     // This allows connected users to skip the loader entirely.
-    if (loading) return <SkeletonLoader />;
+    if (isLoading) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
