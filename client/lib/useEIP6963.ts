@@ -54,12 +54,22 @@ const getMetaMaskSDK = () => {
             },
             preferDesktop: false,
             checkInstallationImmediately: false,
+            modals: {
+                install: ({ link }) => {
+                    window.location.href = link;
+                },
+                otp: () => { }
+            },
             openDeeplink: (link: string) => {
-                window.location.href = link;
+                if (typeof window !== 'undefined') {
+                    window.open(link, '_self');
+                }
             },
             useDeeplink: true,
+            forceInjectProvider: false,
+            forceDeleteProvider: false,
             logging: {
-                developerMode: false,
+                developerMode: true,
             },
         });
     }
