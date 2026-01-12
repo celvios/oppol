@@ -116,9 +116,12 @@ export function MobileTerminal() {
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
+        localStorage.removeItem('wallet_address');
+        localStorage.removeItem('login_method');
         localStorage.removeItem('cached_wallet_address');
         localStorage.removeItem('connected_wallet_uuid');
         localStorage.removeItem('connected_wallet_name');
+        localStorage.clear(); // Clear all localStorage to prevent auto-reconnect
         wagmiDisconnect();
         if (walletState.isConnected) eipDisconnect();
         router.push('/');
