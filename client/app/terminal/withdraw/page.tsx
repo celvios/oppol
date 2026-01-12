@@ -37,7 +37,7 @@ export default function WithdrawPage() {
     const [errorMessage, setErrorMessage] = useState('');
 
     const contracts = getContracts() as any;
-    const MARKET_CONTRACT = (contracts.predictionMarket || '0xbBE2811Ab064bd76667D49346a025530310AD03E') as `0x${string}`;
+    const MARKET_CONTRACT = contracts.predictionMarket as `0x${string}`;
 
     // 1. Read Balance from Contract
     const { data: balanceData, refetch: refetchBalance, isLoading: isBalanceLoading, error: balanceError } = useReadContract({
