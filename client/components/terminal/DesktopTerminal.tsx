@@ -297,10 +297,9 @@ export function DesktopTerminal() {
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
         .map(point => ({
             time: point.time,
-            price: chartView === 'YES' ? point.price : (100 - point.price)
+            yesPrice: point.price,
+            noPrice: 100 - point.price
         }));
-
-    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
     return (
         <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
@@ -455,9 +454,13 @@ export function DesktopTerminal() {
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
                                 <defs>
-                                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={priceColor} stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor={priceColor} stopOpacity={0} />
+                                    <linearGradient id="colorYes" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#27E8A7" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#27E8A7" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorNo" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#FF2E63" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#FF2E63" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -470,16 +473,27 @@ export function DesktopTerminal() {
                                         borderRadius: '12px',
                                         backdropFilter: 'blur(10px)'
                                     }}
-                                    itemStyle={{ color: '#fff', fontFamily: 'var(--font-jetbrains-mono)' }}
+                                    itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)' }}
                                 />
                                 <Area
                                     type="monotone"
-                                    dataKey="price"
-                                    stroke={priceColor}
+                                    dataKey="yesPrice"
+                                    name="YES"
+                                    stroke="#27E8A7"
                                     strokeWidth={3}
                                     fillOpacity={1}
-                                    fill="url(#colorPrice)"
-                                    className="drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                                    fill="url(#colorYes)"
+                                    className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)]"
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="noPrice"
+                                    name="NO"
+                                    stroke="#FF2E63"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorNo)"
+                                    className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)]"
                                 />
                             </AreaChart>
                         </ResponsiveContainer>

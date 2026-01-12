@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -131,14 +131,52 @@ export function MobileTerminal() {
     }, [isTradeSheetOpen, setTradeModalOpen]);
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+    const marketRef = useRef(market);
     const metadata = market ? getMarketMetadata(market.question, market.id) : null;
+
+    useEffect(() => {
+        marketRef.current = market;
+    }, [market]);
+
+    // Animation Loop (Heartbeat)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!marketRef.current) return;
+
+            setPriceHistory(prev => {
+                const now = Date.now();
+                const timeString = new Date(now).toLocaleTimeString();
+                const basePrice = marketRef.current?.yesOdds || 50;
+                const waveOffset = Math.sin(now / 800) * 0.5;
+                const animatedPrice = basePrice + waveOffset; // YES Price
+
+                const newPoint = {
+                    time: timeString,
+                    price: animatedPrice
+                };
+
+                if (prev.length === 0) {
+                    return Array(50).fill(null).map((_, i) => ({
+                        time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
+                        price: basePrice + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
+                    }));
+                }
+
+                const newHistory = [...prev, newPoint];
+                return newHistory.slice(-50);
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
+
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
         .map(point => ({
             time: point.time,
-            price: chartView === 'YES' ? point.price : (100 - point.price)
+            yesPrice: point.price,
+            noPrice: 100 - point.price
         }));
 
-    // Data Fetching
     // Data Fetching
     useEffect(() => {
         async function fetchPriceHistory() {
@@ -146,25 +184,23 @@ export function MobileTerminal() {
             try {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                 if (apiUrl) {
-                    const response = await fetch(`${apiUrl}/api/markets/${selectedMarketId}/price-history?limit=20`);
+                    const response = await fetch(`${apiUrl}/api/markets/${selectedMarketId}/price-history?limit=50`);
                     if (response.ok) {
                         const data = await response.json();
                         if (data.success && data.history?.length > 0) {
                             setPriceHistory(data.history);
                         } else {
-                            setPriceHistory([{ time: 'Now', price: 50 }]);
+                            // Fallback will be handled by animation loop if empty
                         }
                     }
                 }
             } catch (error) {
                 console.error("Failed to fetch price history", error);
-                setPriceHistory([{ time: 'Now', price: 50 }]);
             }
         }
 
         fetchPriceHistory();
-        const interval = setInterval(fetchPriceHistory, 10000);
-        return () => clearInterval(interval);
+        // Removed interval to avoid overwriting animation
     }, [selectedMarketId]);
 
     // NEW: Load markets and set initial selection
@@ -352,9 +388,13 @@ export function MobileTerminal() {
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                         <defs>
-                            <linearGradient id="mobileColor" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={priceColor} stopOpacity={0.4} />
-                                <stop offset="95%" stopColor={priceColor} stopOpacity={0} />
+                            <linearGradient id="mobileColorYes" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#27E8A7" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#27E8A7" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="mobileColorNo" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#FF2E63" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#FF2E63" stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -368,16 +408,27 @@ export function MobileTerminal() {
                                 backdropFilter: 'blur(10px)',
                                 fontSize: '12px'
                             }}
-                            itemStyle={{ color: '#fff', fontFamily: 'var(--font-jetbrains-mono)' }}
+                            itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)' }}
                         />
                         <Area
                             type="monotone"
-                            dataKey="price"
-                            stroke={priceColor}
+                            dataKey="yesPrice"
+                            name="YES"
+                            stroke="#27E8A7"
                             strokeWidth={3}
                             fillOpacity={1}
-                            fill="url(#mobileColor)"
-                            className="drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                            fill="url(#mobileColorYes)"
+                            className="drop-shadow-[0_0_10px_rgba(39,232,167,0.3)]"
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="noPrice"
+                            name="NO"
+                            stroke="#FF2E63"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#mobileColorNo)"
+                            className="drop-shadow-[0_0_10px_rgba(255,46,99,0.3)]"
                         />
                     </AreaChart>
                 </ResponsiveContainer>
