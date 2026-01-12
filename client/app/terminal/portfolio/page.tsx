@@ -42,17 +42,18 @@ export default function PortfolioPage() {
         isMobile,
     } = useEIP6963();
 
-    // Check for custodial user on mount
+    // Check for Google login custodial user on mount
     useEffect(() => {
         const sessionToken = localStorage.getItem('session_token');
         const storedAddress = localStorage.getItem('wallet_address');
-        if (sessionToken && storedAddress) {
+        const loginMethod = localStorage.getItem('login_method');
+        if (sessionToken && storedAddress && loginMethod === 'google') {
             setIsCustodial(true);
             setCustodialAddress(storedAddress);
         }
     }, []);
 
-    // Consider connected if either Wagmi, EIP-6963, or custodial
+    // Consider connected if either Wagmi, EIP-6963, or Google custodial
     const effectiveConnected = isConnected || walletState.isConnected || isCustodial;
     const effectiveAddress = address || walletState.address || custodialAddress;
 
