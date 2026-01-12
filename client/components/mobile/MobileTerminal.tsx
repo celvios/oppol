@@ -586,13 +586,13 @@ export function MobileTerminal() {
                             onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
                             className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
                         >
-                            LONG YES
+                            BUY YES
                         </button>
                         <button
                             onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
                             className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
                         >
-                            SHORT NO
+                            BUY NO
                         </button>
                     </div>
                 </>
@@ -759,7 +759,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     <div>
                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Position</div>
                         <h3 className={`text-2xl font-heading font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
-                            {side === 'YES' ? 'LONG YES' : 'SHORT NO'}
+                            {side === 'YES' ? 'BUY YES' : 'BUY NO'}
                         </h3>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-colors">

@@ -553,7 +553,7 @@ export function DesktopTerminal() {
                                     }`}
                             >
                                 <span className={`text-xl font-bold ${tradeSide === 'YES' ? 'text-outcome-a' : 'text-white'}`}>YES</span>
-                                <span className="text-xs font-mono text-white/50">LONG</span>
+                                <span className="text-xs font-mono text-white/50">BUY</span>
                             </button>
                             <button
                                 onClick={() => setTradeSide('NO')}
@@ -563,7 +563,7 @@ export function DesktopTerminal() {
                                     }`}
                             >
                                 <span className={`text-xl font-bold ${tradeSide === 'NO' ? 'text-outcome-b' : 'text-white'}`}>NO</span>
-                                <span className="text-xs font-mono text-white/50">SHORT</span>
+                                <span className="text-xs font-mono text-white/50">BUY</span>
                             </button>
                         </div>
 
