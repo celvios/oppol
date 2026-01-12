@@ -203,7 +203,15 @@ export function useEIP6963() {
             const sdk = getMetaMaskSDK();
             if (!sdk) throw new Error('MetaMask SDK not available');
 
+            // Set a flag to track connection attempt
+            const connectionTimeout = setTimeout(() => {
+                setIsConnecting(false);
+                setError('Connection timed out. Please try again.');
+            }, 30000);
+
             await sdk.connect();
+            clearTimeout(connectionTimeout);
+            
             const provider = sdk.getProvider();
             if (!provider) throw new Error('No provider from SDK');
 

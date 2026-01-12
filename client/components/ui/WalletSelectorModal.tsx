@@ -66,7 +66,20 @@ export function WalletSelectorModal({
                             {/* MetaMask SDK Button (Mobile Priority) */}
                             {isMobile && (
                                 <button
-                                    onClick={onConnectMetaMaskSDK}
+                                    onClick={async () => {
+                                        try {
+                                            await Promise.race([
+                                                onConnectMetaMaskSDK(),
+                                                new Promise((_, reject) => 
+                                                    setTimeout(() => reject(new Error('Connection timeout')), 30000)
+                                                )
+                                            ]);
+                                        } catch (err: any) {
+                                            if (err.message === 'Connection timeout') {
+                                                console.log('Connection timed out, user may need to return from MetaMask');
+                                            }
+                                        }
+                                    }}
                                     disabled={isConnecting}
                                     className="w-full flex items-center gap-4 p-4 bg-[#f6851b]/10 hover:bg-[#f6851b]/20 border border-[#f6851b]/30 rounded-xl transition-all disabled:opacity-50"
                                 >
@@ -75,7 +88,7 @@ export function WalletSelectorModal({
                                     </div>
                                     <div className="flex-1 text-left">
                                         <p className="font-bold text-white">MetaMask</p>
-                                        <p className="text-xs text-white/50">Open in MetaMask app</p>
+                                        <p className="text-xs text-white/50">{isConnecting ? 'Waiting for approval...' : 'Open in MetaMask app'}</p>
                                     </div>
                                     {isConnecting ? (
                                         <Loader2 className="w-5 h-5 text-[#f6851b] animate-spin" />
