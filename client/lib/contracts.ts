@@ -8,9 +8,9 @@ export const CONTRACTS = {
     },
     // BSC Testnet (DEPLOYED ✅ - With UMA Oracle + Markets)
     bscTestnet: {
-        predictionMarket: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168',
-        predictionMarketLMSR: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168',
-        mockUSDC: '0x792D979781F0E53A51D0cD837cd03827fA8d83A1',
+        predictionMarket: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353',
+        predictionMarketLMSR: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353',
+        mockUSDC: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0',
         umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
         zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D',
     },
