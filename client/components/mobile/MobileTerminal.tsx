@@ -114,16 +114,17 @@ export function MobileTerminal() {
     const { open } = useWeb3Modal();
     const { setTradeModalOpen } = useUIStore();
     const { disconnect: wagmiDisconnect } = useDisconnect();
+    const eipHook = useEIP6963();
     const {
-        wallets,
+        wallets = [],
         walletState,
-        isConnecting,
-        error,
+        isConnecting = false,
+        error = null,
         connect,
         connectMetaMaskSDK,
         disconnect: eipDisconnect,
-        isMobile,
-    } = useEIP6963();
+        isMobile = false,
+    } = eipHook || {};
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
@@ -276,15 +277,6 @@ export function MobileTerminal() {
     }, [isConnected, address, fetchData]);
 
     if (!mounted || (!isConnected && mounted)) {
-        const {
-            wallets = [],
-            isConnecting = false,
-            error = null,
-            connect,
-            connectMetaMaskSDK,
-            isMobile = false,
-        } = useEIP6963();
-
         return (
             <>
                 <div className="flex items-center justify-center min-h-screen p-6">
