@@ -27,6 +27,8 @@ export default function PortfolioPage() {
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [showWalletModal, setShowWalletModal] = useState(false);
+    const [isCustodial, setIsCustodial] = useState(false);
+    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
 
     // Wallet connection state
     const { isConnected, address } = useWallet();
@@ -40,13 +42,23 @@ export default function PortfolioPage() {
         isMobile,
     } = useEIP6963();
 
-    // Consider connected if either Wagmi or EIP-6963 is connected
-    const effectiveConnected = isConnected || walletState.isConnected;
-    const effectiveAddress = address || walletState.address;
+    // Check for custodial user on mount
+    useEffect(() => {
+        const sessionToken = localStorage.getItem('session_token');
+        const storedAddress = localStorage.getItem('wallet_address');
+        if (sessionToken && storedAddress) {
+            setIsCustodial(true);
+            setCustodialAddress(storedAddress);
+        }
+    }, []);
+
+    // Consider connected if either Wagmi, EIP-6963, or custodial
+    const effectiveConnected = isConnected || walletState.isConnected || isCustodial;
+    const effectiveAddress = address || walletState.address || custodialAddress;
 
     useEffect(() => {
         // Only fetch data if wallet is connected
-        if (!effectiveConnected || !effectiveAddress) {
+        if (!effectiveAddress) {
             setLoading(false);
             return;
         }
@@ -155,7 +167,7 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [effectiveConnected, effectiveAddress]);
+    }, [effectiveAddress]);
 
     // WALLET CONNECTION GATE - Show connect prompt if not connected
     if (!effectiveConnected) {
