@@ -91,8 +91,8 @@ export function DesktopTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address, login } = useCustodialWallet();
-    const [showLoginModal, setShowLoginModal] = useState(false);
+    const { isConnected, address } = useCustodialWallet();
+    const { open } = useWeb3Modal();
     const { writeContract, data: hash } = useWriteContract();
     const { isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -287,16 +287,11 @@ export function DesktopTerminal() {
                         </div>
                         <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
                         <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
-                        <NeonButton onClick={() => setShowLoginModal(true)} variant="cyan" className="w-full text-lg py-6">
+                        <NeonButton onClick={() => open()} variant="cyan" className="w-full text-lg py-6">
                             ESTABLISH CONNECTION
                         </NeonButton>
                     </GlassCard>
                 </div>
-                <LoginModal 
-                    isOpen={showLoginModal} 
-                    onClose={() => setShowLoginModal(false)}
-                    onLogin={login}
-                />
             </>
         );
     }

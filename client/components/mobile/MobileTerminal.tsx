@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
+import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
@@ -109,21 +110,12 @@ export function MobileTerminal() {
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
 
-    const walletHook = useWallet();
-    const isConnected = walletHook.isConnected;
-    const address = walletHook.address;
-
+    const { isConnected, address, isLoading } = useCustodialWallet();
     const { open } = useWeb3Modal();
     const { setTradeModalOpen } = useUIStore();
     const { disconnect: wagmiDisconnect } = useDisconnect();
 
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    const wallets: any[] = [];
-    const walletState: any = {};
-    const isConnecting = false;
-    const error: any = null;
-    const connectMetaMaskSDK: any = () => { };
 
     const handleLogout = () => {
         localStorage.removeItem('session_token');
