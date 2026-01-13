@@ -25,8 +25,31 @@ const WalletContext = createContext<WalletContextType>({
 });
 
 let okxProvider: any = null;
+let isInitializing = false;
 
 const isMobile = () => typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+async function getOKXProvider() {
+    if (okxProvider) return okxProvider;
+    if (isInitializing) {
+        // Wait for initialization to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return getOKXProvider();
+    }
+    
+    isInitializing = true;
+    try {
+        okxProvider = await OKXUniversalProvider.init({
+            dappMetaData: {
+                name: 'OPOLL',
+                icon: typeof window !== 'undefined' ? window.location.origin + '/favicon.ico' : ''
+            }
+        });
+        return okxProvider;
+    } finally {
+        isInitializing = false;
+    }
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [address, setAddress] = useState<string | null>(null);
@@ -50,23 +73,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     async function reconnectOKXMobile() {
         try {
-            if (!okxProvider) {
-                okxProvider = await OKXUniversalProvider.init({
-                    dappMetaData: {
-                        name: 'OPOLL',
-                        icon: window.location.origin + '/favicon.ico'
-                    }
-                });
-            }
+            const provider = await getOKXProvider();
             
-            if (okxProvider.connected) {
-                const session = okxProvider.session;
+            if (provider.connected) {
+                const session = provider.session;
                 const accounts = session?.namespaces?.eip155?.accounts || [];
                 if (accounts.length > 0) {
                     const addr = accounts[0].split(':')[2];
                     setAddress(addr);
                     setChainId(97);
-                    const ethersProvider = new BrowserProvider(okxProvider);
+                    const ethersProvider = new BrowserProvider(provider);
                     const signer = await ethersProvider.getSigner();
                     setSigner(signer);
                 }
@@ -157,16 +173,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     async function connectOKXMobile() {
-        if (!okxProvider) {
-            okxProvider = await OKXUniversalProvider.init({
-                dappMetaData: {
-                    name: 'OPOLL',
-                    icon: window.location.origin + '/favicon.ico'
-                }
-            });
-        }
+        const provider = await getOKXProvider();
 
-        const session = await okxProvider.connect({
+        const session = await provider.connect({
             namespaces: {
                 eip155: {
                     chains: ['eip155:97'],
@@ -199,7 +208,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 setAddress(addr);
                 setChainId(97);
                 
-                const ethersProvider = new BrowserProvider(okxProvider);
+                const ethersProvider = new BrowserProvider(provider);
                 const signer = await ethersProvider.getSigner();
                 setSigner(signer);
                 
