@@ -62,6 +62,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const savedAddress = localStorage.getItem('wallet_address');
         const savedWallet = localStorage.getItem('wallet_type');
+        
+        // Set address immediately from localStorage for instant UI update
+        if (savedAddress) {
+            setAddress(savedAddress);
+        }
+        
         if (savedAddress && savedWallet) {
             if (savedWallet === 'okx') {
                 if (isMobile()) {
@@ -89,12 +95,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     const ethersProvider = new BrowserProvider(provider);
                     const signer = await ethersProvider.getSigner();
                     setSigner(signer);
+                } else {
+                    // Session exists but no accounts, clear storage
+                    localStorage.removeItem('wallet_address');
+                    localStorage.removeItem('wallet_type');
+                    setAddress(null);
                 }
+            } else {
+                // Not connected, clear storage
+                localStorage.removeItem('wallet_address');
+                localStorage.removeItem('wallet_type');
+                setAddress(null);
             }
         } catch (error) {
             console.error('Reconnect failed:', error);
             localStorage.removeItem('wallet_address');
             localStorage.removeItem('wallet_type');
+            setAddress(null);
         }
     }
 
