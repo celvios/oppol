@@ -147,7 +147,7 @@ export default function WithdrawPage() {
     const canWithdraw = availableBalance > 0;
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8 pt-8">
+        <div className="max-w-2xl mx-auto space-y-8 pt-8 pb-24">
             <div className="text-center">
                 <h1 className="text-3xl font-mono font-bold text-white mb-2">WITHDRAW FUNDS</h1>
                 <p className="text-white/50">Withdraw your deposited balance back to your wallet</p>
