@@ -219,7 +219,7 @@ export default function WithdrawPage() {
                         <button
                             onClick={() => setStep('confirm')}
                             disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > availableBalance}
-                            className="w-full py-4 bg-primary hover:bg-primary/80 disabled:bg-white/10 disabled:text-white/30 text-black font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-red-500 hover:bg-red-400 disabled:bg-white/10 disabled:text-white/30 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg"
                         >
                             Review Withdrawal
                             <ArrowDownRight className="w-5 h-5" />
