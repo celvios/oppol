@@ -145,7 +145,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     namespaces: {
                         eip155: {
                             chains: ['eip155:97'],
-                            defaultChain: '97'
+                            defaultChain: '97',
+                            rpcMap: {
+                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+                            }
+                        }
+                    },
+                    optionalNamespaces: {
+                        eip155: {
+                            chains: ['eip155:56'],
+                            rpcMap: {
+                                56: 'https://bsc-dataseed.binance.org/'
+                            }
                         }
                     },
                     sessionConfig: {
