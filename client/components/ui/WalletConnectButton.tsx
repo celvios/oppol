@@ -1,24 +1,18 @@
 'use client';
 
-import { useEIP6963 } from '@/lib/useEIP6963';
+import { useCustodialWallet } from '@/lib/use-custodial-wallet';
 import { useWallet } from '@/lib/use-wallet';
 import { LogOut, Wallet, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { WalletSelectorModal } from './WalletSelectorModal';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useDisconnect } from 'wagmi';
 
 export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) {
     const { isAdmin, chain } = useWallet();
-    const {
-        wallets,
-        walletState,
-        isConnecting,
-        error,
-        connect,
-        connectMetaMaskSDK,
-        disconnect,
-        isMobile,
-    } = useEIP6963();
+    const { isConnected, address } = useCustodialWallet();
+    const { open } = useWeb3Modal();
+    const { disconnect: wagmiDisconnect } = useDisconnect();
 
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -29,11 +23,19 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
     }, []);
 
     const copyAddress = () => {
-        if (walletState.address) {
-            navigator.clipboard.writeText(walletState.address);
+        if (address) {
+            navigator.clipboard.writeText(address);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
+    };
+
+    const handleDisconnect = () => {
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('cached_wallet_address');
+        localStorage.removeItem('connected_wallet_uuid');
+        localStorage.removeItem('connected_wallet_name');
+        wagmiDisconnect();
     };
 
     // Prevent hydration mismatch by not rendering wallet state until mounted
@@ -48,34 +50,15 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
         );
     }
 
-    if (!walletState.isConnected) {
+    if (!isConnected) {
         return (
-            <>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className={`flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded-lg text-primary font-medium transition-all duration-200 ${minimal ? 'w-full justify-center px-0' : ''}`}
-                >
-                    <Wallet size={18} />
-                    {!minimal && <span>Connect Wallet</span>}
-                </button>
-
-                <WalletSelectorModal
-                    isOpen={showModal}
-                    onClose={() => setShowModal(false)}
-                    wallets={wallets}
-                    onSelectWallet={async (wallet) => {
-                        await connect(wallet);
-                        setShowModal(false);
-                    }}
-                    onConnectMetaMaskSDK={async () => {
-                        await connectMetaMaskSDK();
-                        setShowModal(false);
-                    }}
-                    isConnecting={isConnecting}
-                    error={error}
-                    isMobile={isMobile}
-                />
-            </>
+            <button
+                onClick={() => open()}
+                className={`flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded-lg text-primary font-medium transition-all duration-200 ${minimal ? 'w-full justify-center px-0' : ''}`}
+            >
+                <Wallet size={18} />
+                {!minimal && <span>Connect Wallet</span>}
+            </button>
         );
     }
 
@@ -85,15 +68,15 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
                 <button
                     onClick={copyAddress}
                     className="flex-1 flex items-center justify-center p-2 bg-white/5 hover:bg-white/10 hover:border-white/20 border border-transparent rounded-lg transition-all"
-                    title={copied ? 'Copied!' : walletState.address || ''}
+                    title={copied ? 'Copied!' : address || ''}
                 >
                     <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
                     <span className="font-mono text-xs text-white">
-                        {copied ? 'Copied!' : `${walletState.address?.slice(0, 4)}...${walletState.address?.slice(-4)}`}
+                        {copied ? 'Copied!' : `${address?.slice(0, 4)}...${address?.slice(-4)}`}
                     </span>
                 </button>
                 <button
-                    onClick={disconnect}
+                    onClick={handleDisconnect}
                     className="p-2 text-white/40 hover:text-red-400 transition-colors"
                     title="Disconnect"
                 >
@@ -125,17 +108,17 @@ export function WalletConnectButton({ minimal = false }: { minimal?: boolean }) 
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 <div className="flex flex-col items-start">
                     <span className="text-xs text-white/60">
-                        {walletState.walletName || chain?.name || 'Connected'}
+                        {chain?.name || 'Connected'}
                     </span>
                     <span className="text-sm font-mono text-white">
-                        {copied ? 'Copied!' : `${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`}
+                        {copied ? 'Copied!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
                     </span>
                 </div>
             </button>
 
             {/* Disconnect */}
             <button
-                onClick={disconnect}
+                onClick={handleDisconnect}
                 className="p-2 text-white/40 hover:text-red-400 transition-colors"
                 title="Disconnect"
             >

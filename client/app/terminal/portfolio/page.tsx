@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { web3Service } from '@/lib/web3';
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
-import { LoginModal } from "@/components/ui/LoginModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 interface Position {
@@ -26,9 +25,8 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
-    const [showLoginModal, setShowLoginModal] = useState(false);
 
-    const { isAuthenticated, isLoading, address, authType, login } = useCustodialWallet();
+    const { isConnected, isLoading, address, authType } = useCustodialWallet();
     const { open } = useWeb3Modal();
 
     useEffect(() => {
@@ -148,7 +146,7 @@ export default function PortfolioPage() {
         return <SkeletonLoader />;
     }
 
-    if (!isAuthenticated) {
+    if (!isConnected) {
         return (
             <>
                 <div className="flex items-center justify-center min-h-[80vh]">
@@ -162,25 +160,14 @@ export default function PortfolioPage() {
                         </p>
                         <div className="flex gap-4 justify-center">
                             <button
-                                onClick={() => setShowLoginModal(true)}
-                                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
-                            >
-                                Sign In
-                            </button>
-                            <button
                                 onClick={() => open()}
-                                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+                                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
                             >
                                 Connect Wallet
                             </button>
                         </div>
                     </div>
                 </div>
-                <LoginModal
-                    isOpen={showLoginModal}
-                    onClose={() => setShowLoginModal(false)}
-                    onLogin={login}
-                />
             </>
         );
     }
@@ -193,15 +180,6 @@ export default function PortfolioPage() {
 
     return (
         <div className="space-y-8">
-            {/* DEBUG PANEL */}
-            <div className="bg-red-500/20 border border-red-500 p-4 rounded-xl text-xs font-mono">
-                <div>isLoading: {custodialDebug.isLoading ? '✅ TRUE' : '❌ FALSE'}</div>
-                <div>isConnected: {custodialDebug.isConnected ? '✅ TRUE' : '❌ FALSE'}</div>
-                <div>isWalletConnected: {custodialDebug.isWalletConnected ? '✅ TRUE' : '❌ FALSE'}</div>
-                <div>isCustodial: {custodialDebug.isCustodial ? '✅ TRUE' : '❌ FALSE'}</div>
-                <div>address: {custodialDebug.address || 'NULL'}</div>
-            </div>
-
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
                 {authType && (

@@ -58,14 +58,13 @@ export function useCustodialWallet() {
     };
 
     // Unified state
-    const isLoading = !isHydrated || status === 'reconnecting';
+    const isLoading = !isHydrated || status === 'reconnecting' || status === 'connecting';
 
     // User is connected if EITHER:
     // 1. They have a custodial session (Google/WhatsApp login)
     // 2. They have a wallet connected (MetaMask/Trust Wallet)
-    // Note: Don't gate isWalletConnected on isHydrated - wagmiConnected is reliable
     const isCustodial = !!sessionToken && !!custodialAddress;
-    const isWalletConnected = wagmiConnected; // Trust Wagmi immediately
+    const isWalletConnected = wagmiConnected && !!wagmiAddress;
     const isConnected = isCustodial || isWalletConnected;
 
     // Determine effective address (wagmi takes priority if both exist)
