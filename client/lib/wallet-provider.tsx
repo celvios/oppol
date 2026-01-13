@@ -46,30 +46,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     async function reconnect(walletType: 'okx' | 'coinbase' | 'binance') {
         try {
-            if (walletType === 'okx' && okxProvider?.connected()) {
-                const accounts = await okxProvider.request({ method: 'eth_accounts' }, 'eip155:97');
-                if (accounts?.length > 0) {
-                    setAddress(accounts[0]);
-                    setChainId(97);
-                    const ethersProvider = new BrowserProvider(okxProvider);
-                    const signer = await ethersProvider.getSigner();
-                    setSigner(signer);
-                }
-            } else {
-                const provider = getProvider(walletType);
-                if (!provider) return;
-                const ethersProvider = new BrowserProvider(provider);
-                const accounts = await ethersProvider.listAccounts();
-                if (accounts.length > 0) {
-                    setAddress(accounts[0].address);
-                    const network = await ethersProvider.getNetwork();
-                    setChainId(Number(network.chainId));
-                    const signer = await ethersProvider.getSigner();
-                    setSigner(signer);
-                }
+            const provider = getProvider(walletType);
+            if (!provider) return;
+            
+            const ethersProvider = new BrowserProvider(provider);
+            const accounts = await ethersProvider.listAccounts();
+            if (accounts.length > 0) {
+                setAddress(accounts[0].address);
+                const network = await ethersProvider.getNetwork();
+                setChainId(Number(network.chainId));
+                const signer = await ethersProvider.getSigner();
+                setSigner(signer);
             }
         } catch (error) {
             console.error('Reconnect failed:', error);
+            localStorage.removeItem('wallet_address');
+            localStorage.removeItem('wallet_type');
         }
     }
 
@@ -113,142 +105,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     async function connect(walletType: 'okx' | 'coinbase' | 'binance') {
         setIsConnecting(true);
         try {
-            if (walletType === 'okx') {
-                if (!okxProvider) {
-                    okxProvider = await OKXUniversalProvider.init({
-                        dappMetaData: {
-                            name: 'OPOLL',
-                            icon: window.location.origin + '/favicon.ico'
-                        }
-                    });
-                }
-
-                const session = await okxProvider.connect({
-                    namespaces: {
-                        eip155: {
-                            chains: ['eip155:1'],
-                            methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
-                            events: ['chainChanged', 'accountsChanged'],
-                            rpcMap: {
-                                1: 'https://eth.llamarpc.com',
-                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
-                                56: 'https://bsc-dataseed.binance.org/'
-                            }
-                        }
-                    },
-                    optionalNamespaces: {
-                        eip155: {
-                            chains: ['eip155:56', 'eip155:97'],
-                            methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
-                            events: ['chainChanged', 'accountsChanged'],
-                            rpcMap: {
-                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
-                                56: 'https://bsc-dataseed.binance.org/'
-                            }
-                        }
-                    },
-                    sessionConfig: {
-                        redirect: 'none'
-                    }
-                });
-
-                if (session) {
-                    const accounts = session.namespaces.eip155?.accounts || [];
-                    if (accounts.length > 0) {
-                        const address = accounts[0].split(':')[2];
-                        
-                        // Switch to BSC after connection
-                        try {
-                            await okxProvider.request({
-                                method: 'wallet_switchEthereumChain',
-                                params: [{ chainId: BSC_TESTNET_CHAIN_ID }],
-                            }, 'eip155:1');
-                        } catch (switchError: any) {
-                            if (switchError.code === 4902) {
-                                await okxProvider.request({
-                                    method: 'wallet_addEthereumChain',
-                                    params: [{
-                                        chainId: BSC_TESTNET_CHAIN_ID,
-                                        chainName: 'BNB Smart Chain Testnet',
-                                        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                        rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-                                        blockExplorerUrls: ['https://testnet.bscscan.com'],
-                                    }],
-                                }, 'eip155:1');
-                            }
-                        }
-                        
-                        setAddress(address);
-                        setChainId(97);
-                        
-                        const ethersProvider = new BrowserProvider(okxProvider);
-                        const signer = await ethersProvider.getSigner();
-                        setSigner(signer);
-                        
-                        localStorage.setItem('wallet_address', address);
-                        localStorage.setItem('wallet_type', 'okx');
-                    }
-                }
-            } else if (walletType === 'coinbase') {
-                if (!coinbaseProvider) {
-                    const coinbaseWallet = new CoinbaseWalletSDK({
-                        appName: 'OPOLL',
-                        appLogoUrl: window.location.origin + '/favicon.ico'
-                    });
-                    coinbaseProvider = coinbaseWallet.makeWeb3Provider({
-                        options: 'smartWalletOnly'
-                    });
-                }
-
-                const ethersProvider = new BrowserProvider(coinbaseProvider);
-                const accounts = await ethersProvider.send('eth_requestAccounts', []);
-                
-                await switchToBSC(coinbaseProvider);
-                
-                const network = await ethersProvider.getNetwork();
-                const signer = await ethersProvider.getSigner();
-                
-                setAddress(accounts[0]);
-                setChainId(Number(network.chainId));
-                setSigner(signer);
-                
-                localStorage.setItem('wallet_address', accounts[0]);
-                localStorage.setItem('wallet_type', 'coinbase');
-            } else {
-                const provider = getProvider(walletType);
-                if (!provider) {
-                    setIsConnecting(false);
-                    throw new Error(`${walletType.toUpperCase()} wallet not found`);
-                }
-
-                const ethersProvider = new BrowserProvider(provider);
-                const accounts = await ethersProvider.send('eth_requestAccounts', []);
-                
-                await switchToBSC(provider);
-                
-                const network = await ethersProvider.getNetwork();
-                const signer = await ethersProvider.getSigner();
-                
-                setAddress(accounts[0]);
-                setChainId(Number(network.chainId));
-                setSigner(signer);
-                
-                localStorage.setItem('wallet_address', accounts[0]);
-                localStorage.setItem('wallet_type', walletType);
-
-                provider.on?.('accountsChanged', (accounts: string[]) => {
-                    if (accounts.length === 0) {
-                        disconnect();
-                    } else {
-                        setAddress(accounts[0]);
-                        localStorage.setItem('wallet_address', accounts[0]);
-                    }
-                });
-
-                provider.on?.('chainChanged', () => {
-                    window.location.reload();
-                });
+            const provider = getProvider(walletType);
+            if (!provider) {
+                throw new Error(`${walletType.toUpperCase()} wallet not found. Please install the browser extension.`);
             }
+
+            const ethersProvider = new BrowserProvider(provider);
+            const accounts = await ethersProvider.send('eth_requestAccounts', []);
+            
+            await switchToBSC(provider);
+            
+            const network = await ethersProvider.getNetwork();
+            const signer = await ethersProvider.getSigner();
+            
+            setAddress(accounts[0]);
+            setChainId(Number(network.chainId));
+            setSigner(signer);
+            
+            localStorage.setItem('wallet_address', accounts[0]);
+            localStorage.setItem('wallet_type', walletType);
+
+            provider.on?.('accountsChanged', (accounts: string[]) => {
+                if (accounts.length === 0) {
+                    disconnect();
+                } else {
+                    setAddress(accounts[0]);
+                    localStorage.setItem('wallet_address', accounts[0]);
+                }
+            });
+
+            provider.on?.('chainChanged', () => {
+                window.location.reload();
+            });
         } catch (error) {
             console.error('Connection failed:', error);
             throw error;
@@ -258,9 +146,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     function disconnect() {
-        if (okxProvider) {
-            okxProvider.disconnect();
-        }
         setAddress(null);
         setChainId(null);
         setSigner(null);

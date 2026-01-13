@@ -16,33 +16,21 @@ const WALLETS = [
         name: 'OKX Wallet',
         icon: 'https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2B7D7.png',
         downloadUrl: 'https://www.okx.com/web3',
-        detector: () => {
-            if (typeof window === 'undefined') return false;
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            return isMobile || !!(window as any).okxwallet;
-        },
+        detector: () => typeof window !== 'undefined' && !!(window as any).okxwallet,
     },
     {
         id: 'coinbase' as const,
         name: 'Coinbase Wallet',
         icon: 'https://avatars.githubusercontent.com/u/18060234?s=200&v=4',
         downloadUrl: 'https://www.coinbase.com/wallet',
-        detector: () => {
-            if (typeof window === 'undefined') return false;
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            return isMobile || !!((window as any).coinbaseWalletExtension || (window as any).ethereum?.isCoinbaseWallet);
-        },
+        detector: () => typeof window !== 'undefined' && !!((window as any).coinbaseWalletExtension || (window as any).ethereum?.isCoinbaseWallet),
     },
     {
         id: 'binance' as const,
         name: 'Binance Wallet',
         icon: 'https://bin.bnbstatic.com/static/images/common/favicon.ico',
         downloadUrl: 'https://www.binance.com/en/web3wallet',
-        detector: () => {
-            if (typeof window === 'undefined') return false;
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            return isMobile || !!(window as any).BinanceChain;
-        },
+        detector: () => typeof window !== 'undefined' && !!(window as any).BinanceChain,
     },
 ];
 
