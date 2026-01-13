@@ -42,6 +42,9 @@ export default function DepositPage() {
     const { open } = useWeb3Modal();
     const { chain } = useAccount();
     
+    // DEBUG - Get custodial wallet state
+    const custodialDebug = useCustodialWallet();
+    
     const [copied, setCopied] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [depositAmount, setDepositAmount] = useState('');
@@ -177,6 +180,15 @@ export default function DepositPage() {
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
+            {/* DEBUG PANEL */}
+            <div className="bg-red-500/20 border border-red-500 p-4 rounded-xl text-xs font-mono">
+                <div>isLoading: {custodialDebug.isLoading ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isConnected: {custodialDebug.isConnected ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isWalletConnected: {custodialDebug.isWalletConnected ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isCustodial: {custodialDebug.isCustodial ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>address: {custodialDebug.address || 'NULL'}</div>
+            </div>
+
             <div className="text-center">
                 <h1 className="text-3xl font-mono font-bold text-white mb-2">DEPOSIT FUNDS</h1>
                 <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>

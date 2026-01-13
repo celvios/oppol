@@ -33,6 +33,9 @@ export default function PortfolioPage() {
     const { login } = useCustodialWallet();
     const { open } = useWeb3Modal();
 
+    // DEBUG - Get custodial wallet state
+    const custodialDebug = useCustodialWallet();
+
     useEffect(() => {
         // Only fetch data if wallet is connected
         if (!address) {
@@ -195,6 +198,15 @@ export default function PortfolioPage() {
 
     return (
         <div className="space-y-8">
+            {/* DEBUG PANEL */}
+            <div className="bg-red-500/20 border border-red-500 p-4 rounded-xl text-xs font-mono">
+                <div>isLoading: {custodialDebug.isLoading ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isConnected: {custodialDebug.isConnected ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isWalletConnected: {custodialDebug.isWalletConnected ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>isCustodial: {custodialDebug.isCustodial ? '✅ TRUE' : '❌ FALSE'}</div>
+                <div>address: {custodialDebug.address || 'NULL'}</div>
+            </div>
+
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
                 {authType && (
