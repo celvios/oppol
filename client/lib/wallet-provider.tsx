@@ -76,30 +76,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     function getProvider(walletType: 'okx' | 'coinbase' | 'binance') {
         if (typeof window === 'undefined') return null;
         
-        // Check if mobile
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
         switch (walletType) {
             case 'okx':
-                if (isMobile && !(window as any).okxwallet) {
-                    // Deep link to OKX app
-                    window.location.href = `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(window.location.href)}`;
-                    return null;
-                }
                 return (window as any).okxwallet;
             case 'coinbase':
-                if (isMobile && !(window as any).coinbaseWalletExtension) {
-                    // Deep link to Coinbase Wallet app
-                    window.location.href = `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(window.location.href)}`;
-                    return null;
-                }
                 return (window as any).coinbaseWalletExtension || (window as any).ethereum;
             case 'binance':
-                if (isMobile && !(window as any).BinanceChain) {
-                    // Deep link to Binance app
-                    window.location.href = `bnc://app.binance.com/cedefi/browser?url=${encodeURIComponent(window.location.href)}`;
-                    return null;
-                }
                 return (window as any).BinanceChain;
             default:
                 return null;
