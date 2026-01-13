@@ -1,9 +1,11 @@
 "use client";
 
-import { PieChart, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, Plus, Minus } from "lucide-react";
+import { PieChart, TrendingUp, Wallet, Plus, Minus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { web3Service } from '@/lib/web3';
+import { useAuth } from "@/lib/use-auth";
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { LoginModal } from "@/components/ui/LoginModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -27,7 +29,9 @@ export default function PortfolioPage() {
     const [loading, setLoading] = useState(true);
     const [showLoginModal, setShowLoginModal] = useState(false);
 
-    const { isConnected, address, isLoading, login } = useCustodialWallet();
+    const { isAuthenticated, isLoading, address, authType } = useAuth();
+    const { login } = useCustodialWallet();
+    const { open } = useWeb3Modal();
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -146,7 +150,7 @@ export default function PortfolioPage() {
         return <SkeletonLoader />;
     }
 
-    if (!isConnected) {
+    if (!isAuthenticated) {
         return (
             <>
                 <div className="flex items-center justify-center min-h-[80vh]">
@@ -156,14 +160,22 @@ export default function PortfolioPage() {
                         </div>
                         <h2 className="text-2xl font-bold text-white mb-3">Sign In to Continue</h2>
                         <p className="text-white/50 mb-8">
-                            Sign in to view your portfolio, positions, and trading history.
+                            Sign in or connect your wallet to view your portfolio
                         </p>
-                        <button
-                            onClick={() => setShowLoginModal(true)}
-                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                        >
-                            Sign In
-                        </button>
+                        <div className="flex gap-4 justify-center">
+                            <button
+                                onClick={() => setShowLoginModal(true)}
+                                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
+                            >
+                                Sign In
+                            </button>
+                            <button
+                                onClick={() => open()}
+                                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+                            >
+                                Connect Wallet
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <LoginModal 
@@ -183,7 +195,14 @@ export default function PortfolioPage() {
 
     return (
         <div className="space-y-8">
-            <h1 className="text-3xl font-mono font-bold text-white mb-6">PORTFOLIO</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
+                {authType && (
+                    <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
+                        {authType === 'custodial' ? '🔐 Custodial' : '🔗 Wallet Connected'}
+                    </div>
+                )}
+            </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
