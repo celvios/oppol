@@ -6,7 +6,7 @@ import { useAccount } from 'wagmi';
 export function useCustodialWallet() {
     // Wagmi wallet connection
     const { address: wagmiAddress, isConnected: wagmiConnected, status } = useAccount();
-    
+
     // Custodial state
     const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
     const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -16,12 +16,12 @@ export function useCustodialWallet() {
         // Check for existing custodial session
         const token = localStorage.getItem('session_token');
         const cachedAddress = localStorage.getItem('cached_wallet_address');
-        
+
         if (token && cachedAddress) {
             setSessionToken(token);
             setCustodialAddress(cachedAddress);
         }
-        
+
         setIsHydrated(true);
     }, []);
 
@@ -35,7 +35,7 @@ export function useCustodialWallet() {
             });
 
             const data = await response.json();
-            
+
             if (data.success) {
                 localStorage.setItem('session_token', data.token);
                 localStorage.setItem('cached_wallet_address', data.address);
@@ -43,7 +43,7 @@ export function useCustodialWallet() {
                 setCustodialAddress(data.address);
                 return { success: true };
             }
-            
+
             return { success: false, error: data.message };
         } catch (error) {
             return { success: false, error: 'Failed to connect' };
@@ -59,32 +59,39 @@ export function useCustodialWallet() {
 
     // Unified state
     const isLoading = !isHydrated || status === 'reconnecting';
-    
+
     // User is connected if EITHER:
     // 1. They have a custodial session (Google/WhatsApp login)
     // 2. They have a wallet connected (MetaMask/Trust Wallet)
     const isCustodial = !!sessionToken && !!custodialAddress;
     const isWalletConnected = isHydrated && wagmiConnected;
     const isConnected = isCustodial || isWalletConnected;
-    
+
     // Determine effective address (wagmi takes priority if both exist)
     const address = wagmiAddress || custodialAddress;
+
+    // Determine auth type for compatibility with useAuth
+    const authType: 'wallet' | 'custodial' | null = isCustodial ? 'custodial' : isWalletConnected ? 'wallet' : null;
 
     return {
         // Connection status
         isConnected,
+        isAuthenticated: isConnected, // Alias for useAuth compatibility
         isLoading,
         isCustodial,
         isWalletConnected,
-        
+
+        // Auth type (for useAuth compatibility)
+        authType,
+
         // Address
         address,
         custodialAddress,
         wagmiAddress,
-        
+
         // Session
         sessionToken,
-        
+
         // Methods
         login,
         logout,

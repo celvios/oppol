@@ -7,7 +7,6 @@ import { useAccount, useDisconnect, useWriteContract, useWaitForTransactionRecei
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { parseUnits } from 'viem';
 import { getContracts } from "@/lib/contracts";
-import { useAuth } from "@/lib/use-auth";
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { LoginModal } from "@/components/ui/LoginModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -36,15 +35,11 @@ const ZAP_ABI = [
 ] as const;
 
 export default function DepositPage() {
-    const { isAuthenticated, isLoading, address, authType, isCustodial, isWalletConnected } = useAuth();
-    const { login } = useCustodialWallet();
+    const { isAuthenticated, isLoading, address, authType, isCustodial, isWalletConnected, login } = useCustodialWallet();
     const { disconnect } = useDisconnect();
     const { open } = useWeb3Modal();
     const { chain } = useAccount();
-    
-    // DEBUG - Get custodial wallet state
-    const custodialDebug = useCustodialWallet();
-    
+
     const [copied, setCopied] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [depositAmount, setDepositAmount] = useState('');

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { web3Service } from '@/lib/web3';
-import { useAuth } from "@/lib/use-auth";
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { LoginModal } from "@/components/ui/LoginModal";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -29,12 +28,8 @@ export default function PortfolioPage() {
     const [loading, setLoading] = useState(true);
     const [showLoginModal, setShowLoginModal] = useState(false);
 
-    const { isAuthenticated, isLoading, address, authType } = useAuth();
-    const { login } = useCustodialWallet();
+    const { isAuthenticated, isLoading, address, authType, login } = useCustodialWallet();
     const { open } = useWeb3Modal();
-
-    // DEBUG - Get custodial wallet state
-    const custodialDebug = useCustodialWallet();
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -181,8 +176,8 @@ export default function PortfolioPage() {
                         </div>
                     </div>
                 </div>
-                <LoginModal 
-                    isOpen={showLoginModal} 
+                <LoginModal
+                    isOpen={showLoginModal}
                     onClose={() => setShowLoginModal(false)}
                     onLogin={login}
                 />
