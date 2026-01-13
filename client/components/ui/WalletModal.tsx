@@ -16,7 +16,11 @@ const WALLETS = [
         name: 'OKX Wallet',
         icon: 'https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2B7D7.png',
         downloadUrl: 'https://www.okx.com/web3',
-        detector: () => true, // Always show OKX since Universal Provider handles all platforms
+        detector: () => {
+            if (typeof window === 'undefined') return false;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            return isMobile || !!(window as any).okxwallet;
+        },
     },
     {
         id: 'coinbase' as const,
