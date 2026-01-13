@@ -12,6 +12,7 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 import MobileHero from "@/components/mobile/MobileHero";
 import MobileFeatures from "@/components/mobile/MobileFeatures";
 import MobileMarketList from "@/components/mobile/MobileMarketList";
+import { WalletDebug } from "@/components/ui/WalletDebug";
 
 // Dynamically load Interactive component with no SSR (though Framer Motion works in SSR, dynamic is safe for layout)
 const HeroInteractive = dynamic(() => import('@/components/landing/HeroInteractive'), { ssr: false });
@@ -20,6 +21,7 @@ const MarketTicker = dynamic(() => import('@/components/landing/MarketTicker'), 
 export default function Home() {
   return (
     <div className="min-h-screen bg-void text-white relative overflow-x-hidden">
+      <WalletDebug />
 
       {/* Hero Section */}
       <MobileHero />
