@@ -6,98 +6,85 @@ import { useWallet } from "@/lib/use-wallet";
 import { motion } from 'framer-motion';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
-import { useWeb3Modal } from '@web3modal/wagmi/react';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { WalletModal } from "@/components/ui/WalletModal";
+import { useWalletContext } from "@/lib/wallet-provider";
 import { getContracts } from '@/lib/contracts';
+import { Contract } from 'ethers';
 
 const MARKET_ABI = [
-    {
-        name: 'userBalances',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: '', type: 'address' }],
-        outputs: [{ name: '', type: 'uint256' }],
-    },
-    {
-        name: 'withdraw',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [{ name: 'amount', type: 'uint256' }],
-        outputs: [],
-    },
-] as const;
+    { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+    { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+];
 
 export default function WithdrawPage() {
     const { isConnected, address } = useWallet();
-    const { open } = useWeb3Modal();
+    const { connect, signer } = useWalletContext();
+    const [showWalletModal, setShowWalletModal] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'complete' | 'error'>('input');
     const [txHash, setTxHash] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const [depositedBalance, setDepositedBalance] = useState('0.00');
+    const [isBalanceLoading, setIsBalanceLoading] = useState(true);
 
     const contracts = getContracts() as any;
     const MARKET_CONTRACT = contracts.predictionMarket as `0x${string}`;
 
-    // 1. Read Balance from Contract
-    const { data: balanceData, refetch: refetchBalance, isLoading: isBalanceLoading, error: balanceError } = useReadContract({
-        address: MARKET_CONTRACT,
-        abi: MARKET_ABI,
-        functionName: 'userBalances',
-        args: address ? [address] : undefined,
-        query: {
-            enabled: !!address,
-            refetchInterval: 5000 // Verified real-time updates
-        }
-    });
-
-    const depositedBalance = balanceData ? formatUnits(balanceData, 6) : '0.00';
-    const formattedBalance = parseFloat(depositedBalance).toFixed(2);
-
-    // 2. Write Contract (Withdraw)
-    const { writeContract, data: hash, error: writeError } = useWriteContract();
-    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
     useEffect(() => {
-        if (isSuccess && hash) {
-            setTxHash(hash);
-            setStep('complete');
-            refetchBalance(); // Update balance immediately
+        if (address && signer) {
+            fetchBalance();
         }
-    }, [isSuccess, hash, refetchBalance]);
+    }, [address, signer]);
 
-    useEffect(() => {
-        if (writeError) {
-            console.error('Withdraw error:', writeError);
-            setErrorMessage(writeError.message || 'Withdrawal failed');
-            setStep('error');
+    async function fetchBalance() {
+        if (!signer || !address) return;
+        setIsBalanceLoading(true);
+        try {
+            // Check network
+            const network = await signer.provider.getNetwork();
+            const chainId = Number(network.chainId);
+            
+            if (chainId !== 97 && chainId !== 56) {
+                console.error('Wrong network. Expected BSC Testnet (97) or Mainnet (56), got:', chainId);
+                setErrorMessage('Please switch to BNB Smart Chain network');
+                setDepositedBalance('0.00');
+                setIsBalanceLoading(false);
+                return;
+            }
+
+            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+            const balance = await marketContract.userBalances(address);
+            setDepositedBalance((Number(balance) / 1e6).toFixed(2));
+        } catch (error: any) {
+            console.error('Failed to fetch balance:', error);
+            setDepositedBalance('0.00');
+        } finally {
+            setIsBalanceLoading(false);
         }
-    }, [writeError]);
+    }
 
-    // Handle withdrawal request
     async function handleWithdraw() {
-        if (!withdrawAmount || parseFloat(withdrawAmount) <= 0 || !address) return;
-
+        if (!signer || !withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
         setStep('processing');
         setErrorMessage('');
-
         try {
-            const amountInUnits = parseUnits(withdrawAmount, 6); // USDC uses 6 decimals
-
-            writeContract({
-                address: MARKET_CONTRACT,
-                abi: MARKET_ABI,
-                functionName: 'withdraw',
-                args: [amountInUnits],
-            });
+            const amount = BigInt(Math.floor(parseFloat(withdrawAmount) * 1e6));
+            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+            const tx = await marketContract.withdraw(amount);
+            const receipt = await tx.wait();
+            setTxHash(receipt.hash);
+            setStep('complete');
+            await fetchBalance();
         } catch (error: any) {
-            console.error('Withdrawal trigger error:', error);
-            setErrorMessage(error.message || 'Failed to initiate withdrawal');
+            console.error('Withdrawal failed:', error);
+            setErrorMessage(error.message || 'Withdrawal failed');
             setStep('error');
         }
     }
 
     // Determine loading state
+    const formattedBalance = parseFloat(depositedBalance).toFixed(2);
+
     if (!isConnected) {
         // Not connected view
         return (
@@ -113,34 +100,23 @@ export default function WithdrawPage() {
                     <h2 className="text-xl font-bold text-white mb-3">Connect Wallet</h2>
                     <p className="text-white/50 mb-6">Connect your wallet to view your balance and withdraw funds.</p>
                     <button
-                        onClick={() => open()}
+                        onClick={() => setShowWalletModal(true)}
                         className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all"
                     >
                         Connect Wallet
                     </button>
+                    <WalletModal
+                        isOpen={showWalletModal}
+                        onClose={() => setShowWalletModal(false)}
+                        onSelectWallet={connect}
+                    />
                 </div>
             </div>
         );
     }
 
-    if (isBalanceLoading && !balanceData && !balanceError) {
+    if (isBalanceLoading && !depositedBalance) {
         return <SkeletonLoader />;
-    }
-
-    if (balanceError) {
-        return (
-            <div className="max-w-2xl mx-auto pt-8 text-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <h3 className="text-white font-bold mb-2">Failed to load balance</h3>
-                <p className="text-white/50 mb-4">{balanceError.message}</p>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="px-6 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20"
-                >
-                    Retry
-                </button>
-            </div>
-        );
     }
 
     const availableBalance = parseFloat(depositedBalance);
@@ -243,8 +219,8 @@ export default function WithdrawPage() {
 
                         <SlideToConfirm
                             onConfirm={handleWithdraw}
-                            isLoading={isConfirming}
-                            disabled={isConfirming}
+                            isLoading={step === 'processing'}
+                            disabled={step === 'processing'}
                             text="SLIDE TO WITHDRAW"
                             side="NO"
                         />
@@ -259,10 +235,10 @@ export default function WithdrawPage() {
                 )}
 
                 {/* Processing Step */}
-                {(step === 'processing' || isConfirming) && (
+                {step === 'processing' && (
                     <div className="text-center py-8">
                         <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
-                        <p className="text-white">{isConfirming ? 'Confirming transaction...' : 'Please sign in wallet...'}</p>
+                        <p className="text-white">Please sign in wallet...</p>
                         <p className="text-white/50 text-sm mt-2">Do not close this window</p>
                     </div>
                 )}
@@ -287,7 +263,6 @@ export default function WithdrawPage() {
                             onClick={() => {
                                 setStep('input');
                                 setWithdrawAmount('');
-                                refetchBalance();
                             }}
                             className="mt-6 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all"
                         >

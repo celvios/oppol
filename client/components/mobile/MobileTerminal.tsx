@@ -13,7 +13,8 @@ import { AlertModal } from "@/components/ui/AlertModal";
 import { useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useWalletContext } from "@/lib/wallet-provider";
+import { WalletModal } from "@/components/ui/WalletModal";
 // import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
 import { useRouter } from "next/navigation"; // Add import
 import GlassCard from "@/components/ui/GlassCard";
@@ -111,9 +112,8 @@ export function MobileTerminal() {
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
 
     const { isConnected, address, isLoading } = useCustodialWallet();
-    const { open } = useWeb3Modal();
+    const { disconnect, connect } = useWalletContext();
     const { setTradeModalOpen } = useUIStore();
-    const { disconnect: wagmiDisconnect } = useDisconnect();
 
     // Debug logging
     useEffect(() => {
@@ -123,15 +123,8 @@ export function MobileTerminal() {
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const handleLogout = () => {
-        localStorage.removeItem('session_token');
-        localStorage.removeItem('wallet_address');
-        localStorage.removeItem('login_method');
-        localStorage.removeItem('cached_wallet_address');
-        localStorage.removeItem('connected_wallet_uuid');
-        localStorage.removeItem('connected_wallet_name');
-        localStorage.clear(); // Clear all localStorage to prevent auto-reconnect
-        // if (walletState.isConnected) eipDisconnect(); // Removed
-        wagmiDisconnect();
+        localStorage.clear();
+        disconnect();
         router.push('/');
         setIsHeaderMenuOpen(false);
     };
@@ -309,13 +302,18 @@ export function MobileTerminal() {
                             </div>
                         )}
                         <button
-                            onClick={() => open()}
+                            onClick={() => setShowWalletModal(true)}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
                         </button>
                     </div>
                 </div>
+                <WalletModal
+                    isOpen={showWalletModal}
+                    onClose={() => setShowWalletModal(false)}
+                    onSelectWallet={connect}
+                />
             </>
         );
     }

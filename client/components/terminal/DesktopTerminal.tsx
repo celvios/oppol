@@ -10,11 +10,10 @@ import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
-import { AlertModal } from "@/components/ui/AlertModal";
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
-import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { useWalletContext } from "@/lib/wallet-provider";
+import { WalletModal } from "@/components/ui/WalletModal";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
@@ -25,18 +24,7 @@ import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Contract ABI
 const MARKET_ABI = [
-    {
-        name: 'buyShares',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: '_marketId', type: 'uint256' },
-            { name: '_isYes', type: 'bool' },
-            { name: '_shares', type: 'uint256' },
-            { name: '_maxCost', type: 'uint256' }
-        ],
-        outputs: [],
-    },
+    { name: 'buyShares', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: '_marketId', type: 'uint256' }, { name: '_isYes', type: 'bool' }, { name: '_shares', type: 'uint256' }, { name: '_maxCost', type: 'uint256' }], outputs: [] },
 ] as const;
 
 const contracts = getContracts() as any;
@@ -92,9 +80,8 @@ export function DesktopTerminal() {
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
     const { isConnected, address, isLoading: walletLoading } = useCustodialWallet();
-    const { open } = useWeb3Modal();
-    const { writeContract, data: hash } = useWriteContract();
-    const { isSuccess } = useWaitForTransactionReceipt({ hash });
+    const { connect } = useWalletContext();
+    const [showWalletModal, setShowWalletModal] = useState(false);
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -233,8 +220,6 @@ export function DesktopTerminal() {
         setIsTradeLoading(true);
 
         try {
-            console.log('Starting trade:', { address, marketId: market.id, side: tradeSide, amount });
-
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const response = await fetch(`${apiUrl}/api/bet`, {
                 method: 'POST',
@@ -247,10 +232,7 @@ export function DesktopTerminal() {
                 })
             });
 
-            console.log('API response status:', response.status);
             const data = await response.json();
-            console.log('API response data:', data);
-
             if (data.success) {
                 setSuccessData({
                     marketId: market.id,
@@ -264,7 +246,6 @@ export function DesktopTerminal() {
                 setIsSuccessModalOpen(true);
                 fetchData();
             } else {
-                console.error("Trade API error:", data.error);
                 alert(`Trade failed: ${data.error}`);
             }
         } catch (e: any) {
@@ -291,11 +272,16 @@ export function DesktopTerminal() {
                         </div>
                         <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
                         <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
-                        <NeonButton onClick={() => open()} variant="cyan" className="w-full text-lg py-6">
+                        <NeonButton onClick={() => setShowWalletModal(true)} variant="cyan" className="w-full text-lg py-6">
                             ESTABLISH CONNECTION
                         </NeonButton>
                     </GlassCard>
                 </div>
+                <WalletModal
+                    isOpen={showWalletModal}
+                    onClose={() => setShowWalletModal(false)}
+                    onSelectWallet={connect}
+                />
             </>
         );
     }

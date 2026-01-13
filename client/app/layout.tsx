@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Web3Provider } from "@/lib/web3-provider";
+import { WalletProvider } from "@/lib/wallet-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import SettingsToggle from "@/components/ui/SettingsToggle";
@@ -39,14 +39,14 @@ export default function RootLayout({
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-void text-text-primary`}
         suppressHydrationWarning
       >
-        <Web3Provider>
+        <WalletProvider>
           <SettingsProvider>
             <AnimatedBackground />
             {children}
             <SettingsToggle />
             <BottomNav />
           </SettingsProvider>
-        </Web3Provider>
+        </WalletProvider>
       </body>
     </html>
   );
