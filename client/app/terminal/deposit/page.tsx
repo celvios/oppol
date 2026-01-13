@@ -3,9 +3,9 @@
 import { Copy, Wallet, ArrowRight, CheckCircle, ChevronDown, ArrowDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
-import { useAccount, useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useDisconnect, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { getContracts } from "@/lib/contracts";
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { LoginModal } from "@/components/ui/LoginModal";
@@ -24,6 +24,7 @@ const TOKENS = [
 
 const ERC20_ABI = [
     { name: 'approve', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+    { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
 const MARKET_ABI = [
@@ -53,6 +54,20 @@ export default function DepositPage() {
     const { writeContract, data: hash, isPending } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
     const [needsDeposit, setNeedsDeposit] = useState(false);
+
+    const { data: usdcBalanceRaw, refetch: refetchUsdcBalance } = useReadContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: address ? [address] : undefined,
+        query: { enabled: !!address && isWalletConnected }
+    });
+
+    useEffect(() => {
+        if (usdcBalanceRaw) {
+            setUsdcBalance(parseFloat(formatUnits(usdcBalanceRaw, 6)).toFixed(2));
+        }
+    }, [usdcBalanceRaw]);
 
     const getBalance = () => {
         if (selectedToken.symbol === 'USDC') return usdcBalance;
@@ -85,9 +100,10 @@ export default function DepositPage() {
                 setNeedsDeposit(true);
             } else if (step === 'depositing' || step === 'swapping') {
                 setStep('complete');
+                refetchUsdcBalance();
             }
         }
-    }, [isSuccess, hash, step]);
+    }, [isSuccess, hash, step, refetchUsdcBalance]);
 
     useEffect(() => {
         if (needsDeposit && !isPending && !isConfirming) {
@@ -96,24 +112,7 @@ export default function DepositPage() {
         }
     }, [needsDeposit, isPending, isConfirming]);
 
-    useEffect(() => {
-        if (!address || !isWalletConnected) return;
 
-        async function fetchBalances() {
-            try {
-                const usdcResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/balance/${address}`);
-                if (usdcResponse.ok) {
-                    const data = await usdcResponse.json();
-                    setUsdcBalance(data.balance || '0.00');
-                }
-                setBnbBalance('0.00');
-            } catch (e) {
-                console.error('Balance fetch error:', e);
-            }
-        }
-
-        fetchBalances();
-    }, [address, isWalletConnected]);
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
