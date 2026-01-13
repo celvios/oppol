@@ -27,14 +27,22 @@ const WALLETS = [
         name: 'Coinbase Wallet',
         icon: 'https://avatars.githubusercontent.com/u/18060234?s=200&v=4',
         downloadUrl: 'https://www.coinbase.com/wallet',
-        detector: () => typeof window !== 'undefined' && !!((window as any).coinbaseWalletExtension || (window as any).ethereum?.isCoinbaseWallet),
+        detector: () => {
+            if (typeof window === 'undefined') return false;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            return isMobile || !!((window as any).coinbaseWalletExtension || (window as any).ethereum?.isCoinbaseWallet);
+        },
     },
     {
         id: 'binance' as const,
         name: 'Binance Wallet',
         icon: 'https://bin.bnbstatic.com/static/images/common/favicon.ico',
         downloadUrl: 'https://www.binance.com/en/web3wallet',
-        detector: () => typeof window !== 'undefined' && !!(window as any).BinanceChain,
+        detector: () => {
+            if (typeof window === 'undefined') return false;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            return isMobile || !!(window as any).BinanceChain;
+        },
     },
 ];
 
