@@ -144,17 +144,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 const session = await okxProvider.connect({
                     namespaces: {
                         eip155: {
-                            chains: ['eip155:97'],
-                            defaultChain: '97',
+                            chains: ['eip155:1'],
+                            methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
+                            events: ['chainChanged', 'accountsChanged'],
                             rpcMap: {
-                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+                                1: 'https://eth.llamarpc.com',
+                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+                                56: 'https://bsc-dataseed.binance.org/'
                             }
                         }
                     },
                     optionalNamespaces: {
                         eip155: {
-                            chains: ['eip155:56'],
+                            chains: ['eip155:56', 'eip155:97'],
+                            methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
+                            events: ['chainChanged', 'accountsChanged'],
                             rpcMap: {
+                                97: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
                                 56: 'https://bsc-dataseed.binance.org/'
                             }
                         }
@@ -168,6 +174,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     const accounts = session.namespaces.eip155?.accounts || [];
                     if (accounts.length > 0) {
                         const address = accounts[0].split(':')[2];
+                        
+                        // Switch to BSC after connection
+                        try {
+                            await okxProvider.request({
+                                method: 'wallet_switchEthereumChain',
+                                params: [{ chainId: BSC_TESTNET_CHAIN_ID }],
+                            }, 'eip155:1');
+                        } catch (switchError: any) {
+                            if (switchError.code === 4902) {
+                                await okxProvider.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: BSC_TESTNET_CHAIN_ID,
+                                        chainName: 'BNB Smart Chain Testnet',
+                                        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                        rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
+                                        blockExplorerUrls: ['https://testnet.bscscan.com'],
+                                    }],
+                                }, 'eip155:1');
+                            }
+                        }
+                        
                         setAddress(address);
                         setChainId(97);
                         
