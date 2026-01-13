@@ -62,11 +62,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const savedAddress = localStorage.getItem('wallet_address');
         const savedWallet = localStorage.getItem('wallet_type');
-        if (savedAddress && savedWallet === 'okx') {
-            if (isMobile()) {
-                reconnectOKXMobile();
+        if (savedAddress && savedWallet) {
+            if (savedWallet === 'okx') {
+                if (isMobile()) {
+                    reconnectOKXMobile();
+                } else {
+                    reconnectOKXDesktop();
+                }
             } else {
-                reconnectOKXDesktop();
+                reconnectBrowserWallet(savedWallet as 'coinbase' | 'binance');
             }
         }
     }, []);
@@ -97,6 +101,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     async function reconnectOKXDesktop() {
         try {
             const provider = (window as any).okxwallet;
+            if (!provider) return;
+            
+            const ethersProvider = new BrowserProvider(provider);
+            const accounts = await ethersProvider.listAccounts();
+            if (accounts.length > 0) {
+                setAddress(accounts[0].address);
+                const network = await ethersProvider.getNetwork();
+                setChainId(Number(network.chainId));
+                const signer = await ethersProvider.getSigner();
+                setSigner(signer);
+            }
+        } catch (error) {
+            console.error('Reconnect failed:', error);
+            localStorage.removeItem('wallet_address');
+            localStorage.removeItem('wallet_type');
+        }
+    }
+
+    async function reconnectBrowserWallet(walletType: 'coinbase' | 'binance') {
+        try {
+            const provider = walletType === 'coinbase' 
+                ? (window as any).coinbaseWalletExtension || (window as any).ethereum
+                : (window as any).BinanceChain;
+            
             if (!provider) return;
             
             const ethersProvider = new BrowserProvider(provider);
@@ -218,6 +246,44 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    async function connectBrowserWallet(walletType: 'coinbase' | 'binance') {
+        const provider = walletType === 'coinbase'
+            ? (window as any).coinbaseWalletExtension || (window as any).ethereum
+            : (window as any).BinanceChain;
+        
+        if (!provider) {
+            throw new Error(`${walletType === 'coinbase' ? 'Coinbase' : 'Binance'} Wallet not found. Please install the browser extension.`);
+        }
+
+        const ethersProvider = new BrowserProvider(provider);
+        const accounts = await ethersProvider.send('eth_requestAccounts', []);
+        
+        await switchToBSC(provider);
+        
+        const network = await ethersProvider.getNetwork();
+        const signer = await ethersProvider.getSigner();
+        
+        setAddress(accounts[0]);
+        setChainId(Number(network.chainId));
+        setSigner(signer);
+        
+        localStorage.setItem('wallet_address', accounts[0]);
+        localStorage.setItem('wallet_type', walletType);
+
+        provider.on?.('accountsChanged', (accounts: string[]) => {
+            if (accounts.length === 0) {
+                disconnect();
+            } else {
+                setAddress(accounts[0]);
+                localStorage.setItem('wallet_address', accounts[0]);
+            }
+        });
+
+        provider.on?.('chainChanged', () => {
+            window.location.reload();
+        });
+    }
+
     async function connect(walletType: 'okx' | 'coinbase' | 'binance') {
         setIsConnecting(true);
         try {
@@ -227,6 +293,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 } else {
                     await connectOKXDesktop();
                 }
+            } else {
+                await connectBrowserWallet(walletType);
             }
         } catch (error) {
             console.error('Connection failed:', error);
