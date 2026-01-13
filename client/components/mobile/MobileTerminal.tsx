@@ -115,6 +115,11 @@ export function MobileTerminal() {
     const { setTradeModalOpen } = useUIStore();
     const { disconnect: wagmiDisconnect } = useDisconnect();
 
+    // Debug logging
+    useEffect(() => {
+        console.log('[MobileTerminal] Wallet State:', { isConnected, isLoading, address });
+    }, [isConnected, isLoading, address]);
+
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const handleLogout = () => {
