@@ -70,7 +70,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         switch (walletType) {
             case 'okx':
-                return (window as any).okxwallet;
+                // Desktop: window.okxwallet, Mobile: window.ethereum with isOkxWallet flag
+                return (window as any).okxwallet || ((window as any).ethereum?.isOkxWallet ? (window as any).ethereum : null);
             case 'coinbase':
                 return (window as any).coinbaseWalletExtension || (window as any).ethereum;
             case 'binance':
