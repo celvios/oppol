@@ -614,9 +614,9 @@ export function MobileTerminal() {
 function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSuccess }: { isOpen: boolean; onClose: () => void; market: Market; side: 'YES' | 'NO'; balance: string; onTradeSuccess: () => void }) {
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
-    const { address } = useWallet();
-    const { writeContract, data: hash } = useWriteContract();
-    const { isSuccess } = useWaitForTransactionReceipt({ hash });
+    const [error, setError] = useState<string | null>(null);
+    const { address } = useCustodialWallet();
+    const { signer } = useWalletContext();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
@@ -627,55 +627,39 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
     const handleBuy = async () => {
         if (!amount || parseFloat(amount) <= 0) return;
         setLoading(true);
+        setError(null);
+        
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            if (apiUrl) {
-                const response = await fetch(`${apiUrl}/api/bet`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: address,
-                        marketId: market.id,
-                        side,
-                        shares: estShares,
-                        amount: parseFloat(amount)
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    setSuccessData({
-                        marketId: market.id,
-                        side,
-                        shares: data.transaction?.shares || estShares,
-                        cost: amount,
-                        question: market.question,
-                        newPrice: currentPrice, // Placeholder
-                        hash: '0x' // Placeholder
-                    });
-                    setIsSuccessModalOpen(true);
-                }
-            } else {
-                const sharesInUnits = parseUnits(estShares.toFixed(2), 6);
-                const maxCost = parseUnits(amount, 6);
-                writeContract({
-                    address: MARKET_CONTRACT,
-                    abi: MARKET_ABI,
-                    functionName: 'buyShares',
-                    args: [BigInt(market.id), side === 'YES', sharesInUnits, maxCost],
-                });
-                setSuccessData({
+            const response = await fetch(`${apiUrl}/api/bet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: address,
                     marketId: market.id,
                     side,
                     shares: estShares,
+                    amount: parseFloat(amount)
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setSuccessData({
+                    marketId: market.id,
+                    side,
+                    shares: data.transaction?.shares || estShares,
                     cost: amount,
                     question: market.question,
-                    newPrice: currentPrice, // Placeholder
-                    hash: hash || '0x'
+                    newPrice: currentPrice,
+                    hash: '0x'
                 });
                 setIsSuccessModalOpen(true);
+            } else {
+                setError(data.error || 'Trade failed');
             }
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            console.error('Trade error:', e);
+            setError(e.message || 'Failed to execute trade');
         } finally {
             setLoading(false);
         }
@@ -760,6 +744,12 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                             <span className={`font-mono text-xl font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>{estShares.toFixed(2)}</span>
                         </div>
                     </GlassCard>
+
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                            <p className="text-red-400 text-sm">{error}</p>
+                        </div>
+                    )}
 
                     <div className="mt-6">
                         <NeonSlider
