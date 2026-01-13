@@ -1,29 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 
 export function useCustodialWallet() {
-    const [isConnected, setIsConnected] = useState(false);
-    const [address, setAddress] = useState<string | null>(null);
+    // Wagmi wallet connection
+    const { address: wagmiAddress, isConnected: wagmiConnected, status } = useAccount();
+    
+    // Custodial state
+    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
     const [sessionToken, setSessionToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isHydrated, setIsHydrated] = useState(false);
 
     useEffect(() => {
-        // Check for existing session
+        // Check for existing custodial session
         const token = localStorage.getItem('session_token');
         const cachedAddress = localStorage.getItem('cached_wallet_address');
         
         if (token && cachedAddress) {
             setSessionToken(token);
-            setAddress(cachedAddress);
-            setIsConnected(true);
+            setCustodialAddress(cachedAddress);
         }
         
-        setIsLoading(false);
+        setIsHydrated(true);
     }, []);
 
     const login = async (walletAddress: string) => {
-        setIsLoading(true);
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
             const response = await fetch(`${apiUrl}/auth/login`, {
@@ -38,16 +40,13 @@ export function useCustodialWallet() {
                 localStorage.setItem('session_token', data.token);
                 localStorage.setItem('cached_wallet_address', data.address);
                 setSessionToken(data.token);
-                setAddress(data.address);
-                setIsConnected(true);
+                setCustodialAddress(data.address);
                 return { success: true };
             }
             
             return { success: false, error: data.message };
         } catch (error) {
             return { success: false, error: 'Failed to connect' };
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -55,15 +54,38 @@ export function useCustodialWallet() {
         localStorage.removeItem('session_token');
         localStorage.removeItem('cached_wallet_address');
         setSessionToken(null);
-        setAddress(null);
-        setIsConnected(false);
+        setCustodialAddress(null);
     };
 
+    // Unified state
+    const isLoading = !isHydrated || status === 'reconnecting';
+    
+    // User is connected if EITHER:
+    // 1. They have a custodial session (Google/WhatsApp login)
+    // 2. They have a wallet connected (MetaMask/Trust Wallet)
+    const isCustodial = !!sessionToken && !!custodialAddress;
+    const isWalletConnected = isHydrated && wagmiConnected;
+    const isConnected = isCustodial || isWalletConnected;
+    
+    // Determine effective address (wagmi takes priority if both exist)
+    const address = wagmiAddress || custodialAddress;
+
     return {
+        // Connection status
         isConnected,
-        address,
-        sessionToken,
         isLoading,
+        isCustodial,
+        isWalletConnected,
+        
+        // Address
+        address,
+        custodialAddress,
+        wagmiAddress,
+        
+        // Session
+        sessionToken,
+        
+        // Methods
         login,
         logout,
     };
