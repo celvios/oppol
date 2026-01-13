@@ -91,7 +91,7 @@ export function DesktopTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address } = useCustodialWallet();
+    const { isConnected, address, isLoading: walletLoading } = useCustodialWallet();
     const { open } = useWeb3Modal();
     const { writeContract, data: hash } = useWriteContract();
     const { isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -276,7 +276,11 @@ export function DesktopTerminal() {
     };
 
 
-    if (!mounted || (!isConnected && mounted)) {
+    if (!mounted || walletLoading) {
+        return <div className="p-10"><SkeletonLoader /></div>;
+    }
+
+    if (!isConnected && mounted) {
         return (
             <>
                 <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">

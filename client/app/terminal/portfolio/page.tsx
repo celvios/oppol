@@ -147,8 +147,12 @@ export default function PortfolioPage() {
         return () => clearInterval(interval);
     }, [address]);
 
-    if (isLoading) {
-        return <SkeletonLoader />;
+    if (isLoading || loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[80vh]">
+                <SkeletonLoader />
+            </div>
+        );
     }
 
     if (!isConnected) {
