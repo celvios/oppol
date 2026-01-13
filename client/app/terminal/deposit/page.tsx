@@ -14,10 +14,21 @@ import { Contract } from 'ethers';
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
     { name: 'approve', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+    { name: 'decimals', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint8' }] },
+];
+
+const ZAP_ABI = [
+    { name: 'zapInToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenIn', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'minUSDC', type: 'uint256' }], outputs: [] },
 ];
 
 const MARKET_ABI = [
     { name: 'deposit', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+];
+
+const STABLECOINS = [
+    { symbol: 'USDC', address: '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be', decimals: 6 },
+    { symbol: 'USDT', address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', decimals: 6 },
+    { symbol: 'DAI', address: '0xEC5dCb5Dbf4B114C9d0F65BcCAb49EC54F6A0867', decimals: 18 },
 ];
 
 export default function DepositPage() {
@@ -26,26 +37,28 @@ export default function DepositPage() {
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [copied, setCopied] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const [usdcBalance, setUsdcBalance] = useState('0.00');
+    const [selectedToken, setSelectedToken] = useState(STABLECOINS[0]);
+    const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
     const contracts = getContracts() as any;
-    const USDC_ADDRESS = contracts.mockUSDC || '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be';
+    const ZAP_CONTRACT = contracts.zap || '0x...';
     const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '0x58c957342B8cABB9bE745BeBc09C267b70137959';
 
     useEffect(() => {
         if (address && signer) {
             fetchBalance();
         }
-    }, [address, signer]);
+    }, [address, signer, selectedToken]);
 
     async function fetchBalance() {
         if (!signer || !address) return;
         try {
-            const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-            const balance = await usdcContract.balanceOf(address);
-            setUsdcBalance((Number(balance) / 1e6).toFixed(2));
+            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+            const balance = await tokenContract.balanceOf(address);
+            const decimals = selectedToken.decimals;
+            setTokenBalance((Number(balance) / Math.pow(10, decimals)).toFixed(2));
         } catch (error) {
             console.error('Failed to fetch balance:', error);
         }
@@ -55,15 +68,31 @@ export default function DepositPage() {
         if (!signer || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         try {
-            const amount = BigInt(Math.floor(parseFloat(depositAmount) * 1e6));
-            const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+            const decimals = selectedToken.decimals;
+            const amount = BigInt(Math.floor(parseFloat(depositAmount) * Math.pow(10, decimals)));
+            
+            if (selectedToken.symbol === 'USDC') {
+                // Direct deposit for USDC
+                const usdcContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-            const approveTx = await usdcContract.approve(MARKET_CONTRACT, amount);
-            await approveTx.wait();
+                const approveTx = await usdcContract.approve(MARKET_CONTRACT, amount);
+                await approveTx.wait();
 
-            const depositTx = await marketContract.deposit(amount);
-            await depositTx.wait();
+                const depositTx = await marketContract.deposit(amount);
+                await depositTx.wait();
+            } else {
+                // Use Zap for other stablecoins
+                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
+                
+                const approveTx = await tokenContract.approve(ZAP_CONTRACT, amount);
+                await approveTx.wait();
+                
+                const minUSDC = amount * BigInt(95) / BigInt(100); // 5% slippage
+                const zapTx = await zapContract.zapInToken(selectedToken.address, amount, minUSDC);
+                await zapTx.wait();
+            }
 
             await fetchBalance();
             setDepositAmount('');
@@ -110,10 +139,29 @@ export default function DepositPage() {
 
                     <div className="space-y-4">
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
+                            <label className="text-sm font-medium text-white/60 mb-3 block">Select Token</label>
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                {STABLECOINS.map(token => (
+                                    <button
+                                        key={token.symbol}
+                                        onClick={() => setSelectedToken(token)}
+                                        className={`py-2 px-4 rounded-lg font-bold transition-all ${
+                                            selectedToken.symbol === token.symbol
+                                                ? 'bg-primary text-black'
+                                                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {token.symbol}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <div className="flex justify-between mb-2">
-                                <label className="text-sm font-medium text-white/60">Amount (USDC)</label>
-                                <button onClick={() => setDepositAmount(usdcBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
-                                    Balance: {usdcBalance}
+                                <label className="text-sm font-medium text-white/60">Amount ({selectedToken.symbol})</label>
+                                <button onClick={() => setDepositAmount(tokenBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
+                                    Balance: {tokenBalance}
                                 </button>
                             </div>
                             <input
