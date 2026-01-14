@@ -7,10 +7,24 @@ import { useState, useEffect } from 'react';
 interface WalletModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelectWallet: (wallet: 'okx' | 'coinbase' | 'binance') => void;
+    onSelectWallet: (wallet: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet') => void;
 }
 
 const WALLETS = [
+    {
+        id: 'metamask' as const,
+        name: 'MetaMask',
+        icon: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg',
+        downloadUrl: 'https://metamask.io/download/',
+        detector: () => typeof window !== 'undefined' && !!(window as any).ethereum?.isMetaMask,
+    },
+    {
+        id: 'trustwallet' as const,
+        name: 'Trust Wallet',
+        icon: 'https://trustwallet.com/assets/images/media/assets/TWT.svg',
+        downloadUrl: 'https://trustwallet.com/download',
+        detector: () => typeof window !== 'undefined' && !!((window as any).trustwallet || (window as any).ethereum?.isTrust),
+    },
     {
         id: 'okx' as const,
         name: 'OKX Wallet',
@@ -61,7 +75,7 @@ export function WalletModal({ isOpen, onClose, onSelectWallet }: WalletModalProp
             }, 1500);
             return;
         }
-        
+
         try {
             await onSelectWallet(wallet.id);
             onClose();
@@ -81,7 +95,7 @@ export function WalletModal({ isOpen, onClose, onSelectWallet }: WalletModalProp
                         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                         onClick={onClose}
                     />
-                    
+
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
