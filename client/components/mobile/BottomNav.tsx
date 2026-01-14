@@ -7,14 +7,13 @@ import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
 import { useUIStore } from "@/lib/store";
-import { useWalletContext } from "@/lib/wallet-provider";
-import { WalletModal } from "@/components/ui/WalletModal";
+import { useWallet } from "@/lib/use-wallet";
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen } = useUIStore();
-    const { isConnected, address, disconnect, connect } = useWalletContext();
+    const { isConnected, address, disconnect, connect } = useWallet();
     const [showWalletModal, setShowWalletModal] = useState(false);
 
     const handleLogout = () => {
@@ -36,10 +35,10 @@ export default function BottomNav() {
 
     return (
         <>
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-                <div className="absolute inset-0 bg-void/80 backdrop-blur-xl border-t border-white/5" />
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden" suppressHydrationWarning={true}>
+                <div className="absolute inset-0 bg-void/80 backdrop-blur-xl border-t border-white/5" suppressHydrationWarning={true} />
 
-                <nav className="relative flex justify-around items-center h-20 pb-2">
+                <nav className="relative flex justify-around items-center h-20 pb-2" suppressHydrationWarning={true}>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
@@ -90,7 +89,7 @@ export default function BottomNav() {
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => connect()}
                             className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                         >
                             <Wallet className="w-6 h-6 text-text-secondary" />
@@ -99,12 +98,6 @@ export default function BottomNav() {
                     )}
                 </nav>
             </div>
-
-            <WalletModal
-                isOpen={showWalletModal}
-                onClose={() => setShowWalletModal(false)}
-                onSelectWallet={connect}
-            />
         </>
     );
 }

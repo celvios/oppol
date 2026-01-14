@@ -4,6 +4,6 @@ import { useSettings } from "@/lib/settings-context";
 
 export default function AnimatedBackground() {
     return (
-        <div className="fixed inset-0 -z-50 bg-void" />
+        <div className="fixed inset-0 -z-50 bg-void" suppressHydrationWarning={true} />
     );
 }

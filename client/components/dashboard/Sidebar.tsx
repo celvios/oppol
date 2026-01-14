@@ -5,9 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
-import { useCustodialWallet } from "@/lib/use-custodial-wallet";
-import { LoginModal } from "@/components/ui/LoginModal";
-import { useState } from "react";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -24,12 +21,10 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isAdmin } = useWallet();
-    const { isConnected, address, logout, login } = useCustodialWallet();
-    const [showLoginModal, setShowLoginModal] = useState(false);
+    const { isAdmin, isConnected, address, disconnect, connect } = useWallet();
 
     const handleLogout = () => {
-        logout();
+        disconnect();
         router.push('/');
     };
 
@@ -126,16 +121,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowLoginModal(true)}
+                            onClick={() => connect()}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
                                 collapsed ? "justify-center" : ""
                             )}
-                            title={collapsed ? "Sign In" : undefined}
+                            title={collapsed ? "Connect Wallet" : undefined}
                         >
                             <Wallet className="w-5 h-5 transition-transform group-hover:scale-110" />
-                            {!collapsed && <span className="font-medium text-sm">Sign In</span>}
+                            {!collapsed && <span className="font-medium text-sm">Connect Wallet</span>}
                         </button>
                     )}
 
@@ -163,12 +158,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </div>
                 )}
             </div>
-
-            <LoginModal 
-                isOpen={showLoginModal} 
-                onClose={() => setShowLoginModal(false)}
-                onLogin={login}
-            />
         </>
     );
 }

@@ -1,29 +1,29 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
-import { useCustodialWallet } from "@/lib/use-custodial-wallet";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import NeonSlider from "@/components/ui/NeonSlider";
-import { SuccessModal } from "@/components/ui/SuccessModal";
-import { AlertModal } from "@/components/ui/AlertModal";
-import { useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits } from 'viem';
-import { getContracts } from '@/lib/contracts';
-import { useWalletContext } from "@/lib/wallet-provider";
-import { WalletModal } from "@/components/ui/WalletModal";
-// import { useEIP6963 } from "@/lib/useEIP6963"; // Removed
-import { useRouter } from "next/navigation"; // Add import
-import GlassCard from "@/components/ui/GlassCard";
-import NeonButton from "@/components/ui/NeonButton";
-import { ResolutionPanel } from "@/components/ui/ResolutionPanel"; // Add import
-import { motion, AnimatePresence } from "framer-motion";
-import { useUIStore } from "@/lib/store"; // Add missing import
+import { useRouter } from "next/navigation";
+import { useUIStore } from "@/lib/store";
 import { getMarketMetadata } from "@/lib/market-metadata";
-import { WalletSelectorModal } from "@/components/ui/WalletSelectorModal"; // Add import
+
+// Lazy load heavy components
+const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
+const Area = lazy(() => import('recharts').then(m => ({ default: m.Area })));
+const XAxis = lazy(() => import('recharts').then(m => ({ default: m.XAxis })));
+const YAxis = lazy(() => import('recharts').then(m => ({ default: m.YAxis })));
+const ResponsiveContainer = lazy(() => import('recharts').then(m => ({ default: m.ResponsiveContainer })));
+const CartesianGrid = lazy(() => import('recharts').then(m => ({ default: m.CartesianGrid })));
+const Tooltip = lazy(() => import('recharts').then(m => ({ default: m.Tooltip })));
+const NeonSlider = lazy(() => import("@/components/ui/NeonSlider"));
+const SuccessModal = lazy(() => import("@/components/ui/SuccessModal").then(m => ({ default: m.SuccessModal })));
+const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
+const ResolutionPanel = lazy(() => import("@/components/ui/ResolutionPanel").then(m => ({ default: m.ResolutionPanel })));
+const AnimatePresence = lazy(() => import("framer-motion").then(m => ({ default: m.AnimatePresence })));
+const motion = lazy(() => import("framer-motion").then(m => ({ default: m.motion })));
+
 
 // Contract ABI
 const MARKET_ABI = [
@@ -41,8 +41,16 @@ const MARKET_ABI = [
     },
 ] as const;
 
-const contracts = getContracts() as any;
-const MARKET_CONTRACT = (contracts.predictionMarket || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6') as `0x${string}`;
+// Move getContracts call inside component to avoid SSR issues
+const getMarketContract = () => {
+    try {
+        const { getContracts } = require('@/lib/contracts');
+        const contracts = getContracts() as any;
+        return (contracts.predictionMarket || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6') as `0x${string}`;
+    } catch (e) {
+        return '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6' as `0x${string}`;
+    }
+};
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -104,8 +112,8 @@ export function MobileTerminal() {
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
     const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number>(0);
 
-    const { isConnected, address, isLoading } = useCustodialWallet();
-    const { disconnect, connect } = useWalletContext();
+    const { isConnected, address, isLoading, disconnect, connect } = useWallet();
+    const MARKET_CONTRACT = getMarketContract();
     const { setTradeModalOpen } = useUIStore();
 
     // Debug logging
@@ -135,34 +143,21 @@ export function MobileTerminal() {
         marketRef.current = market;
     }, [market]);
 
-    // Animation Loop (Heartbeat)
+    // Simplified animation - only update every 5 seconds to reduce CPU usage
     useEffect(() => {
         const interval = setInterval(() => {
             if (!marketRef.current) return;
-
+            
+            const basePrice = marketRef.current?.yesOdds || 50;
+            const now = Date.now();
+            const timeString = new Date(now).toLocaleTimeString();
+            
             setPriceHistory(prev => {
-                const now = Date.now();
-                const timeString = new Date(now).toLocaleTimeString();
-                const basePrice = marketRef.current?.yesOdds || 50;
-                const waveOffset = Math.sin(now / 800) * 0.5;
-                const animatedPrice = basePrice + waveOffset; // YES Price
-
-                const newPoint = {
-                    time: timeString,
-                    price: animatedPrice
-                };
-
-                if (prev.length === 0) {
-                    return Array(50).fill(null).map((_, i) => ({
-                        time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
-                        price: basePrice + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
-                    }));
-                }
-
-                const newHistory = [...prev, newPoint];
-                return newHistory.slice(-50);
+                const newPoint = { time: timeString, price: basePrice };
+                const newHistory = prev.length > 0 ? [...prev, newPoint] : [newPoint];
+                return newHistory.slice(-10); // Keep only 10 points instead of 50
             });
-        }, 1000);
+        }, 5000); // Update every 5 seconds instead of 1
 
         return () => clearInterval(interval);
     }, []);
@@ -267,7 +262,43 @@ export function MobileTerminal() {
         );
     }
 
-    if (!mounted || isLoading) {
+    if (!mounted) {
+        // Show cached state immediately to prevent loading flash
+        const cachedWallet = localStorage.getItem('wallet_cache');
+        let cachedConnected = false;
+        let cachedAddress = null;
+        
+        if (cachedWallet) {
+            try {
+                const parsed = JSON.parse(cachedWallet);
+                cachedConnected = parsed.isConnected;
+                cachedAddress = parsed.address;
+            } catch (e) {}
+        }
+        
+        if (!cachedConnected) {
+            return (
+                <div className="flex items-center justify-center min-h-screen p-6">
+                    <div className="text-center max-w-md">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                            <Wallet className="w-10 h-10 text-primary" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
+                        <p className="text-white/50 mb-8">
+                            Connect your wallet to start trading on prediction markets.
+                        </p>
+                        <button
+                            onClick={() => connect()}
+                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                        >
+                            Connect Wallet
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Show loading with cached address
         return <div className="p-6"><SkeletonLoader /></div>;
     }
 
@@ -295,18 +326,13 @@ export function MobileTerminal() {
                             </div>
                         )}
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={() => connect()}
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
                         </button>
                     </div>
                 </div>
-                <WalletModal
-                    isOpen={showWalletModal}
-                    onClose={() => setShowWalletModal(false)}
-                    onSelectWallet={connect}
-                />
             </>
         );
     }
@@ -402,45 +428,34 @@ export function MobileTerminal() {
                 </div>
             </div>
 
-            {/* 3. Chart - Single outcome focus */}
+            {/* 3. Chart - Lazy loaded */}
             <div className="h-[220px] w-full mb-6 relative">
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                        <defs>
-                            <linearGradient id="mobileColorPrimary" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0.4} />
-                                <stop offset="95%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                        <XAxis dataKey="time" hide />
-                        <YAxis domain={[0, 100]} hide />
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: 'rgba(5, 5, 10, 0.95)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: '12px',
-                                backdropFilter: 'blur(10px)',
-                                fontSize: '12px',
-                                padding: '8px 12px'
-                            }}
-                            formatter={(value: number) => [`${value.toFixed(1)}%`, chartView === 'YES' ? 'YES' : 'NO']}
-                            labelStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}
-                            itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)', color: chartView === 'YES' ? '#27E8A7' : '#FF2E63' }}
-                        />
-                        <Area
-                            type="monotone"
-                            dataKey={chartView === 'YES' ? 'yesPrice' : 'noPrice'}
-                            name={chartView === 'YES' ? 'YES' : 'NO'}
-                            stroke={chartView === 'YES' ? "#27E8A7" : "#FF2E63"}
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            fill="url(#mobileColorPrimary)"
-                            animationDuration={500}
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
+                <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                <linearGradient id="mobileColorPrimary" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis dataKey="time" hide />
+                            <YAxis domain={[0, 100]} hide />
+                            <Area
+                                type="monotone"
+                                dataKey={chartView === 'YES' ? 'yesPrice' : 'noPrice'}
+                                name={chartView === 'YES' ? 'YES' : 'NO'}
+                                stroke={chartView === 'YES' ? "#27E8A7" : "#FF2E63"}
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#mobileColorPrimary)"
+                                animationDuration={0}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </Suspense>
             </div>
 
             {/* 4. Outcome selector (replaces YES/NO toggle) */}
@@ -465,24 +480,28 @@ export function MobileTerminal() {
                 </button>
             </div>
 
-            {/* 5. Metrics Cards */}
+            {/* 5. Metrics Cards - Lazy loaded */}
             <div className="px-4 grid grid-cols-2 gap-4 mb-10">
-                <GlassCard className="p-4 !bg-white/5">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity size={14} className="text-neon-cyan" />
-                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
-                    </div>
-                    <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
-                </GlassCard>
-                <GlassCard className="p-4 !bg-white/5">
-                    <div className="flex items-center gap-2 mb-2">
-                        <BarChart2 size={14} className="text-neon-purple" />
-                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
-                    </div>
-                    <div className="font-mono text-lg text-white font-medium">
-                        ${parseFloat(market.liquidityParam || '0').toFixed(0)}
-                    </div>
-                </GlassCard>
+                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                    <GlassCard className="p-4 !bg-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Activity size={14} className="text-neon-cyan" />
+                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
+                        </div>
+                        <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
+                    </GlassCard>
+                </Suspense>
+                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                    <GlassCard className="p-4 !bg-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <BarChart2 size={14} className="text-neon-purple" />
+                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
+                        </div>
+                        <div className="font-mono text-lg text-white font-medium">
+                            ${parseFloat(market.liquidityParam || '0').toFixed(0)}
+                        </div>
+                    </GlassCard>
+                </Suspense>
             </div>
 
             {/* Market Status or Trade Actions */}
@@ -616,8 +635,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { address } = useCustodialWallet();
-    const { signer } = useWalletContext();
+    const { signer } = useWallet();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);

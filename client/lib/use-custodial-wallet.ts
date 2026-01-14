@@ -1,22 +1,13 @@
-'use client';
-
-import { useWalletContext } from './wallet-provider';
+import { useWallet } from './use-wallet';
 
 export function useCustodialWallet() {
-    const { address, isConnected, isConnecting } = useWalletContext();
-
+    const { address, isConnected, isConnecting } = useWallet();
     return {
+        address,
         isConnected,
-        isAuthenticated: isConnected,
         isLoading: isConnecting,
         isCustodial: false,
-        isWalletConnected: isConnected,
-        authType: isConnected ? ('wallet' as const) : null,
-        address,
-        custodialAddress: null,
-        wagmiAddress: address,
-        sessionToken: null,
-        login: async () => ({ success: false }),
-        logout: () => {},
+        login: () => { },
+        authType: isConnected ? 'wallet' : null
     };
 }

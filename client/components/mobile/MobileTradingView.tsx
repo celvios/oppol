@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { TrendingUp, Users, Clock, Loader2 } from "lucide-react";
 import ProbabilityChart from "@/components/trade/ProbabilityChart";
 import OrderBook from "@/components/trade/OrderBook";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { useWallet } from "@/lib/use-wallet";
+
 
 interface MobileTradingViewProps {
     outcome: "YES" | "NO";
@@ -161,12 +162,14 @@ export default function MobileTradingView({ outcome, setOutcome, marketId = 1, q
                     </div>
                 </div>
 
-                <NeonSlider
-                    side={outcome}
-                    onConfirm={handleTrade}
-                    isLoading={isLoading}
-                    disabled={!address || !amount || isLoading}
-                />
+                <Suspense fallback={<div className="h-12 bg-white/5 rounded-lg animate-pulse" />}>
+                    <NeonSlider
+                        side={outcome}
+                        onConfirm={handleTrade}
+                        isLoading={isLoading}
+                        disabled={!address || !amount || isLoading}
+                    />
+                </Suspense>
             </div>
         </div>
     );

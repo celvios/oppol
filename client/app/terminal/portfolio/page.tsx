@@ -4,10 +4,8 @@ import { PieChart, TrendingUp, Wallet, Plus, Minus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
-import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { WalletModal } from "@/components/ui/WalletModal";
-import { useWalletContext } from "@/lib/wallet-provider";
 
 interface Position {
     market: string;
@@ -26,15 +24,13 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
-    const [showWalletModal, setShowWalletModal] = useState(false);
 
-    const { isConnected, isLoading, address, authType } = useCustodialWallet();
-    const { connect } = useWalletContext();
+    const { isConnected, isConnecting, address, connect } = useWallet();
 
     // Debug logging
     useEffect(() => {
-        console.log('[Portfolio] Wallet State:', { isConnected, isLoading, address, authType });
-    }, [isConnected, isLoading, address, authType]);
+        console.log('[Portfolio] Wallet State:', { isConnected, isConnecting, address });
+    }, [isConnected, isConnecting, address]);
 
     useEffect(() => {
         // Only fetch data if wallet is connected
@@ -149,7 +145,7 @@ export default function PortfolioPage() {
         return () => clearInterval(interval);
     }, [address]);
 
-    if (isLoading || loading) {
+    if (isConnecting || loading) {
         return (
             <div className="flex items-center justify-center min-h-[80vh]">
                 <SkeletonLoader />
@@ -171,17 +167,12 @@ export default function PortfolioPage() {
                         </p>
                         <div className="flex gap-4 justify-center">
                             <button
-                                onClick={() => setShowWalletModal(true)}
+                                onClick={() => connect()}
                                 className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
                             >
                                 Connect Wallet
                             </button>
                         </div>
-                        <WalletModal
-                            isOpen={showWalletModal}
-                            onClose={() => setShowWalletModal(false)}
-                            onSelectWallet={connect}
-                        />
                     </div>
                 </div>
             </>
@@ -198,9 +189,9 @@ export default function PortfolioPage() {
         <div className="space-y-8">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
-                {authType && (
+                {address && (
                     <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
-                        {authType === 'custodial' ? '🔐 Custodial' : '🔗 Wallet Connected'}
+                        🔗 Wallet Connected
                     </div>
                 )}
             </div>

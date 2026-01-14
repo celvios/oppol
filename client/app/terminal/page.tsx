@@ -1,16 +1,19 @@
 "use client";
 
-import { DesktopTerminal } from "@/components/terminal/DesktopTerminal";
-import { MobileTerminal } from "@/components/mobile/MobileTerminal";
+import { lazy, Suspense } from "react";
+import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
-import { Suspense } from "react"; // Add import
-import { SkeletonLoader } from "@/components/ui/SkeletonLoader"; // Add import
+// Lazy load heavy terminal components
+const MultiOutcomeTerminal = lazy(() => import("@/components/terminal/MultiOutcomeTerminal").then(m => ({ default: m.MultiOutcomeTerminal })));
+const MobileTerminal = lazy(() => import("@/components/mobile/MobileTerminal").then(m => ({ default: m.MobileTerminal })));
 
 export default function TerminalPage() {
     return (
         <>
             <div className="hidden md:block">
-                <DesktopTerminal />
+                <Suspense fallback={<SkeletonLoader />}>
+                    <MultiOutcomeTerminal />
+                </Suspense>
             </div>
             <div className="block md:hidden">
                 <Suspense fallback={<SkeletonLoader />}>

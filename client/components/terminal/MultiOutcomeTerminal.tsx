@@ -3,13 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { TrendingUp, Wallet, Clock, Activity } from "lucide-react";
-import { useCustodialWallet } from "@/lib/use-custodial-wallet";
+import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
-import { useWalletContext } from "@/lib/wallet-provider";
-import { WalletModal } from "@/components/ui/WalletModal";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { motion } from "framer-motion";
@@ -55,9 +53,7 @@ export function MultiOutcomeTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address, isLoading: walletLoading } = useCustodialWallet();
-    const { connect } = useWalletContext();
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    const { isConnected, address, isLoading: walletLoading, connect } = useWallet();
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -174,16 +170,11 @@ export function MultiOutcomeTerminal() {
                         </div>
                         <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
                         <p className="text-text-secondary mb-10 text-lg">Connect your wallet to access multi-outcome prediction markets.</p>
-                        <NeonButton onClick={() => setShowWalletModal(true)} variant="cyan" className="w-full text-lg py-6">
+                        <NeonButton onClick={() => connect()} variant="cyan" className="w-full text-lg py-6">
                             ESTABLISH CONNECTION
                         </NeonButton>
                     </GlassCard>
                 </div>
-                <WalletModal
-                    isOpen={showWalletModal}
-                    onClose={() => setShowWalletModal(false)}
-                    onSelectWallet={connect}
-                />
             </>
         );
     }

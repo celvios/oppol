@@ -1,27 +1,57 @@
 'use client';
 
-import { useWalletContext } from './wallet-provider';
+import { useEffect, useState, useMemo } from 'react';
 
 export function useWallet() {
-    const { address, isConnected, chainId } = useWalletContext();
-
-    return {
-        address,
-        isConnected,
-        isReconnecting: false,
-        isConnecting: false,
-        chain: chainId ? { id: chainId, name: chainId === 97 ? 'BSC Testnet' : 'BSC Mainnet' } : null,
-        isMainnet: chainId === 56,
-        isTestnet: chainId === 97,
-        bnbBalance: '0',
-        tokenBalance: '0',
-        rawTokenBalance: BigInt(0),
-        usdcBalance: '0.00',
-        rawUsdcBalance: BigInt(0),
-        refetchUsdc: async () => {},
-        isAdmin: false,
+  const [cachedAddress, setCachedAddress] = useState<string | null>(null);
+  const [cachedConnected, setCachedConnected] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Load cached state immediately
+  useEffect(() => {
+    const cached = localStorage.getItem('wallet_cache');
+    if (cached) {
+      try {
+        const { address: addr, isConnected: connected } = JSON.parse(cached);
+        setCachedAddress(addr);
+        setCachedConnected(connected);
+      } catch (e) {}
+    }
+    setMounted(true);
+  }, []);
+  
+  // Memoize wallet functions to prevent re-renders
+  const walletFunctions = useMemo(() => {
+    const connect = async () => {
+      try {
+        const { useAppKit } = await import('@reown/appkit/react');
+        const appKit = useAppKit();
+        await appKit.open();
+      } catch (e) {
+        console.warn('Connect failed:', e);
+      }
     };
-}
 
-export const bsc = { id: 56, name: 'BNB Smart Chain' };
-export const bscTestnet = { id: 97, name: 'BNB Smart Chain Testnet' };
+    const disconnect = async () => {
+      try {
+        const { useAppKit } = await import('@reown/appkit/react');
+        const appKit = useAppKit();
+        await appKit.open({ view: 'Account' });
+      } catch (e) {
+        console.warn('Disconnect failed:', e);
+      }
+      localStorage.removeItem('wallet_cache');
+      setCachedAddress(null);
+      setCachedConnected(false);
+    };
+    
+    return { connect, disconnect };
+  }, []);
+
+  return {
+    address: cachedAddress,
+    isConnected: cachedConnected,
+    isConnecting: false,
+    ...walletFunctions,
+  };
+}

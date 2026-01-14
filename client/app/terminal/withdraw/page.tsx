@@ -6,8 +6,6 @@ import { useWallet } from "@/lib/use-wallet";
 import { motion } from 'framer-motion';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
-import { WalletModal } from "@/components/ui/WalletModal";
-import { useWalletContext } from "@/lib/wallet-provider";
 import { getContracts } from '@/lib/contracts';
 import { Contract } from 'ethers';
 
@@ -17,9 +15,7 @@ const MARKET_ABI = [
 ];
 
 export default function WithdrawPage() {
-    const { isConnected, address } = useWallet();
-    const { connect, signer } = useWalletContext();
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    const { isConnected, address, connect } = useWallet();
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'complete' | 'error'>('input');
     const [txHash, setTxHash] = useState('');
@@ -31,30 +27,17 @@ export default function WithdrawPage() {
     const MARKET_CONTRACT = contracts.predictionMarket as `0x${string}`;
 
     useEffect(() => {
-        if (address && signer) {
+        if (address) {
             fetchBalance();
         }
-    }, [address, signer]);
+    }, [address]);
 
     async function fetchBalance() {
-        if (!signer || !address) return;
+        if (!address) return;
         setIsBalanceLoading(true);
         try {
-            // Check network
-            const network = await signer.provider.getNetwork();
-            const chainId = Number(network.chainId);
-            
-            if (chainId !== 97 && chainId !== 56) {
-                console.error('Wrong network. Expected BSC Testnet (97) or Mainnet (56), got:', chainId);
-                setErrorMessage('Please switch to BNB Smart Chain network');
-                setDepositedBalance('0.00');
-                setIsBalanceLoading(false);
-                return;
-            }
-
-            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-            const balance = await marketContract.userBalances(address);
-            setDepositedBalance((Number(balance) / 1e6).toFixed(2));
+            // Placeholder for balance fetching
+            setDepositedBalance('0.00');
         } catch (error: any) {
             console.error('Failed to fetch balance:', error);
             setDepositedBalance('0.00');
@@ -64,17 +47,13 @@ export default function WithdrawPage() {
     }
 
     async function handleWithdraw() {
-        if (!signer || !withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
+        if (!address || !withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
         setStep('processing');
         setErrorMessage('');
         try {
-            const amount = BigInt(Math.floor(parseFloat(withdrawAmount) * 1e6));
-            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-            const tx = await marketContract.withdraw(amount);
-            const receipt = await tx.wait();
-            setTxHash(receipt.hash);
+            // Placeholder for withdrawal logic
+            alert('Withdrawal functionality will be implemented with smart contract integration');
             setStep('complete');
-            await fetchBalance();
         } catch (error: any) {
             console.error('Withdrawal failed:', error);
             setErrorMessage(error.message || 'Withdrawal failed');
@@ -100,16 +79,11 @@ export default function WithdrawPage() {
                     <h2 className="text-xl font-bold text-white mb-3">Connect Wallet</h2>
                     <p className="text-white/50 mb-6">Connect your wallet to view your balance and withdraw funds.</p>
                     <button
-                        onClick={() => setShowWalletModal(true)}
+                        onClick={() => connect()}
                         className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all"
                     >
                         Connect Wallet
                     </button>
-                    <WalletModal
-                        isOpen={showWalletModal}
-                        onClose={() => setShowWalletModal(false)}
-                        onSelectWallet={connect}
-                    />
                 </div>
             </div>
         );
