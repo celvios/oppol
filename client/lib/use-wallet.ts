@@ -52,15 +52,21 @@ export function useWallet() {
     setState(prev => ({ ...prev, isConnecting: true }));
     
     try {
-      // Try to open the modal directly
-      const modal = document.querySelector('w3m-modal, appkit-modal');
+      // Wait for Reown to be initialized
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Try multiple methods to open the modal
+      const modal = document.querySelector('w3m-modal, appkit-modal, [data-testid="w3m-modal"]');
       if (modal) {
         (modal as any).open?.();
       } else {
-        // Fallback - try to trigger via button click
-        const connectBtn = document.querySelector('[data-testid="connect-button"], w3m-connect-button, appkit-connect-button');
+        // Try to find and click connect button
+        const connectBtn = document.querySelector('w3m-connect-button, appkit-connect-button, [data-testid="connect-button"]');
         if (connectBtn) {
           (connectBtn as HTMLElement).click();
+        } else {
+          // Fallback - dispatch custom event to trigger modal
+          window.dispatchEvent(new CustomEvent('wallet-connect-request'));
         }
       }
     } catch (error) {

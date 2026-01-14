@@ -42,6 +42,11 @@ function initializeReown() {
           }
         });
         
+        // Listen for connect requests
+        window.addEventListener('wallet-connect-request', () => {
+          appKitInstance.open?.();
+        });
+        
         appKitInitialized = true;
       });
     });
