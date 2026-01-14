@@ -1,18 +1,18 @@
 "use client";
 
 import GlassCard from "@/components/ui/GlassCard";
-import GenerativeArt from "./GenerativeArt";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { getMarketMetadata } from "@/lib/market-metadata";
 
 interface MarketCardProps {
     id: string;
     title: string;
     volume: string;
-    outcomeA: string; // e.g. "Yes"
-    outcomeB: string; // e.g. "No"
-    probA: number; // 0.65
+    outcomeA: string;
+    outcomeB: string;
+    probA: number;
     color?: "cyan" | "coral" | "green";
 }
 
@@ -20,17 +20,22 @@ export default function MarketCard({ id, title, volume, outcomeA, outcomeB, prob
     const probB = 1 - probA;
     const percentA = Math.round(probA * 100);
     const percentB = Math.round(probB * 100);
+    const metadata = getMarketMetadata(title, parseInt(id));
 
     return (
         <Link href={`/markets/${id}`}>
             <GlassCard
-                className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30"
+                className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}
             >
-                {/* Visual Header */}
+                {/* Image Header */}
                 <div className="absolute inset-0 h-32 z-0">
-                    <GenerativeArt color={color} />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-void" />
+                    <img 
+                        src={metadata.image} 
+                        alt={title}
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-void/50 to-void" />
                 </div>
 
                 {/* Content */}
