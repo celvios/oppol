@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 interface WalletModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelectWallet: (wallet: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet') => void;
+    onSelectWallet: (wallet: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet' | 'walletconnect') => void;
 }
 
 const WALLETS = [
@@ -49,6 +49,13 @@ const WALLETS = [
         icon: 'https://bin.bnbstatic.com/static/images/common/favicon.ico',
         downloadUrl: 'https://www.binance.com/en/web3wallet',
         detector: () => typeof window !== 'undefined' && !!(window as any).BinanceChain,
+    },
+    {
+        id: 'walletconnect' as const,
+        name: 'WalletConnect',
+        icon: 'https://docs.walletconnect.com/img/walletconnect-logo.svg',
+        downloadUrl: 'https://walletconnect.com/',
+        detector: () => true,
     },
 ];
 
