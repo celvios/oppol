@@ -271,23 +271,55 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     async function connectBrowserWallet(walletType: 'coinbase' | 'binance' | 'metamask' | 'trustwallet') {
-        let provider;
-        if (walletType === 'coinbase') {
-            provider = (window as any).coinbaseWalletExtension || (window as any).ethereum;
-        } else if (walletType === 'binance') {
-            provider = (window as any).BinanceChain;
-        } else if (walletType === 'metamask') {
-            provider = (window as any).ethereum;
-        } else if (walletType === 'trustwallet') {
-            provider = (window as any).trustwallet || (window as any).ethereum;
-        }
-
         const walletNames: Record<string, string> = {
             coinbase: 'Coinbase',
             binance: 'Binance',
             metamask: 'MetaMask',
             trustwallet: 'Trust Wallet'
         };
+
+        // Mobile deep linking - redirect to wallet app's browser
+        if (isMobile()) {
+            const currentUrl = encodeURIComponent(window.location.href);
+
+            if (walletType === 'metamask') {
+                // Check if we're already in MetaMask browser
+                if ((window as any).ethereum?.isMetaMask) {
+                    // We're in MetaMask browser, proceed with connection
+                } else {
+                    // Redirect to MetaMask deep link
+                    window.location.href = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+                    return;
+                }
+            } else if (walletType === 'trustwallet') {
+                // Check if we're already in Trust Wallet browser
+                if ((window as any).trustwallet || (window as any).ethereum?.isTrust) {
+                    // We're in Trust Wallet browser, proceed with connection
+                } else {
+                    // Redirect to Trust Wallet deep link
+                    window.location.href = `https://link.trustwallet.com/open_url?coin_id=60&url=${currentUrl}`;
+                    return;
+                }
+            }
+        }
+
+        let provider;
+        if (walletType === 'coinbase') {
+            provider = (window as any).coinbaseWalletExtension || (window as any).ethereum;
+        } else if (walletType === 'binance') {
+            provider = (window as any).BinanceChain;
+        } else if (walletType === 'metamask') {
+            // For MetaMask, specifically check for MetaMask provider
+            const ethereum = (window as any).ethereum;
+            if (ethereum?.providers?.length) {
+                // Multiple providers (e.g., MetaMask + Coinbase), find MetaMask
+                provider = ethereum.providers.find((p: any) => p.isMetaMask);
+            } else if (ethereum?.isMetaMask) {
+                provider = ethereum;
+            }
+        } else if (walletType === 'trustwallet') {
+            provider = (window as any).trustwallet || (window as any).ethereum;
+        }
 
         if (!provider) {
             throw new Error(`${walletNames[walletType]} Wallet not found. Please install the browser extension.`);
