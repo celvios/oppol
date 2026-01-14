@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ReownProvider } from "@/lib/simple-provider";
+import { ReownProvider } from "@/lib/reown-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import SettingsToggle from "@/components/ui/SettingsToggle";

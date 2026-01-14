@@ -5,7 +5,7 @@ import { TrendingUp, Users, Clock, Loader2 } from "lucide-react";
 import ProbabilityChart from "@/components/trade/ProbabilityChart";
 import OrderBook from "@/components/trade/OrderBook";
 import NeonSlider from "@/components/ui/NeonSlider";
-import { useWallet } from "@/lib/simple-wallet";
+import { useWallet } from "@/lib/use-wallet";
 
 
 interface MobileTradingViewProps {

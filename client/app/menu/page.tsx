@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { User, Wallet, ChevronRight, Settings, ExternalLink, Shield, FileText, Home, PieChart } from "lucide-react";
-import { useWallet } from "@/lib/simple-wallet";
+import { useWallet } from "@/lib/use-wallet";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Link from "next/link";
