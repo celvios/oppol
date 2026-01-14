@@ -101,6 +101,16 @@ export default function MobileMarketList() {
                                         </span>
                                     </div>
 
+                                    {/* Market Image */}
+                                    <div className="relative z-10 h-24 w-full mb-3 rounded-lg overflow-hidden">
+                                        <img
+                                            src={metadata.image}
+                                            alt={market.question}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-void/80 to-transparent" />
+                                    </div>
+
                                     {/* Title */}
                                     <h3 className="text-lg font-bold leading-snug mb-4 relative z-10 line-clamp-2 min-h-[3.5rem]">{market.question}</h3>
 
@@ -170,56 +180,7 @@ export default function MobileMarketList() {
                     );
                 })}
             </div>
-
-            {/* All Markets List */}
-            <div className="mt-8 px-4">
-                <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-neon-purple" />
-                    <h2 className="text-xl font-heading font-bold">All Markets</h2>
-                </div>
-
-                <div className="space-y-4">
-                    {markets.map((market) => {
-                        const isMultiOutcome = (market.outcomes?.length || 0) > 2;
-                        const metadata = getMultiMarketMetadata(market.question, market.id) || getMarketMetadata(market.question, market.id);
-
-                        let leadingOutcome = "Yes";
-                        let leadingPrice = market.yesOdds;
-                        if (isMultiOutcome && market.prices) {
-                            const maxIndex = market.prices.indexOf(Math.max(...market.prices));
-                            leadingOutcome = market.outcomes?.[maxIndex] || "Option";
-                            leadingPrice = market.prices[maxIndex];
-                        }
-
-                        return (
-                            <Link key={market.id} href={`/terminal?marketId=${market.id}`} className="block">
-                                <GlassCard className="p-4 active:scale-[0.98] transition-transform border border-white/5 flex items-center gap-4">
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-sm mb-2 line-clamp-2">{market.question}</h3>
-                                        <div className="flex items-center gap-3 text-xs font-mono">
-                                            {isMultiOutcome ? (
-                                                <>
-                                                    <span className="text-neon-green">{leadingOutcome} {Math.round(leadingPrice)}%</span>
-                                                    <span className="text-white/30">{market.outcomes?.length} outcomes</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="text-outcome-a">YES {market.yesOdds.toFixed(0)}%</span>
-                                                    <span className="text-outcome-b">NO {market.noOdds.toFixed(0)}%</span>
-                                                </>
-                                            )}
-                                            <span className="text-white/30">Vol: ${market.totalVolume}</span>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white/5 p-2 rounded-lg">
-                                        <TrendingUp className="w-4 h-4 text-neon-cyan" />
-                                    </div>
-                                </GlassCard>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </div>
         </div>
     );
 }
+
