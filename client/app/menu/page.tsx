@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { User, Wallet, ChevronRight, Settings, ExternalLink, Shield, FileText, Home, PieChart } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
-import { useWalletContext } from "@/lib/wallet-provider";
-import { WalletModal } from "@/components/ui/WalletModal";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Link from "next/link";
@@ -24,8 +22,7 @@ function SimpleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (v: b
 }
 
 export default function MenuPage() {
-    const { isConnected, address } = useWallet();
-    const [showWalletModal, setShowWalletModal] = useState(false);
+    const { isConnected, address, connect } = useWallet();
     const [reduceMotion, setReduceMotion] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -42,12 +39,11 @@ export default function MenuPage() {
                 </p>
                 <NeonButton
                     variant="cyan"
-                    onClick={() => setShowWalletModal(true)}
+                    onClick={connect}
                     className="w-full max-w-xs"
                 >
                     Connect Wallet
                 </NeonButton>
-                <WalletModal isOpen={showWalletModal} onClose={() => setShowWalletModal(false)} />
             </div>
         );
     }
