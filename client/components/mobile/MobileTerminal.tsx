@@ -402,41 +402,15 @@ export function MobileTerminal() {
                 </div>
             </div>
 
-            {/* 3. Controls */}
-            <div className="px-6 mb-6 flex gap-3">
-                <button
-                    onClick={() => setChartView('YES')}
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'YES'
-                        ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
-                        : 'bg-white/5 border-white/5 text-white/40'
-                        }`}
-                >
-                    YES POOL
-                </button>
-                <button
-                    onClick={() => setChartView('NO')}
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'NO'
-                        ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
-                        : 'bg-white/5 border-white/5 text-white/40'
-                        }`}
-                >
-                    NO POOL
-                </button>
-            </div>
-
-            {/* 4. Chart */}
-            <div className="h-[280px] w-full mb-8 relative">
+            {/* 3. Chart - Single outcome focus */}
+            <div className="h-[220px] w-full mb-6 relative">
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                         <defs>
-                            <linearGradient id="mobileColorYes" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#27E8A7" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#27E8A7" stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="mobileColorNo" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#FF2E63" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#FF2E63" stopOpacity={0} />
+                            <linearGradient id="mobileColorPrimary" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0.4} />
+                                <stop offset="95%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -444,63 +418,51 @@ export function MobileTerminal() {
                         <YAxis domain={[0, 100]} hide />
                         <Tooltip
                             contentStyle={{
-                                backgroundColor: 'rgba(5, 5, 10, 0.9)',
+                                backgroundColor: 'rgba(5, 5, 10, 0.95)',
                                 border: '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: '12px',
                                 backdropFilter: 'blur(10px)',
-                                fontSize: '12px'
+                                fontSize: '12px',
+                                padding: '8px 12px'
                             }}
-                            itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)' }}
+                            formatter={(value: number) => [`${value.toFixed(1)}%`, chartView === 'YES' ? 'YES' : 'NO']}
+                            labelStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}
+                            itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)', color: chartView === 'YES' ? '#27E8A7' : '#FF2E63' }}
                         />
-                        {chartView === 'YES' ? (
-                            <>
-                                <Area
-                                    type="monotone"
-                                    dataKey="noPrice"
-                                    name="NO"
-                                    stroke="#FF2E63"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#mobileColorNo)"
-                                    className="drop-shadow-[0_0_10px_rgba(255,46,99,0.3)] transition-all duration-500"
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="yesPrice"
-                                    name="YES"
-                                    stroke="#27E8A7"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#mobileColorYes)"
-                                    className="drop-shadow-[0_0_10px_rgba(39,232,167,0.3)] transition-all duration-500"
-                                />
-                            </>
-                        ) : (
-                            <>
-                                <Area
-                                    type="monotone"
-                                    dataKey="yesPrice"
-                                    name="YES"
-                                    stroke="#27E8A7"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#mobileColorYes)"
-                                    className="drop-shadow-[0_0_10px_rgba(39,232,167,0.3)] transition-all duration-500"
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="noPrice"
-                                    name="NO"
-                                    stroke="#FF2E63"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#mobileColorNo)"
-                                    className="drop-shadow-[0_0_10px_rgba(255,46,99,0.3)] transition-all duration-500"
-                                />
-                            </>
-                        )}
+                        <Area
+                            type="monotone"
+                            dataKey={chartView === 'YES' ? 'yesPrice' : 'noPrice'}
+                            name={chartView === 'YES' ? 'YES' : 'NO'}
+                            stroke={chartView === 'YES' ? "#27E8A7" : "#FF2E63"}
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill="url(#mobileColorPrimary)"
+                            animationDuration={500}
+                        />
                     </AreaChart>
                 </ResponsiveContainer>
+            </div>
+
+            {/* 4. Outcome selector (replaces YES/NO toggle) */}
+            <div className="px-6 mb-6 flex gap-3">
+                <button
+                    onClick={() => { setChartView('YES'); setSelectedOutcomeIndex(0); }}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'YES'
+                        ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
+                        : 'bg-white/5 border-white/5 text-white/40'
+                        }`}
+                >
+                    {market.outcomes?.[0] || 'YES'} {market.yesOdds.toFixed(0)}%
+                </button>
+                <button
+                    onClick={() => { setChartView('NO'); setSelectedOutcomeIndex(1); }}
+                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'NO'
+                        ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
+                        : 'bg-white/5 border-white/5 text-white/40'
+                        }`}
+                >
+                    {market.outcomes?.[1] || 'NO'} {market.noOdds.toFixed(0)}%
+                </button>
             </div>
 
             {/* 5. Metrics Cards */}
