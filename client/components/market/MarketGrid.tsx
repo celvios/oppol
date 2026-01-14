@@ -3,21 +3,8 @@
 import { useState, useEffect } from "react";
 import MarketCard from "./MarketCard";
 import { motion } from "framer-motion";
-import { web3Service } from "@/lib/web3";
-import Link from "next/link";
+import { web3Service, Market } from "@/lib/web3";
 import { getMarketMetadata, getMultiMarketMetadata } from "@/lib/market-metadata";
-
-interface Market {
-    id: number;
-    question: string;
-    yesOdds: number;
-    noOdds: number;
-    totalVolume: string;
-    resolved: boolean;
-    outcome: boolean;
-    outcomes?: string[];
-    prices?: number[];
-}
 
 interface MarketGridProps {
     limit?: number;  // Optional limit for trending markets
@@ -96,17 +83,18 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
                         whileInView={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                     >
-                        <Link href={`/terminal?marketId=${market.id}`}>
-                            <MarketCard
-                                id={market.id.toString()}
-                                title={market.question}
-                                volume={`$${market.totalVolume}`}
-                                outcomeA="Yes"
-                                outcomeB="No"
-                                probA={market.yesOdds / 100}
-                                color="green"
-                            />
-                        </Link>
+                        <MarketCard
+                            id={market.id.toString()}
+                            title={market.question}
+                            volume={`$${market.totalVolume}`}
+                            outcomeA={market.outcomes?.[0] || "Yes"}
+                            outcomeB={market.outcomes?.[1] || "No"}
+                            probA={market.yesOdds / 100}
+                            outcomes={market.outcomes}
+                            prices={market.prices}
+                            outcomeCount={market.outcomes?.length || 2}
+                            color="green"
+                        />
                     </motion.div>
                 ))}
             </div>

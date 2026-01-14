@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tool
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import { useCustodialWallet } from "@/lib/use-custodial-wallet";
-import { web3Service } from '@/lib/web3';
+import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
@@ -42,25 +42,17 @@ const MARKET_ABI = [
 ] as const;
 
 const contracts = getContracts() as any;
-const MARKET_CONTRACT = (contracts.predictionMarket || '0x5F9C05bE2Af2adb520825950323774eFF308E353') as `0x${string}`;
+const MARKET_CONTRACT = (contracts.predictionMarket || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6') as `0x${string}`;
 
-interface Market {
-    id: number;
-    question: string;
-    yesOdds: number;
-    noOdds: number;
-    yesShares: string;
-    noShares: string;
-    yesPool: string;
-    noPool: string;
-    totalVolume: string;
-    endTime: number;
-    resolved: boolean;
-    outcome?: boolean;
-    assertionPending?: boolean;
-    assertedOutcome?: boolean;
-    asserter?: string;
-}
+// Outcome colors for multi-outcome markets
+const OUTCOME_COLORS = [
+    "#27E8A7", // Green
+    "#FF2E63", // Red/Coral
+    "#00F0FF", // Cyan
+    "#FFB800", // Gold
+    "#9D4EDD", // Purple
+    "#FF6B35", // Orange
+];
 
 interface TradeSuccessData {
     marketId: number;
@@ -110,6 +102,7 @@ export function MobileTerminal() {
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
     const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
+    const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number>(0);
 
     const { isConnected, address, isLoading } = useCustodialWallet();
     const { disconnect, connect } = useWalletContext();
@@ -546,21 +539,58 @@ export function MobileTerminal() {
                 </div>
             ) : (
                 <>
-                    {/* Action Buttons */}
-                    <div className="px-6 mb-8 flex gap-4">
-                        <button
-                            onClick={() => { setTradeSide('YES'); setIsTradeSheetOpen(true); }}
-                            className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        >
-                            BUY YES
-                        </button>
-                        <button
-                            onClick={() => { setTradeSide('NO'); setIsTradeSheetOpen(true); }}
-                            className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        >
-                            BUY NO
-                        </button>
-                    </div>
+                    {/* Action Buttons - Multi-outcome aware */}
+                    {(market.outcomes?.length || 0) > 2 ? (
+                        /* Multi-outcome: Show all outcomes as tappable rows */
+                        <div className="px-6 mb-8 space-y-3">
+                            <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Select Outcome</div>
+                            {market.outcomes?.map((outcome, index) => {
+                                const price = market.prices?.[index] || 0;
+                                const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => {
+                                            setTradeSide(index === 0 ? 'YES' : 'NO');
+                                            setSelectedOutcomeIndex(index);
+                                            setIsTradeSheetOpen(true);
+                                        }}
+                                        className="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between active:scale-[0.98] transition-all hover:border-white/30"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ backgroundColor: color }}
+                                            />
+                                            <span className="font-medium text-white text-left">{outcome}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono font-bold text-lg" style={{ color }}>
+                                                {Math.round(price)}%
+                                            </span>
+                                            <span className="text-xs text-white/40 bg-white/5 px-2 py-1 rounded">BUY</span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        /* Binary: Show YES/NO buttons */
+                        <div className="px-6 mb-8 flex gap-4">
+                            <button
+                                onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
+                                className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                BUY {market.outcomes?.[0] || 'YES'}
+                            </button>
+                            <button
+                                onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
+                                className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                BUY {market.outcomes?.[1] || 'NO'}
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
 
@@ -601,6 +631,7 @@ export function MobileTerminal() {
                         onClose={() => setIsTradeSheetOpen(false)}
                         market={market}
                         side={tradeSide}
+                        outcomeIndex={selectedOutcomeIndex}
                         balance={balance}
                         onTradeSuccess={fetchData}
                     />
@@ -611,7 +642,15 @@ export function MobileTerminal() {
 }
 
 // Mobile Trade Sheet
-function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSuccess }: { isOpen: boolean; onClose: () => void; market: Market; side: 'YES' | 'NO'; balance: string; onTradeSuccess: () => void }) {
+function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, balance, onTradeSuccess }: {
+    isOpen: boolean;
+    onClose: () => void;
+    market: Market;
+    side: 'YES' | 'NO';
+    outcomeIndex?: number;
+    balance: string;
+    onTradeSuccess: () => void;
+}) {
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -621,14 +660,22 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const currentPrice = side === 'YES' ? market.yesOdds : (100 - market.yesOdds);
+    // Get price for selected outcome (multi-outcome aware)
+    const isMultiOutcome = (market.outcomes?.length || 0) > 2;
+    const currentPrice = isMultiOutcome
+        ? (market.prices?.[outcomeIndex] || 50)
+        : (side === 'YES' ? market.yesOdds : (100 - market.yesOdds));
+    const outcomeName = isMultiOutcome
+        ? (market.outcomes?.[outcomeIndex] || `Option ${outcomeIndex}`)
+        : side;
     const estShares = parseFloat(amount || '0') / (currentPrice / 100);
+    const outcomeColor = isMultiOutcome ? OUTCOME_COLORS[outcomeIndex % OUTCOME_COLORS.length] : (side === 'YES' ? '#27E8A7' : '#FF2E63');
 
     const handleBuy = async () => {
         if (!amount || parseFloat(amount) <= 0) return;
         setLoading(true);
         setError(null);
-        
+
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
             const response = await fetch(`${apiUrl}/api/bet`, {
@@ -638,6 +685,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     walletAddress: address,
                     marketId: market.id,
                     side,
+                    outcomeIndex, // Multi-outcome support
                     shares: estShares,
                     amount: parseFloat(amount)
                 })
@@ -650,8 +698,8 @@ function TradeBottomSheet({ isOpen, onClose, market, side, balance, onTradeSucce
                     shares: data.transaction?.shares || estShares,
                     cost: amount,
                     question: market.question,
-                    newPrice: currentPrice,
-                    hash: '0x'
+                    newPrice: data.transaction?.newPrice || currentPrice,
+                    hash: data.transaction?.hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
             } else {
