@@ -9,7 +9,7 @@ interface WalletContextType {
     isConnected: boolean;
     isConnecting: boolean;
     chainId: number | null;
-    connect: (walletType: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet') => Promise<void>;
+    connect: (walletType: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet' | 'walletconnect') => Promise<void>;
     disconnect: () => void;
     signer: JsonRpcSigner | null;
 }
@@ -25,6 +25,7 @@ const WalletContext = createContext<WalletContextType>({
 });
 
 let okxProvider: any = null;
+let wcProvider: any = null;
 let isInitializing = false;
 
 const isMobile = () => typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -75,11 +76,44 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 } else {
                     reconnectOKXDesktop();
                 }
+            } else if (savedWallet === 'walletconnect') {
+                reconnectWalletConnect();
             } else {
                 reconnectBrowserWallet(savedWallet as 'coinbase' | 'binance' | 'metamask' | 'trustwallet');
             }
         }
     }, []);
+
+    async function reconnectWalletConnect() {
+        try {
+            const provider = await getOKXProvider();
+            if (provider.connected) {
+                const session = provider.session;
+                const accounts = session?.namespaces?.eip155?.accounts || [];
+                if (accounts.length > 0) {
+                    const addr = accounts[0].split(':')[2];
+                    setAddress(addr);
+                    setChainId(97);
+                    const ethersProvider = new BrowserProvider(provider);
+                    const signer = await ethersProvider.getSigner();
+                    setSigner(signer);
+                } else {
+                    localStorage.removeItem('wallet_address');
+                    localStorage.removeItem('wallet_type');
+                    setAddress(null);
+                }
+            } else {
+                localStorage.removeItem('wallet_address');
+                localStorage.removeItem('wallet_type');
+                setAddress(null);
+            }
+        } catch (error) {
+            console.error('Reconnect failed:', error);
+            localStorage.removeItem('wallet_address');
+            localStorage.removeItem('wallet_type');
+            setAddress(null);
+        }
+    }
 
     async function reconnectOKXMobile() {
         try {
@@ -354,7 +388,50 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
     }
 
-    async function connect(walletType: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet') {
+    async function connectWalletConnect() {
+        const provider = await getOKXProvider();
+        const session = await provider.connect({
+            namespaces: {
+                eip155: {
+                    chains: ['eip155:97'],
+                    methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
+                    events: ['chainChanged', 'accountsChanged'],
+                    rpcMap: {
+                        97: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+                    }
+                }
+            },
+            optionalNamespaces: {
+                eip155: {
+                    chains: ['eip155:56'],
+                    methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
+                    events: ['chainChanged', 'accountsChanged'],
+                    rpcMap: {
+                        56: 'https://bsc-dataseed.binance.org/'
+                    }
+                }
+            },
+            sessionConfig: {
+                redirect: 'none'
+            }
+        });
+
+        if (session) {
+            const accounts = session.namespaces.eip155?.accounts || [];
+            if (accounts.length > 0) {
+                const addr = accounts[0].split(':')[2];
+                setAddress(addr);
+                setChainId(97);
+                const ethersProvider = new BrowserProvider(provider);
+                const signer = await ethersProvider.getSigner();
+                setSigner(signer);
+                localStorage.setItem('wallet_address', addr);
+                localStorage.setItem('wallet_type', 'walletconnect');
+            }
+        }
+    }
+
+    async function connect(walletType: 'okx' | 'coinbase' | 'binance' | 'metamask' | 'trustwallet' | 'walletconnect') {
         setIsConnecting(true);
         try {
             if (walletType === 'okx') {
@@ -363,6 +440,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 } else {
                     await connectOKXDesktop();
                 }
+            } else if (walletType === 'walletconnect') {
+                await connectWalletConnect();
             } else {
                 await connectBrowserWallet(walletType);
             }
