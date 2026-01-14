@@ -9,9 +9,30 @@ async function main() {
     const market = await ethers.getContractAt("PredictionMarketUMA", MARKET_ADDRESS);
 
     const markets = [
-        { question: "Will Bitcoin reach $150,000 by April 2026?", durationDays: 90, liquidity: 1000, subsidy: 0 },
+        // CRYPTO
+        { question: "Will Bitcoin reach $150,000 by April 2026?", durationDays: 365, liquidity: 1000, subsidy: 0 },
+        { question: "Will Ethereum flip Bitcoin by market cap before 2027?", durationDays: 730, liquidity: 500, subsidy: 0 },
+        
+        // TECH
         { question: "Will Apple release AR glasses in 2026?", durationDays: 365, liquidity: 500, subsidy: 0 },
-        { question: "Will Ethereum flip Bitcoin by market cap before 2027?", durationDays: 365, liquidity: 500, subsidy: 0 },
+        { question: "Will AI replace 50% of software jobs by 2030?", durationDays: 1825, liquidity: 500, subsidy: 0 },
+        { question: "Will SpaceX land humans on Mars by 2028?", durationDays: 1095, liquidity: 500, subsidy: 0 },
+        
+        // SPORTS
+        { question: "Will Messi win another Ballon d'Or in 2025?", durationDays: 365, liquidity: 300, subsidy: 0 },
+        { question: "Will an African team win the World Cup by 2030?", durationDays: 1825, liquidity: 300, subsidy: 0 },
+        
+        // POLITICS
+        { question: "Will Trump win the 2024 US Presidential Election?", durationDays: 90, liquidity: 800, subsidy: 0 },
+        { question: "Will UK rejoin the EU by 2030?", durationDays: 1825, liquidity: 400, subsidy: 0 },
+        
+        // ENTERTAINMENT
+        { question: "Will GTA 6 release in 2025?", durationDays: 365, liquidity: 400, subsidy: 0 },
+        { question: "Will Avatar 3 gross over $2 billion worldwide?", durationDays: 730, liquidity: 400, subsidy: 0 },
+        
+        // SCIENCE
+        { question: "Will fusion energy be commercially viable by 2030?", durationDays: 1825, liquidity: 500, subsidy: 0 },
+        { question: "Will a quantum computer break RSA-2048 by 2028?", durationDays: 1095, liquidity: 500, subsidy: 0 },
     ];
 
     for (const m of markets) {

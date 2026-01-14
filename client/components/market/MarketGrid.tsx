@@ -5,6 +5,7 @@ import MarketCard from "./MarketCard";
 import { motion } from "framer-motion";
 import { web3Service } from "@/lib/web3";
 import Link from "next/link";
+import { getMarketMetadata } from "@/lib/market-metadata";
 
 interface Market {
     id: number;
@@ -16,8 +17,11 @@ interface Market {
     outcome: boolean;
 }
 
+const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainment', 'Science'];
+
 export default function MarketGrid() {
     const [markets, setMarkets] = useState<Market[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState('All');
 
     useEffect(() => {
         async function fetchMarkets() {
@@ -31,6 +35,13 @@ export default function MarketGrid() {
         fetchMarkets();
     }, []);
 
+    const filteredMarkets = selectedCategory === 'All' 
+        ? markets 
+        : markets.filter(m => {
+            const metadata = getMarketMetadata(m.question, m.id);
+            return metadata.category === selectedCategory;
+        });
+
     return (
         <div className="w-full max-w-7xl mx-auto px-4 py-20">
             <motion.h2
@@ -41,16 +52,32 @@ export default function MarketGrid() {
                 <span className="text-gradient-cyan">Live</span> Predictions
             </motion.h2>
 
+            {/* Category Filters */}
+            <div className="flex flex-wrap gap-3 justify-center mb-10">
+                {CATEGORIES.map(cat => (
+                    <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-6 py-2 rounded-full font-mono text-sm transition-all ${
+                            selectedCategory === cat
+                                ? 'bg-primary text-black font-bold'
+                                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                        }`}
+                    >
+                        {cat}
+                    </button>
+                ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {markets.slice(0, 3).map((market, i) => (
+                {filteredMarkets.map((market, i) => (
                     <motion.div
                         key={market.id}
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        transition={{ delay: i * 0.05 }}
                     >
                         <Link href={`/terminal?marketId=${market.id}`}>
-                            {/* Adapter for MarketCard to accept the new data structure */}
                             <MarketCard
                                 id={market.id.toString()}
                                 title={market.question}
@@ -58,7 +85,7 @@ export default function MarketGrid() {
                                 outcomeA="Yes"
                                 outcomeB="No"
                                 probA={market.yesOdds / 100}
-                                color="green" // Default or calculate based on trend
+                                color="green"
                             />
                         </Link>
                     </motion.div>

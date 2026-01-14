@@ -23,7 +23,7 @@ export default function MarketCard({ id, title, volume, outcomeA, outcomeB, prob
     const metadata = getMarketMetadata(title, parseInt(id));
 
     return (
-        <Link href={`/markets/${id}`}>
+        <Link href={`/terminal?marketId=${id}`}>
             <GlassCard
                 className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}
