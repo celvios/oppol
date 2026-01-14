@@ -21,9 +21,10 @@ const config: HardhatUserConfig = {
             chainId: 1337,
         },
         bscTestnet: {
-            url: "https://bsc-testnet-rpc.publicnode.com",
+            url: "https://bsc-testnet.bnbchain.org",
             chainId: 97,
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+            timeout: 120000,
         },
         bsc: {
             url: "https://bsc-dataseed.binance.org/",

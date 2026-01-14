@@ -1,18 +1,22 @@
 import { ethers } from 'ethers';
 import { getContracts, getCurrentNetwork } from './contracts';
 
-// ABI for PredictionMarketLMSR contract (with Deposit System)
-const PREDICTION_MARKET_LMSR_ABI = [
+// ABI for PredictionMarketMulti - Unified contract for all markets
+const PREDICTION_MARKET_MULTI_ABI = [
     'function marketCount() view returns (uint256)',
-    'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)',
-    'function getPrice(uint256 marketId) view returns (uint256)',
-    'function calculateCost(uint256 marketId, bool isYes, uint256 shares) view returns (uint256)',
-    'function buyShares(uint256 marketId, bool isYes, uint256 shares, uint256 maxCost)',
-    'function getUserPosition(uint256 marketId, address user) view returns (uint256 yesShares, uint256 noShares, bool claimed)',
-    'function claimWinnings(uint256 marketId)',
+    'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+    'function getMarketOutcomes(uint256 marketId) view returns (string[])',
+    'function getMarketShares(uint256 marketId) view returns (uint256[])',
+    'function getAllPrices(uint256 marketId) view returns (uint256[])',
+    'function getPrice(uint256 marketId, uint256 outcomeIndex) view returns (uint256)',
+    'function calculateCost(uint256 marketId, uint256 outcomeIndex, uint256 shares) view returns (uint256)',
+    'function buyShares(uint256 marketId, uint256 outcomeIndex, uint256 shares, uint256 maxCost)',
+    'function getUserPosition(uint256 marketId, address user) view returns (uint256[] shares, bool claimed)',
     'function userBalances(address) view returns (uint256)',
     'function deposit(uint256 amount)',
     'function withdraw(uint256 amount)',
+    'function claimWinnings(uint256 marketId)',
+    'function getMarketStatus(uint256 marketId) view returns (bool ended, bool assertionPending, bool resolved, uint256 winningOutcome, address asserter, bytes32 assertionId)',
 ];
 
 const USDC_ABI = [
@@ -20,6 +24,31 @@ const USDC_ABI = [
     'function approve(address spender, uint256 amount) returns (bool)',
     'function allowance(address owner, address spender) view returns (uint256)',
 ];
+
+export interface Market {
+    id: number;
+    question: string;
+    outcomes: string[];
+    outcomeCount: number;
+    shares: string[];
+    prices: number[];  // 0-100 for each outcome
+    endTime: number;
+    liquidityParam: string;
+    totalVolume: string;
+    resolved: boolean;
+    winningOutcome: number;
+    // Legacy compatibility fields for binary markets
+    yesOdds: number;
+    noOdds: number;
+    yesShares: string;
+    noShares: string;
+    yesPool: string;
+    noPool: string;
+    outcome?: boolean;
+    assertionPending?: boolean;
+    assertedOutcome?: boolean;
+    asserter?: string;
+}
 
 export class Web3Service {
     private provider: ethers.JsonRpcProvider;
@@ -30,13 +59,13 @@ export class Web3Service {
         const network = getCurrentNetwork();
         this.provider = new ethers.JsonRpcProvider(network.rpcUrl);
 
-        const contracts = getContracts() as any; // Type assertion for flexibility
+        const contracts = getContracts() as any;
 
-        // Use LMSR contract if available, fallback to old AMM
-        const marketAddress = contracts.predictionMarketLMSR || contracts.predictionMarket;
+        // Use the unified multi-outcome contract
+        const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
         this.predictionMarket = new ethers.Contract(
             marketAddress,
-            PREDICTION_MARKET_LMSR_ABI,
+            PREDICTION_MARKET_MULTI_ABI,
             this.provider
         );
 
@@ -49,46 +78,25 @@ export class Web3Service {
     }
 
     /**
-     * Get all markets
+     * Get all markets (now uses multi-outcome contract)
      */
-    /**
-     * Get all markets
-     */
-    async getMarkets() {
+    async getMarkets(): Promise<Market[]> {
         try {
             const count = Number(await this.predictionMarket.marketCount());
             const ids = Array.from({ length: count }, (_, i) => i);
 
-            // Fetch all data in parallel
-            const [marketsData, pricesData] = await Promise.all([
-                Promise.all(ids.map(id => this.predictionMarket.markets(id))),
-                Promise.all(ids.map(id => this.predictionMarket.getPrice(id)))
-            ]);
+            const markets: Market[] = [];
 
-            return ids.map((id, index) => {
-                const market = marketsData[index];
-                const price = pricesData[index];
-                const yesOdds = Number(price) / 100;
+            for (const id of ids) {
+                try {
+                    const market = await this.getMarket(id);
+                    if (market) markets.push(market);
+                } catch (e) {
+                    console.error(`Error fetching market ${id}:`, e);
+                }
+            }
 
-                return {
-                    id: id,
-                    question: market.question,
-                    endTime: Number(market.endTime),
-                    yesShares: ethers.formatUnits(market.yesShares, 6),
-                    noShares: ethers.formatUnits(market.noShares, 6),
-                    yesPool: ethers.formatUnits(market.liquidityParam, 6),
-                    noPool: '0',
-                    liquidityParam: ethers.formatUnits(market.liquidityParam, 6),
-                    totalVolume: (parseFloat(ethers.formatUnits(market.yesShares, 6)) + parseFloat(ethers.formatUnits(market.noShares, 6))).toFixed(2),
-                    resolved: market.resolved,
-                    outcome: market.outcome,
-                    yesOdds: yesOdds,
-                    noOdds: 100 - yesOdds,
-                    assertionPending: market.assertionPending,
-                    assertedOutcome: market.assertedOutcome,
-                    asserter: market.asserter,
-                };
-            });
+            return markets;
         } catch (error) {
             console.error('Error fetching markets:', error);
             return [];
@@ -98,26 +106,45 @@ export class Web3Service {
     /**
      * Get single market
      */
-    async getMarket(marketId: number) {
+    async getMarket(marketId: number): Promise<Market | null> {
         try {
-            const market = await this.predictionMarket.markets(marketId);
-            const price = await this.predictionMarket.getPrice(marketId);
+            const [basicInfo, outcomes, shares, prices] = await Promise.all([
+                this.predictionMarket.getMarketBasicInfo(marketId),
+                this.predictionMarket.getMarketOutcomes(marketId),
+                this.predictionMarket.getMarketShares(marketId),
+                this.predictionMarket.getAllPrices(marketId),
+            ]);
 
-            const yesOdds = Number(price) / 100;
+            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 6));
+            const pricesFormatted = prices.map((p: bigint) => Number(p) / 100); // Convert basis points to percentage
+
+            const totalVolume = sharesFormatted.reduce((sum: number, s: string) => sum + parseFloat(s), 0);
+
+            // For binary (2-outcome) markets, provide legacy yesOdds/noOdds
+            const isBinary = Number(basicInfo.outcomeCount) === 2;
+            const yesOdds = isBinary ? pricesFormatted[0] : pricesFormatted[0];
+            const noOdds = isBinary ? pricesFormatted[1] : 100 - pricesFormatted[0];
 
             return {
                 id: marketId,
-                question: market.question,
-                endTime: Number(market.endTime),
-                yesShares: ethers.formatUnits(market.yesShares, 6),
-                noShares: ethers.formatUnits(market.noShares, 6),
-                yesPool: ethers.formatUnits(market.yesShares, 6), // For compatibility
-                noPool: ethers.formatUnits(market.noShares, 6),
-                totalVolume: (parseFloat(ethers.formatUnits(market.yesShares, 6)) + parseFloat(ethers.formatUnits(market.noShares, 6))).toFixed(2),
-                resolved: market.resolved,
-                outcome: market.outcome,
+                question: basicInfo.question,
+                outcomes: outcomes,
+                outcomeCount: Number(basicInfo.outcomeCount),
+                shares: sharesFormatted,
+                prices: pricesFormatted,
+                endTime: Number(basicInfo.endTime),
+                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 6),
+                totalVolume: totalVolume.toFixed(2),
+                resolved: basicInfo.resolved,
+                winningOutcome: Number(basicInfo.winningOutcome),
+                // Legacy compatibility
                 yesOdds: yesOdds,
-                noOdds: 100 - yesOdds,
+                noOdds: noOdds,
+                yesShares: sharesFormatted[0] || '0',
+                noShares: sharesFormatted[1] || '0',
+                yesPool: ethers.formatUnits(basicInfo.liquidityParam, 6),
+                noPool: '0',
+                outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
             };
         } catch (error) {
             console.error('Error fetching market:', error);
@@ -126,12 +153,14 @@ export class Web3Service {
     }
 
     /**
-     * Calculate cost to buy shares (LMSR)
+     * Calculate cost to buy shares
      */
-    async calculateCost(marketId: number, isYes: boolean, shares: number) {
+    async calculateCost(marketId: number, isYes: boolean, shares: number): Promise<string> {
         try {
+            // Convert boolean isYes to outcomeIndex (0 = Yes, 1 = No for binary markets)
+            const outcomeIndex = isYes ? 0 : 1;
             const sharesInUnits = ethers.parseUnits(shares.toString(), 6);
-            const cost = await this.predictionMarket.calculateCost(marketId, isYes, sharesInUnits);
+            const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
             return ethers.formatUnits(cost, 6);
         } catch (error) {
             console.error('Error calculating cost:', error);
@@ -145,11 +174,13 @@ export class Web3Service {
     async getUserPosition(marketId: number, userAddress: string) {
         try {
             const position = await this.predictionMarket.getUserPosition(marketId, userAddress);
+            const shares = position.shares || [];
 
             return {
-                yesShares: ethers.formatUnits(position.yesShares, 6),
-                noShares: ethers.formatUnits(position.noShares, 6),
+                yesShares: shares[0] ? ethers.formatUnits(shares[0], 6) : '0',
+                noShares: shares[1] ? ethers.formatUnits(shares[1], 6) : '0',
                 claimed: position.claimed,
+                allShares: shares.map((s: bigint) => ethers.formatUnits(s, 6)),
             };
         } catch (error) {
             console.error('Error fetching position:', error);
@@ -160,7 +191,7 @@ export class Web3Service {
     /**
      * Get USDC balance (wallet balance)
      */
-    async getUSDCBalance(address: string) {
+    async getUSDCBalance(address: string): Promise<string> {
         try {
             const balance = await this.usdc.balanceOf(address);
             return ethers.formatUnits(balance, 6);
@@ -171,15 +202,14 @@ export class Web3Service {
     }
 
     /**
-     * Get deposited balance in the prediction market contract (Polymarket-style)
+     * Get deposited balance in the prediction market contract
      */
-    async getDepositedBalance(address: string) {
+    async getDepositedBalance(address: string): Promise<string> {
         try {
             const balance = await this.predictionMarket.userBalances(address);
             return ethers.formatUnits(balance, 6);
         } catch (error: any) {
             console.error('Error fetching deposited balance:', error);
-            // Return 0 if user has no balance or contract call fails
             return '0';
         }
     }

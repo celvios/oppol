@@ -78,30 +78,32 @@ app.post('/api/calculate-cost', async (req, res) => {
   }
 });
 
-// BET ENDPOINT - CUSTODIAL (Uses buySharesFor on contract)
+// BET ENDPOINT - UNIFIED (Uses buySharesFor on multi-outcome contract)
+// Accepts side: 'YES'/'NO' for binary markets, converts to outcomeIndex: 0/1
 app.post('/api/bet', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
-    const { walletAddress, marketId, side, amount } = req.body;
+    const { walletAddress, marketId, side, amount, outcomeIndex: explicitOutcome } = req.body;
 
     console.log('🔍 [BET DEBUG] Request body:', JSON.stringify(req.body, null, 2));
 
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
-    if (marketId === undefined || !side || !amount) {
-      return res.status(400).json({ success: false, error: 'Missing marketId, side, or amount' });
+    if (marketId === undefined || (!side && explicitOutcome === undefined) || !amount) {
+      return res.status(400).json({ success: false, error: 'Missing marketId, side/outcomeIndex, or amount' });
     }
 
     // Validate and normalize address
     const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
     console.log('🔍 [BET DEBUG] Normalized address:', normalizedAddress);
-    
+
     const maxCost = parseFloat(amount);
-    const isYes = side.toUpperCase() === 'YES';
+    // Convert YES/NO to outcomeIndex (0 = Yes/First, 1 = No/Second)
+    const outcomeIndex = explicitOutcome !== undefined ? explicitOutcome : (side?.toUpperCase() === 'YES' ? 0 : 1);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -112,20 +114,23 @@ app.post('/api/bet', async (req, res) => {
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
+    // Unified multi-outcome contract address
     const MARKET_ADDR = ethers.getAddress(
-      process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b'
+      process.env.MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
     );
     console.log('🔍 [BET DEBUG] Market address:', MARKET_ADDR);
-    
+
+    // Multi-outcome contract ABI
     const marketABI = [
-      'function buySharesFor(address _user, uint256 _marketId, bool _isYes, uint256 _shares, uint256 _maxCost)',
-      'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
+      'function buySharesFor(address _user, uint256 _marketId, uint256 _outcomeIndex, uint256 _shares, uint256 _maxCost)',
+      'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)',
       'function userBalances(address) view returns (uint256)',
+      'function getPrice(uint256 _marketId, uint256 _outcomeIndex) view returns (uint256)',
     ];
 
     const iface = new ethers.Interface(marketABI);
 
-    // RAW JSON-RPC CALL FUNCTION (bypasses all ethers.js address resolution)
+    // RAW JSON-RPC CALL FUNCTION
     async function rawCall(to: string, data: string): Promise<string> {
       const response = await fetch(rpcUrl, {
         method: 'POST',
@@ -144,7 +149,7 @@ app.post('/api/bet', async (req, res) => {
       return result.result;
     }
 
-    // Get user balance using raw RPC
+    // Get user balance
     console.log('🔍 [BET DEBUG] Calling userBalances');
     const balanceData = iface.encodeFunctionData('userBalances', [normalizedAddress]);
     const balanceResult = await rawCall(MARKET_ADDR, balanceData);
@@ -152,18 +157,18 @@ app.post('/api/bet', async (req, res) => {
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`✅ User balance: $${balanceFormatted}`);
 
-    // Binary search using raw RPC
+    // Binary search to find max shares
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
     let low = 1;
     let high = Math.floor(maxCost * 2);
     let bestShares = 0;
 
-    console.log('🔍 [BET DEBUG] Starting binary search');
+    console.log('🔍 [BET DEBUG] Starting binary search for outcomeIndex:', outcomeIndex);
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
-      
-      const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
+
+      const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
       const costResult = await rawCall(MARKET_ADDR, costData);
       const cost = iface.decodeFunctionResult('calculateCost', costResult)[0];
 
@@ -179,9 +184,9 @@ app.post('/api/bet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
     }
 
-    // Get final cost using raw RPC
+    // Get final cost
     const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
-    const costData = iface.encodeFunctionData('calculateCost', [marketId, isYes, sharesInUnits]);
+    const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
     const costResult = await rawCall(MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
     const costFormatted = ethers.formatUnits(actualCost, 6);
@@ -194,12 +199,12 @@ app.post('/api/bet', async (req, res) => {
       });
     }
 
-    // Execute transaction (this part still uses ethers for signing)
+    // Execute transaction
     console.log('🔍 [BET DEBUG] Encoding transaction');
     const buyData = iface.encodeFunctionData('buySharesFor', [
       normalizedAddress,
       marketId,
-      isYes,
+      outcomeIndex,
       sharesInUnits,
       actualCost * BigInt(110) / BigInt(100)
     ]);
@@ -210,27 +215,197 @@ app.post('/api/bet', async (req, res) => {
       data: buyData,
       gasLimit: 500000
     });
-    
+
     const receipt = await tx.wait();
-    
+
     if (!receipt) {
       throw new Error('Transaction receipt is null');
     }
 
     console.log(`✅ Trade executed! TX: ${receipt.hash}`);
 
+    // Get new price
+    const priceData = iface.encodeFunctionData('getPrice', [marketId, outcomeIndex]);
+    const priceResult = await rawCall(MARKET_ADDR, priceData);
+    const newPrice = Number(iface.decodeFunctionResult('getPrice', priceResult)[0]) / 100;
+
     return res.json({
       success: true,
       transaction: {
         hash: receipt.hash,
         shares: bestShares,
-        cost: costFormatted
+        cost: costFormatted,
+        newPrice
       }
     });
 
   } catch (error: any) {
     console.error('❌ [BET ERROR]:', error.message);
     console.error('❌ [BET ERROR] Stack:', error.stack);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// MULTI-OUTCOME BET ENDPOINT - For multi-outcome markets
+app.post('/api/multi-bet', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const { walletAddress, marketId, outcomeIndex, amount } = req.body;
+
+    console.log('🔍 [MULTI-BET DEBUG] Request body:', JSON.stringify(req.body, null, 2));
+
+    if (!walletAddress) {
+      return res.status(400).json({ success: false, error: 'Wallet address required' });
+    }
+    if (marketId === undefined || outcomeIndex === undefined || !amount) {
+      return res.status(400).json({ success: false, error: 'Missing marketId, outcomeIndex, or amount' });
+    }
+
+    // Validate and normalize address
+    const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
+    console.log('🔍 [MULTI-BET DEBUG] Normalized address:', normalizedAddress);
+
+    const maxCost = parseFloat(amount);
+
+    // Server wallet (operator) configuration
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      return res.status(500).json({ success: false, error: 'Server wallet not configured' });
+    }
+
+    console.log('🔍 [MULTI-BET DEBUG] Creating provider');
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const signer = new ethers.Wallet(privateKey, provider);
+    console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
+
+    // Multi-outcome contract address
+    const MULTI_MARKET_ADDR = ethers.getAddress(
+      process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
+    );
+    console.log('🔍 [MULTI-BET DEBUG] Multi-Market address:', MULTI_MARKET_ADDR);
+
+    const marketABI = [
+      'function buySharesFor(address _user, uint256 _marketId, uint256 _outcomeIndex, uint256 _shares, uint256 _maxCost)',
+      'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)',
+      'function userBalances(address) view returns (uint256)',
+      'function getPrice(uint256 _marketId, uint256 _outcomeIndex) view returns (uint256)',
+    ];
+
+    const iface = new ethers.Interface(marketABI);
+
+    // RAW JSON-RPC CALL FUNCTION
+    async function rawCall(to: string, data: string): Promise<string> {
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_call',
+          params: [{ to, data }, 'latest']
+        })
+      });
+      const result = await response.json();
+      if (result.error) {
+        throw new Error(`RPC Error: ${result.error.message}`);
+      }
+      return result.result;
+    }
+
+    // Get user balance
+    console.log('🔍 [MULTI-BET DEBUG] Calling userBalances');
+    const balanceData = iface.encodeFunctionData('userBalances', [normalizedAddress]);
+    const balanceResult = await rawCall(MULTI_MARKET_ADDR, balanceData);
+    const userBalance = iface.decodeFunctionResult('userBalances', balanceResult)[0];
+    const balanceFormatted = ethers.formatUnits(userBalance, 6);
+    console.log(`✅ User balance: $${balanceFormatted}`);
+
+    // Binary search to find max shares for given cost
+    const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
+    let low = 1;
+    let high = Math.floor(maxCost * 2);
+    let bestShares = 0;
+
+    console.log('🔍 [MULTI-BET DEBUG] Starting binary search');
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
+
+      const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
+      const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
+      const cost = iface.decodeFunctionResult('calculateCost', costResult)[0];
+
+      if (cost <= maxCostInUnits) {
+        bestShares = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    if (bestShares === 0) {
+      return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
+    }
+
+    // Get final cost
+    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
+    const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
+    const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
+    const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
+    const costFormatted = ethers.formatUnits(actualCost, 6);
+    console.log(`✅ Cost: $${costFormatted} for ${bestShares} shares`);
+
+    if (userBalance < actualCost) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient balance. Have: $${balanceFormatted}, Need: $${costFormatted}`
+      });
+    }
+
+    // Execute transaction
+    console.log('🔍 [MULTI-BET DEBUG] Encoding transaction');
+    const buyData = iface.encodeFunctionData('buySharesFor', [
+      normalizedAddress,
+      marketId,
+      outcomeIndex,
+      sharesInUnits,
+      actualCost * BigInt(110) / BigInt(100) // 10% slippage
+    ]);
+
+    console.log('🔍 [MULTI-BET DEBUG] Sending transaction');
+    const tx = await signer.sendTransaction({
+      to: MULTI_MARKET_ADDR,
+      data: buyData,
+      gasLimit: 500000
+    });
+
+    const receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+
+    console.log(`✅ Multi-bet executed! TX: ${receipt.hash}`);
+
+    // Get new price
+    const priceData = iface.encodeFunctionData('getPrice', [marketId, outcomeIndex]);
+    const priceResult = await rawCall(MULTI_MARKET_ADDR, priceData);
+    const newPrice = Number(iface.decodeFunctionResult('getPrice', priceResult)[0]) / 100;
+
+    return res.json({
+      success: true,
+      transaction: {
+        hash: receipt.hash,
+        shares: bestShares,
+        cost: costFormatted,
+        newPrice
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ [MULTI-BET ERROR]:', error.message);
+    console.error('❌ [MULTI-BET ERROR] Stack:', error.stack);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -405,14 +580,14 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
     const { walletAddress } = req.params;
-    
+
     if (!walletAddress || !ethers.isAddress(walletAddress)) {
       return res.status(400).json({ error: 'Invalid wallet address' });
     }
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    
+
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
     const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
 
@@ -564,18 +739,18 @@ app.get('/api/markets', async (req, res) => {
 app.get('/api/contract/check', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
-    
+
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
-    
+
     // Get contract code
     const code = await provider.getCode(MARKET_ADDR);
-    
+
     // Check if buySharesFor function exists
     const buySharesForSelector = ethers.id('buySharesFor(address,uint256,bool,uint256,uint256)').slice(0, 10);
     const hasBuySharesFor = code.includes(buySharesForSelector.slice(2));
-    
+
     // Get server wallet address
     const privateKey = process.env.PRIVATE_KEY;
     let serverWallet = 'Not configured';
@@ -583,7 +758,7 @@ app.get('/api/contract/check', async (req, res) => {
       const wallet = new ethers.Wallet(privateKey);
       serverWallet = wallet.address;
     }
-    
+
     return res.json({
       success: true,
       contract: {
@@ -607,7 +782,7 @@ app.get('/api/contract/check', async (req, res) => {
 app.get('/api/portfolio/:walletAddress', async (req, res) => {
   try {
     const { walletAddress } = req.params;
-    
+
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address required' });
     }
@@ -623,7 +798,7 @@ app.get('/api/portfolio/:walletAddress', async (req, res) => {
          ORDER BY market_id, side`,
         [walletAddress.toLowerCase()]
       );
-      
+
       const positions = tradesResult.rows.map((row: any) => ({
         marketId: row.market_id,
         side: row.side,
@@ -631,7 +806,7 @@ app.get('/api/portfolio/:walletAddress', async (req, res) => {
         avgPrice: parseFloat(row.avg_price),
         totalCost: parseFloat(row.total_cost)
       }));
-      
+
       return res.json({
         success: true,
         positions,

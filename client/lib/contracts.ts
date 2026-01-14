@@ -2,14 +2,17 @@
 export const CONTRACTS = {
     // Local Hardhat
     local: {
-        predictionMarket: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // Old AMM (deprecated)
-        predictionMarketLMSR: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // New LMSR ✅
+        predictionMarket: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+        predictionMarketLMSR: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+        predictionMarketMulti: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
         mockUSDC: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     },
-    // BSC Testnet (DEPLOYED ✅ - With UMA Oracle + Markets)
+    // BSC Testnet (UNIFIED - Multi-Outcome Contract ✅)
     bscTestnet: {
-        predictionMarket: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353',
-        predictionMarketLMSR: process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353',
+        // All markets now use the multi-outcome contract (Polymarket-style)
+        predictionMarket: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
+        predictionMarketLMSR: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
+        predictionMarketMulti: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
         mockUSDC: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0',
         umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
         zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D',
