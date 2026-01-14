@@ -156,7 +156,7 @@ export default function Home() {
           <ScrollReveal delay={0.2}>
             <MobileMarketList />
             <div className="hidden md:block">
-              <MarketGrid />
+              <MarketGrid limit={6} showFilters={false} />
             </div>
           </ScrollReveal>
         </div>
