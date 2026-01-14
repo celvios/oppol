@@ -30,7 +30,7 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
 
 export const getAllMarketMetadata = async (req: Request, res: Response) => {
     try {
-        const result = await query('select * from market_metadata');
+        const result = await query('select * from market_metadata', []);
         res.json({ success: true, markets: result.rows });
     } catch (error) {
         console.error('Get All Metadata Error:', error);
@@ -71,7 +71,7 @@ export const createCategory = async (req: Request, res: Response) => {
 
 export const getCategories = async (req: Request, res: Response) => {
     try {
-        const result = await query('select * from categories');
+        const result = await query('select * from categories', []);
         res.json({ success: true, categories: result.rows });
     } catch (error) {
         console.error('Get Categories Error:', error);
