@@ -1,57 +1,79 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
+
+interface WalletState {
+  isConnected: boolean;
+  address: string | null;
+  isConnecting: boolean;
+}
 
 export function useWallet() {
-  const [cachedAddress, setCachedAddress] = useState<string | null>(null);
-  const [cachedConnected, setCachedConnected] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [state, setState] = useState<WalletState>({
+    isConnected: false,
+    address: null,
+    isConnecting: false
+  });
   
-  // Load cached state immediately
   useEffect(() => {
+    // Load cached state immediately
     const cached = localStorage.getItem('wallet_cache');
     if (cached) {
       try {
-        const { address: addr, isConnected: connected } = JSON.parse(cached);
-        setCachedAddress(addr);
-        setCachedConnected(connected);
+        const { address, isConnected } = JSON.parse(cached);
+        if (address && isConnected) {
+          setState({
+            isConnected: true,
+            address,
+            isConnecting: false
+          });
+        }
       } catch (e) {}
     }
-    setMounted(true);
-  }, []);
-  
-  // Memoize wallet functions to prevent re-renders
-  const walletFunctions = useMemo(() => {
-    const connect = async () => {
-      try {
-        const { useAppKit } = await import('@reown/appkit/react');
-        const appKit = useAppKit();
-        await appKit.open();
-      } catch (e) {
-        console.warn('Connect failed:', e);
-      }
-    };
-
-    const disconnect = async () => {
-      try {
-        const { useAppKit } = await import('@reown/appkit/react');
-        const appKit = useAppKit();
-        await appKit.open({ view: 'Account' });
-      } catch (e) {
-        console.warn('Disconnect failed:', e);
-      }
-      localStorage.removeItem('wallet_cache');
-      setCachedAddress(null);
-      setCachedConnected(false);
+    
+    // Listen for wallet changes
+    const handleWalletChange = (event: any) => {
+      const { address, isConnected } = event.detail;
+      setState({
+        isConnected: isConnected || false,
+        address: address || null,
+        isConnecting: false
+      });
     };
     
-    return { connect, disconnect };
+    window.addEventListener('wallet-changed', handleWalletChange);
+    
+    return () => {
+      window.removeEventListener('wallet-changed', handleWalletChange);
+    };
   }, []);
-
+  
+  const connect = async () => {
+    setState(prev => ({ ...prev, isConnecting: true }));
+    
+    try {
+      // Try to open the modal directly
+      const modal = document.querySelector('w3m-modal, appkit-modal');
+      if (modal) {
+        (modal as any).open?.();
+      } else {
+        // Fallback - try to trigger via button click
+        const connectBtn = document.querySelector('[data-testid="connect-button"], w3m-connect-button, appkit-connect-button');
+        if (connectBtn) {
+          (connectBtn as HTMLElement).click();
+        }
+      }
+    } catch (error) {
+      console.error('Connection failed:', error);
+    } finally {
+      setTimeout(() => {
+        setState(prev => ({ ...prev, isConnecting: false }));
+      }, 1000);
+    }
+  };
+  
   return {
-    address: cachedAddress,
-    isConnected: cachedConnected,
-    isConnecting: false,
-    ...walletFunctions,
+    ...state,
+    connect
   };
 }

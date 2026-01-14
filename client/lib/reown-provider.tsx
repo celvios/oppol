@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 
 let appKitInitialized = false;
+let appKitInstance: any = null;
 
 function initializeReown() {
   if (appKitInitialized || typeof window === 'undefined') return;
@@ -12,7 +13,7 @@ function initializeReown() {
       import('@reown/appkit/networks').then(({ bsc, bscTestnet }) => {
         const ethersAdapter = new EthersAdapter();
         
-        createAppKit({
+        appKitInstance = createAppKit({
           adapters: [ethersAdapter],
           networks: [bsc, bscTestnet],
           metadata: {
@@ -24,6 +25,20 @@ function initializeReown() {
           projectId: '70415295a4738286445072f5c2392457',
           features: {
             analytics: false
+          }
+        });
+        
+        // Listen for account changes
+        appKitInstance.subscribeAccount((account: any) => {
+          if (account.address) {
+            localStorage.setItem('wallet_cache', JSON.stringify({
+              address: account.address,
+              isConnected: account.isConnected
+            }));
+            // Trigger a custom event for the hook to listen to
+            window.dispatchEvent(new CustomEvent('wallet-changed', {
+              detail: { address: account.address, isConnected: account.isConnected }
+            }));
           }
         });
         
