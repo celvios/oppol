@@ -106,6 +106,8 @@ export function MobileTerminal() {
     const [markets, setMarkets] = useState<Market[]>([]);
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(true);
+    const [marketError, setMarketError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
     const [priceHistory, setPriceHistory] = useState<{ time: string, price: number }[]>([]);
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
@@ -219,11 +221,22 @@ export function MobileTerminal() {
 
     const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
+        
+        console.log('[MobileTerminal] fetchData called, retry count:', retryCount);
+        setMarketError(null);
+        
         try {
             const allMarkets = await web3Service.getMarkets();
+            console.log('[MobileTerminal] Markets fetched:', allMarkets.length);
+            
+            if (allMarkets.length === 0) {
+                throw new Error('No markets returned from contract');
+            }
+            
             setMarkets(allMarkets);
+            setRetryCount(0); // Reset retry count on success
 
-            // Fetch deposited balance directly from contract (same as Portfolio page)
+            // Fetch deposited balance
             try {
                 const depositedBalance = await web3Service.getDepositedBalance(address);
                 setBalance(depositedBalance);
@@ -231,12 +244,22 @@ export function MobileTerminal() {
                 console.error('[MobileTerminal] Balance fetch error:', e);
                 setBalance('0');
             }
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            console.error('[MobileTerminal] Error in fetchData:', error);
+            setMarketError(error.message || 'Failed to load markets');
+            
+            // Auto-retry up to 3 times with exponential backoff
+            if (retryCount < 3) {
+                const delay = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s
+                console.log(`[MobileTerminal] Retrying in ${delay}ms...`);
+                setTimeout(() => {
+                    setRetryCount(prev => prev + 1);
+                }, delay);
+            }
         } finally {
             setLoading(false);
         }
-    }, [isConnected, address]);
+    }, [isConnected, address, retryCount]);
 
     useEffect(() => {
         if (!isConnected) {
@@ -247,6 +270,13 @@ export function MobileTerminal() {
         const interval = setInterval(fetchData, 15000);
         return () => clearInterval(interval);
     }, [isConnected, address, fetchData]);
+
+    // Trigger retry when retryCount changes
+    useEffect(() => {
+        if (retryCount > 0 && isConnected && address) {
+            fetchData();
+        }
+    }, [retryCount, isConnected, address, fetchData]);
 
     if (errorInfo) {
         return (
@@ -296,6 +326,28 @@ export function MobileTerminal() {
     }
 
     if (loading) return <div className="p-6"><SkeletonLoader /></div>;
+    
+    if (marketError && markets.length === 0) {
+        return (
+            <div className="p-6 text-white flex flex-col items-center justify-center h-[80vh]">
+                <div className="text-center max-w-md">
+                    <div className="text-red-400 text-lg font-bold mb-2">Connection Error</div>
+                    <div className="text-white/70 text-sm mb-4">{marketError}</div>
+                    <div className="text-white/50 text-xs mb-6">
+                        {retryCount < 3 ? `Retrying... (${retryCount}/3)` : 'Max retries reached'}
+                    </div>
+                    <button 
+                        onClick={() => setRetryCount(prev => prev + 1)}
+                        disabled={retryCount >= 3}
+                        className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg disabled:opacity-50"
+                    >
+                        Retry Now
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    
     if (!market) return <div className="p-6 text-white/50 flex items-center justify-center h-[80vh] font-mono">[SYSTEM: NO MARKETS]</div>;
 
     const currentPrice = chartView === 'YES' ? market.yesOdds : (100 - market.yesOdds);
