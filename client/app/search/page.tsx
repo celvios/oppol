@@ -5,6 +5,7 @@ import { Search, X, TrendingUp, Cpu, Globe, Zap } from "lucide-react";
 import { web3Service } from "@/lib/web3";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import Link from "next/link";
+import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Lazy load heavy components
 const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
@@ -111,9 +112,17 @@ export default function SearchPage() {
                                     <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
                                         <div className="flex justify-between items-start mb-3 gap-4">
                                             <div className="flex items-start gap-3">
-                                                {/* Icon Container */}
-                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors">
-                                                    <MarketIcon className="w-5 h-5 text-neon-cyan/80" />
+                                                {/* Market Image */}
+                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors overflow-hidden">
+                                                    <img
+                                                        src={getMarketMetadata(m.question, m.id).image}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            e.currentTarget.parentElement?.classList.add('bg-neon-cyan/10');
+                                                        }}
+                                                    />
                                                 </div>
                                                 <h4 className="text-base font-medium text-white line-clamp-2 pt-1">{m.question}</h4>
                                             </div>

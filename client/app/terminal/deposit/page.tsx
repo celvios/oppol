@@ -47,19 +47,19 @@ export default function DepositPage() {
 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            
+
             // MockUSDC contract has a mint function for testing
             const MINT_ABI = [
                 { name: 'mint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
             ];
-            
+
             const tokenContract = new Contract(selectedToken.address, MINT_ABI, signer);
             const mintAmount = ethers.parseUnits('1000', selectedToken.decimals);
-            
+
             console.log('Minting test tokens...');
             const mintTx = await tokenContract.mint(address, mintAmount);
             await mintTx.wait();
-            
+
             alert(`Minted 1000 test ${selectedToken.symbol} tokens!`);
             fetchBalance();
         } catch (error: any) {
@@ -78,10 +78,10 @@ export default function DepositPage() {
         if (!address) return;
         try {
             if (!window.ethereum) return;
-            
+
             const provider = new ethers.BrowserProvider(window.ethereum);
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-            
+
             const balance = await tokenContract.balanceOf(address);
             const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
@@ -101,24 +101,24 @@ export default function DepositPage() {
 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            
+
             console.log('Using token:', selectedToken.address);
             console.log('Deposit amount:', depositAmount, selectedToken.symbol);
-            
+
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
             const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
-            
+
             // Check token balance
             const tokenBalance = await tokenContract.balanceOf(address);
             if (tokenBalance < amountInWei) {
                 throw new Error(`Insufficient ${selectedToken.symbol} balance. You have ${ethers.formatUnits(tokenBalance, selectedToken.decimals)} ${selectedToken.symbol}`);
             }
-            
+
             if (selectedToken.direct) {
                 // Direct USDC deposit
                 console.log('Direct USDC deposit to market contract:', MARKET_CONTRACT);
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-                
+
                 // Check allowance and approve if needed
                 const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
                 if (currentAllowance < amountInWei) {
@@ -126,16 +126,16 @@ export default function DepositPage() {
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
                     await approveTx.wait();
                 }
-                
+
                 // Deposit to market
                 const depositTx = await marketContract.deposit(amountInWei);
                 await depositTx.wait();
-                
+
             } else {
                 // Zap contract integration
                 console.log('Using Zap contract:', ZAP_CONTRACT);
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
-                
+
                 // Approve Zap to spend tokens
                 const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
                 if (currentAllowance < amountInWei) {
@@ -143,24 +143,24 @@ export default function DepositPage() {
                     const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
                     await approveTx.wait();
                 }
-                
+
                 // Calculate minimum USDC with 5% slippage
                 const estimatedUSDC = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 6);
-                
+
                 // Zap in via swap
                 console.log('Zapping token to USDC...');
                 const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedUSDC);
                 await zapTx.wait();
             }
-            
+
             alert(`Successfully deposited ${depositAmount} ${selectedToken.symbol}!`);
             setDepositAmount('');
             fetchBalance();
-            
+
         } catch (error: any) {
             console.error('Deposit failed:', error);
             let errorMessage = 'Deposit failed';
-            
+
             if (error.code === 'ACTION_REJECTED') {
                 errorMessage = 'Transaction was rejected by user';
             } else if (error.message?.includes('insufficient funds')) {
@@ -170,7 +170,7 @@ export default function DepositPage() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             alert(errorMessage);
         } finally {
             setIsProcessing(false);
@@ -201,7 +201,17 @@ export default function DepositPage() {
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-white">Direct Deposit</h2>
-                                <p className="text-sm text-white/50">{address?.slice(0, 8)}...{address?.slice(-6)}</p>
+                                <button
+                                    onClick={() => address && copyToClipboard(address)}
+                                    className="text-sm text-white/50 hover:text-white transition-colors flex items-center gap-2 group"
+                                >
+                                    {address?.slice(0, 8)}...{address?.slice(-6)}
+                                    {copied ? (
+                                        <span className="text-neon-green text-xs font-bold animate-pulse">COPIED!</span>
+                                    ) : (
+                                        <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    )}
+                                </button>
                             </div>
                         </div>
                         <button onClick={() => disconnect()} className="text-xs text-white/40 hover:text-white/70 transition-colors">
@@ -217,11 +227,10 @@ export default function DepositPage() {
                                     <button
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
-                                        className={`py-2 px-3 rounded-lg font-bold transition-all border ${
-                                            selectedToken.symbol === token.symbol
+                                        className={`py-2 px-3 rounded-lg font-bold transition-all border ${selectedToken.symbol === token.symbol
                                                 ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
                                                 : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex flex-col items-center gap-1">
                                             <div className="flex items-center gap-1">
