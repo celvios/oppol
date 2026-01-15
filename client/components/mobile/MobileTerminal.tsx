@@ -241,7 +241,7 @@ export function MobileTerminal() {
     }, [markets, selectedMarketId, searchParams]);
 
     const fetchData = useCallback(async () => {
-        if (!isConnected || !address) return;
+        // if (!isConnected || !address) return; // Allow fetching for visitors
 
         setMarketError(null);
         setIsLoadingReal(true);
@@ -250,7 +250,7 @@ export function MobileTerminal() {
             // Parallel requests for faster loading
             const [allMarkets, depositedBalance] = await Promise.all([
                 web3Service.getMarkets(),
-                web3Service.getDepositedBalance(address).catch(() => '0')
+                address ? web3Service.getDepositedBalance(address).catch(() => '0') : Promise.resolve('0')
             ]);
 
             if (allMarkets.length === 0) {
@@ -303,39 +303,7 @@ export function MobileTerminal() {
         return <div className="p-6"><SkeletonLoader /></div>;
     }
 
-    if (!isConnected && mounted) {
-        return (
-            <div className="flex items-center justify-center min-h-screen p-6">
-                <div className="text-center max-w-md">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                        <Wallet className="w-10 h-10 text-primary" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                    <p className="text-white/50 mb-8">
-                        Connect your wallet to start trading on prediction markets.
-                    </p>
-                    {isMobile && (
-                        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl text-left">
-                            <p className="text-blue-400 text-sm font-semibold mb-2">📱 Mobile Users:</p>
-                            <p className="text-blue-300 text-xs leading-relaxed">
-                                For best experience, open this site in your wallet's browser:
-                                <br />• MetaMask: Tap Browser → Enter URL
-                                <br />• Trust Wallet: Tap Browser → Enter URL
-                                <br />• Coinbase Wallet: Tap Browser → Enter URL
-                            </p>
-                        </div>
-                    )}
-                    <div className="space-y-4">
-                        <ReownConnectButton
-                            className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                        >
-                            Connect Wallet
-                        </ReownConnectButton>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+
 
     if (loading) return <div className="p-6"><SkeletonLoader /></div>;
 
@@ -656,7 +624,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { signer, address } = useWallet();
+    const { signer, address, isConnected, connect } = useWallet();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
@@ -804,12 +772,18 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                     )}
 
                     <div className="mt-6">
-                        <NeonSlider
-                            onConfirm={handleBuy}
-                            isLoading={loading}
-                            side={side}
-                            disabled={loading || !amount || parseFloat(balance) === 0}
-                        />
+                        {!isConnected ? (
+                            <NeonButton onClick={() => connect()} variant="cyan" className="w-full text-lg py-4">
+                                CONNECT TO TRADE
+                            </NeonButton>
+                        ) : (
+                            <NeonSlider
+                                onConfirm={handleBuy}
+                                isLoading={loading}
+                                side={side}
+                                disabled={loading || !amount || parseFloat(balance) === 0}
+                            />
+                        )}
                     </div>
                 </div>
             </motion.div>

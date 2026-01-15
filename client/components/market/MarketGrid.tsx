@@ -16,6 +16,7 @@ const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainmen
 export default function MarketGrid({ limit, showFilters = true }: MarketGridProps) {
     const [markets, setMarkets] = useState<Market[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         async function fetchMarkets() {
@@ -33,12 +34,12 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
         fetchMarkets();
     }, []);
 
-    let filteredMarkets = selectedCategory === 'All'
-        ? markets
-        : markets.filter(m => {
-            const metadata = getMultiMarketMetadata(m.question, m.id) || getMarketMetadata(m.question, m.id);
-            return metadata.category === selectedCategory;
-        });
+    let filteredMarkets = markets.filter(m => {
+        const metadata = getMultiMarketMetadata(m.question, m.id) || getMarketMetadata(m.question, m.id);
+        const matchesCategory = selectedCategory === 'All' || metadata.category === selectedCategory;
+        const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+    });
 
     // Apply limit if specified (for trending section)
     if (limit && limit > 0) {
@@ -56,6 +57,22 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
                     >
                         <span className="text-gradient-cyan">Live</span> Predictions
                     </motion.h2>
+
+                    {/* Search Bar */}
+                    <div className="max-w-md mx-auto mb-8 relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search markets..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-10 pr-4 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
+                        />
+                    </div>
 
                     {/* Category Filters */}
                     <div className="flex flex-wrap gap-3 justify-center mb-10">

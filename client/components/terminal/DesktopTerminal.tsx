@@ -133,17 +133,21 @@ export function DesktopTerminal() {
     }, []);
 
     const fetchData = useCallback(async () => {
-        if (!isConnected || !address) return;
+        // if (!isConnected || !address) return;
         console.log('[DesktopTerminal] fetchData called');
         try {
             const allMarkets = await web3Service.getMarkets();
-            console.log('[DesktopTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
-            try {
-                const depositedBalance = await web3Service.getDepositedBalance(address);
-                setBalance(depositedBalance);
-            } catch (e) {
-                console.error('[DesktopTerminal] Balance fetch error:', e);
+
+            if (address) {
+                try {
+                    const depositedBalance = await web3Service.getDepositedBalance(address);
+                    setBalance(depositedBalance);
+                } catch (e) {
+                    console.error('[DesktopTerminal] Balance fetch error:', e);
+                    setBalance('0');
+                }
+            } else {
                 setBalance('0');
             }
         } catch (error) {
@@ -154,15 +158,10 @@ export function DesktopTerminal() {
     }, [isConnected, address]);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isConnected) {
-            fetchData();
-            interval = setInterval(fetchData, 5000);
-        } else {
-            setLoading(false);
-        }
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
-    }, [isConnected, address, fetchData]);
+    }, [fetchData]);
 
     // --- Animation / Heartbeat Logic ---
     useEffect(() => {
@@ -211,6 +210,10 @@ export function DesktopTerminal() {
     // --- Trading Logic ---
 
     const handleTrade = async () => {
+        if (!isConnected) {
+            connect();
+            return;
+        }
         if (!amount || parseFloat(amount) <= 0) return;
         setIsTradeLoading(true);
 
@@ -256,25 +259,7 @@ export function DesktopTerminal() {
         return <div className="p-10"><SkeletonLoader /></div>;
     }
 
-    if (!isConnected && mounted) {
-        return (
-            <>
-                <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-radial from-neon-cyan/5 to-transparent opacity-50" />
-                    <GlassCard className="p-12 text-center max-w-md relative z-10 border-neon-cyan/30 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
-                        <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center animate-pulse-slow">
-                            <Wallet className="w-10 h-10 text-neon-cyan" />
-                        </div>
-                        <h2 className="text-3xl font-heading font-bold text-white mb-4">Initialize Terminal</h2>
-                        <p className="text-text-secondary mb-10 text-lg">Connect your neural link (wallet) to access prediction markets.</p>
-                        <NeonButton onClick={() => connect()} variant="cyan" className="w-full text-lg py-6">
-                            ESTABLISH CONNECTION
-                        </NeonButton>
-                    </GlassCard>
-                </div>
-            </>
-        );
-    }
+
 
     if (loading || !market) return <div className="p-10"><SkeletonLoader /></div>;
 
@@ -632,12 +617,18 @@ export function DesktopTerminal() {
                         </div>
                     ) : (
                         <div className="mt-auto">
-                            <NeonSlider
-                                side={tradeSide}
-                                onConfirm={handleTrade}
-                                isLoading={isTradeLoading}
-                                disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0}
-                            />
+                            {!isConnected ? (
+                                <NeonButton onClick={() => connect()} variant="cyan" className="w-full text-lg py-4">
+                                    CONNECT TO TRADE
+                                </NeonButton>
+                            ) : (
+                                <NeonSlider
+                                    side={tradeSide}
+                                    onConfirm={handleTrade}
+                                    isLoading={isTradeLoading}
+                                    disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0}
+                                />
+                            )}
                         </div>
                     )}
                 </GlassCard>

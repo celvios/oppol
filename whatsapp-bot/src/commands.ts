@@ -1,4 +1,3 @@
-import { Message } from 'whatsapp-web.js';
 import { apiClient } from './api';
 import { BotState, getSession, updateSession, resetSession } from './session';
 import { messages } from './messages';
@@ -6,6 +5,13 @@ import { logger } from './logger';
 import { Validators } from './validators';
 import { handleError, ErrorMessages } from './errors';
 import { RateLimiter } from './rateLimit';
+
+// Mock message interface for compatibility
+interface Message {
+    body: string;
+    from: string;
+    reply: (text: string) => Promise<void>;
+}
 
 export class CommandHandler {
     /**
