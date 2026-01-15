@@ -76,7 +76,7 @@ export function DesktopTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address, isLoading: walletLoading, connect } = useWallet();
+    const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -391,9 +391,9 @@ export function DesktopTerminal() {
 
                         <div className="flex gap-8 items-end mt-4">
                             <div>
-                                <div className="text-sm text-text-secondary uppercase tracking-widest mb-1">Probability</div>
+                                <div className="text-sm text-text-secondary uppercase tracking-widest mb-1">Chance</div>
                                 <div className={`text-6xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
-                                    {chartView === 'YES' ? market.yesOdds.toFixed(1) : market.noOdds.toFixed(1)}%
+                                    {chartView === 'YES' ? market.yesOdds.toFixed(1) : market.noOdds.toFixed(1)}% Chance
                                 </div>
                             </div>
 
@@ -408,7 +408,7 @@ export function DesktopTerminal() {
 
                             <div>
                                 <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Liquidity</div>
-                                <div className="text-xl font-mono text-white">${parseFloat(market.liquidityParam || '0').toFixed(0)}</div>
+                                <div className="text-xl font-mono text-white">${parseFloat((market as any).liquidityParam || '0').toFixed(0)}</div>
                             </div>
                         </div>
                     </div>

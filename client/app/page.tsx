@@ -55,7 +55,7 @@ export default function Home() {
             </h1>
 
             <p className="text-lg md:text-xl text-text-secondary mb-12 leading-relaxed max-w-2xl font-light">
-              The world's first <span className="text-white font-medium">WhatsApp-Native</span> Prediction Market.
+              The world's first <span className="text-white font-medium">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
               <br className="hidden md:block" />
               Experience liquidity that feels like water.
             </p>

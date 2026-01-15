@@ -84,9 +84,8 @@ export default function SearchPage() {
                         <button
                             key={filter.id}
                             onClick={() => setActiveFilter(filter.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap ${
-                                isActive ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' : 'bg-white/5 border-white/10 text-text-secondary'
-                            }`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap ${isActive ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' : 'bg-white/5 border-white/10 text-text-secondary'
+                                }`}
                         >
                             <Icon size={14} />
                             <span className="text-sm font-medium">{filter.label}</span>
@@ -100,26 +99,40 @@ export default function SearchPage() {
                     Array(3).fill(0).map((_, i) => <SkeletonLoader key={i} />)
                 ) : filteredMarkets.length > 0 ? (
                     <Suspense fallback={<SkeletonLoader />}>
-                        {filteredMarkets.map((m) => (
-                            <Link key={m.id} href={`/terminal?marketId=${m.id}`}>
-                                <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <h4 className="text-base font-medium text-white line-clamp-2 w-3/4">{m.question}</h4>
-                                        <span className={`font-mono text-sm font-bold ${m.yesOdds >= 50 ? 'text-outcome-a' : 'text-outcome-b'}`}>
-                                            {m.yesOdds.toFixed(0)}%
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-                                        <div style={{ width: `${m.yesOdds}%` }} className="h-full bg-outcome-a" />
-                                        <div style={{ width: `${m.noOdds}%` }} className="h-full bg-outcome-b" />
-                                    </div>
-                                    <div className="flex justify-between items-center mt-3 text-xs text-text-secondary">
-                                        <span>${parseFloat(m.totalVolume).toLocaleString()} Vol</span>
-                                        <span className="flex items-center gap-1">Trade <TrendingUp size={10} /></span>
-                                    </div>
-                                </GlassCard>
-                            </Link>
-                        ))}
+                        {filteredMarkets.map((m) => {
+                            // Icon Logic
+                            let MarketIcon = Zap;
+                            if (/BTC|ETH|Bitcoin|Ethereum|Solana|Crypto/i.test(m.question)) MarketIcon = TrendingUp;
+                            else if (/AI|GPT|Intel|Nvidia|Tech/i.test(m.question)) MarketIcon = Cpu;
+                            else if (/Election|Vote|Politics|War/i.test(m.question)) MarketIcon = Globe;
+
+                            return (
+                                <Link key={m.id} href={`/terminal?marketId=${m.id}`}>
+                                    <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
+                                        <div className="flex justify-between items-start mb-3 gap-4">
+                                            <div className="flex items-start gap-3">
+                                                {/* Icon Container */}
+                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors">
+                                                    <MarketIcon className="w-5 h-5 text-neon-cyan/80" />
+                                                </div>
+                                                <h4 className="text-base font-medium text-white line-clamp-2 pt-1">{m.question}</h4>
+                                            </div>
+                                            <span className={`font-mono text-sm font-bold whitespace-nowrap ${m.yesOdds >= 50 ? 'text-outcome-a' : 'text-outcome-b'}`}>
+                                                {m.yesOdds.toFixed(0)}% Chance
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex ml-13 pl-[52px]">
+                                            <div style={{ width: `${m.yesOdds}%` }} className="h-full bg-outcome-a" />
+                                            <div style={{ width: `${m.noOdds}%` }} className="h-full bg-outcome-b" />
+                                        </div>
+                                        <div className="flex justify-between items-center mt-3 text-xs text-text-secondary pl-[52px]">
+                                            <span>${parseFloat(m.totalVolume).toLocaleString()} Vol</span>
+                                            <span className="flex items-center gap-1">Trade <TrendingUp size={10} /></span>
+                                        </div>
+                                    </GlassCard>
+                                </Link>
+                            );
+                        })}
                     </Suspense>
                 ) : (
                     <div className="text-center py-20 text-white/30">
