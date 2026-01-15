@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
 import { getContracts } from '@/lib/contracts';
-import { Contract } from 'ethers';
+import { Contract, ethers } from 'ethers';
 
 const MARKET_ABI = [
     { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -36,8 +36,17 @@ export default function WithdrawPage() {
         if (!address) return;
         setIsBalanceLoading(true);
         try {
-            // Placeholder for balance fetching
-            setDepositedBalance('0.00');
+            if (!window.ethereum) {
+                setDepositedBalance('0.00');
+                return;
+            }
+            
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, provider);
+            
+            const balance = await marketContract.userBalances(address);
+            const formattedBalance = ethers.formatUnits(balance, 6); // USDC has 6 decimals
+            setDepositedBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
             console.error('Failed to fetch balance:', error);
             setDepositedBalance('0.00');
@@ -51,12 +60,46 @@ export default function WithdrawPage() {
         setStep('processing');
         setErrorMessage('');
         try {
-            // Placeholder for withdrawal logic
-            alert('Withdrawal functionality will be implemented with smart contract integration');
+            if (!window.ethereum) {
+                throw new Error('Please install MetaMask');
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+            
+            const amountInWei = ethers.parseUnits(withdrawAmount, 6); // USDC has 6 decimals
+            
+            console.log('Withdrawing from market contract...');
+            const withdrawTx = await marketContract.withdraw(amountInWei);
+            
+            console.log('Transaction sent, waiting for confirmation...');
+            const receipt = await withdrawTx.wait();
+            
+            console.log('Withdrawal successful!');
+            setTxHash(receipt.hash);
             setStep('complete');
+            
+            // Refresh balance after successful withdrawal
+            setTimeout(() => {
+                fetchBalance();
+            }, 2000);
+            
         } catch (error: any) {
             console.error('Withdrawal failed:', error);
-            setErrorMessage(error.message || 'Withdrawal failed');
+            let errorMessage = 'Withdrawal failed';
+            
+            if (error.code === 'ACTION_REJECTED') {
+                errorMessage = 'Transaction was rejected by user';
+            } else if (error.message?.includes('insufficient funds')) {
+                errorMessage = 'Insufficient balance for withdrawal';
+            } else if (error.message?.includes('exceeds balance')) {
+                errorMessage = 'Amount exceeds available balance';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            setErrorMessage(errorMessage);
             setStep('error');
         }
     }
