@@ -598,11 +598,11 @@ export function MobileTerminal() {
                                 >
                                     <div className="flex items-center gap-3">
                                         {/* Market Icon */}
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                             <img
                                                 src={marketMetadata.image}
                                                 alt=""
-                                                className="w-6 h-6 object-contain"
+                                                className="w-full h-full object-cover"
                                                 onError={(e) => {
                                                     // Fallback to a simple icon if image fails
                                                     e.currentTarget.style.display = 'none';
