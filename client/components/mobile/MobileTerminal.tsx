@@ -103,11 +103,33 @@ export function MobileTerminal() {
         }
     }, [searchParams]);
 
-    const [markets, setMarkets] = useState<Market[]>([]);
+    const [markets, setMarkets] = useState<Market[]>([
+        // Mock market data for immediate display
+        {
+            id: 0,
+            question: "Loading markets...",
+            outcomes: ["YES", "NO"],
+            outcomeCount: 2,
+            shares: ["1000", "1000"],
+            prices: [50, 50],
+            endTime: Date.now() / 1000 + 86400,
+            liquidityParam: "1000",
+            totalVolume: "0",
+            resolved: false,
+            winningOutcome: 0,
+            yesOdds: 50,
+            noOdds: 50,
+            yesShares: "1000",
+            noShares: "1000",
+            yesPool: "1000",
+            noPool: "1000"
+        }
+    ]);
     const [balance, setBalance] = useState<string>('0');
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Start with false to show cached data
     const [marketError, setMarketError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
+    const [isLoadingReal, setIsLoadingReal] = useState(true); // Track real data loading
     const [priceHistory, setPriceHistory] = useState<{ time: string, price: number }[]>([]);
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
@@ -224,6 +246,7 @@ export function MobileTerminal() {
         
         console.log('[MobileTerminal] fetchData called, retry count:', retryCount);
         setMarketError(null);
+        setIsLoadingReal(true);
         
         try {
             const allMarkets = await web3Service.getMarkets();
@@ -233,7 +256,7 @@ export function MobileTerminal() {
                 throw new Error('No markets returned from contract');
             }
             
-            setMarkets(allMarkets);
+            setMarkets(allMarkets); // Replace mock data with real data
             setRetryCount(0); // Reset retry count on success
 
             // Fetch deposited balance
@@ -257,6 +280,7 @@ export function MobileTerminal() {
                 }, delay);
             }
         } finally {
+            setIsLoadingReal(false);
             setLoading(false);
         }
     }, [isConnected, address, retryCount]);
@@ -264,6 +288,7 @@ export function MobileTerminal() {
     useEffect(() => {
         if (!isConnected) {
             setLoading(false);
+            setIsLoadingReal(false);
             return;
         }
         fetchData();
@@ -363,7 +388,7 @@ export function MobileTerminal() {
                         onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors cursor-pointer"
                     >
-                        <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
+                        <div className={`w-2 h-2 rounded-full ${isLoadingReal ? 'bg-yellow-400 animate-pulse' : 'bg-neon-cyan animate-pulse'}`} />
                         <span className="text-xs font-mono font-bold text-white tracking-widest">
                             {copied ? 'COPIED!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
                         </span>
@@ -421,6 +446,7 @@ export function MobileTerminal() {
                 <div className="px-6 py-8 relative z-10">
                     <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md relative z-10">
                         {market.question}
+                        {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
                     </h1>
 
                     {metadata && (
