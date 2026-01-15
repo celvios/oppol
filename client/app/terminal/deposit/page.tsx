@@ -23,7 +23,7 @@ const MARKET_ABI = [
 ];
 
 const STABLECOINS = [
-    { symbol: 'USDC', address: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0', decimals: 6, direct: true }, // MockUSDC - direct deposit
+    { symbol: 'USDC', address: '0x5931e7b7a700037Fe62b876e28AD7F64dce14d11', decimals: 6, direct: true }, // MockUSDC - direct deposit
 ];
 
 export default function DepositPage() {

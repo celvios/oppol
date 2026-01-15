@@ -13,7 +13,7 @@ export const CONTRACTS = {
         predictionMarket: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
         predictionMarketLMSR: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
         predictionMarketMulti: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
-        mockUSDC: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0',
+        mockUSDC: '0x5931e7b7a700037Fe62b876e28AD7F64dce14d11', // ✅ Redeployed 2026-01-15
         umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
         zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D',
     },
