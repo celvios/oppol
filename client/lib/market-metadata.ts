@@ -7,8 +7,13 @@ export interface MarketMetadata {
 export const MARKET_METADATA: Record<string, MarketMetadata> = {
     // CRYPTO
     "Will Bitcoin reach $150,000 by April 2026?": {
-        image: "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800",
+        image: "/markets/bitcoin.png",
         description: "Bitcoin is on a tear. With the halving behind us and institutional adoption growing, many analysts predict a surge to $150k. This market resolves YES if BTC/USD price touches $150,000 on major exchanges before April 1st, 2026.",
+        category: "Crypto"
+    },
+    "Will BTC reach $100k by end of 2026?": {
+        image: "/markets/bitcoin.png",
+        description: "Bitcoin's journey to six figures. Will it break the psychological $100,000 barrier by end of 2026?",
         category: "Crypto"
     },
     "Will Ethereum flip Bitcoin by market cap before 2027?": {
@@ -19,13 +24,23 @@ export const MARKET_METADATA: Record<string, MarketMetadata> = {
 
     // TECH
     "Will Apple release AR glasses in 2026?": {
-        image: "https://images.unsplash.com/photo-1592478411213-6153e4ebc07d?w=800",
+        image: "/markets/apple.png",
         description: "Rumors have circulated for years about Apple's dedicated AR glasses (Project Orion). This market tracks official announcements. Resolves YES if Apple makes the product available for purchase in 2026.",
         category: "Tech"
     },
+    "Which company releases consumer AR glasses first?": {
+        image: "/markets/ar-glasses.png",
+        description: "The AR glasses race. Apple, Meta, Google, or Samsung to bring consumer AR first?",
+        category: "Tech"
+    },
     "Will AI replace 50% of software jobs by 2030?": {
-        image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800",
+        image: "/markets/ai.png",
         description: "AI coding assistants are getting powerful. Will they replace half of all software engineering jobs? Resolves YES if verified employment data shows 50%+ reduction in software developer positions by 2030.",
+        category: "Tech"
+    },
+    "Which AI company will lead benchmarks in 2026?": {
+        image: "/markets/ai.png",
+        description: "AI leadership race 2026. OpenAI, Google DeepMind, Anthropic, or Meta AI on top?",
         category: "Tech"
     },
     "Will SpaceX land humans on Mars by 2028?": {
@@ -59,6 +74,11 @@ export const MARKET_METADATA: Record<string, MarketMetadata> = {
     },
 
     // ENTERTAINMENT
+    "Who will win Grammy Album of the Year 2026?": {
+        image: "/markets/grammy.png",
+        description: "Grammy Awards 2026 Album of the Year prediction. Drake, Taylor Swift, Kendrick, or The Weeknd?",
+        category: "Entertainment"
+    },
     "Will GTA 6 release in 2025?": {
         image: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800",
         description: "The most anticipated game ever. Rockstar has been silent for years. Will GTA 6 finally launch in 2025? Resolves YES if game is officially released.",
@@ -84,12 +104,12 @@ export const MARKET_METADATA: Record<string, MarketMetadata> = {
 
     // Fallback by ID
     "0": {
-        image: "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800",
+        image: "/markets/bitcoin.png",
         description: "Bitcoin's price action is the talk of the town. Will it break new all-time highs?",
         category: "Crypto"
     },
     "1": {
-        image: "https://images.unsplash.com/photo-1592478411213-6153e4ebc07d?w=800",
+        image: "/markets/apple.png",
         description: "Apple's next big thing? AR glasses could redefine computing.",
         category: "Tech"
     },
