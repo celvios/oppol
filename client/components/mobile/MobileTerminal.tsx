@@ -166,11 +166,11 @@ export function MobileTerminal() {
     useEffect(() => {
         const interval = setInterval(() => {
             if (!marketRef.current) return;
-            
+
             const basePrice = marketRef.current?.yesOdds || 50;
             const now = Date.now();
             const timeString = new Date(now).toLocaleTimeString();
-            
+
             setPriceHistory(prev => {
                 const newPoint = { time: timeString, price: basePrice };
                 const newHistory = prev.length > 0 ? [...prev, newPoint] : [newPoint];
@@ -243,28 +243,28 @@ export function MobileTerminal() {
 
     const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
-        
+
         setMarketError(null);
         setIsLoadingReal(true);
-        
+
         try {
             // Parallel requests for faster loading
             const [allMarkets, depositedBalance] = await Promise.all([
                 web3Service.getMarkets(),
                 web3Service.getDepositedBalance(address).catch(() => '0')
             ]);
-            
+
             if (allMarkets.length === 0) {
                 throw new Error('No markets available');
             }
-            
+
             setMarkets(allMarkets);
             setBalance(depositedBalance);
             setRetryCount(0);
         } catch (error: any) {
             console.error('[MobileTerminal] Error:', error);
             setMarketError(error.message || 'Failed to load markets');
-            
+
             if (retryCount < 2) { // Reduce retries to 2
                 setTimeout(() => setRetryCount(prev => prev + 1), 1000); // Faster retry
             }
@@ -339,7 +339,7 @@ export function MobileTerminal() {
     }
 
     if (loading) return <div className="p-6"><SkeletonLoader /></div>;
-    
+
     if (marketError && markets.length === 0) {
         return (
             <div className="p-6 text-white flex flex-col items-center justify-center h-[80vh]">
@@ -349,7 +349,7 @@ export function MobileTerminal() {
                     <div className="text-white/50 text-xs mb-6">
                         {retryCount < 3 ? `Retrying... (${retryCount}/3)` : 'Max retries reached'}
                     </div>
-                    <button 
+                    <button
                         onClick={() => setRetryCount(prev => prev + 1)}
                         disabled={retryCount >= 3}
                         className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg disabled:opacity-50"
@@ -360,7 +360,7 @@ export function MobileTerminal() {
             </div>
         );
     }
-    
+
     if (!market) return <div className="p-6 text-white/50 flex items-center justify-center h-[80vh] font-mono">[SYSTEM: NO MARKETS]</div>;
 
     const currentPrice = chartView === 'YES' ? market.yesOdds : (100 - market.yesOdds);
@@ -370,44 +370,7 @@ export function MobileTerminal() {
         <div className="pb-12 relative min-h-screen">
 
             {/* 1. Header */}
-            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
-                <div className="relative">
-                    <div
-                        onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 active:bg-white/10 transition-colors cursor-pointer"
-                    >
-                        <div className={`w-2 h-2 rounded-full ${isLoadingReal ? 'bg-yellow-400 animate-pulse' : 'bg-neon-cyan animate-pulse'}`} />
-                        <span className="text-xs font-mono font-bold text-white tracking-widest">
-                            {copied ? 'COPIED!' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
-                        </span>
-                    </div>
-
-                    {/* Dropdown Menu */}
-                    <AnimatePresence>
-                        {isHeaderMenuOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 10 }}
-                                className="absolute top-full left-0 mt-2 min-w-[160px] bg-surface border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 backdrop-blur-xl"
-                            >
-                                <button
-                                    onClick={() => { copyAddress(); setIsHeaderMenuOpen(false); }}
-                                    className="w-full text-left px-4 py-3 text-xs font-mono text-white hover:bg-white/5 transition-colors border-b border-white/5"
-                                >
-                                    Copy Address
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-left px-4 py-3 text-xs font-mono text-neon-coral hover:bg-neon-coral/10 transition-colors font-bold"
-                                >
-                                    Disconnect
-                                </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-
+            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-end items-center">
                 <div className="text-right">
                     <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
                     <div className="font-mono text-sm text-white">
@@ -435,9 +398,9 @@ export function MobileTerminal() {
                     <div className="flex items-start gap-4 mb-4">
                         {/* Market Icon */}
                         <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0">
-                            <img 
-                                src={metadata?.image || '/markets/bitcoin.png'} 
-                                alt="" 
+                            <img
+                                src={metadata?.image || '/markets/bitcoin.png'}
+                                alt=""
                                 className="w-8 h-8 object-contain"
                                 onError={(e) => {
                                     // Fallback to a simple icon if image fails
@@ -445,7 +408,7 @@ export function MobileTerminal() {
                                 }}
                             />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                             <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
                                 {market.question}
@@ -636,9 +599,9 @@ export function MobileTerminal() {
                                     <div className="flex items-center gap-3">
                                         {/* Market Icon */}
                                         <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0">
-                                            <img 
-                                                src={marketMetadata.image} 
-                                                alt="" 
+                                            <img
+                                                src={marketMetadata.image}
+                                                alt=""
                                                 className="w-6 h-6 object-contain"
                                                 onError={(e) => {
                                                     // Fallback to a simple icon if image fails
@@ -646,7 +609,7 @@ export function MobileTerminal() {
                                                 }}
                                             />
                                         </div>
-                                        
+
                                         <div className="flex-1 min-w-0">
                                             <h4 className="text-sm font-medium text-white line-clamp-2 leading-snug mb-1">{m.question}</h4>
                                             <div className="flex justify-between items-center">
