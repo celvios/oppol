@@ -1,27 +1,44 @@
 import crypto from 'crypto';
-import dotenv from 'dotenv';
 
-dotenv.config();
+const ALGORITHM = 'aes-256-gcm';
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 64), 'hex');
 
-const ALGORITHM = 'aes-256-cbc';
-// Key must be 32 bytes (256 bits). If string is shorter, we hash it to fit.
-const ENCRYPTION_KEY = crypto.createHash('sha256').update(String(process.env.ENCRYPTION_KEY)).digest('base64').substr(0, 32);
-const IV_LENGTH = 16; // For AES, this is always 16
+export class EncryptionService {
+    /**
+     * Encrypt sensitive data (like private keys)
+     */
+    static encrypt(text: string): string {
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+        
+        let encrypted = cipher.update(text, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        
+        const authTag = cipher.getAuthTag();
+        
+        // Return: iv:authTag:encrypted
+        return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+    }
 
-export const encrypt = (text: string): string => {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-};
+    /**
+     * Decrypt sensitive data
+     */
+    static decrypt(encryptedData: string): string {
+        const parts = encryptedData.split(':');
+        if (parts.length !== 3) {
+            throw new Error('Invalid encrypted data format');
+        }
 
-export const decrypt = (text: string): string => {
-    const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY), iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-};
+        const [ivHex, authTagHex, encrypted] = parts;
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
+
+        const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
+        decipher.setAuthTag(authTag);
+
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+
+        return decrypted;
+    }
+}

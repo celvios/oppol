@@ -12,8 +12,8 @@ export class ApiClient {
      */
     async getUserByPhone(phoneNumber: string): Promise<{ walletAddress: string; isNew: boolean } | null> {
         try {
-            const response = await axios.get(`${API_URL}/whatsapp/user`, {
-                params: { phone: phoneNumber }
+            const response = await axios.post(`${API_URL}/whatsapp/user`, {
+                phone: phoneNumber
             });
             if (response.data.success) {
                 return {
@@ -87,9 +87,9 @@ export class ApiClient {
     /**
      * Generate a Magic Link for user authentication
      */
-    async generateMagicLink(phone: string): Promise<string | null> {
-        // Disabled: Web Login is now distinct from WhatsApp
-        return null;
+    async generateMagicLink(phoneNumber: string): Promise<string> {
+        // Return direct link to terminal
+        return `${FRONTEND_URL}/terminal?phone=${phoneNumber}`;
     }
 
     /**

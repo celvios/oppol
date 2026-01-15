@@ -1,6 +1,7 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { commandHandler } from './commands';
+import { logger } from './logger';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -30,6 +31,9 @@ client.on('qr', (qr) => {
 
 // Ready
 client.on('ready', () => {
+    logger.info('Bot is ONLINE');
+    logger.info(`API: ${process.env.API_URL || 'http://localhost:3000/api'}`);
+    logger.info(`Web: ${process.env.FRONTEND_URL || 'http://localhost:3001'}`);
     console.log(`
 ✅ Bot is ONLINE
 
@@ -53,14 +57,14 @@ client.on('message', async (message) => {
     // Ignore empty messages
     if (!text) return;
 
-    console.log(`📨 ${message.from.split('@')[0]}: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`);
+    logger.info('Message received', { from: message.from.split('@')[0], text: text.substring(0, 50) });
 
     try {
         const response = await commandHandler.handleMessage(message);
         await message.reply(response);
-        console.log(`✅ Replied\n`);
+        logger.info('Reply sent', { from: message.from.split('@')[0] });
     } catch (error) {
-        console.error('❌ Error:', error);
+        logger.error('Message handling error', { from: message.from.split('@')[0], error });
         await message.reply('❌ Something went wrong. Reply *menu* to start over.');
     }
 });

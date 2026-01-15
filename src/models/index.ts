@@ -77,6 +77,19 @@ const createTablesQuery = `
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- WhatsApp Transactions Table (Bot-specific transactions)
+  CREATE TABLE IF NOT EXISTS whatsapp_transactions (
+    id SERIAL PRIMARY KEY,
+    phone_number VARCHAR(20) REFERENCES whatsapp_users(phone_number),
+    type VARCHAR(20) NOT NULL,
+    market_id INTEGER,
+    side VARCHAR(3),
+    amount DECIMAL(18, 6) NOT NULL,
+    tx_hash VARCHAR(66),
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Price History Table (for charts)
   CREATE TABLE IF NOT EXISTS price_history (
     id SERIAL PRIMARY KEY,
@@ -93,6 +106,8 @@ const createTablesQuery = `
   CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
   CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
   CREATE INDEX IF NOT EXISTS idx_whatsapp_wallet ON whatsapp_users(wallet_address);
+  CREATE INDEX IF NOT EXISTS idx_whatsapp_tx_phone ON whatsapp_transactions(phone_number);
+  CREATE INDEX IF NOT EXISTS idx_whatsapp_tx_hash ON whatsapp_transactions(tx_hash);
 `;
 
 export const initDatabase = async () => {

@@ -1,6 +1,9 @@
 /**
  * User Session State Machine for WhatsApp Bot
+ * Now using Redis for persistence
  */
+
+import { redis } from './rateLimit';
 
 export enum BotState {
     IDLE = 'IDLE',
@@ -27,42 +30,70 @@ export interface UserSession {
     lastActivity: number;
 }
 
-// In-memory session store (use Redis for production)
-const sessions: Map<string, UserSession> = new Map();
+// Session timeout: 30 minutes
+const SESSION_TIMEOUT = 30 * 60; // seconds
 
-// Session timeout: 10 minutes
-const SESSION_TIMEOUT = 10 * 60 * 1000;
+const defaultSession: UserSession = {
+    state: BotState.IDLE,
+    lastActivity: Date.now(),
+};
 
-export function getSession(phoneNumber: string): UserSession {
-    const existing = sessions.get(phoneNumber);
-
-    // Check for timeout
-    if (existing && Date.now() - existing.lastActivity > SESSION_TIMEOUT) {
-        sessions.delete(phoneNumber);
+export async function getSession(phoneNumber: string): Promise<UserSession> {
+    try {
+        const key = `session:${phoneNumber}`;
+        const data = await redis.get(key);
+        
+        if (data) {
+            const session = JSON.parse(data) as UserSession;
+            session.lastActivity = Date.now();
+            // Refresh TTL
+            await redis.setex(key, SESSION_TIMEOUT, JSON.stringify(session));
+            return session;
+        }
+        
+        // Create new session
+        const newSession = { ...defaultSession };
+        await redis.setex(key, SESSION_TIMEOUT, JSON.stringify(newSession));
+        return newSession;
+    } catch (error) {
+        console.error('Session get error:', error);
+        // Fallback to default session if Redis fails
+        return { ...defaultSession };
     }
+}
 
-    if (!sessions.has(phoneNumber)) {
-        sessions.set(phoneNumber, {
-            state: BotState.IDLE,
+export async function updateSession(phoneNumber: string, updates: Partial<UserSession>): Promise<UserSession> {
+    try {
+        const session = await getSession(phoneNumber);
+        const updated = { ...session, ...updates, lastActivity: Date.now() };
+        
+        const key = `session:${phoneNumber}`;
+        await redis.setex(key, SESSION_TIMEOUT, JSON.stringify(updated));
+        
+        return updated;
+    } catch (error) {
+        console.error('Session update error:', error);
+        return { ...defaultSession, ...updates };
+    }
+}
+
+export async function resetSession(phoneNumber: string): Promise<void> {
+    try {
+        const key = `session:${phoneNumber}`;
+        const newSession: UserSession = {
+            state: BotState.MAIN_MENU,
             lastActivity: Date.now(),
-        });
+        };
+        await redis.setex(key, SESSION_TIMEOUT, JSON.stringify(newSession));
+    } catch (error) {
+        console.error('Session reset error:', error);
     }
-
-    const session = sessions.get(phoneNumber)!;
-    session.lastActivity = Date.now();
-    return session;
 }
 
-export function updateSession(phoneNumber: string, updates: Partial<UserSession>): UserSession {
-    const session = getSession(phoneNumber);
-    Object.assign(session, updates, { lastActivity: Date.now() });
-    sessions.set(phoneNumber, session);
-    return session;
-}
-
-export function resetSession(phoneNumber: string): void {
-    sessions.set(phoneNumber, {
-        state: BotState.MAIN_MENU,
-        lastActivity: Date.now(),
-    });
+export async function deleteSession(phoneNumber: string): Promise<void> {
+    try {
+        await redis.del(`session:${phoneNumber}`);
+    } catch (error) {
+        console.error('Session delete error:', error);
+    }
 }

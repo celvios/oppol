@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../config/database';
-import { decrypt } from '../services/encryption';
+import { EncryptionService } from '../services/encryption';
+import { CustodialWalletService } from '../services/custodialWallet';
 import { ethers } from 'ethers';
 
 // Contract addresses
@@ -56,7 +57,7 @@ export const placeBet = async (req: Request, res: Response) => {
         const custodialWallet = walletResult.rows[0];
 
         // Decrypt private key
-        const privateKey = decrypt(custodialWallet.encrypted_private_key);
+        const privateKey = EncryptionService.decrypt(custodialWallet.encrypted_private_key);
 
         // Connect to blockchain
         const provider = new ethers.JsonRpcProvider(RPC_URL);

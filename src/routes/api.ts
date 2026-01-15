@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { generateMagicLink, verifyMagicToken } from '../controllers/authController';
 import { getWallet, linkWallet } from '../controllers/walletController';
+import { WhatsAppController } from '../controllers/whatsappController';
+import { placeBet, estimateBetCost } from '../controllers/betController';
 import balanceRoutes from './balance';
 
 const router = Router();
@@ -15,6 +17,14 @@ router.get('/wallet/:userId', getWallet);
 
 // Balance Routes
 router.use('/balance', balanceRoutes);
+
+// WhatsApp Bot Routes
+router.post('/whatsapp/user', WhatsAppController.getOrCreateUser);
+router.get('/whatsapp/user', WhatsAppController.getUserByPhone);
+
+// Bet Routes
+router.post('/bet', placeBet);
+router.get('/bet/estimate', estimateBetCost);
 
 // Market & Category Routes
 import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories } from '../controllers/marketController';

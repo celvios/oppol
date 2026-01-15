@@ -2,6 +2,10 @@ import { Message } from 'whatsapp-web.js';
 import { apiClient } from './api';
 import { BotState, getSession, updateSession, resetSession } from './session';
 import { messages } from './messages';
+import { logger } from './logger';
+import { Validators } from './validators';
+import { handleError, ErrorMessages } from './errors';
+import { RateLimiter } from './rateLimit';
 
 export class CommandHandler {
     /**
@@ -10,13 +14,20 @@ export class CommandHandler {
     async handleMessage(message: Message): Promise<string> {
         const text = message.body.trim().toLowerCase();
         const phoneNumber = message.from.replace('@c.us', '');
-        const session = getSession(phoneNumber);
-
-        console.log(`📱 [${phoneNumber}] State: ${session.state} | Input: "${text}"`);
+        
+        // Rate limiting
+        const allowed = await RateLimiter.checkLimit(phoneNumber, 'message');
+        if (!allowed) {
+            logger.warn('Rate limit exceeded', { phone: phoneNumber });
+            return ErrorMessages.RATE_LIMITED;
+        }
+        
+        const session = await getSession(phoneNumber);
+        logger.info('Message received', { phone: phoneNumber, state: session.state, input: text });
 
         // Global commands (work from any state)
         if (text === 'menu' || text === 'start' || text === '/menu' || text === '/start') {
-            resetSession(phoneNumber);
+            await resetSession(phoneNumber);
             return messages.mainMenu;
         }
 
@@ -28,7 +39,7 @@ export class CommandHandler {
         try {
             switch (session.state) {
                 case BotState.IDLE:
-                    return this.handleIdle(phoneNumber);
+                    return await this.handleIdle(phoneNumber);
 
                 case BotState.MAIN_MENU:
                     return await this.handleMainMenu(phoneNumber, text);
@@ -49,30 +60,30 @@ export class CommandHandler {
                     return await this.handleProfile(phoneNumber, text);
 
                 case BotState.DEPOSIT:
-                    return this.handleDeposit(phoneNumber, text);
+                    return await this.handleDeposit(phoneNumber, text);
 
                 case BotState.WITHDRAW_AMOUNT:
                     return await this.handleWithdrawAmount(phoneNumber, text);
 
                 case BotState.WITHDRAW_ADDRESS:
-                    return this.handleWithdrawAddress(phoneNumber, text);
+                    return await this.handleWithdrawAddress(phoneNumber, text);
 
                 case BotState.WITHDRAW_CONFIRM:
                     return await this.handleWithdrawConfirm(phoneNumber, text);
 
                 default:
-                    return this.handleIdle(phoneNumber);
+                    return await this.handleIdle(phoneNumber);
             }
         } catch (error) {
-            console.error('Error handling message:', error);
-            return messages.error;
+            logger.error('Error handling message', { phone: phoneNumber, error });
+            return handleError(error);
         }
     }
 
     // ============ STATE HANDLERS ============
 
-    private handleIdle(phoneNumber: string): string {
-        updateSession(phoneNumber, { state: BotState.MAIN_MENU });
+    private async handleIdle(phoneNumber: string): Promise<string> {
+        await updateSession(phoneNumber, { state: BotState.MAIN_MENU });
         return messages.welcome + '\n\n' + messages.mainMenu;
     }
 
@@ -179,10 +190,10 @@ export class CommandHandler {
     }
 
     private async handleBetAmount(phoneNumber: string, input: string): Promise<string> {
-        const session = getSession(phoneNumber);
+        const session = await getSession(phoneNumber);
 
         if (input === '0' || input === 'cancel' || input === 'back') {
-            updateSession(phoneNumber, { state: BotState.MARKET_DETAIL });
+            await updateSession(phoneNumber, { state: BotState.MARKET_DETAIL });
             const market = await apiClient.getMarket(session.selectedMarketId!);
             return messages.marketDetail(
                 market.question,
@@ -194,12 +205,8 @@ export class CommandHandler {
             );
         }
 
-        const amount = parseFloat(input.replace('$', '').replace(',', ''));
-        if (isNaN(amount) || amount <= 0) {
-            const market = await apiClient.getMarket(session.selectedMarketId!);
-            const balance = await this.getBalance(phoneNumber);
-            return messages.invalidInput + '\n\n' + messages.betAmount(session.betSide!, market.question, balance);
-        }
+        // Validate amount
+        const amount = Validators.validateAmount(input);
 
         // Check balance
         const balance = await this.getBalance(phoneNumber);
@@ -212,7 +219,7 @@ export class CommandHandler {
         const price = session.betSide === 'YES' ? market.yesOdds / 100 : (100 - market.yesOdds) / 100;
         const estimatedShares = Math.floor(amount / price);
 
-        updateSession(phoneNumber, {
+        await updateSession(phoneNumber, {
             state: BotState.BET_CONFIRM,
             betAmount: amount
         });
@@ -227,17 +234,31 @@ export class CommandHandler {
     }
 
     private async handleBetConfirm(phoneNumber: string, input: string): Promise<string> {
-        const session = getSession(phoneNumber);
+        const session = await getSession(phoneNumber);
 
         if (input === '0' || input === 'cancel' || input === 'back') {
-            updateSession(phoneNumber, { state: BotState.BET_AMOUNT });
+            await updateSession(phoneNumber, { state: BotState.BET_AMOUNT });
             const market = await apiClient.getMarket(session.selectedMarketId!);
             const balance = await this.getBalance(phoneNumber);
             return messages.betAmount(session.betSide!, market.question, balance);
         }
 
         if (input === '1' || input === 'confirm' || input === 'yes') {
+            // Rate limit bets
+            const allowed = await RateLimiter.checkLimit(phoneNumber, 'bet');
+            if (!allowed) {
+                logger.warn('Bet rate limit exceeded', { phone: phoneNumber });
+                return ErrorMessages.RATE_LIMITED + '\n\nYou can place up to 5 bets per minute.';
+            }
+            
             try {
+                logger.info('Placing bet', { 
+                    phone: phoneNumber, 
+                    marketId: session.selectedMarketId, 
+                    side: session.betSide, 
+                    amount: session.betAmount 
+                });
+                
                 const result = await apiClient.placeBet(
                     phoneNumber,
                     session.selectedMarketId!,
@@ -245,7 +266,12 @@ export class CommandHandler {
                     session.betAmount!
                 );
 
-                updateSession(phoneNumber, { state: BotState.MAIN_MENU });
+                logger.info('Bet placed successfully', { 
+                    phone: phoneNumber, 
+                    txHash: result.hash 
+                });
+                
+                await updateSession(phoneNumber, { state: BotState.MAIN_MENU });
                 return messages.betSuccess(
                     session.betSide!,
                     result.shares,
@@ -253,9 +279,9 @@ export class CommandHandler {
                     result.newPrice || 50
                 );
             } catch (error: any) {
-                console.error('Error placing bet:', error);
-                updateSession(phoneNumber, { state: BotState.MAIN_MENU });
-                return `❌ Bet failed: ${error.message}\n\nReply *menu* to try again.`;
+                logger.error('Bet failed', { phone: phoneNumber, error: error.message });
+                await updateSession(phoneNumber, { state: BotState.MAIN_MENU });
+                return handleError(error);
             }
         }
 
