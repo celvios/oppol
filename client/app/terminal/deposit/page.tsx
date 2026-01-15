@@ -6,7 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getContracts } from "@/lib/contracts";
-import { Contract } from 'ethers';
+import { Contract, ethers } from 'ethers';
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -49,10 +49,17 @@ export default function DepositPage() {
     async function fetchBalance() {
         if (!address) return;
         try {
-            // Placeholder for balance fetching
-            setTokenBalance('0.00');
+            if (!window.ethereum) return;
+            
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+            
+            const balance = await tokenContract.balanceOf(address);
+            const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
+            setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error) {
             console.error('Failed to fetch balance:', error);
+            setTokenBalance('0.00');
         }
     }
 
@@ -60,11 +67,55 @@ export default function DepositPage() {
         if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         try {
-            // Placeholder for deposit logic
-            alert('Deposit functionality will be implemented with smart contract integration');
+            // Get provider and signer
+            if (!window.ethereum) {
+                throw new Error('Please install MetaMask');
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            
+            // Create contract instances with signer
+            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+            
+            const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
+            
+            // Step 1: Check current allowance
+            const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
+            
+            if (currentAllowance < amountInWei) {
+                console.log('Approving token spend...');
+                const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
+                await approveTx.wait();
+                console.log('Approval confirmed');
+            }
+            
+            // Step 2: Deposit to market contract
+            console.log('Depositing to market...');
+            const depositTx = await marketContract.deposit(amountInWei);
+            await depositTx.wait();
+            
+            console.log('Deposit successful!');
+            alert(`Successfully deposited ${depositAmount} ${selectedToken.symbol}!`);
+            setDepositAmount('');
+            fetchBalance();
+            
         } catch (error: any) {
             console.error('Deposit failed:', error);
-            alert(error.message || 'Deposit failed');
+            let errorMessage = 'Deposit failed';
+            
+            if (error.code === 'ACTION_REJECTED') {
+                errorMessage = 'Transaction was rejected by user';
+            } else if (error.message?.includes('insufficient funds')) {
+                errorMessage = 'Insufficient funds for transaction';
+            } else if (error.message?.includes('allowance')) {
+                errorMessage = 'Token approval failed';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            alert(errorMessage);
         } finally {
             setIsProcessing(false);
         }
