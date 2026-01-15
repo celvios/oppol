@@ -62,9 +62,9 @@ export function SuccessModal({ isOpen, onClose, data }: SuccessModalProps) {
                 {/* Details Grid */}
                 <div className="space-y-4 mb-8">
                     <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
-                        <span className="text-white/40 text-sm">Side</span>
-                        <span className={`font-bold font-mono ${data.side === 'YES' ? 'text-success' : 'text-danger'}`}>
-                            {data.side}
+                        <span className="text-white/40 text-sm">Outcome</span>
+                        <span className="font-bold font-mono text-success">
+                            {data.side || 'N/A'}
                         </span>
                     </div>
 
