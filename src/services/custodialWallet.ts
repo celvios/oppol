@@ -6,13 +6,13 @@ export class CustodialWalletService {
     /**
      * Create a new custodial wallet for a WhatsApp user
      */
-    static async createWallet(phoneNumber: string): Promise<string> {
+    static async createWallet(phoneNumber: string): Promise<{ address: string, encryptedPrivateKey: string }> {
         // Generate new wallet
         const wallet = ethers.Wallet.createRandom();
-        
+
         // Encrypt private key
         const encryptedKey = EncryptionService.encrypt(wallet.privateKey);
-        
+
         // Store in database
         await query(
             `INSERT INTO whatsapp_users (phone_number, wallet_address, encrypted_private_key) 
@@ -21,9 +21,9 @@ export class CustodialWalletService {
              SET wallet_address = $2, encrypted_private_key = $3, last_active = NOW()`,
             [phoneNumber, wallet.address, encryptedKey]
         );
-        
+
         console.log(`✅ Created wallet for ${phoneNumber}: ${wallet.address}`);
-        return wallet.address;
+        return { address: wallet.address, encryptedPrivateKey: encryptedKey };
     }
 
     /**
@@ -34,23 +34,23 @@ export class CustodialWalletService {
             'SELECT wallet_address FROM whatsapp_users WHERE phone_number = $1',
             [phoneNumber]
         );
-        
+
         return result.rows[0]?.wallet_address || null;
     }
 
     /**
      * Get wallet instance for signing transactions
      */
-    static async getWallet(phoneNumber: string, provider: ethers.providers.Provider): Promise<ethers.Wallet> {
+    static async getWallet(phoneNumber: string, provider: ethers.Provider): Promise<ethers.Wallet> {
         const result = await query(
             'SELECT encrypted_private_key FROM whatsapp_users WHERE phone_number = $1',
             [phoneNumber]
         );
-        
+
         if (!result.rows[0]) {
             throw new Error('Wallet not found for phone number');
         }
-        
+
         const privateKey = EncryptionService.decrypt(result.rows[0].encrypted_private_key);
         return new ethers.Wallet(privateKey, provider);
     }
@@ -60,9 +60,10 @@ export class CustodialWalletService {
      */
     static async getOrCreateWallet(phoneNumber: string): Promise<string> {
         let address = await this.getWalletAddress(phoneNumber);
-        
+
         if (!address) {
-            address = await this.createWallet(phoneNumber);
+            const walletData = await this.createWallet(phoneNumber);
+            address = walletData.address;
         } else {
             // Update last active
             await query(
@@ -70,7 +71,7 @@ export class CustodialWalletService {
                 [phoneNumber]
             );
         }
-        
+
         return address;
     }
 }

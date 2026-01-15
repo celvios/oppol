@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "ts-node src/index.ts"
   },
   "dependencies": {
     "axios": "^1.6.0",

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../config/database';
 import { createRandomWallet } from '../services/web3';
-import { encrypt } from '../services/encryption';
+import { EncryptionService } from '../services/encryption';
 
 export const getWallet = async (req: Request, res: Response) => {
     try {
@@ -28,7 +28,7 @@ export const getWallet = async (req: Request, res: Response) => {
 // Internal function to create wallet for a user
 export const createWalletInternal = async (userId: string) => {
     const { address, privateKey } = createRandomWallet();
-    const encryptedKey = encrypt(privateKey);
+    const encryptedKey = EncryptionService.encrypt(privateKey);
 
     const result = await query(
         'INSERT INTO wallets (user_id, public_address, encrypted_private_key) VALUES ($1, $2, $3) RETURNING id, public_address',

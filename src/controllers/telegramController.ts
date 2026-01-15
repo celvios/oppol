@@ -15,7 +15,8 @@ const PREDICTION_MARKET_ABI = [
 
 const MOCK_USDC_ABI = [
     'function approve(address spender, uint256 amount) external returns (bool)',
-    'function balanceOf(address account) external view returns (uint256)'
+    'function balanceOf(address account) external view returns (uint256)',
+    'function transfer(address to, uint256 amount) external returns (bool)'
 ];
 
 export class TelegramController {
@@ -116,6 +117,41 @@ export class TelegramController {
             res.json({ success: true, balance: parseFloat(balanceFormatted) });
         } catch (error: any) {
             console.error('Get balance error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Server error' });
+        }
+    }
+    
+    static async withdraw(req: Request, res: Response) {
+        try {
+            const { telegramId, toAddress, amount } = req.body;
+            
+            const userResult = await pool.query(
+                'SELECT * FROM telegram_users WHERE telegram_id = $1',
+                [telegramId]
+            );
+            
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ success: false, message: 'User not found' });
+            }
+            
+            const user = userResult.rows[0];
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const privateKey = EncryptionService.decrypt(user.encrypted_private_key);
+            const wallet = new ethers.Wallet(privateKey, provider);
+            const amountInWei = ethers.parseUnits(amount.toString(), 6);
+            
+            const usdcContract = new ethers.Contract(MOCK_USDC_ADDRESS, MOCK_USDC_ABI, wallet);
+            const tx = await usdcContract.transfer(toAddress, amountInWei);
+            const receipt = await tx.wait();
+            
+            await pool.query(
+                'INSERT INTO telegram_transactions (telegram_id, type, amount, tx_hash, status) VALUES ($1, $2, $3, $4, $5)',
+                [telegramId, 'WITHDRAW', amount, receipt.hash, 'CONFIRMED']
+            );
+            
+            res.json({ success: true, message: 'Withdrawal successful', transactionHash: receipt.hash });
+        } catch (error: any) {
+            console.error('Withdraw error:', error);
             res.status(500).json({ success: false, message: error.message || 'Server error' });
         }
     }

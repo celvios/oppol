@@ -77,4 +77,19 @@ export class API {
             return 0;
         }
     }
+
+    static async withdraw(telegramId: number, toAddress: string, amount: number): Promise<BetResponse> {
+        try {
+            const { data } = await axios.post(`${API_URL}/api/telegram/withdraw`, {
+                telegramId,
+                toAddress,
+                amount
+            });
+            console.log('Withdraw response:', data);
+            return data;
+        } catch (error: any) {
+            console.error('Failed to withdraw:', error.message);
+            throw error;
+        }
+    }
 }

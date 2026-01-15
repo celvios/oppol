@@ -139,12 +139,14 @@ bot.on('callback_query', async (query) => {
                 await API.getOrCreateUser(chatId, query.from?.username);
                 const userResult = await API.getOrCreateUser(chatId, query.from?.username);
                 const walletAddress = userResult.user?.wallet_address;
+                const balance = await API.getUserBalance(chatId);
                 
                 bot.sendMessage(chatId, 
                     `💰 *Deposit USDC*\n\n` +
+                    `Current Balance: ${balance} USDC\n\n` +
                     `Send USDC (Base Sepolia) to:\n\n` +
                     `\`${walletAddress}\`\n\n` +
-                    `Your balance will update automatically.`,
+                    `⚡ Funds arrive in ~2-5 seconds`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
@@ -264,20 +266,23 @@ bot.on('callback_query', async (query) => {
                 });
             } else if (data?.startsWith('confirm_')) {
                 const [, marketId, outcome, amount] = data.split('_');
-                bot.sendMessage(chatId, '⏳ Placing bet...');
+                const processingMsg = await bot.sendMessage(chatId, '⏳ *Processing bet...*\n\nApproving USDC...', { parse_mode: 'Markdown' });
                 
                 try {
                     const result = await API.placeBet(chatId, parseInt(marketId), parseInt(outcome), parseFloat(amount));
                     
+                    await bot.deleteMessage(chatId, processingMsg.message_id);
                     await SessionManager.clear(chatId);
                     
                     if (result.success) {
+                        const balance = await API.getUserBalance(chatId);
                         bot.sendMessage(chatId, 
                             `✅ *Bet Placed Successfully!*\n\n` +
                             `Market ID: ${marketId}\n` +
                             `Outcome: ${outcome === '1' ? 'YES' : 'NO'}\n` +
                             `Amount: ${amount} USDC\n` +
-                            (result.transactionHash ? `\nTx: ${result.transactionHash.substring(0, 10)}...` : ''),
+                            `New Balance: ${balance} USDC\n\n` +
+                            `Tx: \`${result.transactionHash}\``,
                             {
                                 parse_mode: 'Markdown',
                                 reply_markup: {
@@ -292,6 +297,7 @@ bot.on('callback_query', async (query) => {
                         throw new Error(result.message || 'Bet placement failed');
                     }
                 } catch (error: any) {
+                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
                     bot.sendMessage(chatId, `❌ Bet failed: ${error.message}`, {
                         reply_markup: {
                             inline_keyboard: [[{ text: '🔙 Back to Markets', callback_data: 'markets' }]]
@@ -303,18 +309,22 @@ bot.on('callback_query', async (query) => {
                 const session = await SessionManager.get(chatId);
                 const withdrawAddress = session?.data.withdrawAddress;
                 
-                bot.sendMessage(chatId, '⏳ Processing withdrawal...');
+                const processingMsg = await bot.sendMessage(chatId, '⏳ *Processing withdrawal...*\n\nSending USDC...', { parse_mode: 'Markdown' });
                 
                 try {
                     const result = await API.withdraw(chatId, withdrawAddress!, amount);
+                    
+                    await bot.deleteMessage(chatId, processingMsg.message_id);
                     await SessionManager.clear(chatId);
                     
                     if (result.success) {
+                        const balance = await API.getUserBalance(chatId);
                         bot.sendMessage(chatId, 
                             `✅ *Withdrawal Successful!*\n\n` +
-                            `To: ${withdrawAddress?.substring(0, 10)}...\n` +
+                            `To: \`${withdrawAddress}\`\n` +
                             `Amount: ${amount} USDC\n` +
-                            (result.transactionHash ? `\nTx: ${result.transactionHash.substring(0, 10)}...` : ''),
+                            `New Balance: ${balance} USDC\n\n` +
+                            `Tx: \`${result.transactionHash}\``,
                             {
                                 parse_mode: 'Markdown',
                                 reply_markup: {
@@ -326,6 +336,7 @@ bot.on('callback_query', async (query) => {
                         throw new Error(result.message || 'Withdrawal failed');
                     }
                 } catch (error: any) {
+                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
                     bot.sendMessage(chatId, `❌ Withdrawal failed: ${error.message}`, {
                         reply_markup: {
                             inline_keyboard: [[{ text: '🔙 Main Menu', callback_data: 'menu' }]]
