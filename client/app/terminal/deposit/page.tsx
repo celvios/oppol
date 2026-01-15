@@ -219,25 +219,25 @@ export default function DepositPage() {
                                     <button
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
-                                        className={`py-3 px-4 rounded-lg font-bold transition-all border-2 ${
+                                        className={`py-2 px-3 rounded-lg font-bold transition-all border ${
                                             selectedToken.symbol === token.symbol
-                                                ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                                                ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
                                                 : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                         }`}
                                     >
                                         <div className="flex flex-col items-center gap-1">
                                             <div className="flex items-center gap-1">
-                                                <span>{token.symbol}</span>
+                                                <span className="text-sm">{token.symbol}</span>
                                                 {selectedToken.symbol === token.symbol && (
                                                     <CheckCircle className="w-3 h-3" />
                                                 )}
                                             </div>
                                             <span className="text-xs opacity-60">
-                                                {token.direct ? 'Direct' : 'Auto-swap'}
+                                                {token.direct ? 'Direct' : 'Swap'}
                                             </span>
                                         </div>
                                     </button>
-                                ))}
+                                ))}}
                             </div>
                             <div className="text-xs text-white/40 text-center">
                                 Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
