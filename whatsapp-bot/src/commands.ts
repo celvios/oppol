@@ -252,9 +252,10 @@ export class CommandHandler {
                     session.betAmount!,
                     result.newPrice || 50
                 );
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error placing bet:', error);
-                return messages.error;
+                updateSession(phoneNumber, { state: BotState.MAIN_MENU });
+                return `❌ Bet failed: ${error.message}\n\nReply *menu* to try again.`;
             }
         }
 
@@ -391,8 +392,27 @@ export class CommandHandler {
     private async buildProfileMessage(phoneNumber: string): Promise<string> {
         try {
             const balance = await this.getBalance(phoneNumber);
-            // TODO: Fetch real positions
-            return messages.profile(balance, 0, '0.00', []);
+            const positions = await apiClient.getPositions(phoneNumber);
+
+            // Calculate total PnL
+            let totalPnL = 0;
+            const formattedPositions = positions.slice(0, 5).map(p => {
+                const pnl = (p.currentValue - p.costBasis);
+                totalPnL += pnl;
+                return {
+                    market: p.marketQuestion,
+                    side: p.side,
+                    shares: p.shares,
+                    pnl: pnl.toFixed(2)
+                };
+            });
+
+            return messages.profile(
+                balance,
+                positions.length,
+                totalPnL.toFixed(2),
+                formattedPositions
+            );
         } catch (error) {
             console.error('Error building profile:', error);
             return messages.error;
@@ -400,14 +420,22 @@ export class CommandHandler {
     }
 
     private async buildDepositMessage(phoneNumber: string): Promise<string> {
-        // TODO: Get user's actual deposit address
-        const address = '0x71C7656EC7ab88b098defB751B7401B5f6d8976F';
-        return messages.deposit(address);
+        try {
+            const address = await apiClient.getDepositAddress(phoneNumber);
+            return messages.deposit(address);
+        } catch (error) {
+            console.error('Error building deposit message:', error);
+            return messages.error;
+        }
     }
 
     private async getBalance(phoneNumber: string): Promise<string> {
-        // TODO: Fetch from backend
-        return '1000.00';
+        try {
+            return await apiClient.getBalance(phoneNumber);
+        } catch (error) {
+            console.error('Error getting balance:', error);
+            return '0.00';
+        }
     }
 }
 

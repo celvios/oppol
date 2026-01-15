@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -22,8 +23,6 @@ const NeonSlider = lazy(() => import("@/components/ui/NeonSlider"));
 const SuccessModal = lazy(() => import("@/components/ui/SuccessModal").then(m => ({ default: m.SuccessModal })));
 const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
 const ResolutionPanel = lazy(() => import("@/components/ui/ResolutionPanel").then(m => ({ default: m.ResolutionPanel })));
-const AnimatePresence = lazy(() => import("framer-motion").then(m => ({ default: m.AnimatePresence })));
-const motion = lazy(() => import("framer-motion").then(m => ({ default: m.motion })));
 
 // Contract ABI
 const MARKET_ABI = [
@@ -64,7 +63,7 @@ const OUTCOME_COLORS = [
 
 interface TradeSuccessData {
     marketId: number;
-    side: 'YES' | 'NO';
+    side: string; // Changed from 'YES' | 'NO' to support multi-outcome names
     shares: number;
     cost: string;
     question: string;
@@ -136,7 +135,7 @@ export function MobileTerminal() {
     const [tradeSide, setTradeSide] = useState<string>('YES'); // Changed to string to support multi-outcome names
     const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number>(0);
 
-    const { isConnected, address, isLoading, disconnect, connect } = useWallet();
+    const { isConnected, address, isConnecting, disconnect, connect } = useWallet();
     const MARKET_CONTRACT = getMarketContract();
     const { setTradeModalOpen } = useUIStore();
 
@@ -758,8 +757,11 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Position</div>
-                        <h3 className={`text-2xl font-heading font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
-                            {side === 'YES' ? 'BUY YES' : 'BUY NO'}
+                        <h3
+                            className="text-2xl font-heading font-bold"
+                            style={{ color: outcomeColor }}
+                        >
+                            BUY {outcomeName.toUpperCase()}
                         </h3>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-colors">
@@ -791,7 +793,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                         </div>
                         <div className="flex justify-between items-center text-sm border-t border-white/5 pt-3">
                             <span className="text-white/50">Est. Shares</span>
-                            <span className={`font-mono text-xl font-bold ${side === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>{estShares.toFixed(2)}</span>
+                            <span className="font-mono text-xl font-bold" style={{ color: outcomeColor }}>{estShares.toFixed(2)}</span>
                         </div>
                     </GlassCard>
 

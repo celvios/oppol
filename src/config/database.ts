@@ -11,6 +11,7 @@ class MockPool {
     private tokens = new Map();
     private marketMetadata = new Map();
     private categories = new Map();
+    private whatsappUsers = new Map();
 
     async query(text: string, params: any[] = []) {
         console.log('📝 [MOCK DB] Query:', text);
@@ -128,6 +129,28 @@ class MockPool {
                 });
             }
             return { rows: Array.from(this.categories.values()) };
+        }
+
+        // --- WHATSAPP USERS ---
+
+        // 13. SELECT WhatsApp User
+        if (q.includes('select wallet_address from whatsapp_users')) {
+            const phone = params[0];
+            const user = this.whatsappUsers.get(phone);
+            return { rows: user ? [user] : [] };
+        }
+
+        // 14. INSERT WhatsApp User
+        if (q.includes('insert into whatsapp_users')) {
+            const newUser = {
+                phone_number: params[0],
+                wallet_address: params[1],
+                encrypted_private_key: params[2],
+                is_verified: false,
+                created_at: new Date()
+            };
+            this.whatsappUsers.set(params[0], newUser);
+            return { rows: [newUser] };
         }
 
         return { rows: [] };

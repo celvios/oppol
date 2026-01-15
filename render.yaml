@@ -1,26 +1,53 @@
 services:
+  # Backend API
   - type: web
-    name: oppol-backend
-    runtime: node
+    name: opoll-backend
+    env: node
     region: oregon
-    plan: free
+    plan: starter
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    startCommand: node dist/app.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "3000"
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PRIVATE_KEY
+        sync: false
       - key: BNB_RPC_URL
         value: https://bsc-testnet-rpc.publicnode.com
       - key: MARKET_ADDRESS
-        value: "0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6"
-      - key: USDC_ADDRESS
-        value: "0x87D45E316f5f1f2faffCb600c97160658B799Ee0"
-      - key: DATABASE_URL
         sync: false
-      - key: PRIVATE_KEY
+      - key: USDC_CONTRACT
         sync: false
       - key: ADMIN_SECRET
         generateValue: true
-    rootDir: .
+    healthCheckPath: /
+
+  # WhatsApp Bot
+  - type: worker
+    name: opoll-whatsapp-bot
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd whatsapp-bot && npm install && npm run build
+    startCommand: cd whatsapp-bot && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        value: https://opoll-backend.onrender.com/api
+      - key: FRONTEND_URL
+        value: https://oppol-gamma.vercel.app
+
+databases:
+  - name: opoll-db
+    databaseName: opoll
+    user: opoll
+    plan: starter

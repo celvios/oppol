@@ -41,6 +41,53 @@ app.use((req, res, next) => {
   next();
 });
 
+// WHATSAPP USER ENDPOINT - Get or create user wallet
+app.get('/api/whatsapp/user', async (req, res) => {
+  try {
+    const { phone } = req.query;
+    
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone number required' });
+    }
+
+    // Check if user exists
+    const userResult = await query(
+      'SELECT wallet_address FROM whatsapp_users WHERE phone_number = $1',
+      [phone]
+    );
+
+    if (userResult.rows.length > 0) {
+      return res.json({
+        success: true,
+        walletAddress: userResult.rows[0].wallet_address,
+        isNew: false
+      });
+    }
+
+    // Create new custodial wallet
+    const { createRandomWallet } = await import('./services/web3');
+    const { encrypt } = await import('./services/encryption');
+    const { address, privateKey } = createRandomWallet();
+    const encryptedKey = encrypt(privateKey);
+
+    await query(
+      'INSERT INTO whatsapp_users (phone_number, wallet_address, encrypted_private_key) VALUES ($1, $2, $3)',
+      [phone, address, encryptedKey]
+    );
+
+    console.log(`✅ Created wallet ${address} for phone ${phone}`);
+
+    return res.json({
+      success: true,
+      walletAddress: address,
+      isNew: true
+    });
+  } catch (error: any) {
+    console.error('WhatsApp user error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // CALCULATE COST ENDPOINT - Preview trade cost
 app.post('/api/calculate-cost', async (req, res) => {
   try {

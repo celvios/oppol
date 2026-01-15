@@ -9,7 +9,7 @@ interface NeonSliderProps {
     onConfirm: () => void;
     isLoading?: boolean;
     disabled?: boolean;
-    side: "YES" | "NO";
+    side: string; // Changed from "YES" | "NO" to support multi-outcome names
 }
 
 export default function NeonSlider({ onConfirm, isLoading, disabled, side }: NeonSliderProps) {
@@ -29,7 +29,7 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
                 console.log('Updated drag limit:', newLimit);
             }
         };
-        
+
         updateDragLimit();
         window.addEventListener('resize', updateDragLimit);
         return () => window.removeEventListener('resize', updateDragLimit);
@@ -45,9 +45,9 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
     const handleDragEnd = () => {
         const currentX = x.get();
         const threshold = dragLimit * 0.6; // Lower threshold for easier completion
-        
+
         console.log('Drag ended:', { currentX, threshold, dragLimit });
-        
+
         if (currentX >= threshold && !disabled && !isLoading) {
             // Snap to end and confirm
             animate(x, dragLimit, { type: "spring", stiffness: 400, damping: 30 });

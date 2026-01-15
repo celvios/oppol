@@ -12,6 +12,16 @@ const createTablesQuery = `
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- WhatsApp Users Table (for bot users)
+  CREATE TABLE IF NOT EXISTS whatsapp_users (
+    phone_number VARCHAR(20) PRIMARY KEY,
+    wallet_address VARCHAR(42) UNIQUE NOT NULL,
+    encrypted_private_key TEXT NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Wallets Table
   CREATE TABLE IF NOT EXISTS wallets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -82,6 +92,7 @@ const createTablesQuery = `
   CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
   CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
   CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
+  CREATE INDEX IF NOT EXISTS idx_whatsapp_wallet ON whatsapp_users(wallet_address);
 `;
 
 export const initDatabase = async () => {

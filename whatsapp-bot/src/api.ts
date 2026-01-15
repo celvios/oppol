@@ -8,6 +8,27 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
 
 export class ApiClient {
     /**
+     * Get or create WhatsApp user wallet
+     */
+    async getUserByPhone(phoneNumber: string): Promise<{ walletAddress: string; isNew: boolean } | null> {
+        try {
+            const response = await axios.get(`${API_URL}/whatsapp/user`, {
+                params: { phone: phoneNumber }
+            });
+            if (response.data.success) {
+                return {
+                    walletAddress: response.data.walletAddress,
+                    isNew: response.data.isNew
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            return null;
+        }
+    }
+
+    /**
      * Generate a Magic Link for user authentication
      */
     async generateMagicLink(phoneNumber: string): Promise<string> {
@@ -76,13 +97,16 @@ export class ApiClient {
      */
     async getBalance(phoneNumber: string): Promise<string> {
         try {
-            const response = await axios.get(`${API_URL}/wallet/balance`, {
-                params: { phone: phoneNumber }
-            });
-            return response.data.balance || '0.00';
+            const user = await this.getUserByPhone(phoneNumber);
+            if (!user?.walletAddress) {
+                return '0.00';
+            }
+            
+            const response = await axios.get(`${API_URL}/wallet/balance/${user.walletAddress}`);
+            return response.data.balanceFormatted || '0.00';
         } catch (error) {
             console.error('Error fetching balance');
-            return '1000.00'; // Mock balance
+            return '0.00';
         }
     }
 
@@ -91,13 +115,11 @@ export class ApiClient {
      */
     async getDepositAddress(phoneNumber: string): Promise<string> {
         try {
-            const response = await axios.get(`${API_URL}/wallet/address`, {
-                params: { phone: phoneNumber }
-            });
-            return response.data.address;
+            const user = await this.getUserByPhone(phoneNumber);
+            return user?.walletAddress || '0x0000000000000000000000000000000000000000';
         } catch (error) {
             console.error('Error fetching deposit address');
-            return '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'; // Mock address
+            return '0x0000000000000000000000000000000000000000';
         }
     }
 
@@ -106,28 +128,31 @@ export class ApiClient {
      */
     async placeBet(phoneNumber: string, marketId: number, isYes: boolean, amount: number): Promise<any> {
         try {
+            const user = await this.getUserByPhone(phoneNumber);
+            if (!user?.walletAddress) {
+                throw new Error('User wallet not found');
+            }
+
             const response = await axios.post(`${API_URL}/bet`, {
-                phone: phoneNumber,
+                walletAddress: user.walletAddress,
                 marketId,
                 side: isYes ? 'YES' : 'NO',
-                shares: Math.floor(amount / (isYes ? 0.72 : 0.28)) // Estimate shares
+                amount
             });
+
+            if (!response.data.success) {
+                throw new Error(response.data.error || 'Bet failed');
+            }
 
             return {
                 success: true,
-                txHash: response.data.transaction?.hash || '0x' + Math.random().toString(16).substring(2, 66),
-                shares: response.data.transaction?.shares || Math.floor(amount * 1.5),
-                newPrice: response.data.transaction?.newPrice || 72,
+                txHash: response.data.transaction?.hash,
+                shares: response.data.transaction?.shares,
+                newPrice: response.data.transaction?.newPrice,
             };
-        } catch (error) {
-            console.error('Error placing bet, using mock response');
-            // Return mock success for development
-            return {
-                success: true,
-                txHash: '0x' + Math.random().toString(16).substring(2, 66),
-                shares: Math.floor(amount * (isYes ? 1.5 : 2.5)),
-                newPrice: isYes ? 73 : 27,
-            };
+        } catch (error: any) {
+            console.error('Error placing bet:', error.message);
+            throw error;
         }
     }
 
@@ -136,13 +161,37 @@ export class ApiClient {
      */
     async getPositions(phoneNumber: string): Promise<any[]> {
         try {
-            const response = await axios.get(`${API_URL}/positions`, {
-                params: { phone: phoneNumber }
-            });
-            return response.data.positions || [];
+            const user = await this.getUserByPhone(phoneNumber);
+            if (!user?.walletAddress) {
+                return [];
+            }
+
+            const response = await axios.get(`${API_URL}/portfolio/${user.walletAddress}`);
+            if (!response.data.success) return [];
+
+            // Fetch current prices for each position
+            const positions = await Promise.all(
+                response.data.positions.map(async (p: any) => {
+                    const market = await this.getMarket(p.marketId);
+                    const currentPrice = p.side === 'YES' ? market.yesOdds / 100 : (100 - market.yesOdds) / 100;
+                    const currentValue = p.shares * currentPrice;
+
+                    return {
+                        marketId: p.marketId,
+                        marketQuestion: market.question,
+                        side: p.side,
+                        shares: p.shares,
+                        costBasis: p.totalCost,
+                        currentValue,
+                        avgPrice: p.avgPrice
+                    };
+                })
+            );
+
+            return positions;
         } catch (error) {
             console.error('Error fetching positions');
-            return []; // No positions
+            return [];
         }
     }
 
