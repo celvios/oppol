@@ -190,30 +190,24 @@ export function MultiOutcomeTerminal() {
 
     return (
         <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
-            <SuccessModal
-                isOpen={isSuccessModalOpen}
-                onClose={() => {
-                    setIsSuccessModalOpen(false);
-                    fetchData();
-                }}
-                data={successData ? {
-                    marketId: successData.marketId,
-                    side: successData.outcome as any,
-                    shares: successData.shares,
-                    cost: successData.cost,
-                    question: successData.question,
-                    newPrice: successData.newPrice,
-                    hash: successData.hash
-                } : {
-                    marketId: 0,
-                    side: 'YES',
-                    shares: 0,
-                    cost: '0',
-                    question: '',
-                    newPrice: 0,
-                    hash: ''
-                }}
-            />
+            {successData && (
+                <SuccessModal
+                    isOpen={isSuccessModalOpen}
+                    onClose={() => {
+                        setIsSuccessModalOpen(false);
+                        fetchData();
+                    }}
+                    data={{
+                        marketId: successData.marketId,
+                        side: successData.outcome,
+                        shares: successData.shares,
+                        cost: successData.cost,
+                        question: successData.question,
+                        newPrice: successData.newPrice,
+                        hash: successData.hash
+                    }}
+                />
+            )}
 
             {/* LEFT COLUMN: Market List (3 cols) */}
             <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
