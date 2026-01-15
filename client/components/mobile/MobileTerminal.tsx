@@ -133,7 +133,7 @@ export function MobileTerminal() {
     const [priceHistory, setPriceHistory] = useState<{ time: string, price: number }[]>([]);
     const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
-    const [tradeSide, setTradeSide] = useState<'YES' | 'NO'>('YES');
+    const [tradeSide, setTradeSide] = useState<string>('YES'); // Changed to string to support multi-outcome names
     const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number>(0);
 
     const { isConnected, address, isLoading, disconnect, connect } = useWallet();
@@ -536,7 +536,7 @@ export function MobileTerminal() {
                                     <button
                                         key={index}
                                         onClick={() => {
-                                            setTradeSide(index === 0 ? 'YES' : 'NO');
+                                            setTradeSide(outcome as 'YES' | 'NO'); // Use outcome name for multi-outcome
                                             setSelectedOutcomeIndex(index);
                                             setIsTradeSheetOpen(true);
                                         }}
@@ -650,7 +650,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     isOpen: boolean;
     onClose: () => void;
     market: Market;
-    side: 'YES' | 'NO';
+    side: string; // Changed from 'YES' | 'NO' to support multi-outcome names
     outcomeIndex?: number;
     balance: string;
     onTradeSuccess: () => void;
