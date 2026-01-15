@@ -1,6 +1,6 @@
 "use client";
 
-import { PieChart, TrendingUp, Wallet, Plus, Minus } from "lucide-react";
+import { PieChart, TrendingUp, Wallet, Plus, Minus, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
@@ -25,7 +25,7 @@ export default function PortfolioPage() {
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
-    const { isConnected, isConnecting, address, connect } = useWallet();
+    const { isConnected, isConnecting, address, connect, disconnect } = useWallet();
 
     // Debug logging
     useEffect(() => {
@@ -189,11 +189,20 @@ export default function PortfolioPage() {
         <div className="space-y-8">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
-                {address && (
-                    <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
-                        🔗 Wallet Connected
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    {address && (
+                        <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
+                            🔗 Wallet Connected
+                        </div>
+                    )}
+                    <button
+                        onClick={disconnect}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all text-red-400 hover:text-red-300"
+                    >
+                        <LogOut size={16} />
+                        <span className="text-sm font-medium">Disconnect</span>
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}

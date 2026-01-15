@@ -30,7 +30,7 @@ export default function BottomNav() {
         { name: "Terminal", icon: Home, href: "/terminal" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
         { name: "Search", icon: Search, href: "/search" },
-        { name: "Portfolio", icon: BarChart2, href: "/terminal/portfolio" },
+        { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
     ];
 
     return (
@@ -71,31 +71,6 @@ export default function BottomNav() {
                             </Link>
                         );
                     })}
-
-                    {isLoggedIn ? (
-                        <div className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative">
-                            <button
-                                onClick={handleLogout}
-                                className="flex flex-col items-center gap-1"
-                            >
-                                <div className="relative">
-                                    <Wallet className="w-6 h-6 text-primary" />
-                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
-                                </div>
-                                <span className="text-primary text-[10px] font-mono">
-                                    {address ? `${address.slice(0, 4)}...${address.slice(-3)}` : 'Logout'}
-                                </span>
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => connect()}
-                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
-                        >
-                            <Wallet className="w-6 h-6 text-text-secondary" />
-                            <span className="text-text-secondary">Wallet</span>
-                        </button>
-                    )}
                 </nav>
             </div>
         </>
