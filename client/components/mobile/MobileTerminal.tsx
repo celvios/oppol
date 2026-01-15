@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { SimpleConnectButton } from "@/components/ui/SimpleConnectButton";
-import { ReownConnectButton } from "@/components/ui/ReownConnectButton";
+import { WalletConnectButton } from "@/components/ui/WalletConnectButton";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,6 @@ const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
 const ResolutionPanel = lazy(() => import("@/components/ui/ResolutionPanel").then(m => ({ default: m.ResolutionPanel })));
 const AnimatePresence = lazy(() => import("framer-motion").then(m => ({ default: m.AnimatePresence })));
 const motion = lazy(() => import("framer-motion").then(m => ({ default: m.motion })));
-
 
 // Contract ABI
 const MARKET_ABI = [
@@ -74,7 +73,7 @@ interface TradeSuccessData {
     hash: string;
 }
 
-import { useSearchParams } from "next/navigation"; // Add import
+import { useSearchParams } from "next/navigation";
 
 export function MobileTerminal() {
     const searchParams = useSearchParams();
@@ -117,11 +116,6 @@ export function MobileTerminal() {
     const { isConnected, address, isLoading, disconnect, connect } = useWallet();
     const MARKET_CONTRACT = getMarketContract();
     const { setTradeModalOpen } = useUIStore();
-
-    // Debug logging
-    useEffect(() => {
-        console.log('[MobileTerminal] Wallet State:', { isConnected, isLoading, address });
-    }, [isConnected, isLoading, address]);
 
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -265,99 +259,50 @@ export function MobileTerminal() {
     }
 
     if (!mounted) {
-        // Show cached state immediately to prevent loading flash
-        const cachedWallet = localStorage.getItem('wallet_cache');
-        let cachedConnected = false;
-        let cachedAddress = null;
-        
-        if (cachedWallet) {
-            try {
-                const parsed = JSON.parse(cachedWallet);
-                cachedConnected = parsed.isConnected;
-                cachedAddress = parsed.address;
-            } catch (e) {}
-        }
-        
-        if (!cachedConnected) {
-            return (
-                <div className="flex items-center justify-center min-h-screen p-6">
-                    <div className="text-center max-w-md">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                            <Wallet className="w-10 h-10 text-primary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                        <p className="text-white/50 mb-8">
-                            Connect your wallet to start trading on prediction markets.
-                        </p>
-                        <div className="space-y-4">
-                            <ReownConnectButton
-                                className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                            >
-                                Connect Wallet
-                            </ReownConnectButton>
-                            
-                            <div className="text-center text-xs text-white/40">
-                                or
-                            </div>
-                            
-                            <SimpleConnectButton
-                                className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
-                            >
-                                Connect with MetaMask
-                            </SimpleConnectButton>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-        
-        // Show loading with cached address
         return <div className="p-6"><SkeletonLoader /></div>;
     }
 
     if (!isConnected && mounted) {
         return (
-            <>
-                <div className="flex items-center justify-center min-h-screen p-6">
-                    <div className="text-center max-w-md">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                            <Wallet className="w-10 h-10 text-primary" />
+            <div className="flex items-center justify-center min-h-screen p-6">
+                <div className="text-center max-w-md">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                        <Wallet className="w-10 h-10 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
+                    <p className="text-white/50 mb-8">
+                        Connect your wallet to start trading on prediction markets.
+                    </p>
+                    {isMobile && (
+                        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl text-left">
+                            <p className="text-blue-400 text-sm font-semibold mb-2">📱 Mobile Users:</p>
+                            <p className="text-blue-300 text-xs leading-relaxed">
+                                For best experience, open this site in your wallet's browser:
+                                <br />• MetaMask: Tap Browser → Enter URL
+                                <br />• Trust Wallet: Tap Browser → Enter URL
+                                <br />• Coinbase Wallet: Tap Browser → Enter URL
+                            </p>
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                        <p className="text-white/50 mb-8">
-                            Connect your wallet to start trading on prediction markets.
-                        </p>
-                        {isMobile && (
-                            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl text-left">
-                                <p className="text-blue-400 text-sm font-semibold mb-2">📱 Mobile Users:</p>
-                                <p className="text-blue-300 text-xs leading-relaxed">
-                                    For best experience, open this site in your wallet's browser:
-                                    <br />• MetaMask: Tap Browser → Enter URL
-                                    <br />• Trust Wallet: Tap Browser → Enter URL
-                                    <br />• Coinbase Wallet: Tap Browser → Enter URL
-                                </p>
-                            </div>
-                        )}
-                        <div className="space-y-4">
-                            <ReownConnectButton
-                                className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                            >
-                                Connect Wallet
-                            </ReownConnectButton>
-                            
-                            <div className="text-center text-xs text-white/40">
-                                or
-                            </div>
-                            
-                            <SimpleConnectButton
-                                className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
-                            >
-                                Connect with MetaMask
-                            </SimpleConnectButton>
+                    )}
+                    <div className="space-y-4">
+                        <WalletConnectButton
+                            className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                        >
+                            Connect Wallet
+                        </WalletConnectButton>
+                        
+                        <div className="text-center text-xs text-white/40">
+                            or
                         </div>
+                        
+                        <SimpleConnectButton
+                            className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
+                        >
+                            Connect with MetaMask
+                        </SimpleConnectButton>
                     </div>
                 </div>
-            </>
+            </div>
         );
     }
 
@@ -418,9 +363,9 @@ export function MobileTerminal() {
                 </div>
             </header>
 
+            {/* Rest of the component remains the same... */}
             {/* 2. Price Hero */}
             <div className="relative overflow-hidden mb-6">
-                {/* Background Image */}
                 {metadata && (
                     <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
                         <img
@@ -482,7 +427,7 @@ export function MobileTerminal() {
                 </Suspense>
             </div>
 
-            {/* 4. Outcome selector (replaces YES/NO toggle) */}
+            {/* 4. Outcome selector */}
             <div className="px-6 mb-6 flex gap-3">
                 <button
                     onClick={() => { setChartView('YES'); setSelectedOutcomeIndex(0); }}
@@ -504,7 +449,7 @@ export function MobileTerminal() {
                 </button>
             </div>
 
-            {/* 5. Metrics Cards - Lazy loaded */}
+            {/* 5. Metrics Cards */}
             <div className="px-4 grid grid-cols-2 gap-4 mb-10">
                 <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
                     <GlassCard className="p-4 !bg-white/5">
@@ -625,8 +570,6 @@ export function MobileTerminal() {
                     ))}
                 </div>
             </div>
-
-
 
             {/* Bottom Sheet */}
             <AnimatePresence>
