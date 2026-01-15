@@ -8,6 +8,7 @@ import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 import { query } from './config/database';
 import { validateAddress } from './utils/addressValidator';
+import adminRoutes from './routes/adminRoutes';
 
 dotenv.config();
 
@@ -41,6 +42,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Admin Routes
+app.use('/api/admin', adminRoutes);
+
 // WHATSAPP USER ENDPOINT - Get or create user wallet
 app.get('/api/whatsapp/user', async (req, res) => {
   try {
@@ -66,9 +70,9 @@ app.get('/api/whatsapp/user', async (req, res) => {
 
     // Create new custodial wallet
     const { createRandomWallet } = await import('./services/web3');
-    const { encrypt } = await import('./services/encryption');
+    const { EncryptionService } = await import('./services/encryption');
     const { address, privateKey } = createRandomWallet();
-    const encryptedKey = encrypt(privateKey);
+    const encryptedKey = EncryptionService.encrypt(privateKey);
 
     await query(
       'INSERT INTO whatsapp_users (phone_number, wallet_address, encrypted_private_key) VALUES ($1, $2, $3)',

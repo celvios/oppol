@@ -1,0 +1,162 @@
+import express from 'express';
+import { ethers } from 'ethers';
+import { query } from '../config/database';
+
+const router = express.Router();
+
+// Middleware to check admin secret
+const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const adminSecret = req.headers['x-admin-secret'];
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123';
+
+    if (adminSecret !== VALID_SECRET) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Invalid Admin Secret' });
+    }
+    next();
+};
+
+router.post('/resolve-market', checkAdminAuth, async (req, res) => {
+    try {
+        const { marketId, outcomeIndex } = req.body;
+
+        if (marketId === undefined || outcomeIndex === undefined) {
+            return res.status(400).json({ success: false, error: 'Missing marketId or outcomeIndex' });
+        }
+
+        console.log(`[Admin] Resolving Market ID ${marketId} with Outcome Index ${outcomeIndex}`);
+
+        // Setup Provider & Signer
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+        const privateKey = process.env.PRIVATE_KEY;
+        if (!privateKey) throw new Error('Server wallet not configured');
+
+        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const signer = new ethers.Wallet(privateKey, provider);
+
+        // Get Contract
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        if (!MARKET_ADDR) throw new Error('Market contract address not configured');
+
+        const marketABI = [
+            'function resolveMarket(uint256 _marketId, uint256 _outcomeIndex) external',
+            'function markets(uint256) view returns (string, string[], uint256[], uint256, uint256, uint256, bool, uint256, uint256)'
+        ];
+
+        const contract = new ethers.Contract(MARKET_ADDR, marketABI, signer);
+
+        // Call resolveMarket
+        const tx = await contract.resolveMarket(marketId, outcomeIndex);
+        console.log(`[Admin] Resolution TX Sent: ${tx.hash}`);
+
+        const receipt = await tx.wait();
+        console.log(`[Admin] Resolution Confirmed: ${receipt.hash}`);
+
+        return res.json({
+            success: true,
+            transactionHash: receipt.hash,
+            marketId,
+            resolvedOutcome: outcomeIndex
+        });
+
+    } catch (error: any) {
+        console.error('[Admin] Resolution Error:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Resolution failed' });
+    }
+});
+
+// GET /users - List all users with balances
+router.get('/users', checkAdminAuth, async (req, res) => {
+    try {
+        // 1. Fetch from DB
+        const result = await query('SELECT * FROM whatsapp_users ORDER BY created_at DESC');
+        const users = result.rows;
+
+        // 2. Fetch on-chain balances
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+
+        if (MARKET_ADDR) {
+            const marketABI = ['function userBalances(address) view returns (uint256)'];
+            const contract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+
+            // Enhance users with balance (parallel)
+            const enhancedUsers = await Promise.all(users.map(async (u: any) => {
+                try {
+                    const balWei = await contract.userBalances(u.wallet_address);
+                    const bal = ethers.formatUnits(balWei, 6);
+                    return { ...u, balance: parseFloat(bal) };
+                } catch (e) {
+                    return { ...u, balance: 0, error: 'Failed to fetch balance' };
+                }
+            }));
+
+            return res.json({ success: true, users: enhancedUsers });
+        }
+
+        return res.json({ success: true, users });
+    } catch (error: any) {
+        console.error('[Admin] Get Users Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /health - System Health Check
+router.get('/health', checkAdminAuth, async (req, res) => {
+    try {
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const privateKey = process.env.PRIVATE_KEY;
+
+        // 1. Check RPC
+        const blockNumber = await provider.getBlockNumber();
+        const rpcStatus = blockNumber > 0 ? 'OK' : 'ERROR';
+
+        // 2. Check Relayer Wallet
+        let walletStatus = { address: '', bnb: '0', usdc: '0' };
+        if (privateKey) {
+            const wallet = new ethers.Wallet(privateKey, provider);
+            const bnbBal = await provider.getBalance(wallet.address);
+
+            // USDC check
+            let usdcBal = BigInt(0);
+            const USDC_ADDR = process.env.USDC_CONTRACT;
+            if (USDC_ADDR) {
+                const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+                const usdc = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+                try {
+                    usdcBal = await usdc.balanceOf(wallet.address);
+                } catch (e) { console.error('USDC fetch failed', e); }
+            }
+
+            walletStatus = {
+                address: wallet.address,
+                bnb: ethers.formatEther(bnbBal),
+                usdc: ethers.formatUnits(usdcBal, 6)
+            };
+        }
+
+        // 3. Check DB
+        let dbStatus = 'UNKNOWN';
+        try {
+            await query('SELECT 1');
+            dbStatus = 'OK';
+        } catch (e) { dbStatus = 'ERROR'; }
+
+        return res.json({
+            success: true,
+            health: {
+                rpc: rpcStatus,
+                blockNumber,
+                database: dbStatus,
+                wallet: walletStatus,
+                timestamp: new Date().toISOString()
+            }
+        });
+
+    } catch (error: any) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+export default router;

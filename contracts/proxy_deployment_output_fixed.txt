@@ -1,0 +1,19 @@
+﻿[dotenv@17.2.3] injecting env (1) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
+≡ƒÜÇ Deploying Upgradeable PredictionMarketMulti...
+Deploying with account: 0xE434423371E3AacAF0fF8fC0B3Ef1F521e82CCC1
+≡ƒô¥ Deploying MockUSDC...
+Γ£à MockUSDC deployed to: 0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634
+≡ƒô¥ Deploying MockOracle...
+Γ£à MockOracle deployed to: 0x8CFc696db36429Ff2D0C601c523F88AE8c30D1cd
+≡ƒô¥ Deploying PredictionMarketMulti Proxy...
+Γ£à PredictionMarketMulti (Proxy) deployed to: 0xB6a211822649a61163b94cf46e6fCE46119D3E1b
+   Implementation Address: 0x768c240Bc03a3517A08Ad12E2673aE434bE278d4
+   Admin Address: 0xC6742b2aDC638C5C2226f5522fC594bC0472E637
+
+≡ƒÄë Deployment Complete!
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+MockUSDC: 0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634
+MockOracle: 0x8CFc696db36429Ff2D0C601c523F88AE8c30D1cd
+PredictionMarketMulti (Proxy): 0xB6a211822649a61163b94cf46e6fCE46119D3E1b
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü

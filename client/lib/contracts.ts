@@ -10,11 +10,11 @@ export const CONTRACTS = {
     // BSC Testnet (UNIFIED - Multi-Outcome Contract ✅)
     bscTestnet: {
         // All markets now use the multi-outcome contract (Polymarket-style)
-        predictionMarket: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
-        predictionMarketLMSR: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
-        predictionMarketMulti: '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6',
-        mockUSDC: '0x5931e7b7a700037Fe62b876e28AD7F64dce14d11', // ✅ Redeployed 2026-01-15
-        umaOracle: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+        predictionMarket: '0xB6a211822649a61163b94cf46e6fCE46119D3E1b', // Proxy
+        predictionMarketLMSR: '0xB6a211822649a61163b94cf46e6fCE46119D3E1b',
+        predictionMarketMulti: '0xB6a211822649a61163b94cf46e6fCE46119D3E1b',
+        mockUSDC: '0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634', // ✅ Redeployed 2026-01-15 22:30
+        umaOracle: '0x8CFc696db36429Ff2D0C601c523F88AE8c30D1cd',
         zap: '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D',
     },
     // BSC Mainnet

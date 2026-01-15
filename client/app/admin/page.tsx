@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Shield, Activity, DollarSign, Users, RefreshCw, BarChart3, Lock } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
+import SystemHealth from "@/components/admin/SystemHealth";
 
 export default function AdminDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -143,6 +144,9 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* System Health */}
+                {isAuthenticated && <SystemHealth adminKey={adminKey} />}
+
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <StatCard
@@ -188,17 +192,17 @@ export default function AdminDashboard() {
                         title="Resolve Market"
                         description="Set outcomes for ended markets"
                         icon={Shield}
-                        onClick={() => { }}
+                        onClick={() => window.location.href = '/admin/markets'}
                     />
                     <ActionCard
                         title="User Management"
                         description="View users and manage permissions"
                         icon={Users}
-                        onClick={() => { }}
+                        onClick={() => window.location.href = '/admin/users'}
                     />
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

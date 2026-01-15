@@ -260,7 +260,7 @@ export function ResolutionPanel({
                     </motion.div>
                 )}
 
-                {/* ENDED - Ready for assertion */}
+                {/* ENDED - Waiting for Admin Resolution */}
                 {status === MarketStatus.ENDED && (
                     <motion.div
                         key="ended"
@@ -270,86 +270,18 @@ export function ResolutionPanel({
                         className="space-y-4"
                     >
                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
-                            <Gavel className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                            <p className="text-amber-400 font-medium">Market Ready for Resolution</p>
+                            <Clock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                            <p className="text-amber-400 font-medium">Waiting for Official Resolution</p>
                             <p className="text-white/50 text-sm mt-1">
-                                Assert the outcome to begin resolution process
+                                The outcome is being verified by the platform administrators.
                             </p>
                         </div>
 
                         <p className="text-white/60 text-sm text-center mb-2">{question}</p>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => handleAssert(true)}
-                                disabled={!isConnected || assertPending}
-                                className="py-3 bg-green-500/20 border border-green-500/50 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {assertPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                Assert YES
-                            </button>
-                            <button
-                                onClick={() => handleAssert(false)}
-                                disabled={!isConnected || assertPending}
-                                className="py-3 bg-red-500/20 border border-red-500/50 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {assertPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                Assert NO
-                            </button>
-                        </div>
-
-                        <p className="text-white/40 text-xs text-center">
-                            Requires $100 bond from portfolio. 2-hour dispute window via UMA.
-                        </p>
                     </motion.div>
                 )}
 
-                {/* DISPUTABLE - Assertion made, can be disputed */}
-                {status === MarketStatus.DISPUTABLE && (
-                    <motion.div
-                        key="disputable"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="space-y-4"
-                    >
-                        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-white/60 text-sm">Asserted Outcome:</span>
-                                <span className={`font-bold ${assertedOutcome ? 'text-green-400' : 'text-red-400'}`}>
-                                    {assertedOutcome ? '✅ YES' : '❌ NO'}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-white/60 text-sm">Asserted by:</span>
-                                <span className="text-primary font-mono text-sm">
-                                    {asserter?.slice(0, 6)}...{asserter?.slice(-4)}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
-                            <Shield className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                            <p className="text-amber-400 font-medium">Dispute Window Open</p>
-                            <p className="text-white/50 text-sm mt-1">
-                                ~2 hours for anyone to dispute this assertion
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={handleSettle}
-                            disabled={!isConnected || settlePending}
-                            className="w-full py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary/80 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {settlePending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                            Settle Market (After Liveness)
-                        </button>
-
-                        <p className="text-white/40 text-xs text-center">
-                            Settlement can be called after the 2-hour liveness period
-                        </p>
-                    </motion.div>
-                )}
+                {/* DISPUTABLE - Removed for Admin Picks Mode */}
 
                 {/* RESOLVED - Market finalized */}
                 {status === MarketStatus.RESOLVED && (

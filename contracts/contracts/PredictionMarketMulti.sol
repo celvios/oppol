@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title OptimisticOracleV3Interface
@@ -40,14 +38,14 @@ interface OptimisticOracleV3Interface {
  * @dev Multi-outcome prediction market using LMSR + UMA Optimistic Oracle V3
  *      Supports 2-10 outcomes per market
  */
-contract PredictionMarketMulti is Ownable, ReentrancyGuard {
-    IERC20 public immutable token;
-    OptimisticOracleV3Interface public immutable oracle;
+contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+    IERC20 public token;
+    OptimisticOracleV3Interface public oracle;
     
     // UMA Configuration
     bytes32 public constant IDENTIFIER = bytes32("MULTIPLE_CHOICE_QUERY");
     uint64 public constant ASSERTION_LIVENESS = 7200; // 2 hours
-    uint256 public assertionBond = 500 * 1e6; // 500 tokens (6 decimals)
+    uint256 public assertionBond;
     
     // Limits
     uint256 public constant MIN_OUTCOMES = 2;
@@ -104,9 +102,18 @@ contract PredictionMarketMulti is Ownable, ReentrancyGuard {
         _;
     }
     
-    constructor(address _token, address _oracle) Ownable(msg.sender) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _token, address _oracle) public initializer {
+        __Ownable_init(msg.sender);
+        __ReentrancyGuard_init();
+        
         token = IERC20(_token);
         oracle = OptimisticOracleV3Interface(_oracle);
+        assertionBond = 500 * 1e6; // 500 tokens (6 decimals) initialization
     }
     
     function setOperator(address _operator, bool _status) external onlyOwner {
@@ -240,6 +247,24 @@ contract PredictionMarketMulti is Ownable, ReentrancyGuard {
         emit MarketResolved(_marketId, market.winningOutcome);
     }
     
+    /**
+     * @dev Emergency/Admin Resolution - bypasses UMA oracle
+     * Only callable by owner
+     */
+    function resolveMarket(uint256 _marketId, uint256 _outcomeIndex) external onlyOwner {
+        Market storage market = markets[_marketId];
+        require(block.timestamp >= market.endTime, "Market not ended");
+        require(!market.resolved, "Already resolved");
+        require(_outcomeIndex < market.outcomeCount, "Invalid outcome");
+
+        market.resolved = true;
+        market.winningOutcome = _outcomeIndex;
+        // If there was a pending assertion, we essentially override it
+        market.assertionPending = false;
+        
+        emit MarketResolved(_marketId, _outcomeIndex);
+    }
+
     function assertionResolvedCallback(bytes32 _assertionId, bool _assertedTruthfully) external {
         require(msg.sender == address(oracle), "Only oracle");
         

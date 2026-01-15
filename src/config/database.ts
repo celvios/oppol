@@ -153,6 +153,11 @@ class MockPool {
             return { rows: [newUser] };
         }
 
+        // 15. SELECT ALL WhatsApp Users (Admin Explorer)
+        if (q.includes('select * from whatsapp_users')) {
+            return { rows: Array.from(this.whatsappUsers.values()) };
+        }
+
         return { rows: [] };
     }
 
