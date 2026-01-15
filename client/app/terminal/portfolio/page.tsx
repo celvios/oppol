@@ -278,8 +278,10 @@ export default function PortfolioPage() {
                     <tbody className="divide-y divide-white/5">
                         {positions.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="p-8 text-center text-white/40">
-                                    No active positions. Place a bet to get started!
+                                <td colSpan={7} className="p-12 text-center">
+                                    <div className="text-white/40 text-lg">
+                                        No active positions. Place a bet to get started!
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
