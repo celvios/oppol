@@ -113,7 +113,7 @@ export default function SearchPage() {
                                         <div className="flex justify-between items-start mb-3 gap-4">
                                             <div className="flex items-start gap-3">
                                                 {/* Market Image */}
-                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors overflow-hidden">
+                                                <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors overflow-hidden">
                                                     <img
                                                         src={getMarketMetadata(m.question, m.id).image}
                                                         alt=""
