@@ -24,6 +24,8 @@ const MARKET_ABI = [
 
 const STABLECOINS = [
     { symbol: 'USDC', address: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0', decimals: 6, direct: true }, // MockUSDC - direct deposit
+    { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18, direct: false }, // BSC USDT via Zap
+    { symbol: 'BUSD', address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', decimals: 18, direct: false }, // BSC BUSD via Zap
 ];
 
 export default function DepositPage() {
@@ -95,7 +97,6 @@ export default function DepositPage() {
         if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         try {
-            // Get provider and signer
             if (!window.ethereum) {
                 throw new Error('Please install MetaMask');
             }
@@ -104,54 +105,56 @@ export default function DepositPage() {
             const signer = await provider.getSigner();
             
             console.log('Using token:', selectedToken.address);
-            console.log('Using market contract:', MARKET_CONTRACT);
             console.log('Deposit amount:', depositAmount, selectedToken.symbol);
             
-            // Create contract instances with signer
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
-            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-            
             const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
-            console.log('Amount in wei:', amountInWei.toString());
             
-            // Check token balance first
+            // Check token balance
             const tokenBalance = await tokenContract.balanceOf(address);
-            console.log('Token balance:', ethers.formatUnits(tokenBalance, selectedToken.decimals));
-            
             if (tokenBalance < amountInWei) {
                 throw new Error(`Insufficient ${selectedToken.symbol} balance. You have ${ethers.formatUnits(tokenBalance, selectedToken.decimals)} ${selectedToken.symbol}`);
             }
             
-            // Step 1: Check current allowance
-            const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
-            console.log('Current allowance:', ethers.formatUnits(currentAllowance, selectedToken.decimals));
-            
-            if (currentAllowance < amountInWei) {
-                console.log('Approving token spend...');
-                try {
+            if (selectedToken.direct) {
+                // Direct USDC deposit
+                console.log('Direct USDC deposit to market contract:', MARKET_CONTRACT);
+                const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+                
+                // Check allowance and approve if needed
+                const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
+                if (currentAllowance < amountInWei) {
+                    console.log('Approving USDC spend...');
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
-                    console.log('Approval transaction sent:', approveTx.hash);
                     await approveTx.wait();
-                    console.log('Approval confirmed');
-                } catch (approveError: any) {
-                    console.error('Approval failed:', approveError);
-                    throw new Error(`Token approval failed: ${approveError.message || 'Unknown error'}`);
                 }
-            }
-            
-            // Step 2: Deposit to market contract
-            console.log('Depositing to market...');
-            try {
+                
+                // Deposit to market
                 const depositTx = await marketContract.deposit(amountInWei);
-                console.log('Deposit transaction sent:', depositTx.hash);
                 await depositTx.wait();
-                console.log('Deposit confirmed');
-            } catch (depositError: any) {
-                console.error('Deposit failed:', depositError);
-                throw new Error(`Deposit failed: ${depositError.message || 'Unknown error'}`);
+                
+            } else {
+                // Zap contract integration
+                console.log('Using Zap contract:', ZAP_CONTRACT);
+                const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
+                
+                // Approve Zap to spend tokens
+                const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
+                if (currentAllowance < amountInWei) {
+                    console.log('Approving Zap spend...');
+                    const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
+                    await approveTx.wait();
+                }
+                
+                // Calculate minimum USDC with 5% slippage
+                const estimatedUSDC = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 6);
+                
+                // Zap in via swap
+                console.log('Zapping token to USDC...');
+                const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedUSDC);
+                await zapTx.wait();
             }
             
-            console.log('Deposit successful!');
             alert(`Successfully deposited ${depositAmount} ${selectedToken.symbol}!`);
             setDepositAmount('');
             fetchBalance();
@@ -165,8 +168,6 @@ export default function DepositPage() {
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient funds for transaction';
             } else if (error.message?.includes('Insufficient')) {
-                errorMessage = error.message;
-            } else if (error.message?.includes('approval')) {
                 errorMessage = error.message;
             } else if (error.message) {
                 errorMessage = error.message;
@@ -213,19 +214,34 @@ export default function DepositPage() {
                     <div className="space-y-4">
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <label className="text-sm font-medium text-white/60 mb-3 block">Select Token</label>
-                            <div className="mb-4">
-                                <div className="py-3 px-4 rounded-lg font-bold bg-primary text-black border-2 border-primary shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-                                    <div className="flex items-center justify-center gap-2">
-                                        <span>USDC</span>
-                                        <CheckCircle className="w-4 h-4" />
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                {STABLECOINS.map(token => (
+                                    <button
+                                        key={token.symbol}
+                                        onClick={() => setSelectedToken(token)}
+                                        className={`py-3 px-4 rounded-lg font-bold transition-all border-2 ${
+                                            selectedToken.symbol === token.symbol
+                                                ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                                                : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-1">
+                                                <span>{token.symbol}</span>
+                                                {selectedToken.symbol === token.symbol && (
+                                                    <CheckCircle className="w-3 h-3" />
+                                                )}
+                                            </div>
+                                            <span className="text-xs opacity-60">
+                                                {token.direct ? 'Direct' : 'Auto-swap'}
+                                            </span>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
                             <div className="text-xs text-white/40 text-center">
-                                Selected: <span className="text-primary font-bold">USDC</span> (Direct Deposit)
-                            </div>
-                            <div className="text-xs text-white/30 text-center mt-2">
-                                Other tokens coming soon via Zap integration
+                                Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
+                                {selectedToken.direct ? ' (Direct)' : ' (Auto-converted to USDC)'}
                             </div>
                         </div>
 
@@ -257,7 +273,7 @@ export default function DepositPage() {
                             disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing}
                             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            {isProcessing ? 'Processing...' : 'Approve & Deposit'}
+                            {isProcessing ? 'Processing...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
                             <ArrowRight className="w-5 h-5" />
                         </button>
                     </div>
