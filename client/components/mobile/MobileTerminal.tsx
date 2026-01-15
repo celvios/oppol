@@ -426,7 +426,7 @@ export function MobileTerminal() {
                         <div className={`text-5xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-neon-green text-shadow-green' : 'text-neon-coral text-shadow-red'}`}>
                             {currentPrice.toFixed(1)}%
                         </div>
-                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Probability</div>
+                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Chance</div>
                     </div>
                 </div>
             </div>

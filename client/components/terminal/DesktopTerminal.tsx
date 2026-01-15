@@ -433,7 +433,7 @@ export function DesktopTerminal() {
                 {/* Chart Container */}
                 <GlassCard className="flex-1 min-h-[400px] p-6 flex flex-col relative overflow-hidden">
                     <div className="flex justify-between items-center mb-6 z-10 relative">
-                        <h2 className="text-lg font-heading text-white">Probability Wave</h2>
+                        <h2 className="text-lg font-heading text-white">Chance Wave</h2>
                         <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
                             <button
                                 onClick={() => setChartView('YES')}

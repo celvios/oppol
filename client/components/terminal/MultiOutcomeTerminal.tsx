@@ -53,7 +53,7 @@ export function MultiOutcomeTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address, isLoading: walletLoading, connect } = useWallet();
+    const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -349,10 +349,10 @@ export function MultiOutcomeTerminal() {
                     </div>
                 </GlassCard>
 
-                {/* Outcome Probability Bars */}
+                {/* Outcome Chance Bars */}
                 <GlassCard className="flex-1 min-h-[400px] p-6 flex flex-col relative overflow-hidden">
                     <div className="flex justify-between items-center mb-6 z-10 relative">
-                        <h2 className="text-lg font-heading text-white">Outcome Probabilities</h2>
+                        <h2 className="text-lg font-heading text-white">Outcome Chances</h2>
                         <span className="text-xs text-white/50 font-mono">Click to select</span>
                     </div>
 
@@ -504,7 +504,7 @@ export function MultiOutcomeTerminal() {
 
                 {/* Outcome Distribution Mini-Vis */}
                 <GlassCard className="flex-none p-4">
-                    <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Probability Distribution</h4>
+                    <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
                     <div className="flex items-end gap-1 h-16">
                         {market.prices.map((price, i) => (
                             <div
