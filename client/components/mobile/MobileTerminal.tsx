@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
-import { useWallet } from "@/lib/use-wallet";
+import { ReownConnectButton } from "@/components/ui/ReownConnectButton";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
@@ -287,12 +287,11 @@ export function MobileTerminal() {
                         <p className="text-white/50 mb-8">
                             Connect your wallet to start trading on prediction markets.
                         </p>
-                        <button
-                            onClick={() => connect()}
+                        <ReownConnectButton
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
-                        </button>
+                        </ReownConnectButton>
                     </div>
                 </div>
             );
@@ -325,12 +324,11 @@ export function MobileTerminal() {
                                 </p>
                             </div>
                         )}
-                        <button
-                            onClick={() => connect()}
+                        <ReownConnectButton
                             className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
-                        </button>
+                        </ReownConnectButton>
                     </div>
                 </div>
             </>
