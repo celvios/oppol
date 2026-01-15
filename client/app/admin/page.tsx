@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { Shield, Activity, DollarSign, Users, RefreshCw, BarChart3, Lock } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
@@ -186,19 +187,19 @@ export default function AdminDashboard() {
                         title="Create Market"
                         description="Launch a new binary or multi-outcome market"
                         icon={Shield}
-                        onClick={() => window.location.href = '/admin/create-market'}
+                        href="/admin/create-market"
                     />
                     <ActionCard
                         title="Resolve Market"
                         description="Set outcomes for ended markets"
                         icon={Shield}
-                        onClick={() => window.location.href = '/admin/markets'}
+                        href="/admin/markets"
                     />
                     <ActionCard
                         title="User Management"
                         description="View users and manage permissions"
                         icon={Users}
-                        onClick={() => window.location.href = '/admin/users'}
+                        href="/admin/users"
                     />
                 </div>
             </div>
@@ -225,12 +226,9 @@ function StatCard({ title, value, icon: Icon, trend, color }: any) {
     );
 }
 
-function ActionCard({ title, description, icon: Icon, onClick }: any) {
+function ActionCard({ title, description, icon: Icon, href }: any) {
     return (
-        <button
-            onClick={onClick}
-            className="group text-left"
-        >
+        <Link href={href} className="group text-left block h-full">
             <GlassCard className="p-6 h-full hover:bg-white/10 transition-colors border-white/5 hover:border-neon-cyan/30">
                 <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-neon-cyan mb-4 group-hover:scale-110 transition-transform">
                     <Icon size={24} />
@@ -238,6 +236,6 @@ function ActionCard({ title, description, icon: Icon, onClick }: any) {
                 <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
                 <p className="text-white/50 text-sm">{description}</p>
             </GlassCard>
-        </button>
+        </Link>
     );
 }
