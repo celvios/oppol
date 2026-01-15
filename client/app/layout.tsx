@@ -26,6 +26,9 @@ export const metadata: Metadata = {
   title: "OPoll | Decentralized Prediction Market",
   description: "Predict the future. Own the outcome.",
   themeColor: "#05050A",
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({

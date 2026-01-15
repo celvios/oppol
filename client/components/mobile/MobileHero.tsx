@@ -37,7 +37,7 @@ export default function MobileHero() {
                 {/* Logo & Typography */}
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-20 h-20 relative rounded-full overflow-hidden border-2 border-white/10 shadow-lg shadow-neon-cyan/20">
-                        <img src="/logo.png" alt="OPoll Logo" className="w-full h-full object-cover" />
+                        <img src="/logo.jpg" alt="OPoll Logo" className="w-full h-full object-cover" />
                     </div>
 
                     <h1 className="font-heading font-bold leading-tight">
