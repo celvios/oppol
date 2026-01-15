@@ -17,6 +17,14 @@ console.log('🚀 OPOLL Telegram Bot Starting...\n');
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     await SessionManager.clear(chatId);
+    
+    // Auto-create wallet for user
+    try {
+        await API.getOrCreateUser(chatId, msg.from?.username);
+    } catch (error) {
+        console.error('Failed to create user:', error);
+    }
+    
     bot.sendMessage(chatId, messages.welcome, {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -24,6 +32,7 @@ bot.onText(/\/start/, async (msg) => {
                 [{ text: '📊 Markets', callback_data: 'markets' }],
                 [{ text: '👤 Profile', callback_data: 'profile' }],
                 [{ text: '💰 Deposit', callback_data: 'deposit' }],
+                [{ text: '💸 Withdraw', callback_data: 'withdraw' }],
                 [{ text: '❓ Help', callback_data: 'help' }]
             ]
         }
@@ -40,6 +49,7 @@ bot.onText(/\/menu/, async (msg) => {
                 [{ text: '📊 Markets', callback_data: 'markets' }],
                 [{ text: '👤 Profile', callback_data: 'profile' }],
                 [{ text: '💰 Deposit', callback_data: 'deposit' }],
+                [{ text: '💸 Withdraw', callback_data: 'withdraw' }],
                 [{ text: '❓ Help', callback_data: 'help' }]
             ]
         }
@@ -97,19 +107,69 @@ bot.on('callback_query', async (query) => {
             break;
             
         case 'profile':
-            bot.sendMessage(chatId, '👤 *Profile* (Coming in Phase 5)', {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
-                }
-            });
+            try {
+                await API.getOrCreateUser(chatId, query.from?.username);
+                const balance = await API.getUserBalance(chatId);
+                const userResult = await API.getOrCreateUser(chatId, query.from?.username);
+                
+                bot.sendMessage(chatId, 
+                    `👤 *Your Profile*\n\n` +
+                    `Telegram ID: ${chatId}\n` +
+                    `Username: @${query.from?.username || 'N/A'}\n` +
+                    `Wallet: ${userResult.user?.wallet_address?.substring(0, 10)}...\n` +
+                    `Balance: ${balance} USDC`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                        }
+                    }
+                );
+            } catch (error: any) {
+                bot.sendMessage(chatId, `❌ Failed to load profile: ${error.message}`, {
+                    reply_markup: {
+                        inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                    }
+                });
+            }
             break;
             
         case 'deposit':
-            bot.sendMessage(chatId, '💰 *Deposit* (Coming in Phase 5)', {
+            try {
+                await API.getOrCreateUser(chatId, query.from?.username);
+                const userResult = await API.getOrCreateUser(chatId, query.from?.username);
+                const walletAddress = userResult.user?.wallet_address;
+                
+                bot.sendMessage(chatId, 
+                    `💰 *Deposit USDC*\n\n` +
+                    `Send USDC (Base Sepolia) to:\n\n` +
+                    `\`${walletAddress}\`\n\n` +
+                    `Your balance will update automatically.`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🔄 Refresh Balance', callback_data: 'profile' }],
+                                [{ text: '🔙 Back to Menu', callback_data: 'menu' }]
+                            ]
+                        }
+                    }
+                );
+            } catch (error: any) {
+                bot.sendMessage(chatId, `❌ Failed to load deposit info: ${error.message}`, {
+                    reply_markup: {
+                        inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                    }
+                });
+            }
+            break;
+            
+        case 'withdraw':
+            await SessionManager.update(chatId, { state: UserState.ENTERING_WITHDRAW_ADDRESS });
+            bot.sendMessage(chatId, '💸 *Withdraw USDC*\n\nEnter the wallet address to withdraw to:', {
                 parse_mode: 'Markdown',
                 reply_markup: {
-                    inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                    inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu' }]]
                 }
             });
             break;
@@ -131,6 +191,7 @@ bot.on('callback_query', async (query) => {
                         [{ text: '📊 Markets', callback_data: 'markets' }],
                         [{ text: '👤 Profile', callback_data: 'profile' }],
                         [{ text: '💰 Deposit', callback_data: 'deposit' }],
+                        [{ text: '💸 Withdraw', callback_data: 'withdraw' }],
                         [{ text: '❓ Help', callback_data: 'help' }]
                     ]
                 }
@@ -237,6 +298,40 @@ bot.on('callback_query', async (query) => {
                         }
                     });
                 }
+            } else if (data?.startsWith('withdraw_confirm_')) {
+                const amount = parseFloat(data.split('_')[2]);
+                const session = await SessionManager.get(chatId);
+                const withdrawAddress = session?.data.withdrawAddress;
+                
+                bot.sendMessage(chatId, '⏳ Processing withdrawal...');
+                
+                try {
+                    const result = await API.withdraw(chatId, withdrawAddress!, amount);
+                    await SessionManager.clear(chatId);
+                    
+                    if (result.success) {
+                        bot.sendMessage(chatId, 
+                            `✅ *Withdrawal Successful!*\n\n` +
+                            `To: ${withdrawAddress?.substring(0, 10)}...\n` +
+                            `Amount: ${amount} USDC\n` +
+                            (result.transactionHash ? `\nTx: ${result.transactionHash.substring(0, 10)}...` : ''),
+                            {
+                                parse_mode: 'Markdown',
+                                reply_markup: {
+                                    inline_keyboard: [[{ text: '🔙 Main Menu', callback_data: 'menu' }]]
+                                }
+                            }
+                        );
+                    } else {
+                        throw new Error(result.message || 'Withdrawal failed');
+                    }
+                } catch (error: any) {
+                    bot.sendMessage(chatId, `❌ Withdrawal failed: ${error.message}`, {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: '🔙 Main Menu', callback_data: 'menu' }]]
+                        }
+                    });
+                }
             }
             break;
     }
@@ -318,6 +413,61 @@ bot.on('message', async (msg) => {
                     inline_keyboard: [
                         [{ text: '✅ Confirm', callback_data: `confirm_${marketId}_${outcome}_${amount}` }],
                         [{ text: '❌ Cancel', callback_data: `market_${marketId}` }]
+                    ]
+                }
+            }
+        );
+    }
+    
+    // Handle withdraw address
+    else if (session.state === UserState.ENTERING_WITHDRAW_ADDRESS) {
+        if (!text.match(/^0x[a-fA-F0-9]{40}$/)) {
+            bot.sendMessage(chatId, '❌ Invalid address. Please enter a valid Ethereum address:', {
+                reply_markup: {
+                    inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu' }]]
+                }
+            });
+            return;
+        }
+        
+        await SessionManager.update(chatId, {
+            state: UserState.ENTERING_WITHDRAW_AMOUNT,
+            data: { ...session.data, withdrawAddress: text }
+        });
+        
+        bot.sendMessage(chatId, '💸 *Enter Withdrawal Amount*\n\nHow much USDC do you want to withdraw?\n\nType the amount:', {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu' }]]
+            }
+        });
+    }
+    
+    // Handle withdraw amount
+    else if (session.state === UserState.ENTERING_WITHDRAW_AMOUNT) {
+        const amount = parseFloat(text);
+        if (isNaN(amount) || amount <= 0) {
+            bot.sendMessage(chatId, '❌ Invalid amount. Please enter a valid number:', {
+                reply_markup: {
+                    inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu' }]]
+                }
+            });
+            return;
+        }
+        
+        const { withdrawAddress } = session.data;
+        
+        bot.sendMessage(chatId, 
+            `✅ *Confirm Withdrawal*\n\n` +
+            `To: ${withdrawAddress?.substring(0, 10)}...\n` +
+            `Amount: ${amount} USDC\n\n` +
+            `Confirm to withdraw?`,
+            {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '✅ Confirm', callback_data: `withdraw_confirm_${amount}` }],
+                        [{ text: '❌ Cancel', callback_data: 'menu' }]
                     ]
                 }
             }

@@ -67,9 +67,26 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
 // GET /users - List all users with balances
 router.get('/users', checkAdminAuth, async (req, res) => {
     try {
-        // 1. Fetch from DB
-        const result = await query('SELECT * FROM whatsapp_users ORDER BY created_at DESC');
-        const users = result.rows;
+        // 1. Fetch from DB (WhatsApp + Telegram)
+        const waResult = await query('SELECT * FROM whatsapp_users ORDER BY created_at DESC');
+        const tgResult = await query('SELECT * FROM telegram_users ORDER BY created_at DESC');
+
+        // Normalize Users
+        const waUsers = waResult.rows.map((u: any) => ({
+            ...u,
+            source: 'whatsapp',
+            display_name: u.phone_number,
+            id_val: u.phone_number
+        }));
+
+        const tgUsers = tgResult.rows.map((u: any) => ({
+            ...u,
+            source: 'telegram',
+            display_name: u.username ? `@${u.username}` : `TG:${u.telegram_id}`,
+            id_val: u.telegram_id
+        }));
+
+        const allUsers = [...waUsers, ...tgUsers];
 
         // 2. Fetch on-chain balances
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
@@ -81,7 +98,7 @@ router.get('/users', checkAdminAuth, async (req, res) => {
             const contract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
             // Enhance users with balance (parallel)
-            const enhancedUsers = await Promise.all(users.map(async (u: any) => {
+            const enhancedUsers = await Promise.all(allUsers.map(async (u: any) => {
                 try {
                     const balWei = await contract.userBalances(u.wallet_address);
                     const bal = ethers.formatUnits(balWei, 6);
@@ -94,7 +111,7 @@ router.get('/users', checkAdminAuth, async (req, res) => {
             return res.json({ success: true, users: enhancedUsers });
         }
 
-        return res.json({ success: true, users });
+        return res.json({ success: true, users: allUsers });
     } catch (error: any) {
         console.error('[Admin] Get Users Error:', error);
         return res.status(500).json({ success: false, error: error.message });

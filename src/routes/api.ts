@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { generateMagicLink, verifyMagicToken } from '../controllers/authController';
 import { getWallet, linkWallet } from '../controllers/walletController';
 import { WhatsAppController } from '../controllers/whatsappController';
+import { TelegramController } from '../controllers/telegramController';
 import { placeBet, estimateBetCost } from '../controllers/betController';
 import balanceRoutes from './balance';
 
@@ -21,6 +22,11 @@ router.use('/balance', balanceRoutes);
 // WhatsApp Bot Routes
 router.post('/whatsapp/user', WhatsAppController.getOrCreateUser);
 router.get('/whatsapp/user', WhatsAppController.getUserByPhone);
+
+// Telegram Bot Routes
+router.post('/telegram/user', TelegramController.getOrCreateUser);
+router.post('/telegram/bet', TelegramController.placeBet);
+router.get('/telegram/balance/:telegramId', TelegramController.getBalance);
 
 // Bet Routes
 router.post('/bet', placeBet);

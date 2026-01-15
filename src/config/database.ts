@@ -12,6 +12,7 @@ class MockPool {
     private marketMetadata = new Map();
     private categories = new Map();
     private whatsappUsers = new Map();
+    private telegramUsers = new Map();
 
     async query(text: string, params: any[] = []) {
         console.log('📝 [MOCK DB] Query:', text);
@@ -156,6 +157,33 @@ class MockPool {
         // 15. SELECT ALL WhatsApp Users (Admin Explorer)
         if (q.includes('select * from whatsapp_users')) {
             return { rows: Array.from(this.whatsappUsers.values()) };
+        }
+
+        // --- TELEGRAM USERS ---
+
+        // 16. SELECT Telegram User
+        if (q.includes('select * from telegram_users where telegram_id')) {
+            const tid = params[0];
+            const user = this.telegramUsers.get(tid);
+            return { rows: user ? [user] : [] };
+        }
+
+        // 17. INSERT Telegram User
+        if (q.includes('insert into telegram_users')) {
+            const newUser = {
+                telegram_id: params[0],
+                username: params[1],
+                wallet_address: params[2],
+                encrypted_private_key: params[3],
+                created_at: new Date()
+            };
+            this.telegramUsers.set(params[0], newUser);
+            return { rows: [newUser] };
+        }
+
+        // 18. SELECT ALL Telegram Users
+        if (q.includes('select * from telegram_users')) {
+            return { rows: Array.from(this.telegramUsers.values()) };
         }
 
         return { rows: [] };

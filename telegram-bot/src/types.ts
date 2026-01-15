@@ -4,7 +4,9 @@ export enum UserState {
     SEARCHING_MARKETS = 'SEARCHING_MARKETS',
     VIEWING_MARKET = 'VIEWING_MARKET',
     PLACING_BET = 'PLACING_BET',
-    ENTERING_AMOUNT = 'ENTERING_AMOUNT'
+    ENTERING_AMOUNT = 'ENTERING_AMOUNT',
+    ENTERING_WITHDRAW_ADDRESS = 'ENTERING_WITHDRAW_ADDRESS',
+    ENTERING_WITHDRAW_AMOUNT = 'ENTERING_WITHDRAW_AMOUNT'
 }
 
 export interface Session {
@@ -17,5 +19,6 @@ export interface Session {
         page?: number;
         searchQuery?: string;
         allMarkets?: any[];
+        withdrawAddress?: string;
     };
 }

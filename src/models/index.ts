@@ -22,6 +22,16 @@ const createTablesQuery = `
     last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Telegram Users Table (for Telegram bot users)
+  CREATE TABLE IF NOT EXISTS telegram_users (
+    telegram_id BIGINT PRIMARY KEY,
+    username VARCHAR(100),
+    wallet_address VARCHAR(42) UNIQUE NOT NULL,
+    encrypted_private_key TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Wallets Table
   CREATE TABLE IF NOT EXISTS wallets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -90,6 +100,19 @@ const createTablesQuery = `
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Telegram Transactions Table (Telegram bot-specific transactions)
+  CREATE TABLE IF NOT EXISTS telegram_transactions (
+    id SERIAL PRIMARY KEY,
+    telegram_id BIGINT REFERENCES telegram_users(telegram_id),
+    type VARCHAR(20) NOT NULL,
+    market_id INTEGER,
+    outcome INTEGER,
+    amount DECIMAL(18, 6) NOT NULL,
+    tx_hash VARCHAR(66),
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Price History Table (for charts)
   CREATE TABLE IF NOT EXISTS price_history (
     id SERIAL PRIMARY KEY,
@@ -119,6 +142,9 @@ const createTablesQuery = `
   CREATE INDEX IF NOT EXISTS idx_whatsapp_wallet ON whatsapp_users(wallet_address);
   CREATE INDEX IF NOT EXISTS idx_whatsapp_tx_phone ON whatsapp_transactions(phone_number);
   CREATE INDEX IF NOT EXISTS idx_whatsapp_tx_hash ON whatsapp_transactions(tx_hash);
+  CREATE INDEX IF NOT EXISTS idx_telegram_wallet ON telegram_users(wallet_address);
+  CREATE INDEX IF NOT EXISTS idx_telegram_tx_user ON telegram_transactions(telegram_id);
+  CREATE INDEX IF NOT EXISTS idx_telegram_tx_hash ON telegram_transactions(tx_hash);
 `;
 
 export const initDatabase = async () => {

@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Search, Wallet, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
-import GlassCard from "@/components/ui/GlassCard";
+import { Search, ExternalLink, RefreshCw, Loader2, MessageCircle, Send } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
 
 interface User {
-    id: number;
-    phone_number: string;
+    id_val: string;
+    source: 'whatsapp' | 'telegram';
+    display_name: string;
     wallet_address: string;
     created_at: string;
     balance?: number;
-    is_verified?: boolean;
+    phone_number?: string;
+    username?: string;
 }
 
 export default function UserExplorer({ adminKey }: { adminKey: string }) {
@@ -31,7 +32,7 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
         } else {
             const lowerInfo = search.toLowerCase();
             setFilteredUsers(users.filter(u =>
-                u.phone_number?.toLowerCase().includes(lowerInfo) ||
+                u.display_name?.toLowerCase().includes(lowerInfo) ||
                 u.wallet_address?.toLowerCase().includes(lowerInfo)
             ));
         }
@@ -63,7 +64,7 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 h-4 w-4" />
                     <input
                         type="text"
-                        placeholder="Search phone or wallet..."
+                        placeholder="Search phone, username, or wallet..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
@@ -83,8 +84,9 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-white/10 text-white/40 text-sm uppercase tracking-wider">
+                                <th className="p-4 font-medium">Source</th>
+                                <th className="p-4 font-medium">Identity</th>
                                 <th className="p-4 font-medium">Created</th>
-                                <th className="p-4 font-medium">Phone</th>
                                 <th className="p-4 font-medium">Wallet</th>
                                 <th className="p-4 font-medium text-right">Balance (USDC)</th>
                                 <th className="p-4 font-medium text-right">Actions</th>
@@ -93,21 +95,34 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                         <tbody className="text-white/80">
                             {filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-white/30">
+                                    <td colSpan={6} className="p-8 text-center text-white/30">
                                         No users found
                                     </td>
                                 </tr>
                             ) : (
                                 filteredUsers.map((user, i) => (
                                     <tr key={user.wallet_address + i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <td className="p-4">
+                                            {user.source === 'whatsapp' ? (
+                                                <div className="flex items-center gap-2 text-green-400">
+                                                    <MessageCircle size={16} />
+                                                    <span className="text-xs font-bold">WA</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-blue-400">
+                                                    <Send size={16} />
+                                                    <span className="text-xs font-bold">TG</span>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="p-4 font-bold text-white">
+                                            {user.display_name}
+                                        </td>
                                         <td className="p-4 text-sm font-mono text-white/50">
                                             {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '-'}
                                         </td>
-                                        <td className="p-4 font-bold text-neon-cyan/90">
-                                            {user.phone_number}
-                                        </td>
                                         <td className="p-4 font-mono text-xs text-white/50">
-                                            {user.wallet_address}
+                                            {user.wallet_address?.substring(0, 6)}...{user.wallet_address?.substring(38)}
                                         </td>
                                         <td className="p-4 text-right font-bold font-mono">
                                             ${user.balance?.toFixed(2) || '0.00'}
