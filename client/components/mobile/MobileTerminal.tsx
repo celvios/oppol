@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
+import { SimpleConnectButton } from "@/components/ui/SimpleConnectButton";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButton";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
+import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
+import { WalletDebug } from "@/components/ui/WalletDebug";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -287,11 +290,23 @@ export function MobileTerminal() {
                         <p className="text-white/50 mb-8">
                             Connect your wallet to start trading on prediction markets.
                         </p>
-                        <ReownConnectButton
-                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                        >
-                            Connect Wallet
-                        </ReownConnectButton>
+                        <div className="space-y-4">
+                            <ReownConnectButton
+                                className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                            >
+                                Connect Wallet
+                            </ReownConnectButton>
+                            
+                            <div className="text-center text-xs text-white/40">
+                                or
+                            </div>
+                            
+                            <SimpleConnectButton
+                                className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
+                            >
+                                Connect with MetaMask
+                            </SimpleConnectButton>
+                        </div>
                     </div>
                 </div>
             );
@@ -324,11 +339,23 @@ export function MobileTerminal() {
                                 </p>
                             </div>
                         )}
-                        <ReownConnectButton
-                            className="px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
-                        >
-                            Connect Wallet
-                        </ReownConnectButton>
+                        <div className="space-y-4">
+                            <ReownConnectButton
+                                className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                            >
+                                Connect Wallet
+                            </ReownConnectButton>
+                            
+                            <div className="text-center text-xs text-white/40">
+                                or
+                            </div>
+                            
+                            <SimpleConnectButton
+                                className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
+                            >
+                                Connect with MetaMask
+                            </SimpleConnectButton>
+                        </div>
                     </div>
                 </div>
             </>
@@ -620,6 +647,16 @@ export function MobileTerminal() {
     );
 }
 
+// Add debug component at the end
+export function MobileTerminalWithDebug() {
+    return (
+        <>
+            <MobileTerminal />
+            <WalletDebug />
+        </>
+    );
+}
+
 // Mobile Trade Sheet
 function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, balance, onTradeSuccess }: {
     isOpen: boolean;
@@ -633,7 +670,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { signer } = useWallet();
+    const { signer, address } = useWallet();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);

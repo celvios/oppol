@@ -6,13 +6,15 @@ interface WalletState {
   isConnected: boolean;
   address: string | null;
   isConnecting: boolean;
+  signer?: any;
 }
 
 export function useWallet() {
   const [state, setState] = useState<WalletState>({
     isConnected: false,
     address: null,
-    isConnecting: false
+    isConnecting: false,
+    signer: null
   });
   
   useEffect(() => {
@@ -33,16 +35,45 @@ export function useWallet() {
     
     // Listen for wallet changes
     const handleWalletChange = (event: any) => {
+      console.log('Wallet change event received:', event.detail);
       const { address, isConnected } = event.detail;
       setState({
         isConnected: isConnected || false,
         address: address || null,
-        isConnecting: false
+        isConnecting: false,
+        signer: null // Reset signer when wallet changes
       });
+      
+      // Update cache
+      if (isConnected && address) {
+        localStorage.setItem('wallet_cache', JSON.stringify({ address, isConnected }));
+      } else {
+        localStorage.removeItem('wallet_cache');
+      }
     };
     
     window.addEventListener('wallet-changed', handleWalletChange);
     
+    // Also listen for MetaMask account changes
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        console.log('MetaMask accounts changed:', accounts);
+        if (accounts.length > 0) {
+          handleWalletChange({ detail: { address: accounts[0], isConnected: true } });
+        } else {
+          handleWalletChange({ detail: { address: null, isConnected: false } });
+        }
+      };
+      
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      
+      return () => {
+        window.removeEventListener('wallet-changed', handleWalletChange);
+        if (window.ethereum && window.ethereum.removeListener) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        }
+      };
+    }
     return () => {
       window.removeEventListener('wallet-changed', handleWalletChange);
     };
@@ -78,8 +109,36 @@ export function useWallet() {
     }
   };
   
+  const disconnect = async () => {
+    try {
+      // Clear local state
+      setState({
+        isConnected: false,
+        address: null,
+        isConnecting: false
+      });
+      
+      // Clear cache
+      localStorage.removeItem('wallet_cache');
+      
+      // Try to disconnect from AppKit if available
+      const appKit = (window as any).__appkit;
+      if (appKit && appKit.disconnect) {
+        await appKit.disconnect();
+      }
+      
+      // Dispatch event for other components
+      window.dispatchEvent(new CustomEvent('wallet-changed', {
+        detail: { address: null, isConnected: false }
+      }));
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+    }
+  };
+  
   return {
     ...state,
-    connect
+    connect,
+    disconnect
   };
 }
