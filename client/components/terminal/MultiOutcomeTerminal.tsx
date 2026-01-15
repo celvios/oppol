@@ -221,8 +221,11 @@ export function MultiOutcomeTerminal() {
 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                     {markets.map((m) => {
-                        const topOutcome = m.outcomes[m.prices.indexOf(Math.max(...m.prices))];
-                        const topPrice = Math.max(...m.prices);
+                        if (!m.outcomes || !m.prices || m.outcomes.length === 0 || m.prices.length === 0) return null;
+                        const maxPrice = Math.max(...m.prices);
+                        const maxIndex = m.prices.indexOf(maxPrice);
+                        const topOutcome = m.outcomes[maxIndex] || 'Unknown';
+                        const topPrice = maxPrice || 0;
                         return (
                             <motion.button
                                 key={m.id}
@@ -354,7 +357,7 @@ export function MultiOutcomeTerminal() {
                     </div>
 
                     <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2">
-                        {market.outcomes.map((outcome, i) => (
+                        {market.outcomes && market.prices && market.outcomes.map((outcome, i) => (
                             <motion.button
                                 key={i}
                                 onClick={() => setSelectedOutcome(i)}
@@ -371,13 +374,13 @@ export function MultiOutcomeTerminal() {
                                             className="w-4 h-4 rounded-full"
                                             style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
                                         />
-                                        <span className="font-heading text-white font-medium">{outcome}</span>
+                                        <span className="font-heading text-white font-medium">{outcome || 'Unknown'}</span>
                                     </div>
                                     <span
                                         className="text-2xl font-mono font-bold"
                                         style={{ color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
                                     >
-                                        {market.prices[i].toFixed(1)}%
+                                        {(market.prices[i] || 0).toFixed(1)}%
                                     </span>
                                 </div>
 
@@ -387,7 +390,7 @@ export function MultiOutcomeTerminal() {
                                         className="h-full rounded-full"
                                         style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
                                         initial={{ width: 0 }}
-                                        animate={{ width: `${market.prices[i]}%` }}
+                                        animate={{ width: `${market.prices[i] || 0}%` }}
                                         transition={{ duration: 0.5, ease: "easeOut" }}
                                     />
                                 </div>
@@ -428,12 +431,12 @@ export function MultiOutcomeTerminal() {
                                     className="w-4 h-4 rounded-full"
                                     style={{ backgroundColor: OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length] }}
                                 />
-                                <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome]}</span>
+                                <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
                                 <span
                                     className="ml-auto font-mono text-xl font-bold"
                                     style={{ color: OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length] }}
                                 >
-                                    {market.prices[selectedOutcome].toFixed(1)}%
+                                    {(market.prices[selectedOutcome] || 0).toFixed(1)}%
                                 </span>
                             </div>
                         </div>
@@ -466,14 +469,14 @@ export function MultiOutcomeTerminal() {
                             <div className="p-4 bg-white/5 rounded-xl space-y-2 border border-white/5">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-text-secondary">Price</span>
-                                    <span className="font-mono text-white">{market.prices[selectedOutcome].toFixed(1)}¢</span>
+                                    <span className="font-mono text-white">{(market.prices[selectedOutcome] || 0).toFixed(1)}¢</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-text-secondary">Est. Shares</span>
                                     <span className="font-mono text-neon-cyan">
                                         {(() => {
                                             const amt = parseFloat(amount || '0');
-                                            const price = market.prices[selectedOutcome] / 100;
+                                            const price = (market.prices[selectedOutcome] || 0) / 100;
                                             if (amt === 0 || price === 0) return '0';
                                             return `~${(amt / price).toFixed(0)}`;
                                         })()}
@@ -494,7 +497,7 @@ export function MultiOutcomeTerminal() {
                             className="w-full py-4"
                             disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
                         >
-                            {isTradeLoading ? 'PROCESSING...' : `BUY ${market.outcomes[selectedOutcome].toUpperCase()}`}
+                            {isTradeLoading ? 'PROCESSING...' : `BUY ${(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}`}
                         </NeonButton>
                     </div>
                 </GlassCard>
