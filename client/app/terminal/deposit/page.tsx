@@ -24,8 +24,6 @@ const MARKET_ABI = [
 
 const STABLECOINS = [
     { symbol: 'USDC', address: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0', decimals: 6, direct: true }, // MockUSDC - direct deposit
-    { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18, direct: false }, // BSC USDT via Zap
-    { symbol: 'BUSD', address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', decimals: 18, direct: false }, // BSC BUSD via Zap
 ];
 
 export default function DepositPage() {
