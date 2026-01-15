@@ -107,18 +107,18 @@ export function MobileTerminal() {
         // Mock market data for immediate display
         {
             id: 0,
-            question: "Loading markets...",
+            question: "Will Bitcoin reach $100,000 by end of 2024?",
             outcomes: ["YES", "NO"],
             outcomeCount: 2,
             shares: ["1000", "1000"],
-            prices: [50, 50],
+            prices: [65, 35],
             endTime: Date.now() / 1000 + 86400,
-            liquidityParam: "1000",
-            totalVolume: "0",
+            liquidityParam: "5000",
+            totalVolume: "12500",
             resolved: false,
             winningOutcome: 0,
-            yesOdds: 50,
-            noOdds: 50,
+            yesOdds: 65,
+            noOdds: 35,
             yesShares: "1000",
             noShares: "1000",
             yesPool: "1000",
@@ -244,44 +244,32 @@ export function MobileTerminal() {
     const fetchData = useCallback(async () => {
         if (!isConnected || !address) return;
         
-        console.log('[MobileTerminal] fetchData called, retry count:', retryCount);
         setMarketError(null);
         setIsLoadingReal(true);
         
         try {
-            const allMarkets = await web3Service.getMarkets();
-            console.log('[MobileTerminal] Markets fetched:', allMarkets.length);
+            // Parallel requests for faster loading
+            const [allMarkets, depositedBalance] = await Promise.all([
+                web3Service.getMarkets(),
+                web3Service.getDepositedBalance(address).catch(() => '0')
+            ]);
             
             if (allMarkets.length === 0) {
-                throw new Error('No markets returned from contract');
+                throw new Error('No markets available');
             }
             
-            setMarkets(allMarkets); // Replace mock data with real data
-            setRetryCount(0); // Reset retry count on success
-
-            // Fetch deposited balance
-            try {
-                const depositedBalance = await web3Service.getDepositedBalance(address);
-                setBalance(depositedBalance);
-            } catch (e) {
-                console.error('[MobileTerminal] Balance fetch error:', e);
-                setBalance('0');
-            }
+            setMarkets(allMarkets);
+            setBalance(depositedBalance);
+            setRetryCount(0);
         } catch (error: any) {
-            console.error('[MobileTerminal] Error in fetchData:', error);
+            console.error('[MobileTerminal] Error:', error);
             setMarketError(error.message || 'Failed to load markets');
             
-            // Auto-retry up to 3 times with exponential backoff
-            if (retryCount < 3) {
-                const delay = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s
-                console.log(`[MobileTerminal] Retrying in ${delay}ms...`);
-                setTimeout(() => {
-                    setRetryCount(prev => prev + 1);
-                }, delay);
+            if (retryCount < 2) { // Reduce retries to 2
+                setTimeout(() => setRetryCount(prev => prev + 1), 1000); // Faster retry
             }
         } finally {
             setIsLoadingReal(false);
-            setLoading(false);
         }
     }, [isConnected, address, retryCount]);
 
@@ -292,7 +280,7 @@ export function MobileTerminal() {
             return;
         }
         fetchData();
-        const interval = setInterval(fetchData, 15000);
+        const interval = setInterval(fetchData, 30000); // Reduce polling frequency
         return () => clearInterval(interval);
     }, [isConnected, address, fetchData]);
 
