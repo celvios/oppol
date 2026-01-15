@@ -4,7 +4,7 @@ import { decrypt } from '../services/encryption';
 import { ethers } from 'ethers';
 
 // Contract addresses
-const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 const RPC_URL = process.env.RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
 
 // Market contract ABI for buyShares

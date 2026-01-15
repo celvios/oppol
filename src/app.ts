@@ -57,7 +57,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = [
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
     ];
@@ -484,7 +484,7 @@ app.post('/api/faucet', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const USDC_ADDR = process.env.USDC_ADDRESS || '0x792D979781F0E53A51D0cD837cd03827fA8d83A1';
+    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
     const usdcABI = ['function mint(address to, uint256 amount)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -588,8 +588,8 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
-    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
 
     const marketABI = ['function userBalances(address) view returns (uint256)'];
     const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
@@ -647,7 +647,7 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
@@ -688,7 +688,7 @@ app.get('/api/markets', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
@@ -742,7 +742,7 @@ app.get('/api/contract/check', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x7DF49AcDB3c81853801bC1938A03d36205243b0b';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     // Get contract code
     const code = await provider.getCode(MARKET_ADDR);
