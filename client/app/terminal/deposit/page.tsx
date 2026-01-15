@@ -23,9 +23,7 @@ const MARKET_ABI = [
 ];
 
 const STABLECOINS = [
-    { symbol: 'USDC', address: '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be', decimals: 6 },
-    { symbol: 'USDT', address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', decimals: 6 },
-    { symbol: 'DAI', address: '0xEC5dCb5Dbf4B114C9d0F65BcCAb49EC54F6A0867', decimals: 18 },
+    { symbol: 'USDC', address: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0', decimals: 6 }, // MockUSDC from contracts
 ];
 
 export default function DepositPage() {
@@ -39,6 +37,36 @@ export default function DepositPage() {
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
     const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '0x58c957342B8cABB9bE745BeBc09C267b70137959';
+
+    async function mintTestTokens() {
+        if (!address) return;
+        try {
+            if (!window.ethereum) {
+                throw new Error('Please install MetaMask');
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            
+            // MockUSDC contract has a mint function for testing
+            const MINT_ABI = [
+                { name: 'mint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
+            ];
+            
+            const tokenContract = new Contract(selectedToken.address, MINT_ABI, signer);
+            const mintAmount = ethers.parseUnits('1000', selectedToken.decimals);
+            
+            console.log('Minting test tokens...');
+            const mintTx = await tokenContract.mint(address, mintAmount);
+            await mintTx.wait();
+            
+            alert(`Minted 1000 test ${selectedToken.symbol} tokens!`);
+            fetchBalance();
+        } catch (error: any) {
+            console.error('Mint failed:', error);
+            alert('Failed to mint test tokens. This might not be available on this network.');
+        }
+    }
 
     useEffect(() => {
         if (address) {
@@ -75,26 +103,53 @@ export default function DepositPage() {
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             
+            console.log('Using token:', selectedToken.address);
+            console.log('Using market contract:', MARKET_CONTRACT);
+            console.log('Deposit amount:', depositAmount, selectedToken.symbol);
+            
             // Create contract instances with signer
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
             const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
             
             const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
+            console.log('Amount in wei:', amountInWei.toString());
+            
+            // Check token balance first
+            const tokenBalance = await tokenContract.balanceOf(address);
+            console.log('Token balance:', ethers.formatUnits(tokenBalance, selectedToken.decimals));
+            
+            if (tokenBalance < amountInWei) {
+                throw new Error(`Insufficient ${selectedToken.symbol} balance. You have ${ethers.formatUnits(tokenBalance, selectedToken.decimals)} ${selectedToken.symbol}`);
+            }
             
             // Step 1: Check current allowance
             const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
+            console.log('Current allowance:', ethers.formatUnits(currentAllowance, selectedToken.decimals));
             
             if (currentAllowance < amountInWei) {
                 console.log('Approving token spend...');
-                const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
-                await approveTx.wait();
-                console.log('Approval confirmed');
+                try {
+                    const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
+                    console.log('Approval transaction sent:', approveTx.hash);
+                    await approveTx.wait();
+                    console.log('Approval confirmed');
+                } catch (approveError: any) {
+                    console.error('Approval failed:', approveError);
+                    throw new Error(`Token approval failed: ${approveError.message || 'Unknown error'}`);
+                }
             }
             
             // Step 2: Deposit to market contract
             console.log('Depositing to market...');
-            const depositTx = await marketContract.deposit(amountInWei);
-            await depositTx.wait();
+            try {
+                const depositTx = await marketContract.deposit(amountInWei);
+                console.log('Deposit transaction sent:', depositTx.hash);
+                await depositTx.wait();
+                console.log('Deposit confirmed');
+            } catch (depositError: any) {
+                console.error('Deposit failed:', depositError);
+                throw new Error(`Deposit failed: ${depositError.message || 'Unknown error'}`);
+            }
             
             console.log('Deposit successful!');
             alert(`Successfully deposited ${depositAmount} ${selectedToken.symbol}!`);
@@ -109,8 +164,10 @@ export default function DepositPage() {
                 errorMessage = 'Transaction was rejected by user';
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient funds for transaction';
-            } else if (error.message?.includes('allowance')) {
-                errorMessage = 'Token approval failed';
+            } else if (error.message?.includes('Insufficient')) {
+                errorMessage = error.message;
+            } else if (error.message?.includes('approval')) {
+                errorMessage = error.message;
             } else if (error.message) {
                 errorMessage = error.message;
             }
@@ -176,9 +233,16 @@ export default function DepositPage() {
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <div className="flex justify-between mb-2">
                                 <label className="text-sm font-medium text-white/60">Amount ({selectedToken.symbol})</label>
-                                <button onClick={() => setDepositAmount(tokenBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
-                                    Balance: {tokenBalance}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setDepositAmount(tokenBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
+                                        Balance: {tokenBalance}
+                                    </button>
+                                    {parseFloat(tokenBalance) === 0 && (
+                                        <button onClick={mintTestTokens} className="text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
+                                            Get Test Tokens
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <input
                                 type="number"
