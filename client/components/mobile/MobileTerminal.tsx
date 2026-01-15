@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
-import { WalletDebug } from "@/components/ui/WalletDebug";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -644,16 +643,6 @@ export function MobileTerminal() {
                 )}
             </AnimatePresence>
         </div>
-    );
-}
-
-// Add debug component at the end
-export function MobileTerminalWithDebug() {
-    return (
-        <>
-            <MobileTerminal />
-            <WalletDebug />
-        </>
     );
 }
 

@@ -4,21 +4,31 @@ import { useEffect, useState } from 'react';
 
 export function ReownConnectButton({ children, className }: { children: React.ReactNode; className?: string }) {
   const [mounted, setMounted] = useState(false);
+  const [appKit, setAppKit] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
     
-    // Load Reown and create connect button
+    // Load Reown dynamically to avoid SSR issues
     const loadReown = async () => {
       try {
         console.log('Loading Reown AppKit...');
-        const { createAppKit } = await import('@reown/appkit/react');
-        const { EthersAdapter } = await import('@reown/appkit-adapter-ethers');
-        const { bsc, bscTestnet } = await import('@reown/appkit/networks');
+        
+        // Dynamic imports to avoid build issues
+        const [{ createAppKit }, { EthersAdapter }, { bsc, bscTestnet }] = await Promise.all([
+          import('@reown/appkit/react').catch(() => ({ createAppKit: null })),
+          import('@reown/appkit-adapter-ethers').catch(() => ({ EthersAdapter: null })),
+          import('@reown/appkit/networks').catch(() => ({ bsc: null, bscTestnet: null }))
+        ]);
+        
+        if (!createAppKit || !EthersAdapter || !bsc || !bscTestnet) {
+          console.warn('Reown dependencies not available, skipping initialization');
+          return;
+        }
         
         const ethersAdapter = new EthersAdapter();
         
-        const appKit = createAppKit({
+        const appKitInstance = createAppKit({
           adapters: [ethersAdapter],
           networks: [bsc, bscTestnet],
           metadata: {
@@ -31,29 +41,27 @@ export function ReownConnectButton({ children, className }: { children: React.Re
           features: {
             analytics: false
           },
-          // Add mobile-specific options
           themeMode: 'dark',
           themeVariables: {
             '--w3m-z-index': '9999'
           }
         });
         
-        console.log('AppKit created:', appKit);
+        console.log('AppKit created:', appKitInstance);
+        setAppKit(appKitInstance);
         
         // Store reference globally
-        (window as any).__appkit = appKit;
+        (window as any).__appkit = appKitInstance;
         
         // Listen for connection events
-        appKit.subscribeAccount((account) => {
+        appKitInstance.subscribeAccount((account: any) => {
           console.log('Account changed:', account);
           if (account.isConnected && account.address) {
-            // Cache the connection
             localStorage.setItem('wallet_cache', JSON.stringify({
               address: account.address,
               isConnected: true
             }));
             
-            // Dispatch event for useWallet hook
             window.dispatchEvent(new CustomEvent('wallet-changed', {
               detail: { address: account.address, isConnected: true }
             }));
@@ -75,25 +83,23 @@ export function ReownConnectButton({ children, className }: { children: React.Re
 
   const handleClick = () => {
     console.log('Connect button clicked');
-    const appKit = (window as any).__appkit;
-    console.log('AppKit instance:', appKit);
+    const appKitInstance = appKit || (window as any).__appkit;
+    console.log('AppKit instance:', appKitInstance);
     
-    if (appKit) {
+    if (appKitInstance) {
       console.log('Opening AppKit modal...');
       try {
-        appKit.open();
+        appKitInstance.open();
       } catch (error) {
         console.error('Error opening AppKit:', error);
-        // Fallback: try alternative methods
-        if (appKit.modal && appKit.modal.open) {
-          appKit.modal.open();
-        } else if (appKit.openModal) {
-          appKit.openModal();
+        if (appKitInstance.modal && appKitInstance.modal.open) {
+          appKitInstance.modal.open();
+        } else if (appKitInstance.openModal) {
+          appKitInstance.openModal();
         }
       }
     } else {
       console.error('AppKit not initialized');
-      // Try to trigger wallet connection through other means
       window.dispatchEvent(new CustomEvent('wallet-connect-request'));
     }
   };

@@ -5,7 +5,7 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 // Lazy load heavy terminal components
 const MultiOutcomeTerminal = lazy(() => import("@/components/terminal/MultiOutcomeTerminal").then(m => ({ default: m.MultiOutcomeTerminal })));
-const MobileTerminal = lazy(() => import("@/components/mobile/MobileTerminal").then(m => ({ default: m.MobileTerminalWithDebug })));
+const MobileTerminal = lazy(() => import("@/components/mobile/MobileTerminal").then(m => ({ default: m.MobileTerminal })));
 
 export default function TerminalPage() {
     return (
