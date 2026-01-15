@@ -536,7 +536,7 @@ export function MobileTerminal() {
                                     <button
                                         key={index}
                                         onClick={() => {
-                                            setTradeSide(outcome); // Use outcome name directly
+                                            setTradeSide(outcome);
                                             setSelectedOutcomeIndex(index);
                                             setIsTradeSheetOpen(true);
                                         }}
