@@ -553,7 +553,6 @@ export function MobileTerminal() {
                                             <span className="font-mono font-bold text-lg" style={{ color }}>
                                                 {Math.round(price)}%
                                             </span>
-                                            <span className="text-xs text-white/40 bg-white/5 px-2 py-1 rounded">BUY</span>
                                         </div>
                                     </button>
                                 );
