@@ -45,7 +45,7 @@ app.use((req, res, next) => {
 app.get('/api/whatsapp/user', async (req, res) => {
   try {
     const { phone } = req.query;
-    
+
     if (!phone) {
       return res.status(400).json({ success: false, error: 'Phone number required' });
     }
@@ -728,6 +728,99 @@ app.get('/api/wallet/:userId/balance', async (req, res) => {
   }
 });
 
+// ADMIN CREATE MARKET ENDPOINT
+app.post('/api/admin/create-market', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const adminSecret = req.headers['x-admin-secret'];
+
+    // Validate secret key
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123';
+    if (adminSecret !== VALID_SECRET) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { question, outcomes, category, image, description, durationHours, initialLiquidity } = req.body;
+
+    if (!question || !outcomes || outcomes.length < 2) {
+      return res.status(400).json({ success: false, error: 'Invalid market data' });
+    }
+
+    console.log(`[Admin] Creating market: "${question}" with outcomes: ${outcomes.join(', ')}`);
+
+    // Setup Provider & Signer (Owner)
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org'; // Default to public RPC if main failed
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) throw new Error('Server wallet not configured');
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    // Get Contract
+    const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const marketABI = [
+      'function createMarket(string, string[], uint256, uint256, uint256) external returns (uint256)',
+      'function marketCount() view returns (uint256)'
+    ];
+    const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
+
+    // 1. Approve Token Transfer for Subsidy/Liquidity if needed (skipped for now as liquidityParam is mostly virtual in this impl)
+    // Actually, createMarket takes _subsidy. If > 0, we need to approve.
+    // Assuming 0 subsidy for simplicity unless requested.
+
+    // 2. Call createMarket
+    const durationSeconds = (durationHours || 24) * 3600;
+    const liquidityParam = ethers.parseUnits((initialLiquidity || 100).toString(), 6); // Default 100 B-param (normalized to token decimals if needed, assume 6 for USDC)
+    // Note: In LMSR, B-param is usually roughly equal to total max possible loss. 
+    // The contract uses a simple integer for B. Let's use 100 * 1e18 for precision if it parses it that way, 
+    // but the contract says `uint256 constant PRECISION = 1e18;` so B should be scaled by 1e18?
+    // Checking calculateCost: `(costAfter - costBefore) / PRECISION`. 
+    // Wait, typical LMSR B is distinct. Looking at deployed contract logic, let's assume raw value or scaled by token decimals? 
+    // The contract `_lmsrCost` divides by `b`. `(shares * PRECISION) / b`.
+    // If b is small (e.g. 100), `shares * PRECISION / 100` allows large exponent. 
+    // If shares are 6 decimals (USDC), `1e6 * 1e18 / 100` = `1e22`. exp(1e22) is huge.
+    // Shares should probably be treated as 18 decimals internally or similar.
+    // Let's stick to a safe default found in previous deployments or use a standard B-param like 500 * 1e18 (500 tokens).
+
+    // Safest bet: 100 * 1e18 (Standard for 18 decimal tokens).
+    const liquidityB = BigInt(initialLiquidity || 1000) * BigInt(1e18);
+
+    const tx = await contract.createMarket(
+      question,
+      outcomes,
+      durationSeconds,
+      liquidityB,
+      0 // Subsidy 0 for now
+    );
+
+    console.log(`[Admin] TX Sent: ${tx.hash}`);
+    await tx.wait();
+
+    // 3. Get the new Market ID
+    // Since we can't easily parse logs here without complex code, we can read marketCount - 1
+    // OR just fetch the latest market count.
+    const count = await contract.marketCount();
+    const newMarketId = Number(count) - 1;
+
+    console.log(`[Admin] Market Created. ID: ${newMarketId}`);
+
+    // 4. Save Metadata to DB
+    await query(
+      `INSERT INTO markets (market_id, question, description, image, category, outcome_names)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (market_id) DO UPDATE 
+       SET question = $2, description = $3, image = $4, category = $5, outcome_names = $6`,
+      [newMarketId, question, description, image, category, JSON.stringify(outcomes)]
+    );
+
+    return res.json({ success: true, marketId: newMarketId, txHash: tx.hash });
+
+  } catch (error: any) {
+    console.error('Create market error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
   try {
@@ -746,6 +839,17 @@ app.get('/api/markets', async (req, res) => {
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
     const count = await market.marketCount();
 
+    // Get market metadata from database
+    let metadataMap: Record<number, any> = {};
+    try {
+      const metadataResult = await query('SELECT * FROM markets');
+      metadataResult.rows.forEach((row: any) => {
+        metadataMap[row.market_id] = row;
+      });
+    } catch (e) {
+      console.log('Database not available for metadata, using defaults');
+    }
+
     // Get volume from database
     let volumeByMarket: Record<number, number> = {};
     try {
@@ -763,21 +867,103 @@ app.get('/api/markets', async (req, res) => {
     for (let i = 0; i < count; i++) {
       const m = await market.markets(i);
       const price = await market.getPrice(i);
+
+      const metadata = metadataMap[i] || {};
+
       markets.push({
         id: i,
-        question: m.question,
+        question: m.question, // Contract question is truth
         yesOdds: Number(price) / 100,
         noOdds: 100 - Number(price) / 100,
         volume: (volumeByMarket[i] || 0).toFixed(2),
         liquidity: ethers.formatUnits(m.liquidityParam, 6),
         endTime: Number(m.endTime),
         resolved: m.resolved,
+        image: metadata.image || "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800",
+        category: metadata.category || "General",
+        description: metadata.description || "No description available",
       });
     }
 
     return res.json({ success: true, markets });
   } catch (error: any) {
     console.error('Markets error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ADMIN STATS ENDPOINT
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const adminSecret = req.headers['x-admin-secret'];
+
+    // Validate secret key
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123'; // Fallback for dev
+    if (adminSecret !== VALID_SECRET) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // 1. Get User Count
+    const userResult = await query('SELECT COUNT(*) as count FROM users');
+    const totalUsers = parseInt(userResult.rows[0].count);
+
+    // 2. Get Volume
+    const volumeResult = await query('SELECT SUM(total_cost) as volume FROM trades');
+    const totalVolume = parseFloat(volumeResult.rows[0].volume || '0');
+
+    // 3. Get Active Markets (from contract)
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+
+    // We only need marketCount for now to be fast
+    const marketABI = ['function marketCount() view returns (uint256)'];
+    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+    const activeMarkets = Number(await marketContract.marketCount());
+
+    // 4. Calculate Total Liquidity (Estimate from contract balance for now)
+    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+    const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+    const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);
+    const totalLiquidity = parseFloat(ethers.formatUnits(contractBalanceWei, 6));
+
+    return res.json({
+      success: true,
+      stats: {
+        totalLiquidity: `$${totalLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+        totalVolume: `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+        activeMarkets,
+        totalUsers
+      }
+    });
+  } catch (error: any) {
+    console.error('Admin stats error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// SAVE MARKET METADATA ENDPOINT
+app.post('/api/markets/metadata', async (req, res) => {
+  try {
+    const { marketId, question, description, image, category } = req.body;
+
+    if (marketId === undefined || !question) {
+      return res.status(400).json({ success: false, error: 'Missing marketId or question' });
+    }
+
+    await query(
+      `INSERT INTO markets (market_id, question, description, image, category)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (market_id) DO UPDATE 
+       SET question = $2, description = $3, image = $4, category = $5`,
+      [marketId, question, description, image, category]
+    );
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('Save metadata error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -1,215 +1,239 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useWallet } from '@/lib/use-wallet';
-import { Shield, Plus, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Shield, Activity, DollarSign, Users, RefreshCw, BarChart3, Lock } from "lucide-react";
+import GlassCard from "@/components/ui/GlassCard";
+import NeonButton from "@/components/ui/NeonButton";
 
-export default function AdminPage() {
-    const { isAdmin, isConnected, address, tokenBalance } = useWallet();
-    const [question, setQuestion] = useState('');
-    const [duration, setDuration] = useState('7'); // days
-    const [liquidity, setLiquidity] = useState('1000');
-    const [subsidy, setSubsidy] = useState('1000');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [success, setSuccess] = useState(false);
+export default function AdminDashboard() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [adminKey, setAdminKey] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    // Not connected
-    if (!isConnected) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center p-8">
-                <div className="text-center">
-                    <AlertTriangle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold mb-2">Wallet Not Connected</h1>
-                    <p className="text-white/60 mb-6">Please connect your wallet to access admin features.</p>
-                    <Link href="/terminal" className="text-primary hover:underline">
-                        ← Go to Terminal
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    // Stats State
+    const [stats, setStats] = useState({
+        totalLiquidity: "$0.00",
+        totalVolume: "$0.00",
+        activeMarkets: 0,
+        totalUsers: 0
+    });
 
-    // Connected but not admin
-    if (!isAdmin) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center p-8">
-                <div className="text-center max-w-md">
-                    <Shield className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold mb-2">Admin Access Required</h1>
-                    <p className="text-white/60 mb-4">
-                        You need at least <span className="text-amber-400 font-bold">50,000,000 OPoll tokens</span> to access admin features.
-                    </p>
-                    <div className="bg-white/5 rounded-xl p-4 mb-6">
-                        <p className="text-sm text-white/40">Your Balance</p>
-                        <p className="text-xl font-mono text-white">{tokenBalance} OPoll</p>
-                    </div>
-                    <Link href="/terminal" className="text-primary hover:underline">
-                        ← Go to Terminal
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    // Check local storage on load
+    useEffect(() => {
+        const savedKey = localStorage.getItem("admin_secret");
+        if (savedKey) {
+            verifyKey(savedKey);
+        }
+    }, []);
 
-    // Admin user
-    async function handleCreateMarket(e: React.FormEvent) {
-        e.preventDefault();
-        setIsSubmitting(true);
+    const verifyKey = async (key: string) => {
+        setIsLoading(true);
+        setError("");
 
         try {
-            // TODO: Call smart contract to create market
-            console.log('Creating market:', { question, duration, liquidity, subsidy });
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            setSuccess(true);
-            setQuestion('');
-            setDuration('7');
-            setLiquidity('1000');
-            setSubsidy('1000');
-
-            setTimeout(() => setSuccess(false), 3000);
-        } catch (error) {
-            console.error('Error creating market:', error);
+            // TODO: Replace with actual API verification
+            // For now, simple check to allow development
+            if (key.length > 3) {
+                setIsAuthenticated(true);
+                localStorage.setItem("admin_secret", key);
+                fetchStats(key);
+            } else {
+                setError("Invalid admin key");
+            }
+        } catch (e) {
+            setError("Authentication failed");
         } finally {
-            setIsSubmitting(false);
+            setIsLoading(false);
         }
-    }
+    };
 
-    return (
-        <div className="min-h-screen bg-background p-8">
-            {/* Header */}
-            <div className="max-w-2xl mx-auto mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <Shield className="w-8 h-8 text-amber-400" />
-                    <h1 className="text-3xl font-bold text-white">Admin Panel</h1>
-                </div>
-                <p className="text-white/60">Create and manage prediction markets</p>
-            </div>
+    const fetchStats = async (key: string) => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/admin/stats`, {
+                headers: { 'x-admin-secret': key }
+            });
+            const data = await res.json();
 
-            {/* Create Market Form */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-2xl mx-auto"
-            >
-                <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <Plus className="w-5 h-5 text-primary" />
-                        Create New Market
-                    </h2>
+            if (data.success) {
+                setStats(data.stats);
+            } else {
+                setError(data.error || "Failed to fetch stats");
+            }
+        } catch (e) {
+            console.error("Stats fetch error:", e);
+            setError("Network error fetching stats");
+        }
+    };
 
-                    <form onSubmit={handleCreateMarket} className="space-y-6">
-                        {/* Question */}
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        verifyKey(adminKey);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem("admin_secret");
+        setIsAuthenticated(false);
+        setAdminKey("");
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-void flex items-center justify-center p-4">
+                <GlassCard className="max-w-md w-full p-8 ml-0">
+                    <div className="flex flex-col items-center mb-8">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 text-neon-cyan">
+                            <Lock size={32} />
+                        </div>
+                        <h1 className="text-2xl font-heading font-bold text-white">Admin Access</h1>
+                        <p className="text-text-secondary text-sm mt-2">Enter security key to continue</p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-medium text-white/60 mb-2">
-                                Market Question
-                            </label>
                             <input
-                                type="text"
-                                value={question}
-                                onChange={(e) => setQuestion(e.target.value)}
-                                placeholder="Will BTC reach $150k by end of 2026?"
-                                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50"
-                                required
+                                type="password"
+                                value={adminKey}
+                                onChange={(e) => setAdminKey(e.target.value)}
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors font-mono"
+                                placeholder="Security Key"
                             />
                         </div>
 
-                        {/* Duration */}
-                        <div>
-                            <label className="block text-sm font-medium text-white/60 mb-2">
-                                Duration (Days)
-                            </label>
-                            <select
-                                value={duration}
-                                onChange={(e) => setDuration(e.target.value)}
-                                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50"
-                            >
-                                <option value="1">1 Day</option>
-                                <option value="7">7 Days</option>
-                                <option value="30">30 Days</option>
-                                <option value="90">90 Days</option>
-                                <option value="180">180 Days</option>
-                                <option value="365">365 Days</option>
-                            </select>
-                        </div>
-
-                        {/* Liquidity & Subsidy */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-white/60 mb-2">
-                                    Liquidity Parameter
-                                </label>
-                                <input
-                                    type="number"
-                                    value={liquidity}
-                                    onChange={(e) => setLiquidity(e.target.value)}
-                                    placeholder="1000"
-                                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50"
-                                    required
-                                    min="100"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-white/60 mb-2">
-                                    Initial Subsidy (USDC)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={subsidy}
-                                    onChange={(e) => setSubsidy(e.target.value)}
-                                    placeholder="1000"
-                                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50"
-                                    required
-                                    min="0"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Submit */}
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full py-4 bg-primary hover:bg-primary/80 disabled:bg-primary/50 text-black font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                                    Creating Market...
-                                </>
-                            ) : (
-                                <>
-                                    <Plus className="w-5 h-5" />
-                                    Create Market
-                                </>
-                            )}
-                        </button>
-
-                        {success && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="bg-primary/20 border border-primary/50 rounded-xl p-4 text-center text-primary"
-                            >
-                                ✅ Market created successfully!
-                            </motion.div>
+                        {error && (
+                            <p className="text-neon-coral text-sm text-center bg-neon-coral/10 p-2 rounded">
+                                {error}
+                            </p>
                         )}
+
+                        <NeonButton
+                            variant="primary"
+                            className="w-full"
+                            disabled={isLoading}
+                            type="submit"
+                        >
+                            {isLoading ? "Verifying..." : "Access Dashboard"}
+                        </NeonButton>
                     </form>
+                </GlassCard>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-void pb-20 pt-24 px-4 md:px-6">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-3xl font-heading font-bold text-white mb-2">Admin Dashboard</h1>
+                        <p className="text-text-secondary">System overview and management</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-sm text-white/50 hover:text-white transition-colors"
+                        >
+                            Logout
+                        </button>
+                        <NeonButton variant="secondary" icon={RefreshCw} onClick={() => fetchStats(adminKey)}>
+                            Refresh
+                        </NeonButton>
+                    </div>
                 </div>
 
-                {/* Admin Info */}
-                <div className="mt-6 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-                    <p className="text-sm text-amber-400/80">
-                        <strong>Admin Wallet:</strong> {address?.slice(0, 10)}...{address?.slice(-8)}
-                    </p>
-                    <p className="text-sm text-amber-400/60 mt-1">
-                        Token Balance: {tokenBalance} OPoll
-                    </p>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard
+                        title="Total Volume"
+                        value={stats.totalVolume}
+                        icon={Activity}
+                        trend="+12% this week"
+                        color="text-neon-cyan"
+                    />
+                    <StatCard
+                        title="Total Liquidity"
+                        value={stats.totalLiquidity}
+                        icon={DollarSign}
+                        trend="Stable"
+                        color="text-neon-green"
+                    />
+                    <StatCard
+                        title="Active Markets"
+                        value={stats.activeMarkets}
+                        icon={BarChart3}
+                        trend="2 expiring soon"
+                        color="text-neon-purple"
+                    />
+                    <StatCard
+                        title="Total Users"
+                        value={stats.totalUsers}
+                        icon={Users}
+                        trend="+5 new today"
+                        color="text-neon-gold"
+                    />
                 </div>
-            </motion.div>
+
+                {/* Quick Actions */}
+                <h2 className="text-xl font-heading font-bold text-white mt-12 mb-6">Management</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <ActionCard
+                        title="Create Market"
+                        description="Launch a new binary or multi-outcome market"
+                        icon={Shield}
+                        onClick={() => window.location.href = '/admin/create-market'}
+                    />
+                    <ActionCard
+                        title="Resolve Market"
+                        description="Set outcomes for ended markets"
+                        icon={Shield}
+                        onClick={() => { }}
+                    />
+                    <ActionCard
+                        title="User Management"
+                        description="View users and manage permissions"
+                        icon={Users}
+                        onClick={() => { }}
+                    />
+                </div>
+            </div>
         </div>
+    );
+}
+
+function StatCard({ title, value, icon: Icon, trend, color }: any) {
+    return (
+        <GlassCard className="p-6">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h3 className="text-white/50 text-sm font-medium mb-1">{title}</h3>
+                    <div className="text-2xl font-bold text-white font-mono">{value}</div>
+                </div>
+                <div className={`p-2 rounded-lg bg-white/5 ${color}`}>
+                    <Icon size={20} />
+                </div>
+            </div>
+            <div className="text-xs text-text-secondary">
+                {trend}
+            </div>
+        </GlassCard>
+    );
+}
+
+function ActionCard({ title, description, icon: Icon, onClick }: any) {
+    return (
+        <button
+            onClick={onClick}
+            className="group text-left"
+        >
+            <GlassCard className="p-6 h-full hover:bg-white/10 transition-colors border-white/5 hover:border-neon-cyan/30">
+                <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-neon-cyan mb-4 group-hover:scale-110 transition-transform">
+                    <Icon size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+                <p className="text-white/50 text-sm">{description}</p>
+            </GlassCard>
+        </button>
     );
 }

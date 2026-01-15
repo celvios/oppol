@@ -98,6 +98,17 @@ const createTablesQuery = `
     recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Markets Metadata Table (Dynamic market data)
+  CREATE TABLE IF NOT EXISTS markets (
+    market_id INTEGER PRIMARY KEY,
+    question TEXT NOT NULL,
+    description TEXT,
+    image TEXT,
+    category VARCHAR(50),
+    outcome_names JSONB, -- For multi-outcome support
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Create indexes for performance
   CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
   CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
