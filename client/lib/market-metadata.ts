@@ -261,6 +261,34 @@ export const MULTI_MARKET_METADATA: Record<string, MarketMetadata> = {
     }
 };
 
+// Keyword mapping for specific images
+const KEYWORD_IMAGES: { keywords: RegExp; image: string; category: string }[] = [
+    { keywords: /BTC|Bitcoin|ETH|Ethereum|Crypto|Blockchain|Solana|SOL/i, image: "/markets/bitcoin.png", category: "Crypto" },
+    { keywords: /Apple|iPhone|Mac|Tech|Nvidia|Intel/i, image: "/markets/apple.png", category: "Tech" },
+    { keywords: /AR|VR|Glasses|Meta|Vision/i, image: "/markets/ar-glasses.png", category: "Tech" },
+    { keywords: /AI|GPT|LLM|Intelligence|Robot|Musk|Tesla/i, image: "/markets/ai.png", category: "Tech" },
+    { keywords: /Grammy|Music|Album|Song|Artist|Concert/i, image: "/markets/grammy.png", category: "Entertainment" },
+    { keywords: /Trump|Biden|Harris|Election|Vote|President|Politics|Senate/i, image: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800", category: "Politics" },
+    { keywords: /Football|Soccer|Messi|Ronaldo|World Cup|FIFA|Sport|NBA|NFL/i, image: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800", category: "Sports" },
+    { keywords: /Movie|Cinema|Film|Avatar|Oscar|Hollywood/i, image: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800", category: "Entertainment" },
+    { keywords: /Climate|Warming|Temperature|Earth|Carbon/i, image: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800", category: "Science" },
+    { keywords: /War|Conflict|Peace|Treaty/i, image: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800", category: "Politics" },
+    { keywords: /Space|Mars|Moon|NASA|Rocket/i, image: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=800", category: "Tech" }
+];
+
+function getImageByKeywords(question: string): MarketMetadata | null {
+    for (const item of KEYWORD_IMAGES) {
+        if (item.keywords.test(question)) {
+            return {
+                image: item.image,
+                description: `A prediction market regarding ${item.category} events. Analyzes market sentiment and probability for "${question}".`,
+                category: item.category
+            };
+        }
+    }
+    return null;
+}
+
 export function getMarketMetadata(question: string, id: number): MarketMetadata {
     // Try exact match matching question
     if (MARKET_METADATA[question]) {
@@ -270,6 +298,11 @@ export function getMarketMetadata(question: string, id: number): MarketMetadata 
     if (MARKET_METADATA[id.toString()]) {
         return MARKET_METADATA[id.toString()];
     }
+
+    // Keyword fallback
+    const keywordMatch = getImageByKeywords(question);
+    if (keywordMatch) return keywordMatch;
+
     // Default fallback
     return {
         image: "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800",
@@ -288,6 +321,11 @@ export function getMultiMarketMetadata(question: string, id: number): MarketMeta
     if (MULTI_MARKET_METADATA[multiKey]) {
         return MULTI_MARKET_METADATA[multiKey];
     }
+
+    // Keyword fallback
+    const keywordMatch = getImageByKeywords(question);
+    if (keywordMatch) return keywordMatch;
+
     // Default fallback
     return {
         image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800",
