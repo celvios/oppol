@@ -24,6 +24,9 @@ const MARKET_ABI = [
 
 const STABLECOINS = [
     { symbol: 'USDC', address: '0x87D45E316f5f1f2faffCb600c97160658B799Ee0', decimals: 6 }, // MockUSDC from contracts
+    { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18 }, // BSC USDT
+    { symbol: 'BUSD', address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', decimals: 18 }, // BSC BUSD
+    { symbol: 'DAI', address: '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3', decimals: 18 }, // BSC DAI
 ];
 
 export default function DepositPage() {
@@ -213,20 +216,28 @@ export default function DepositPage() {
                     <div className="space-y-4">
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <label className="text-sm font-medium text-white/60 mb-3 block">Select Token</label>
-                            <div className="grid grid-cols-3 gap-2 mb-4">
+                            <div className="grid grid-cols-2 gap-2 mb-4">
                                 {STABLECOINS.map(token => (
                                     <button
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
-                                        className={`py-2 px-4 rounded-lg font-bold transition-all ${
+                                        className={`py-3 px-4 rounded-lg font-bold transition-all border-2 ${
                                             selectedToken.symbol === token.symbol
-                                                ? 'bg-primary text-black'
-                                                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                                                ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                                                : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                         }`}
                                     >
-                                        {token.symbol}
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span>{token.symbol}</span>
+                                            {selectedToken.symbol === token.symbol && (
+                                                <CheckCircle className="w-4 h-4" />
+                                            )}
+                                        </div>
                                     </button>
                                 ))}
+                            </div>
+                            <div className="text-xs text-white/40 text-center">
+                                Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
                             </div>
                         </div>
 
