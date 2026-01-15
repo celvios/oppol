@@ -326,13 +326,29 @@ export function DesktopTerminal() {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                         >
-                            <div className="flex justify-between items-start gap-4 mb-3">
-                                <h3 className={`font-heading text-sm leading-snug ${selectedMarketId === m.id ? "text-white" : "text-white/70"}`}>
-                                    {m.question}
-                                </h3>
-                                {selectedMarketId === m.id && (
-                                    <div className="absolute right-2 top-2 w-1.5 h-1.5 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]" />
-                                )}
+                            <div className="flex gap-4 mb-3">
+                                {/* Market Image */}
+                                <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    <img
+                                        src={getMarketMetadata(m.question, m.id).image}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                            e.currentTarget.parentElement?.classList.add('bg-neon-cyan/10');
+                                        }}
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <h3 className={`font-heading text-sm leading-snug line-clamp-2 ${selectedMarketId === m.id ? "text-white" : "text-white/70"}`}>
+                                            {m.question}
+                                        </h3>
+                                        {selectedMarketId === m.id && (
+                                            <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF] flex-shrink-0 mt-1" />
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-between font-mono text-xs">
