@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
 import { SimpleConnectButton } from "@/components/ui/SimpleConnectButton";
 import { WalletConnectButton } from "@/components/ui/WalletConnectButton";
+import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
@@ -285,11 +286,11 @@ export function MobileTerminal() {
                         </div>
                     )}
                     <div className="space-y-4">
-                        <WalletConnectButton
+                        <ReownConnectButton
                             className="w-full px-8 py-4 bg-primary hover:bg-primary/80 text-white font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(0,224,255,0.3)]"
                         >
                             Connect Wallet
-                        </WalletConnectButton>
+                        </ReownConnectButton>
                         
                         <div className="text-center text-xs text-white/40">
                             or
