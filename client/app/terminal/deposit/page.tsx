@@ -85,8 +85,13 @@ export default function DepositPage() {
             const balance = await tokenContract.balanceOf(address);
             const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to fetch balance:', error);
+
+            // Show user-friendly error message
+            if (error.message?.includes('could not decode result data')) {
+                alert(`⚠️ Token Contract Error\n\nThe ${selectedToken.symbol} contract at ${selectedToken.address} is not responding correctly.\n\nThis usually means:\n• The contract is not deployed on this network\n• The contract address is incorrect\n• You're on the wrong network\n\nPlease contact support or try again later.`);
+            }
             setTokenBalance('0.00');
         }
     }
@@ -163,6 +168,8 @@ export default function DepositPage() {
 
             if (error.code === 'ACTION_REJECTED') {
                 errorMessage = 'Transaction was rejected by user';
+            } else if (error.message?.includes('could not decode result data')) {
+                errorMessage = `⚠️ Contract Error\n\nThe ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Contract not deployed on BSC Testnet\n• Wrong network selected\n• Contract address incorrect\n\nPlease contact support.`;
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient funds for transaction';
             } else if (error.message?.includes('Insufficient')) {
@@ -228,8 +235,8 @@ export default function DepositPage() {
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
                                         className={`py-2 px-3 rounded-lg font-bold transition-all border ${selectedToken.symbol === token.symbol
-                                                ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
-                                                : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
+                                            ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
+                                            : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                             }`}
                                     >
                                         <div className="flex flex-col items-center gap-1">
