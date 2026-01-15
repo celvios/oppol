@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
-import { SimpleConnectButton } from "@/components/ui/SimpleConnectButton";
-import { WalletConnectButton } from "@/components/ui/WalletConnectButton";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -291,16 +289,6 @@ export function MobileTerminal() {
                         >
                             Connect Wallet
                         </ReownConnectButton>
-                        
-                        <div className="text-center text-xs text-white/40">
-                            or
-                        </div>
-                        
-                        <SimpleConnectButton
-                            className="w-full px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/20"
-                        >
-                            Connect with MetaMask
-                        </SimpleConnectButton>
                     </div>
                 </div>
             </div>
