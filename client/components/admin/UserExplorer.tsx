@@ -41,7 +41,7 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/admin/users', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`, {
                 headers: { 'x-admin-secret': adminKey }
             });
             const data = await res.json();
