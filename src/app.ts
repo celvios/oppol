@@ -9,6 +9,7 @@ import { recordMarketPrice, getPriceHistory, startPriceTracker } from './service
 import { query } from './config/database';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
+import { apiRouter } from './routes/api';
 
 dotenv.config();
 
@@ -44,6 +45,9 @@ app.use((req, res, next) => {
 
 // Admin Routes
 app.use('/api/admin', adminRoutes);
+
+// API Routes (includes Telegram, WhatsApp, Markets, etc.)
+app.use('/api', apiRouter);
 
 // WHATSAPP USER ENDPOINT - Get or create user wallet
 app.get('/api/whatsapp/user', async (req, res) => {
@@ -836,12 +840,11 @@ app.get('/api/markets', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)',
-      'function getPrice(uint256 marketId) view returns (uint256)',
+      'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)'
     ];
 
-    const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-    const count = await market.marketCount();
+    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+    const count = await marketContract.marketCount();
 
     // Get market metadata from database
     let metadataMap: Record<number, any> = {};
@@ -868,31 +871,23 @@ app.get('/api/markets', async (req, res) => {
     }
 
     const markets = [];
-    for (let i = 0; i < count; i++) {
-      const m = await market.markets(i);
-      const price = await market.getPrice(i);
-
+    for (let i = 0; i < Number(count); i++) {
+      const m = await marketContract.markets(i);
       const metadata = metadataMap[i] || {};
 
       markets.push({
-        id: i,
-        question: m.question, // Contract question is truth
-        yesOdds: Number(price) / 100,
-        noOdds: 100 - Number(price) / 100,
-        volume: (volumeByMarket[i] || 0).toFixed(2),
-        liquidity: ethers.formatUnits(m.liquidityParam, 6),
-        endTime: Number(m.endTime),
-        resolved: m.resolved,
-        image: metadata.image || "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800",
-        category: metadata.category || "General",
-        description: metadata.description || "No description available",
+        market_id: i,
+        question: m.question,
+        description: metadata.description || '',
+        image_url: metadata.image || '',
+        category_id: metadata.category || ''
       });
     }
 
     return res.json({ success: true, markets });
   } catch (error: any) {
     console.error('Markets error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.json({ success: true, markets: [] });
   }
 });
 

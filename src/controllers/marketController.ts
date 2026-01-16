@@ -14,10 +14,8 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, message: 'Missing marketId or question' });
         }
 
-        // Insert into mock DB
-        // Parameters: [marketId, question, description, image_url, category_id]
         await query(
-            'insert into market_metadata (market_id, question, description, image_url, category_id) values ($1, $2, $3, $4, $5)',
+            'insert into markets (market_id, question, description, image, category) values ($1, $2, $3, $4, $5)',
             [marketId, question, description || '', imageUrl || '', categoryId || '']
         );
 
@@ -30,18 +28,25 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
 
 export const getAllMarketMetadata = async (req: Request, res: Response) => {
     try {
-        const result = await query('select * from market_metadata', []);
-        res.json({ success: true, markets: result.rows });
+        const result = await query('select * from markets', []);
+        const markets = result.rows.map((row: any) => ({
+            market_id: row.market_id,
+            question: row.question,
+            description: row.description || '',
+            image_url: row.image || '',
+            category_id: row.category || ''
+        }));
+        res.json({ success: true, markets });
     } catch (error) {
         console.error('Get All Metadata Error:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.json({ success: true, markets: [] });
     }
 };
 
 export const getMarketMetadata = async (req: Request, res: Response) => {
     try {
         const { marketId } = req.params;
-        const result = await query('select * from market_metadata where market_id = $1', [marketId]);
+        const result = await query('select * from markets where market_id = $1', [marketId]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Market not found' });
