@@ -40,17 +40,26 @@ export default function AdminDashboard() {
         setError("");
 
         try {
-            // TODO: Replace with actual API verification
-            // For now, simple check to allow development
-            if (key.length > 3) {
+            // Verify against health endpoint
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/health`, {
+                headers: { 'x-admin-secret': key }
+            });
+
+            if (res.ok) {
                 setIsAuthenticated(true);
                 localStorage.setItem("admin_secret", key);
                 fetchStats(key);
             } else {
-                setError("Invalid admin key");
+                if (res.status === 401) {
+                    setError("Invalid admin key");
+                } else {
+                    setError("Server unavailable or error");
+                }
+                localStorage.removeItem("admin_secret");
             }
         } catch (e) {
-            setError("Authentication failed");
+            setError("Connection failed. Check authentication or network.");
+            localStorage.removeItem("admin_secret");
         } finally {
             setIsLoading(false);
         }
