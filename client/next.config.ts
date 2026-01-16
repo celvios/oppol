@@ -11,7 +11,10 @@ const nextConfig: NextConfig = {
   // Add empty turbopack config to silence the warning
   turbopack: {},
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) {
+      console.warn('NEXT_PUBLIC_API_URL is not defined, rewrites may fail');
+    }
     return [
       {
         source: '/api/:path*',
