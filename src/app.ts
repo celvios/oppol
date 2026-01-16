@@ -1030,8 +1030,15 @@ app.get('/api/admin/stats', async (req, res) => {
       'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
     ];
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-    const marketCount = Number(await marketContract.marketCount());
-    console.log(`[Admin Stats] marketCount from contract: ${marketCount}`);
+
+    console.log(`[Admin Stats] Fetching marketCount from ${MARKET_ADDR}...`);
+    let marketCount = 0;
+    try {
+      marketCount = Number(await marketContract.marketCount());
+      console.log(`[Admin Stats] marketCount success: ${marketCount}`);
+    } catch (e: any) {
+      console.error(`[Admin Stats] marketCount FAILED: ${e.message}`);
+    }
 
     // Count expiring markets (ending in next 48 hours)
     let expiringMarkets = 0;

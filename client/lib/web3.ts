@@ -133,7 +133,7 @@ export class Web3Service {
                 shares: sharesFormatted,
                 prices: pricesFormatted,
                 endTime: Number(basicInfo.endTime),
-                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 6),
+                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
                 totalVolume: totalVolume.toFixed(2),
                 resolved: basicInfo.resolved,
                 winningOutcome: Number(basicInfo.winningOutcome),
@@ -142,7 +142,7 @@ export class Web3Service {
                 noOdds: noOdds,
                 yesShares: sharesFormatted[0] || '0',
                 noShares: sharesFormatted[1] || '0',
-                yesPool: ethers.formatUnits(basicInfo.liquidityParam, 6),
+                yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),
                 noPool: '0',
                 outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
             };

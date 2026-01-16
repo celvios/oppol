@@ -103,7 +103,7 @@ export class Web3MultiService {
                 shares: sharesFormatted,
                 prices: pricesFormatted,
                 endTime: Number(basicInfo.endTime),
-                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 6),
+                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
                 totalVolume: totalVolume.toFixed(2),
                 resolved: basicInfo.resolved,
                 winningOutcome: Number(basicInfo.winningOutcome),

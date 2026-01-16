@@ -7,20 +7,20 @@ interface AuthState {
     // Authentication status
     isAuthenticated: boolean;
     isLoading: boolean;
-    
+
     // Auth method
     authType: 'wallet' | 'custodial' | null;
     isCustodial: boolean;
     isWalletConnected: boolean;
-    
+
     // Address
     address: string | undefined;
     custodialAddress: string | undefined;
-    
+
     // Session
     sessionToken: string | null;
     userId: string | null;
-    
+
     // Methods
     logout: () => void;
 }
@@ -35,11 +35,11 @@ export function useAuth(): AuthState {
     // Handle hydration
     useEffect(() => {
         setIsHydrated(true);
-        
+
         // Check for session token
         const token = localStorage.getItem('session_token');
         setSessionToken(token);
-        
+
         if (token) {
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
@@ -62,14 +62,14 @@ export function useAuth(): AuthState {
             try {
                 const cachedKey = `cached_wallet_${userId}`;
                 const cached = localStorage.getItem(cachedKey);
-                
+
                 if (cached && mounted) {
                     setCustodialAddress(cached);
                 }
 
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
                 const response = await fetch(`${apiUrl}/api/wallet/${userId}`);
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (mounted && data.success && data.wallet) {
@@ -84,7 +84,7 @@ export function useAuth(): AuthState {
         }
 
         fetchCustodialWallet();
-        
+
         return () => { mounted = false; };
     }, [userId, sessionToken]);
 
