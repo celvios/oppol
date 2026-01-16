@@ -37,8 +37,7 @@ router.get('/bet/estimate', estimateBetCost);
 import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories } from '../controllers/marketController';
 
 router.post('/markets', createMarketMetadata);
-router.get('/markets', getAllMarketMetadata);
-router.get('/markets/:marketId', getMarketMetadata);
+// NOTE: GET /markets and GET /markets/:id are handled in app.ts with contract data
 
 router.post('/categories', createCategory);
 router.get('/categories', getCategories);

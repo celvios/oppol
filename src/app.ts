@@ -844,7 +844,12 @@ app.get('/api/markets', async (req, res) => {
     ];
 
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+
+    console.log('[Markets API] Using contract:', MARKET_ADDR);
+    console.log('[Markets API] Using RPC:', rpcUrl);
+
     const count = await marketContract.marketCount();
+    console.log('[Markets API] Market count:', count.toString());
 
     // Get market metadata from database
     let metadataMap: Record<number, any> = {};
@@ -871,9 +876,13 @@ app.get('/api/markets', async (req, res) => {
     }
 
     const markets = [];
+    console.log(`[Markets API] Fetching ${Number(count)} markets...`);
+
     for (let i = 0; i < Number(count); i++) {
       try {
+        console.log(`[Markets API] Fetching market ${i}...`);
         const m = await marketContract.getMarketBasicInfo(i);
+        console.log(`[Markets API] Market ${i} question: ${m.question}`);
         const metadata = metadataMap[i] || {};
 
         markets.push({
@@ -883,15 +892,85 @@ app.get('/api/markets', async (req, res) => {
           image_url: metadata.image || '',
           category_id: metadata.category || ''
         });
-      } catch (err) {
-        console.log(`Skipping market ${i}:`, err);
+      } catch (err: any) {
+        console.error(`[Markets API] Error fetching market ${i}:`, err.message || err);
       }
     }
+
+    console.log(`[Markets API] Returning ${markets.length} markets`);
 
     return res.json({ success: true, markets });
   } catch (error: any) {
     console.error('Markets error:', error);
-    return res.json({ success: true, markets: [] });
+    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch markets' });
+  }
+});
+
+// GET SINGLE MARKET ENDPOINT - Fetch from contract
+app.get('/api/markets/:id', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const marketId = parseInt(req.params.id);
+
+    if (isNaN(marketId) || marketId < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid market ID' });
+    }
+
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+
+    const marketABI = [
+      'function marketCount() view returns (uint256)',
+      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+      'function getMarketOutcomes(uint256) view returns (string[])',
+      'function getAllPrices(uint256) view returns (uint256[])'
+    ];
+
+    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+
+    // Verify market exists
+    const count = await marketContract.marketCount();
+    if (marketId >= Number(count)) {
+      return res.status(404).json({ success: false, message: 'Market not found' });
+    }
+
+    const [basicInfo, outcomes, prices] = await Promise.all([
+      marketContract.getMarketBasicInfo(marketId),
+      marketContract.getMarketOutcomes(marketId),
+      marketContract.getAllPrices(marketId)
+    ]);
+
+    // Get metadata from database if available
+    let metadata: any = {};
+    try {
+      const metadataResult = await query('SELECT * FROM markets WHERE market_id = $1', [marketId]);
+      if (metadataResult.rows.length > 0) {
+        metadata = metadataResult.rows[0];
+      }
+    } catch (e) {
+      // Database not available, use defaults
+    }
+
+    const market = {
+      market_id: marketId,
+      question: basicInfo.question,
+      description: metadata.description || '',
+      image_url: metadata.image || '',
+      category_id: metadata.category || '',
+      outcomes: outcomes,
+      prices: prices.map((p: bigint) => Number(p) / 100), // Convert to percentage
+      outcomeCount: Number(basicInfo.outcomeCount),
+      endTime: Number(basicInfo.endTime),
+      liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
+      resolved: basicInfo.resolved,
+      winningOutcome: Number(basicInfo.winningOutcome)
+    };
+
+    return res.json({ success: true, market });
+  } catch (error: any) {
+    console.error('Single market error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch market' });
   }
 });
 
@@ -902,35 +981,99 @@ app.get('/api/admin/stats', async (req, res) => {
     const adminSecret = req.headers['x-admin-secret'];
 
     // Validate secret key
-    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123'; // Fallback for dev
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123';
     if (adminSecret !== VALID_SECRET) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    // 1. Get User Count
+    // 1. Get User Count (Total + New Today)
     const userResult = await query('SELECT COUNT(*) as count FROM users');
-    const totalUsers = parseInt(userResult.rows[0].count);
+    const totalUsers = parseInt(userResult.rows[0]?.count || '0');
 
-    // 2. Get Volume
-    const volumeResult = await query('SELECT SUM(total_cost) as volume FROM trades');
-    const totalVolume = parseFloat(volumeResult.rows[0].volume || '0');
+    // New users today (mock DB doesn't track created_at well, so fallback to 0)
+    let newUsersToday = 0;
+    try {
+      const todayResult = await query(
+        `SELECT COUNT(*) as count FROM users WHERE created_at >= CURRENT_DATE`
+      );
+      newUsersToday = parseInt(todayResult.rows[0]?.count || '0');
+    } catch { newUsersToday = 0; }
 
-    // 3. Get Active Markets (from contract)
+    // 2. Get Volume (Current + Last Week for Trend)
+    let totalVolume = 0;
+    let volumeTrend = 'N/A';
+    try {
+      const volumeResult = await query('SELECT SUM(total_cost) as volume FROM trades');
+      totalVolume = parseFloat(volumeResult.rows[0]?.volume || '0');
+
+      // Last week's volume
+      const lastWeekResult = await query(
+        `SELECT SUM(total_cost) as volume FROM trades WHERE created_at < CURRENT_DATE - INTERVAL '7 days'`
+      );
+      const lastWeekVolume = parseFloat(lastWeekResult.rows[0]?.volume || '0');
+
+      if (lastWeekVolume > 0) {
+        const change = ((totalVolume - lastWeekVolume) / lastWeekVolume) * 100;
+        volumeTrend = `${change >= 0 ? '+' : ''}${change.toFixed(0)}% this week`;
+      } else {
+        volumeTrend = totalVolume > 0 ? 'New activity' : 'No trades yet';
+      }
+    } catch { volumeTrend = 'N/A'; }
+
+    // 3. Get Active Markets (from contract) + Expiring Soon
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
-    // We only need marketCount for now to be fast
-    const marketABI = ['function marketCount() view returns (uint256)'];
+    const marketABI = [
+      'function marketCount() view returns (uint256)',
+      'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
+    ];
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-    const activeMarkets = Number(await marketContract.marketCount());
+    const marketCount = Number(await marketContract.marketCount());
+    console.log(`[Admin Stats] marketCount from contract: ${marketCount}`);
 
-    // 4. Calculate Total Liquidity (Estimate from contract balance for now)
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    // Count expiring markets (ending in next 48 hours)
+    let expiringMarkets = 0;
+    let activeMarkets = marketCount; // Default to total count
+    const now = Math.floor(Date.now() / 1000);
+    const expiringThreshold = now + (48 * 60 * 60); // 48 hours from now
+
+    // Try to get detailed info for expiring count (but don't fail if it errors)
+    try {
+      let activeCount = 0;
+      for (let i = 0; i < marketCount; i++) {
+        try {
+          const info = await marketContract.getMarketBasicInfo(i);
+          const endTime = Number(info[2]);
+          const resolved = info[4];
+          if (!resolved && endTime > now) {
+            activeCount++;
+            if (endTime <= expiringThreshold) {
+              expiringMarkets++;
+            }
+          }
+        } catch (e: any) {
+          console.log(`[Admin Stats] Market ${i} info failed: ${e.message?.slice(0, 50)}`);
+          // Still count it as active if we can't get details
+          activeCount++;
+        }
+      }
+      activeMarkets = activeCount;
+    } catch (e) {
+      console.log('[Admin Stats] Detailed market scan failed, using marketCount');
+      activeMarkets = marketCount;
+    }
+
+    // 4. Calculate Total Liquidity
+    const USDC_ADDR = process.env.USDC_CONTRACT || '0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634';
     const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
     const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
     const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);
     const totalLiquidity = parseFloat(ethers.formatUnits(contractBalanceWei, 6));
+
+    // Liquidity Trend (simple: if > 0, stable; else new)
+    const liquidityTrend = totalLiquidity > 0 ? 'Stable' : 'Awaiting deposits';
 
     return res.json({
       success: true,
@@ -938,7 +1081,12 @@ app.get('/api/admin/stats', async (req, res) => {
         totalLiquidity: `$${totalLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
         totalVolume: `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
         activeMarkets,
-        totalUsers
+        totalUsers,
+        // Trend data
+        volumeTrend,
+        liquidityTrend,
+        expiringMarkets,
+        newUsersToday
       }
     });
   } catch (error: any) {

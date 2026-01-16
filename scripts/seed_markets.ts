@@ -5,7 +5,7 @@ import path from 'path';
 // Load env from root
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const API_URL = process.env.API_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || 'http://localhost:3001';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'admin123';
 
 const MARKETS = [

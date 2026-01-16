@@ -186,6 +186,11 @@ class MockPool {
             return { rows: Array.from(this.telegramUsers.values()) };
         }
 
+        // 19. Health Check
+        if (q === 'select 1') {
+            return { rows: [{ '?column?': 1 }] };
+        }
+
         return { rows: [] };
     }
 
@@ -195,12 +200,13 @@ class MockPool {
 let pool: any;
 
 // Try to use Real DB, fall back to Mock if URL is default/empty or explicitly requested
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('localhost')) {
+const dbUrl = process.env.DATABASE_URL || '';
+if (!dbUrl || dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')) {
     console.warn('⚠️  USING IN-MEMORY MOCK DATABASE (For Demo/Dev only)');
     pool = new MockPool();
 } else {
     pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: dbUrl,
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
 }

@@ -8,6 +8,13 @@ export interface Market {
     description: string;
     image_url?: string;
     category_id?: string;
+    outcomes?: string[];
+    prices?: number[];
+    outcomeCount?: number;
+    endTime?: number;
+    liquidityParam?: string;
+    resolved?: boolean;
+    winningOutcome?: number;
 }
 
 export interface BetResponse {
@@ -51,6 +58,11 @@ export class API {
             return data;
         } catch (error: any) {
             console.error('Failed to place bet:', error.message);
+            // Extract the error message from the API response if available
+            const apiMessage = error.response?.data?.message;
+            if (apiMessage) {
+                throw new Error(apiMessage);
+            }
             throw error;
         }
     }

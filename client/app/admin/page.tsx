@@ -19,7 +19,12 @@ export default function AdminDashboard() {
         totalLiquidity: "$0.00",
         totalVolume: "$0.00",
         activeMarkets: 0,
-        totalUsers: 0
+        totalUsers: 0,
+        // Trend data
+        volumeTrend: "Loading...",
+        liquidityTrend: "Loading...",
+        expiringMarkets: 0,
+        newUsersToday: 0
     });
 
     // Check local storage on load
@@ -154,28 +159,28 @@ export default function AdminDashboard() {
                         title="Total Volume"
                         value={stats.totalVolume}
                         icon={Activity}
-                        trend="+12% this week"
+                        trend={stats.volumeTrend || "N/A"}
                         color="text-neon-cyan"
                     />
                     <StatCard
                         title="Total Liquidity"
                         value={stats.totalLiquidity}
                         icon={DollarSign}
-                        trend="Stable"
+                        trend={stats.liquidityTrend || "N/A"}
                         color="text-neon-green"
                     />
                     <StatCard
                         title="Active Markets"
                         value={stats.activeMarkets}
                         icon={BarChart3}
-                        trend="2 expiring soon"
+                        trend={stats.expiringMarkets > 0 ? `${stats.expiringMarkets} expiring soon` : "None expiring soon"}
                         color="text-neon-purple"
                     />
                     <StatCard
                         title="Total Users"
                         value={stats.totalUsers}
                         icon={Users}
-                        trend="+5 new today"
+                        trend={stats.newUsersToday > 0 ? `+${stats.newUsersToday} new today` : "No new users today"}
                         color="text-neon-gold"
                     />
                 </div>

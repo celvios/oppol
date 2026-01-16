@@ -17,14 +17,14 @@ console.log('🚀 OPOLL Telegram Bot Starting...\n');
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     await SessionManager.clear(chatId);
-    
+
     // Auto-create wallet for user
     try {
         await API.getOrCreateUser(chatId, msg.from?.username);
     } catch (error) {
         console.error('Failed to create user:', error);
     }
-    
+
     bot.sendMessage(chatId, messages.welcome, {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -60,9 +60,9 @@ bot.onText(/\/menu/, async (msg) => {
 bot.on('callback_query', async (query) => {
     const chatId = query.message!.chat.id;
     const data = query.data;
-    
+
     await bot.answerCallbackQuery(query.id);
-    
+
     switch (data) {
         case 'markets':
             try {
@@ -76,7 +76,7 @@ bot.on('callback_query', async (query) => {
                     });
                 } else {
                     const { pageMarkets, hasNext, hasPrev } = paginateMarkets(markets, 0);
-                    await SessionManager.update(chatId, { 
+                    await SessionManager.update(chatId, {
                         state: UserState.BROWSING_MARKETS,
                         data: { page: 0, allMarkets: markets }
                     });
@@ -95,7 +95,7 @@ bot.on('callback_query', async (query) => {
                 });
             }
             break;
-            
+
         case 'search':
             await SessionManager.update(chatId, { state: UserState.SEARCHING_MARKETS });
             bot.sendMessage(chatId, '🔍 *Search Markets*\n\nType a keyword to search:', {
@@ -105,14 +105,14 @@ bot.on('callback_query', async (query) => {
                 }
             });
             break;
-            
+
         case 'profile':
             try {
                 await API.getOrCreateUser(chatId, query.from?.username);
                 const balance = await API.getUserBalance(chatId);
                 const userResult = await API.getOrCreateUser(chatId, query.from?.username);
-                
-                bot.sendMessage(chatId, 
+
+                bot.sendMessage(chatId,
                     `👤 *Your Profile*\n\n` +
                     `Telegram ID: ${chatId}\n` +
                     `Username: @${query.from?.username || 'N/A'}\n` +
@@ -133,15 +133,15 @@ bot.on('callback_query', async (query) => {
                 });
             }
             break;
-            
+
         case 'deposit':
             try {
                 await API.getOrCreateUser(chatId, query.from?.username);
                 const userResult = await API.getOrCreateUser(chatId, query.from?.username);
                 const walletAddress = userResult.user?.wallet_address;
                 const balance = await API.getUserBalance(chatId);
-                
-                bot.sendMessage(chatId, 
+
+                bot.sendMessage(chatId,
                     `💰 *Deposit USDC*\n\n` +
                     `Current Balance: ${balance} USDC\n\n` +
                     `Send USDC (Base Sepolia) to:\n\n` +
@@ -165,7 +165,7 @@ bot.on('callback_query', async (query) => {
                 });
             }
             break;
-            
+
         case 'withdraw':
             await SessionManager.update(chatId, { state: UserState.ENTERING_WITHDRAW_ADDRESS });
             bot.sendMessage(chatId, '💸 *Withdraw USDC*\n\nEnter the wallet address to withdraw to:', {
@@ -175,7 +175,7 @@ bot.on('callback_query', async (query) => {
                 }
             });
             break;
-            
+
         case 'help':
             bot.sendMessage(chatId, messages.help, {
                 parse_mode: 'Markdown',
@@ -184,7 +184,7 @@ bot.on('callback_query', async (query) => {
                 }
             });
             break;
-            
+
         case 'menu':
             await SessionManager.clear(chatId);
             bot.sendMessage(chatId, 'Main Menu:', {
@@ -199,7 +199,7 @@ bot.on('callback_query', async (query) => {
                 }
             });
             break;
-            
+
         default:
             if (data?.startsWith('page_')) {
                 const page = parseInt(data.split('_')[1]);
@@ -224,22 +224,52 @@ bot.on('callback_query', async (query) => {
                         });
                         return;
                     }
-                    
-                    await SessionManager.update(chatId, { 
+
+                    await SessionManager.update(chatId, {
                         state: UserState.VIEWING_MARKET,
                         data: { marketId }
                     });
-                    
-                    let text = `📊 *${market.question}*\n\n${market.description}\n\n`;
-                    if (market.image_url) text += `🖼️ ${market.image_url}\n\n`;
-                    text += '*Select an outcome to bet on:*';
-                    
+
+                    // Format end time
+                    const endDate = market.endTime ? new Date(market.endTime * 1000).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    }) : 'TBD';
+
+                    // Build market details text
+                    let text = `📊 *${market.question}*\n\n`;
+
+                    if (market.description) {
+                        text += `${market.description}\n\n`;
+                    }
+
+                    // Show outcome probabilities
+                    if (market.outcomes && market.prices) {
+                        text += `📈 *Current Odds:*\n`;
+                        market.outcomes.forEach((outcome, i) => {
+                            const price = market.prices![i] || 0;
+                            const emoji = i === 0 ? '🟢' : i === 1 ? '🔴' : '🔵';
+                            text += `${emoji} ${outcome}: *${price}%*\n`;
+                        });
+                        text += `\n`;
+                    }
+
+                    // Show liquidity and end time
+                    text += `💰 *Liquidity:* $${market.liquidityParam || '0'}\n`;
+                    text += `⏰ *Ends:* ${endDate}\n\n`;
+
+                    text += `*Select an outcome to bet on:*`;
+
+                    // Build buttons for each outcome
+                    const outcomeButtons = (market.outcomes || ['Yes', 'No']).map((outcome, i) => {
+                        const price = market.prices?.[i] || 50;
+                        return [{ text: `${outcome} (${price}%)`, callback_data: `bet_${marketId}_${i}` }];
+                    });
+
                     const buttons = [
-                        [{ text: 'YES', callback_data: `bet_${marketId}_1` }],
-                        [{ text: 'NO', callback_data: `bet_${marketId}_0` }],
+                        ...outcomeButtons,
                         [{ text: '🔙 Back to Markets', callback_data: 'markets' }]
                     ];
-                    
+
                     bot.sendMessage(chatId, text, {
                         parse_mode: 'Markdown',
                         reply_markup: { inline_keyboard: buttons }
@@ -267,16 +297,16 @@ bot.on('callback_query', async (query) => {
             } else if (data?.startsWith('confirm_')) {
                 const [, marketId, outcome, amount] = data.split('_');
                 const processingMsg = await bot.sendMessage(chatId, '⏳ *Processing bet...*\n\nApproving USDC...', { parse_mode: 'Markdown' });
-                
+
                 try {
                     const result = await API.placeBet(chatId, parseInt(marketId), parseInt(outcome), parseFloat(amount));
-                    
+
                     await bot.deleteMessage(chatId, processingMsg.message_id);
                     await SessionManager.clear(chatId);
-                    
+
                     if (result.success) {
                         const balance = await API.getUserBalance(chatId);
-                        bot.sendMessage(chatId, 
+                        bot.sendMessage(chatId,
                             `✅ *Bet Placed Successfully!*\n\n` +
                             `Market ID: ${marketId}\n` +
                             `Outcome: ${outcome === '1' ? 'YES' : 'NO'}\n` +
@@ -297,7 +327,7 @@ bot.on('callback_query', async (query) => {
                         throw new Error(result.message || 'Bet placement failed');
                     }
                 } catch (error: any) {
-                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
+                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => { });
                     bot.sendMessage(chatId, `❌ Bet failed: ${error.message}`, {
                         reply_markup: {
                             inline_keyboard: [[{ text: '🔙 Back to Markets', callback_data: 'markets' }]]
@@ -308,18 +338,18 @@ bot.on('callback_query', async (query) => {
                 const amount = parseFloat(data.split('_')[2]);
                 const session = await SessionManager.get(chatId);
                 const withdrawAddress = session?.data.withdrawAddress;
-                
+
                 const processingMsg = await bot.sendMessage(chatId, '⏳ *Processing withdrawal...*\n\nSending USDC...', { parse_mode: 'Markdown' });
-                
+
                 try {
                     const result = await API.withdraw(chatId, withdrawAddress!, amount);
-                    
+
                     await bot.deleteMessage(chatId, processingMsg.message_id);
                     await SessionManager.clear(chatId);
-                    
+
                     if (result.success) {
                         const balance = await API.getUserBalance(chatId);
-                        bot.sendMessage(chatId, 
+                        bot.sendMessage(chatId,
                             `✅ *Withdrawal Successful!*\n\n` +
                             `To: \`${withdrawAddress}\`\n` +
                             `Amount: ${amount} USDC\n` +
@@ -336,7 +366,7 @@ bot.on('callback_query', async (query) => {
                         throw new Error(result.message || 'Withdrawal failed');
                     }
                 } catch (error: any) {
-                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
+                    await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => { });
                     bot.sendMessage(chatId, `❌ Withdrawal failed: ${error.message}`, {
                         reply_markup: {
                             inline_keyboard: [[{ text: '🔙 Main Menu', callback_data: 'menu' }]]
@@ -355,22 +385,22 @@ console.log('💬 Send /start to begin\n');
 // Handle text messages (search and bet amount)
 bot.on('message', async (msg) => {
     if (msg.text?.startsWith('/')) return;
-    
+
     const chatId = msg.chat.id;
     const text = msg.text?.trim();
     const session = await SessionManager.get(chatId);
-    
+
     if (!session || !text) return;
-    
+
     // Handle search query
     if (session.state === UserState.SEARCHING_MARKETS) {
         try {
             const markets = await API.getActiveMarkets();
-            const filtered = markets.filter(m => 
+            const filtered = markets.filter(m =>
                 m.question.toLowerCase().includes(text.toLowerCase()) ||
                 m.description.toLowerCase().includes(text.toLowerCase())
             );
-            
+
             if (filtered.length === 0) {
                 bot.sendMessage(chatId, `🔍 No markets found for "${text}"`, {
                     reply_markup: {
@@ -396,7 +426,7 @@ bot.on('message', async (msg) => {
             bot.sendMessage(chatId, `❌ Search failed: ${error.message}`);
         }
     }
-    
+
     // Handle bet amount
     else if (session.state === UserState.ENTERING_AMOUNT) {
         const amount = parseFloat(text);
@@ -408,11 +438,11 @@ bot.on('message', async (msg) => {
             });
             return;
         }
-        
+
         const { marketId, outcome } = session.data;
         const outcomeName = outcome === 1 ? 'YES' : 'NO';
-        
-        bot.sendMessage(chatId, 
+
+        bot.sendMessage(chatId,
             `✅ *Confirm Bet*\n\n` +
             `Market ID: ${marketId}\n` +
             `Outcome: ${outcomeName}\n` +
@@ -429,7 +459,7 @@ bot.on('message', async (msg) => {
             }
         );
     }
-    
+
     // Handle withdraw address
     else if (session.state === UserState.ENTERING_WITHDRAW_ADDRESS) {
         if (!text.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -440,12 +470,12 @@ bot.on('message', async (msg) => {
             });
             return;
         }
-        
+
         await SessionManager.update(chatId, {
             state: UserState.ENTERING_WITHDRAW_AMOUNT,
             data: { ...session.data, withdrawAddress: text }
         });
-        
+
         bot.sendMessage(chatId, '💸 *Enter Withdrawal Amount*\n\nHow much USDC do you want to withdraw?\n\nType the amount:', {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -453,7 +483,7 @@ bot.on('message', async (msg) => {
             }
         });
     }
-    
+
     // Handle withdraw amount
     else if (session.state === UserState.ENTERING_WITHDRAW_AMOUNT) {
         const amount = parseFloat(text);
@@ -465,10 +495,10 @@ bot.on('message', async (msg) => {
             });
             return;
         }
-        
+
         const { withdrawAddress } = session.data;
-        
-        bot.sendMessage(chatId, 
+
+        bot.sendMessage(chatId,
             `✅ *Confirm Withdrawal*\n\n` +
             `To: ${withdrawAddress?.substring(0, 10)}...\n` +
             `Amount: ${amount} USDC\n\n` +

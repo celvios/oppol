@@ -7,11 +7,11 @@ import { ethers } from 'ethers';
 
 // Configuration
 const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-const MARKET_ADDR = process.env.MARKET_ADDRESS || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
+const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
 const MARKET_ABI = [
     'function marketCount() view returns (uint256)',
-    'function getPrice(uint256 marketId) view returns (uint256)',
+    'function getAllPrices(uint256 marketId) view returns (uint256[])',
 ];
 
 let isRunning = false;
@@ -26,8 +26,9 @@ export async function recordMarketPrice(marketId: number): Promise<void> {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const market = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
 
-        const price = await market.getPrice(marketId);
-        const priceValue = Number(price); // Price in basis points (0-10000)
+        const prices = await market.getAllPrices(marketId);
+        // Record the first outcome price (typically "Yes" for binary markets)
+        const priceValue = prices.length > 0 ? Number(prices[0]) : 5000; // Default to 50%
 
         await query(
             'INSERT INTO price_history (market_id, price) VALUES ($1, $2)',
