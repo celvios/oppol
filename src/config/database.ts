@@ -83,14 +83,14 @@ class MockPool {
         // --- MARKET METADATA ---
 
         // 8. INSERT Market Metadata
-        if (q.includes('insert into market_metadata')) {
+        if (q.includes('insert into markets')) {
             const marketId = params[0];
             const meta = {
                 market_id: marketId,
                 question: params[1],
-                description: params[2],
-                image_url: params[3],
-                category_id: params[4],
+                description: params[2] || '',
+                image: params[3] || '',
+                category: params[4] || '',
                 created_at: new Date()
             };
             this.marketMetadata.set(marketId.toString(), meta);
@@ -98,14 +98,14 @@ class MockPool {
         }
 
         // 9. SELECT Market Metadata (Single)
-        if (q.includes('select * from market_metadata where market_id')) {
+        if (q.includes('select * from markets where market_id')) {
             const marketId = params[0].toString();
             const meta = this.marketMetadata.get(marketId);
             return { rows: meta ? [meta] : [] };
         }
 
         // 10. SELECT All Metadata
-        if (q.includes('select * from market_metadata')) {
+        if (q.includes('select * from markets')) {
             return { rows: Array.from(this.marketMetadata.values()) };
         }
 

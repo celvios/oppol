@@ -2,24 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/lib/use-wallet';
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { useWriteContract, useReadContract } from 'wagmi';
+import { ethers } from 'ethers'; // For parsing if needed
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock,
     CheckCircle,
     AlertTriangle,
-    Gavel,
-    Shield,
     Gift,
-    Loader2,
-    ExternalLink
+    Loader2
 } from 'lucide-react';
 import { getContracts } from '@/lib/contracts';
 
-// Get contract address from central config
+// Get contract address
 const contracts = getContracts() as any;
-const MARKET_CONTRACT = (contracts.predictionMarketLMSR || contracts.predictionMarket) as `0x${string}`;
+const MARKET_CONTRACT = (contracts.predictionMarketMulti || contracts.predictionMarket) as `0x${string}`;
 
 // Market status enum
 enum MarketStatus {
@@ -30,7 +27,7 @@ enum MarketStatus {
     RESOLVED = 'RESOLVED',
 }
 
-// Simple ABI for UMA market functions
+// Correct ABI for Multi-Market
 const MARKET_ABI = [
     {
         name: 'assertOutcome',
@@ -38,7 +35,7 @@ const MARKET_ABI = [
         stateMutability: 'nonpayable',
         inputs: [
             { name: 'marketId', type: 'uint256' },
-            { name: 'outcome', type: 'bool' }
+            { name: 'outcomeIndex', type: 'uint256' }
         ],
         outputs: [],
     },
@@ -57,26 +54,6 @@ const MARKET_ABI = [
         outputs: [],
     },
     {
-        name: 'markets',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: '', type: 'uint256' }],
-        outputs: [
-            { name: 'question', type: 'string' },
-            { name: 'endTime', type: 'uint256' },
-            { name: 'yesShares', type: 'uint256' },
-            { name: 'noShares', type: 'uint256' },
-            { name: 'liquidityParam', type: 'uint256' },
-            { name: 'resolved', type: 'bool' },
-            { name: 'outcome', type: 'bool' },
-            { name: 'subsidyPool', type: 'uint256' },
-            { name: 'assertionId', type: 'bytes32' },
-            { name: 'assertionPending', type: 'bool' },
-            { name: 'asserter', type: 'address' },
-            { name: 'assertedOutcome', type: 'bool' },
-        ],
-    },
-    {
         name: 'getUserPosition',
         type: 'function',
         stateMutability: 'view',
@@ -85,8 +62,7 @@ const MARKET_ABI = [
             { name: 'user', type: 'address' }
         ],
         outputs: [
-            { name: 'yesShares', type: 'uint256' },
-            { name: 'noShares', type: 'uint256' },
+            { name: 'shares', type: 'uint256[]' },
             { name: 'claimed', type: 'bool' },
         ],
     },
@@ -97,9 +73,11 @@ interface ResolutionPanelProps {
     question: string;
     endTime: number;
     resolved: boolean;
-    outcome?: boolean;
+    outcome?: boolean; // Legacy prop (implies binary)
+    winningOutcomeIndex?: number; // New prop for multi-outcome
     assertionPending?: boolean;
-    assertedOutcome?: boolean;
+    assertedOutcome?: boolean; // Legacy
+    assertedOutcomeIndex?: number; // New
     asserter?: string;
 }
 
@@ -108,9 +86,11 @@ export function ResolutionPanel({
     question,
     endTime,
     resolved,
-    outcome,
+    outcome, // Legacy binary support
+    winningOutcomeIndex,
     assertionPending = false,
     assertedOutcome,
+    assertedOutcomeIndex,
     asserter
 }: ResolutionPanelProps) {
     const { isConnected, address } = useWallet();
@@ -119,12 +99,12 @@ export function ResolutionPanel({
     const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
     // Contract write hooks
-    const { writeContract: assertWrite, data: assertHash, isPending: assertPending } = useWriteContract();
-    const { writeContract: settleWrite, data: settleHash, isPending: settlePending } = useWriteContract();
-    const { writeContract: claimWrite, data: claimHash, isPending: claimPending } = useWriteContract();
+    const { writeContract: assertWrite, isPending: assertPendingWrite } = useWriteContract();
+    const { writeContract: settleWrite, isPending: settlePending } = useWriteContract();
+    const { writeContract: claimWrite, isPending: claimPending } = useWriteContract();
 
     // Read user position
-    const { data: position } = useReadContract({
+    const { data: positionData } = useReadContract({
         address: MARKET_CONTRACT,
         abi: MARKET_ABI,
         functionName: 'getUserPosition',
@@ -173,8 +153,11 @@ export function ResolutionPanel({
         return () => clearInterval(interval);
     }, [endTime]);
 
-    // Handle assert outcome
-    async function handleAssert(outcomeValue: boolean) {
+    // Handle assert outcome (Binary Default: 0=Yes, 1=No ? Or 0=No, 1=Yes?)
+    // Typically in this codebase: Yes=0, No=1 ??
+    // Wait, let's look at `web3.ts`: const outcomeIndex = isYes ? 0 : 1;
+    // So 0=YES, 1=NO.
+    async function handleAssert(idx: number) {
         if (!isConnected) return;
         setActionInProgress('assert');
 
@@ -183,7 +166,7 @@ export function ResolutionPanel({
                 address: MARKET_CONTRACT,
                 abi: MARKET_ABI,
                 functionName: 'assertOutcome',
-                args: [BigInt(marketId), outcomeValue],
+                args: [BigInt(marketId), BigInt(idx)],
             });
         } catch (error) {
             console.error('Assert failed:', error);
@@ -227,13 +210,33 @@ export function ResolutionPanel({
         }
     }
 
-    // Check if user can claim
-    const userYesShares = position ? Number(position[0]) : 0;
-    const userNoShares = position ? Number(position[1]) : 0;
-    const hasClaimed = position ? position[2] : false;
-    const hasWinningPosition = resolved && (
-        (outcome && userYesShares > 0) || (!outcome && userNoShares > 0)
+    // Parse user position
+    // positionData is [shares[], claimed]
+    const sharesArray = positionData ? (positionData as any)[0] : [];
+    const hasClaimed = positionData ? (positionData as any)[1] : false;
+
+    // For now assuming binary if we don't have outcome details
+    // But sharesArray could have N items.
+    // Try to safely access index 0 and 1.
+    const userYesShares = sharesArray && sharesArray.length > 0 ? Number(sharesArray[0]) : 0; // Index 0 = YES?
+    const userNoShares = sharesArray && sharesArray.length > 1 ? Number(sharesArray[1]) : 0;   // Index 1 = NO?
+
+    // We assume standard binary mapping: 0=YES, 1=NO. Matches web3.ts
+    // If it's multi, we just display "Winning Shares".
+
+    // Determine winner for legacy binary props
+    // If `winningOutcomeIndex` is provided, use it. Else infer from `outcome` bool.
+    // `outcome` bool: true -> YES (0), false -> NO (1).
+    const finalWinnerIndex = winningOutcomeIndex !== undefined
+        ? winningOutcomeIndex
+        : (outcome !== undefined ? (outcome ? 0 : 1) : null);
+
+    const hasWinningPosition = resolved && finalWinnerIndex !== null && (
+        (sharesArray && sharesArray[finalWinnerIndex] && Number(sharesArray[finalWinnerIndex]) > 0)
     );
+
+    // Winning shares amount
+    const winningSharesCount = hasWinningPosition && sharesArray ? Number(sharesArray[finalWinnerIndex!]) : 0;
 
     return (
         <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
@@ -271,17 +274,13 @@ export function ResolutionPanel({
                     >
                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
                             <Clock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                            <p className="text-amber-400 font-medium">Waiting for Official Resolution</p>
+                            <p className="text-amber-400 font-medium">Waiting for Resolution</p>
                             <p className="text-white/50 text-sm mt-1">
-                                The outcome is being verified by the platform administrators.
+                                An admin will resolve this market shortly.
                             </p>
                         </div>
-
-                        <p className="text-white/60 text-sm text-center mb-2">{question}</p>
                     </motion.div>
                 )}
-
-                {/* DISPUTABLE - Removed for Admin Picks Mode */}
 
                 {/* RESOLVED - Market finalized */}
                 {status === MarketStatus.RESOLVED && (
@@ -292,34 +291,36 @@ export function ResolutionPanel({
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4"
                     >
-                        <div className={`p-6 rounded-xl text-center ${outcome
-                            ? 'bg-green-500/20 border border-green-500/30'
-                            : 'bg-red-500/20 border border-red-500/30'
-                            }`}>
-                            <CheckCircle className={`w-12 h-12 mx-auto mb-2 ${outcome ? 'text-green-400' : 'text-red-400'
+                        <div className={`p-6 rounded-xl text-center ${finalWinnerIndex === 0 ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'
+                            } border`}>
+                            <CheckCircle className={`w-12 h-12 mx-auto mb-2 ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
                                 }`} />
-                            <p className="text-white/60 text-sm">Final Outcome</p>
-                            <p className={`text-3xl font-bold ${outcome ? 'text-green-400' : 'text-red-400'
+                            <p className="text-white/60 text-sm">Winning Outcome</p>
+                            <p className={`text-3xl font-bold ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
                                 }`}>
-                                {outcome ? 'YES' : 'NO'}
+                                {finalWinnerIndex === 0 ? 'YES' : (finalWinnerIndex === 1 ? 'NO' : `Option ${finalWinnerIndex}`)}
                             </p>
                         </div>
 
                         {/* User position info */}
-                        {(userYesShares > 0 || userNoShares > 0) && (
+                        {sharesArray && sharesArray.some((s: bigint) => Number(s) > 0) && (
                             <div className="bg-white/5 rounded-xl p-4">
                                 <p className="text-white/60 text-sm mb-2">Your Position</p>
-                                <div className="flex justify-between">
-                                    {userYesShares > 0 && (
-                                        <span className="text-green-400">
-                                            {userYesShares.toLocaleString()} YES shares
-                                        </span>
-                                    )}
-                                    {userNoShares > 0 && (
-                                        <span className="text-red-400">
-                                            {userNoShares.toLocaleString()} NO shares
-                                        </span>
-                                    )}
+                                <div className="flex flex-col gap-1">
+                                    {sharesArray.map((share: bigint, idx: number) => {
+                                        const s = Number(share);
+                                        if (s <= 0) return null;
+                                        return (
+                                            <div key={idx} className="flex justify-between">
+                                                <span className="text-white/70">
+                                                    {idx === 0 ? 'YES' : (idx === 1 ? 'NO' : `Outcome ${idx}`)}
+                                                </span>
+                                                <span className="font-mono text-white">
+                                                    {(s / 1e6).toFixed(2)} Shares
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -332,7 +333,7 @@ export function ResolutionPanel({
                                 className="w-full py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/80 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {claimPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
-                                Claim Winnings
+                                Claim {(winningSharesCount / 1e6).toFixed(2)} Winnings
                             </button>
                         )}
 
@@ -343,7 +344,7 @@ export function ResolutionPanel({
                             </div>
                         )}
 
-                        {!hasWinningPosition && (userYesShares > 0 || userNoShares > 0) && (
+                        {!hasWinningPosition && !hasClaimed && sharesArray && sharesArray.some((s: bigint) => Number(s) > 0) && (
                             <div className="text-center py-4">
                                 <AlertTriangle className="w-8 h-8 text-white/30 mx-auto mb-2" />
                                 <p className="text-white/50">No winnings to claim</p>

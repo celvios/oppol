@@ -1,18 +1,7 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import { formatUnits } from "viem";
-import { ethers } from "ethers";
 import { Loader2, CheckCircle, Clock, AlertTriangle, Search } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import { getContracts, getCurrentNetwork } from "@/lib/contracts";
-
-// ABI for reading markets
-const MARKET_ABI = [
-    "function marketCount() view returns (uint256)",
-    "function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)"
-];
 
 interface Market {
     id: number;
@@ -22,6 +11,8 @@ interface Market {
     winningOutcome: number;
     formattedEndTime: string;
     status: 'ACTIVE' | 'ENDED' | 'RESOLVED';
+    volume?: string;
+    image?: string;
 }
 
 export default function AdminMarketList({ adminKey }: { adminKey: string }) {
@@ -31,78 +22,32 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const contracts = getContracts();
-    const network = getCurrentNetwork();
-    const MARKET_ADDRESS = (contracts as any).predictionMarketMulti || (contracts as any).predictionMarket;
-
     useEffect(() => {
         fetchMarkets();
-    }, [MARKET_ADDRESS]);
+    }, []);
 
     const fetchMarkets = async () => {
-        if (!MARKET_ADDRESS) return;
         setIsLoading(true);
         try {
-            const provider = new ethers.JsonRpcProvider(network.rpcUrl);
-            const contract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, provider);
+            const res = await fetch('/api/markets');
+            const data = await res.json();
 
-            // 1. Get count
-            const count = await contract.marketCount();
-            const total = Number(count);
-            const loadedMarkets: Market[] = [];
-
-            // 2. Fetch last 20 markets (or all)
-            for (let i = total - 1; i >= Math.max(0, total - 20); i--) {
-                try {
-                    // Try to fetch market data using generic getter
-                    // If ABI mismatch occurs, catch it
-                    const data = await contract.markets(i);
-                    // data is array-like: [question, endTime, yesShares, noShares, liquidityParam, resolved, outcome, subsidyPool]
-                    // OR if struct changed: [question, endTime, liquidityParam, resolved, outcome, ...]
-                    // Ethers returns a Result object which allows access by index.
-
-                    // We assume standard order based on typical solidity mapping getter for struct:
-                    // string question
-                    // uint256 outcomeCount (maybe? or skipped if dynamic array) - Wait, previous step we found ABI was tricky
-                    // Let's assume standard field order from what we know:
-                    // markets(i) -> question, endTime ...
-
-                    // Actually, simpler approach:
-                    // If we are admin, we can rely on our Backend API '/api/markets' which we just fixed!
-                    // Is it better to query the contract directly or use the API we just fixed?
-                    // The API returns metadata + status.
-                    // This component is "AdminMarketList".
-                    // Querying the API is safer because it handles the ABI complexity we struggled with.
-                    // Let's switch to querying fetch('/api/markets')? 
-                    // But that endpoint returns ALL markets.
-                    // Let's try to keep direct contract call but be robust.
-
-                    // Based on recent ABI understanding:
-                    // markets(i) -> (question, endTime, ...)
-
-                    loadedMarkets.push({
-                        id: i,
-                        question: data[0] || `Market #${i}`,
-                        endTime: Number(data[1]), // approximate index
-                        resolved: Boolean(data[5]), // boolean resolved usually later
-                        winningOutcome: Number(data[6]),
-                        formattedEndTime: new Date(Number(data[1]) * 1000).toLocaleString(),
-                        status: Boolean(data[5]) ? 'RESOLVED' : (Date.now() / 1000 > Number(data[1]) ? 'ENDED' : 'ACTIVE')
-                    });
-                } catch (e) {
-                    // Fallback to simpler data if struct parsing fails
-                    loadedMarkets.push({
-                        id: i,
-                        question: `Market #${i}`,
-                        endTime: 0,
-                        resolved: false,
-                        winningOutcome: 0,
-                        formattedEndTime: 'Unknown',
-                        status: 'ACTIVE'
-                    });
-                }
+            if (data.success) {
+                const loadedMarkets: Market[] = data.markets.map((m: any) => ({
+                    id: m.market_id,
+                    question: m.question,
+                    endTime: m.endTime,
+                    resolved: m.resolved,
+                    winningOutcome: 0, // Not needed for list display, detailed view handles it
+                    formattedEndTime: new Date(m.endTime * 1000).toLocaleString(),
+                    status: m.resolved ? 'RESOLVED' : (Date.now() / 1000 > m.endTime ? 'ENDED' : 'ACTIVE'),
+                    volume: m.volume,
+                    image: m.image
+                }));
+                // Sort by ID desc (newest first)
+                loadedMarkets.sort((a, b) => b.id - a.id);
+                setMarkets(loadedMarkets);
             }
-            setMarkets(loadedMarkets);
         } catch (e) {
             console.error("Error loading markets", e);
         } finally {

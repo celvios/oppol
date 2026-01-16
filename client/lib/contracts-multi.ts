@@ -3,7 +3,7 @@
 export const MULTI_CONTRACTS = {
     // BSC Testnet (DEPLOYED ✅)
     bscTestnet: {
-        predictionMarketMulti: "0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6",
+        predictionMarketMulti: "0xB6a211822649a61163b94cf46e6fCE46119D3E1b",
         mockUSDC: "0x87D45E316f5f1f2faffCb600c97160658B799Ee0",
         umaOracle: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
     },

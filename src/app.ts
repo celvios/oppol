@@ -840,7 +840,7 @@ app.get('/api/markets', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function markets(uint256) view returns (string question, uint256 endTime, uint256 yesShares, uint256 noShares, uint256 liquidityParam, bool resolved, bool outcome, uint256 subsidyPool)'
+      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
     ];
 
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
@@ -872,16 +872,20 @@ app.get('/api/markets', async (req, res) => {
 
     const markets = [];
     for (let i = 0; i < Number(count); i++) {
-      const m = await marketContract.markets(i);
-      const metadata = metadataMap[i] || {};
+      try {
+        const m = await marketContract.getMarketBasicInfo(i);
+        const metadata = metadataMap[i] || {};
 
-      markets.push({
-        market_id: i,
-        question: m.question,
-        description: metadata.description || '',
-        image_url: metadata.image || '',
-        category_id: metadata.category || ''
-      });
+        markets.push({
+          market_id: i,
+          question: m.question,
+          description: metadata.description || '',
+          image_url: metadata.image || '',
+          category_id: metadata.category || ''
+        });
+      } catch (err) {
+        console.log(`Skipping market ${i}:`, err);
+      }
     }
 
     return res.json({ success: true, markets });

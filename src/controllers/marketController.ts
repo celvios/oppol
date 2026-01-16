@@ -52,7 +52,16 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, message: 'Market not found' });
         }
 
-        res.json({ success: true, market: result.rows[0] });
+        const row = result.rows[0];
+        const market = {
+            market_id: row.market_id,
+            question: row.question,
+            description: row.description || '',
+            image_url: row.image || '',
+            category_id: row.category || ''
+        };
+
+        res.json({ success: true, market });
     } catch (error) {
         console.error('Get Metadata Error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
