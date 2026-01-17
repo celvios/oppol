@@ -1,7 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-if (!API_URL) {
-    console.warn('NEXT_PUBLIC_API_URL is not defined in environment variables');
+if (!process.env.NEXT_PUBLIC_API_URL) {
+    console.warn('NEXT_PUBLIC_API_URL is not defined in environment variables, using fallback: http://localhost:3001');
 }
 
 type ApiOptions = RequestInit & {

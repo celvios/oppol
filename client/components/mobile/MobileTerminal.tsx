@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2 } from "lucide-react";
+import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle } from "lucide-react";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
 import { web3Service, Market } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -10,6 +10,7 @@ import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
 import { AnimatePresence, motion } from "framer-motion";
+import CommentsDrawer from "@/components/market/CommentsDrawer";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -82,6 +83,7 @@ export function MobileTerminal() {
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
+    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -337,7 +339,13 @@ export function MobileTerminal() {
         <div className="pb-12 relative min-h-screen">
 
             {/* 1. Header */}
-            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-end items-center">
+            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
+                <button
+                    onClick={() => setIsCommentsOpen(true)}
+                    className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                >
+                    <MessageCircle className="w-6 h-6 text-neon-cyan" />
+                </button>
                 <div className="text-right">
                     <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
                     <div className="font-mono text-sm text-white">
@@ -607,6 +615,13 @@ export function MobileTerminal() {
                     />
                 )}
             </AnimatePresence>
+
+            {/* Comments Drawer */}
+            <CommentsDrawer
+                marketId={market.id}
+                isOpen={isCommentsOpen}
+                onClose={() => setIsCommentsOpen(false)}
+            />
         </div>
     );
 }

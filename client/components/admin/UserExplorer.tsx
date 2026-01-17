@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Search, ExternalLink, RefreshCw, Loader2, MessageCircle, Send } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, Loader2, MessageCircle, Send, Globe } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
 
 interface User {
     id_val: string;
-    source: 'whatsapp' | 'telegram';
+    source: 'whatsapp' | 'telegram' | 'web';
     display_name: string;
     wallet_address: string;
     created_at: string;
@@ -108,10 +108,15 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                                                     <MessageCircle size={16} />
                                                     <span className="text-xs font-bold">WA</span>
                                                 </div>
-                                            ) : (
+                                            ) : user.source === 'telegram' ? (
                                                 <div className="flex items-center gap-2 text-blue-400">
                                                     <Send size={16} />
                                                     <span className="text-xs font-bold">TG</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-purple-400">
+                                                    <Globe size={16} />
+                                                    <span className="text-xs font-bold">WEB</span>
                                                 </div>
                                             )}
                                         </td>

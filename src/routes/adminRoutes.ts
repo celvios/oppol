@@ -67,9 +67,10 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
 // GET /users - List all users with balances
 router.get('/users', checkAdminAuth, async (req, res) => {
     try {
-        // 1. Fetch from DB (WhatsApp + Telegram)
+        // 1. Fetch from DB (WhatsApp + Telegram + Web)
         const waResult = await query('SELECT * FROM whatsapp_users ORDER BY created_at DESC');
         const tgResult = await query('SELECT * FROM telegram_users ORDER BY created_at DESC');
+        const webResult = await query('SELECT * FROM users ORDER BY created_at DESC');
 
         // Normalize Users
         const waUsers = waResult.rows.map((u: any) => ({
@@ -86,7 +87,14 @@ router.get('/users', checkAdminAuth, async (req, res) => {
             id_val: u.telegram_id
         }));
 
-        const allUsers = [...waUsers, ...tgUsers];
+        const webUsers = webResult.rows.map((u: any) => ({
+            ...u,
+            source: 'web',
+            display_name: u.display_name || u.wallet_address?.substring(0, 8) || 'Web User',
+            id_val: u.wallet_address
+        }));
+
+        const allUsers = [...waUsers, ...tgUsers, ...webUsers];
 
         // 2. Fetch on-chain balances
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';

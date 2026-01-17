@@ -4,6 +4,8 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import http from 'http';
+import { Server } from 'socket.io';
 import { initDatabase } from './models';
 import { startDepositWatcher, watchAddress, setDepositCallback } from './services/depositWatcher';
 import { sendDepositNotification } from './services/whatsappNotifications';
@@ -11,10 +13,14 @@ import { recordMarketPrice, getPriceHistory, startPriceTracker } from './service
 import { query } from './config/database';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
+import commentsRoutes from './routes/comments';
 import { apiRouter } from './routes/api';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
+
+// Create HTTP server for Socket.IO
+const server = http.createServer(app);
 
 // CORS configuration - allow all origins in production
 const corsOptions = {
@@ -47,6 +53,7 @@ app.use((req, res, next) => {
 app.use('/api/admin', adminRoutes);
 
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
+app.use('/api/comments', commentsRoutes);
 app.use('/api', apiRouter);
 
 // WHATSAPP USER ENDPOINT - Get or create user wallet
@@ -1365,6 +1372,16 @@ app.post('/api/admin/migrate', async (req, res) => {
         recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Comments Table
+      CREATE TABLE IF NOT EXISTS comments (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        market_id INTEGER NOT NULL,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_comments_market_id ON comments(market_id);
+
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
@@ -1414,6 +1431,60 @@ app.get('/api/admin/db-status', async (req, res) => {
   }
 });
 
+// USER REGISTRATION ENDPOINTS
+app.post('/api/register', async (req, res) => {
+  try {
+    const { walletAddress, username } = req.body;
+
+    if (!walletAddress || !username) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`;
+
+    // Check if user exists
+    const userRes = await query('SELECT * FROM users WHERE LOWER(wallet_address) = $1', [walletAddress.toLowerCase()]);
+
+    let user;
+    if (userRes.rows.length > 0) {
+      // Update existing user
+      const updateRes = await query(
+        'UPDATE users SET display_name = $1, avatar_url = $2 WHERE id = $3 RETURNING *',
+        [username, avatarUrl, userRes.rows[0].id]
+      );
+      user = updateRes.rows[0];
+    } else {
+      // Create new user
+      const insertRes = await query(
+        'INSERT INTO users (wallet_address, display_name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
+        [walletAddress, username, avatarUrl]
+      );
+      user = insertRes.rows[0];
+    }
+
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/user/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const userRes = await query('SELECT * FROM users WHERE LOWER(wallet_address) = $1', [address.toLowerCase()]);
+
+    if (userRes.rows.length > 0) {
+      res.json({ success: true, user: userRes.rows[0] });
+    } else {
+      res.json({ success: true, user: null });
+    }
+  } catch (error: any) {
+    console.error('Get user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Health Check
 app.get('/', (req, res) => {
   res.send({
@@ -1425,9 +1496,96 @@ app.get('/', (req, res) => {
 });
 
 // Initialize DB and start server
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: corsOptions,
+  transports: ['websocket'] // WebSocket only, no polling
+});
+
+// Socket.IO event handlers for real-time chat
+io.on('connection', (socket) => {
+  console.log('✅ WebSocket client connected:', socket.id);
+
+  // Join market room
+  socket.on('join-market', (marketId: string) => {
+    socket.join(`market-${marketId}`);
+    console.log(`Socket ${socket.id} joined market-${marketId}`);
+  });
+
+  // Leave market room
+  socket.on('leave-market', (marketId: string) => {
+    socket.leave(`market-${marketId}`);
+    console.log(`Socket ${socket.id} left market-${marketId}`);
+  });
+
+  // Handle new comment
+  socket.on('send-comment', async (data: { marketId: string; text: string; walletAddress: string }) => {
+    console.log('📨 Received send-comment event:', data);
+    try {
+      const { marketId, text, walletAddress } = data;
+
+      // Validate
+      if (marketId === undefined || !text || !walletAddress) {
+        socket.emit('comment-error', { error: 'Missing required fields' });
+        return;
+      }
+
+      // Find user
+      let userResult = await query(
+        'SELECT * FROM users WHERE LOWER(wallet_address) = $1',
+        [walletAddress.toLowerCase()]
+      );
+
+      // Enforce registration (must have display_name)
+      if (userResult.rows.length === 0 || !userResult.rows[0].display_name) {
+        console.log(`❌ Unregistered user attempted to comment: ${walletAddress}`);
+        socket.emit('comment-error', { error: 'Registration required', code: 'UNREGISTERED' });
+        return;
+      }
+
+      const user = userResult.rows[0];
+      console.log(`✅ User found:`, user);
+
+      // Insert comment
+      console.log(`💾 Inserting comment into database...`);
+      const insertResult = await query(
+        `INSERT INTO comments (market_id, user_id, text)
+         VALUES ($1, $2, $3)
+         RETURNING id, created_at`,
+        [marketId, user.id, text]
+      );
+      console.log(`✅ Comment inserted:`, insertResult.rows[0]);
+
+      const newComment = {
+        id: insertResult.rows[0].id,
+        text,
+        created_at: insertResult.rows[0].created_at,
+        wallet_address: walletAddress,
+        display_name: user.display_name || 'Web User',
+        avatar_url: user.avatar_url
+      };
+
+      // Broadcast to all clients in the market room
+      console.log(`📡 Broadcasting comment to market-${marketId}...`);
+      io.to(`market-${marketId}`).emit('new-comment', newComment);
+      console.log(`📨 Comment broadcast successful:`, newComment);
+
+    } catch (error: any) {
+      console.error('❌ Socket comment error:', error);
+      console.error('❌ Error stack:', error.stack);
+      socket.emit('comment-error', { error: error.message });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ WebSocket client disconnected:', socket.id);
+  });
+});
+
 initDatabase().then(async () => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📡 WebSocket server ready`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Endpoints ready: POST /api/bet, POST /api/withdraw, GET /api/markets, POST /api/admin/migrate`);
   });

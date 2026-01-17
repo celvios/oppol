@@ -7,8 +7,19 @@ const createTablesQuery = `
   -- Users Table
   CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    phone_number VARCHAR(50) UNIQUE NOT NULL,
+    phone_number VARCHAR(50) UNIQUE,
     wallet_address VARCHAR(42),
+    display_name VARCHAR(100),
+    avatar_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Comments Table
+  CREATE TABLE IF NOT EXISTS comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    market_id INTEGER NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -168,6 +179,14 @@ export const initDatabase = async () => {
   try {
     console.log('Initializing Database Schema...');
     await query(createTablesQuery);
+
+    // Migrations for existing tables
+    await query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE users ALTER COLUMN phone_number DROP NOT NULL;
+    `);
+
     console.log('✅ Database Initialization Complete');
   } catch (error) {
     console.error('❌ Database Initialization Failed:', error);

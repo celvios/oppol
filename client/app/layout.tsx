@@ -4,8 +4,8 @@ import "./globals.css";
 import { ReownProvider } from "@/lib/reown-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
-import SettingsToggle from "@/components/ui/SettingsToggle";
 import BottomNav from "@/components/mobile/BottomNav";
+import UserRegistrationManager from "@/components/UserRegistrationManager";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -46,8 +46,8 @@ export default function RootLayout({
           <ReownProvider>
             <SettingsProvider>
               <AnimatedBackground />
+              <UserRegistrationManager />
               {children}
-              <SettingsToggle />
               <BottomNav />
             </SettingsProvider>
           </ReownProvider>

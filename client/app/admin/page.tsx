@@ -41,7 +41,8 @@ export default function AdminDashboard() {
 
         try {
             // Verify against health endpoint
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/health`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${apiUrl}/api/admin/health`, {
                 headers: { 'x-admin-secret': key }
             });
 
@@ -67,7 +68,8 @@ export default function AdminDashboard() {
 
     const fetchStats = async (key: string) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/stats`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${apiUrl}/api/admin/stats`, {
                 headers: { 'x-admin-secret': key }
             });
             const data = await res.json();
