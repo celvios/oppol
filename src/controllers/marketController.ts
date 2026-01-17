@@ -102,9 +102,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             console.log(`[Market ${marketId}] RPC URL: ${process.env.BNB_RPC_URL}`);
 
             const abi = [
-                'function getMarketOutcomes(uint256) view returns (string[])',
-                'function getAllPrices(uint256) view returns (uint256[])',
-                'function getMarketBasicInfo(uint256) view returns (string, uint256, uint256, uint256, bool, uint256)'
+                'function getPrice(uint256) view returns (uint256)',
+                'function markets(uint256) view returns (string, uint256, uint256, uint256, uint256, bool, bool, uint256)'
             ];
             const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 

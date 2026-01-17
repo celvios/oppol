@@ -35,12 +35,15 @@ router.get('/bet/estimate', estimateBetCost);
 
 // Market & Category Routes
 import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories } from '../controllers/marketController';
+import { checkContractMarkets } from '../controllers/debugController';
 
 router.post('/markets', createMarketMetadata);
 // NOTE: GET /markets and GET /markets/:id are handled in app.ts with contract data
 
 router.post('/categories', createCategory);
 router.get('/categories', getCategories);
+
+router.get('/debug/contract', checkContractMarkets);
 
 router.get('/health', (req, res) => {
     res.json({ status: 'API Operational' });
