@@ -2,24 +2,23 @@ import Redis from 'ioredis';
 import { Session, UserState } from './types';
 
 const redisUrl = process.env.REDIS_URL;
+
 if (redisUrl) {
-    // Log masked URL for debugging connection issues
     const masked = redisUrl.replace(/:[^@]+@/, ':***@');
     console.log(`🔌 Connecting to REDIS_URL: ${masked}`);
 } else {
-    console.warn('⚠️ No REDIS_URL provided');
+    console.warn('⚠️ No REDIS_URL provided, defaulting to localhost');
 }
 
 const redis = redisUrl
-    ? new Redis(process.env.REDIS_URL, {
+    ? new Redis(redisUrl, {
         retryStrategy: (times) => {
-            // Retry for up to 20 seconds (20 * 1000ms)
             if (times > 20) return null;
             return 1000;
         },
-        maxRetriesPerRequest: null, // Allow retries
+        maxRetriesPerRequest: null,
         lazyConnect: true,
-        family: 0 // Support both IPv4 and IPv6
+        family: 0
     })
     : new Redis({
         host: process.env.REDIS_HOST || 'localhost',
@@ -35,9 +34,8 @@ const SESSION_TTL = 1800;
 redis.connect().then(() => {
     console.log('✅ Redis connected');
 }).catch((err) => {
+    // Log error but don't exit; allow retryStrategy to work
     console.error('❌ Redis connection failed:', err);
-    // In production, force exit or handle error appropriately
-    // For now, we log error. Process manager (like Render) will restart if we crash.
 });
 
 export class SessionManager {
