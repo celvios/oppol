@@ -113,7 +113,7 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 contract.getMarketBasicInfo(marketId)
             ]);
 
-            console.log(`[Market ${marketId}] Raw prices:`, prices.map(p => p.toString()));
+            console.log(`[Market ${marketId}] Raw prices:`, prices.map((p: bigint) => p.toString()));
             
             onChainData = {
                 outcomes: outcomes,
