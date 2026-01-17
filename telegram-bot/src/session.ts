@@ -3,9 +3,14 @@ import { Session, UserState } from './types';
 
 const redis = process.env.REDIS_URL
     ? new Redis(process.env.REDIS_URL, {
-        retryStrategy: () => null,
-        maxRetriesPerRequest: 1,
-        lazyConnect: true
+        retryStrategy: (times) => {
+            // Retry for up to 20 seconds (20 * 1000ms)
+            if (times > 20) return null;
+            return 1000;
+        },
+        maxRetriesPerRequest: null, // Allow retries
+        lazyConnect: true,
+        family: 0 // Support both IPv4 and IPv6
     })
     : new Redis({
         host: process.env.REDIS_HOST || 'localhost',
