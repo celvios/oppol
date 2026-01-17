@@ -18,7 +18,7 @@ if (!PRIVATE_KEY) {
 }
 
 // Target Address from user request
-const TARGET_ADDRESS = "0xD70ebD0Faa2D1547260176278e0cdE4b3AC41D2a";
+const TARGET_ADDRESS = "0x9f555236d7DEd3C9c4e25e0Ba1c9072507739Df1";
 const AMOUNT_USDC = 2000;
 
 async function main() {

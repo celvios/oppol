@@ -1,0 +1,9 @@
+--- Debugging Encryption ---
+Active Key in Use: 1ef5d5...
+
+Fetching users from database...
+Found 2 users.
+❌ Decryption FAILED for User: Kpatech_1 (ID: 1034989511)
+   Error: Unsupported state or unable to authenticate data
+
+❌ Found 1 users with decryption errors.
