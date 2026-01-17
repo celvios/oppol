@@ -13,6 +13,17 @@ const bot = new TelegramBot(token, { polling: true });
 
 console.log('🚀 OPOLL Telegram Bot Starting...\n');
 
+const INSTANCE_ID = Math.floor(Math.random() * 10000);
+console.log(`🆔 Instance ID: ${INSTANCE_ID}`);
+
+bot.on('polling_error', (error: any) => {
+    if (error?.code === 'ETELEGRAM' && error?.message?.includes('409 Conflict')) {
+        console.warn(`⚠️ [Instance ${INSTANCE_ID}] Conflict detected! Another bot instance is active.`);
+    } else {
+        console.error(`❌ [Instance ${INSTANCE_ID}] Polling error:`, error.message);
+    }
+});
+
 // Handle /start command
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
