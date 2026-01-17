@@ -110,6 +110,9 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
             console.log(`[Market ${marketId}] Calling contract methods...`);
             
+            // Add a small delay to ensure blockchain state is updated
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
             // Try to call each method individually to see which one fails
             let outcomes, prices, basicInfo;
             

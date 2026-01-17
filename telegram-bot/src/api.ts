@@ -26,7 +26,7 @@ export interface BetResponse {
 export class API {
     static async getActiveMarkets(): Promise<Market[]> {
         try {
-            const { data } = await axios.get(`${API_URL}/api/markets`);
+            const { data } = await axios.get(`${API_URL}/api/markets?t=${Date.now()}`);
             console.log('Markets response:', data);
             return data.success ? data.markets : [];
         } catch (error: any) {
@@ -37,7 +37,7 @@ export class API {
 
     static async getMarket(id: number): Promise<Market | null> {
         try {
-            const { data } = await axios.get(`${API_URL}/api/markets/${id}`);
+            const { data } = await axios.get(`${API_URL}/api/markets/${id}?t=${Date.now()}`);
             console.log('Market response:', data);
             return data.success ? data.market : null;
         } catch (error: any) {
