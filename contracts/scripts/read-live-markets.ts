@@ -1,8 +1,11 @@
 
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import * as fs from "fs";
 
-const RPC_URL = 'https://bsc-testnet-rpc.publicnode.com';
+dotenv.config();
+
+const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
 const MARKET_ADDRESS = '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
 const ABI = [
@@ -17,27 +20,33 @@ async function main() {
     const contract = new ethers.Contract(MARKET_ADDRESS, ABI, provider);
 
     const count = await contract.marketCount();
-    console.log(`Markets Counter: ${count}`);
+    let output = `Live Market Report (Total: ${count})\n`;
+    output += "------------------------------------------------\n";
 
-    for (let i = Math.max(0, Number(count) - 5); i < Number(count); i++) {
+    for (let i = 0; i < Number(count); i++) {
         try {
             const info = await contract.getMarketBasicInfo(i);
             const question = info[0];
             const outcomes = await contract.getMarketOutcomes(i);
             const prices = await contract.getAllPrices(i);
+            const liquidity = info[3]; // liquidity param
 
-            console.log(`\n--- Market #${i} ---`);
-            console.log(`Q: ${question}`);
-            console.log(`Liquidity: ${info[3]}`);
+            output += `Market ID: ${i}\n`;
+            output += `Question: ${question}\n`;
 
+            output += `Odds:\n`;
             outcomes.forEach((name: string, idx: number) => {
-                const price = Number(prices[idx]) / 100;
-                console.log(`  [${name}]: ${price}%`);
+                const price = Number(prices[idx]) / 100; // basis points to %
+                output += `  - ${name}: ${price}%\n`;
             });
+            output += "------------------------------------------------\n";
         } catch (e) {
-            console.log(`Error reading market ${i}:`, e);
+            output += `Error reading market ${i}: ${e}\n`;
         }
     }
+
+    fs.writeFileSync('all_markets.txt', output);
+    console.log("Report generated: all_markets.txt");
 }
 
 main();
