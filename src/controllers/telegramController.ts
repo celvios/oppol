@@ -108,8 +108,34 @@ export class TelegramController {
             if (!serverPrivateKey) throw new Error('Server wallet not configured');
             const operatorWallet = new ethers.Wallet(serverPrivateKey, provider);
 
-            // 1. Check Allowance
+            console.log('[Telegram Bet Debug]', {
+                USDC_ADDRESS,
+                MARKET_CONTRACT_ADDRESS,
+                RPC_URL,
+                userWallet: wallet.address,
+                amount: amountInWei.toString(),
+                operator: operatorWallet.address
+            });
+
+            // CHECK SERVER BNB (GAS)
+            const operatorBalance = await provider.getBalance(operatorWallet.address);
+            console.log(`[Gasless Bet] Operator BNB: ${ethers.formatEther(operatorBalance)}`);
+            if (operatorBalance < ethers.parseEther('0.005')) {
+                throw new Error('Server busy (Low Gas). Please try again later.');
+            }
+
+            // CHECK USER USDC BALANCE
             const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+            const userUsdcBalance = await usdcContract.balanceOf(wallet.address);
+            console.log(`[Gasless Bet] User USDC: ${ethers.formatUnits(userUsdcBalance, 6)}`);
+
+            if (userUsdcBalance < amountInWei) {
+                const missing = ethers.formatUnits(amountInWei - userUsdcBalance, 6);
+                throw new Error(`Insufficient funds. You need ${missing} more USDC.`);
+            }
+
+            // 1. Check Allowance
+            // Ensure we check allowance against the Contract Address that will spend it
             const allowance = await usdcContract.allowance(wallet.address, MARKET_CONTRACT_ADDRESS);
 
             if (allowance < amountInWei) {
