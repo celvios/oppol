@@ -99,6 +99,7 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             // Use environment variable or fallback
             const MARKET_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
             console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);
+            console.log(`[Market ${marketId}] RPC URL: ${process.env.BNB_RPC_URL}`);
             
             const abi = [
                 'function getMarketOutcomes(uint256) view returns (string[])',
@@ -107,13 +108,16 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             ];
             const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
+            console.log(`[Market ${marketId}] Calling contract methods...`);
             const [outcomes, prices, basicInfo] = await Promise.all([
                 contract.getMarketOutcomes(marketId),
                 contract.getAllPrices(marketId),
                 contract.getMarketBasicInfo(marketId)
             ]);
 
+            console.log(`[Market ${marketId}] Raw outcomes:`, outcomes);
             console.log(`[Market ${marketId}] Raw prices:`, prices.map((p: bigint) => p.toString()));
+            console.log(`[Market ${marketId}] Basic info:`, basicInfo);
             
             onChainData = {
                 outcomes: outcomes,
