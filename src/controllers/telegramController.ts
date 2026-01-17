@@ -123,52 +123,69 @@ export class TelegramController {
                 throw new Error('Server busy (Low Gas). Please try again later.');
             }
 
-            // CHECK USER USDC BALANCE
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
-            const userUsdcBalance = await usdcContract.balanceOf(wallet.address);
-            console.log(`[Gasless Bet] User USDC: ${ethers.formatUnits(userUsdcBalance, 6)}`);
+            // 1. Check Internal Contract Balance (Has user deposited?)
+            const marketContractUser = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, wallet);
+            const internalBalance = await marketContractUser.userBalances(wallet.address);
+            console.log(`[Gasless Bet] Internal Balance: ${ethers.formatUnits(internalBalance, 6)} USDC`);
 
-            if (userUsdcBalance < amountInWei) {
-                const missing = ethers.formatUnits(amountInWei - userUsdcBalance, 6);
-                throw new Error(`Insufficient funds. You need ${missing} more USDC.`);
-            }
+            const neededDeposit = amountInWei > internalBalance ? amountInWei - internalBalance : BigInt(0);
 
-            // 1. Check Allowance
-            // Ensure we check allowance against the Contract Address that will spend it
-            const allowance = await usdcContract.allowance(wallet.address, MARKET_CONTRACT_ADDRESS);
+            if (neededDeposit > BigInt(0)) {
+                console.log(`[Gasless Bet] Need to deposit: ${ethers.formatUnits(neededDeposit, 6)} USDC`);
 
-            if (allowance < amountInWei) {
-                console.log(`[Gasless Bet] Insufficient allowance. Funding user ${wallet.address} for approve...`);
-                // Fund user for approval (approx 0.0005 BNB)
-                // Check user balance first
-                const userBalance = await provider.getBalance(wallet.address);
-                const requiredGas = ethers.parseEther('0.0005'); // Safe estimate for approve
-
-                if (userBalance < requiredGas) {
-                    await CustodialWalletService.fundWallet(wallet.address, '0.0005', provider);
+                // Check User Wallet USDC
+                const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+                const userUsdcBalance = await usdcContract.balanceOf(wallet.address);
+                if (userUsdcBalance < neededDeposit) {
+                    const missing = ethers.formatUnits(neededDeposit - userUsdcBalance, 6);
+                    throw new Error(`Insufficient funds. You need ${missing} more USDC.`);
                 }
 
-                // User signs approve (now has gas)
-                // Note: We use the user's wallet instance we created earlier
-                const approveTx = await usdcContract.approve(MARKET_CONTRACT_ADDRESS, ethers.MaxUint256); // Approve max to save future gas
-                await approveTx.wait();
-                console.log('[Gasless Bet] Approve complete');
+                // Check Allowance
+                const allowance = await usdcContract.allowance(wallet.address, MARKET_CONTRACT_ADDRESS);
+                if (allowance < neededDeposit) {
+                    console.log(`[Gasless Bet] Insufficient allowance. Funding user ${wallet.address} for approve...`);
+                    const userBalance = await provider.getBalance(wallet.address);
+                    const requiredGas = ethers.parseEther('0.0005');
+
+                    if (userBalance < requiredGas) {
+                        await CustodialWalletService.fundWallet(wallet.address, '0.0005', provider);
+                    }
+
+                    const approveTx = await usdcContract.approve(MARKET_CONTRACT_ADDRESS, ethers.MaxUint256);
+                    await approveTx.wait();
+                    console.log('[Gasless Bet] Approve complete');
+                }
+
+                // Execute Deposit
+                console.log('[Gasless Bet] Executing Deposit...');
+                const userBalanceForDeposit = await provider.getBalance(wallet.address);
+                const depositGas = ethers.parseEther('0.0008'); // Deposit cost
+
+                if (userBalanceForDeposit < depositGas) {
+                    console.log('[Gasless Bet] Funding user for deposit gas...');
+                    await CustodialWalletService.fundWallet(wallet.address, '0.001', provider);
+                }
+
+                const depositTx = await marketContractUser.deposit(neededDeposit);
+                await depositTx.wait();
+                console.log('[Gasless Bet] Deposit complete');
             }
 
             // 2. Server Executes Trade (buySharesFor)
             // Operator calls the contract, paying the gas.
-            const marketContract = new ethers.Contract(MARKET_CONTRACT_ADDRESS, [
+            const marketContractOperator = new ethers.Contract(MARKET_CONTRACT_ADDRESS, [
                 'function buySharesFor(address _user, uint256 _marketId, uint256 _outcomeIndex, uint256 _shares, uint256 _maxCost) external'
             ], operatorWallet);
 
             const maxCost = amountInWei * BigInt(11) / BigInt(10); // 10% slippage
 
             console.log(`[Gasless Bet] Operator buying shares for ${wallet.address}...`);
-            const betTx = await marketContract.buySharesFor(
+            const betTx = await marketContractOperator.buySharesFor(
                 wallet.address,
                 marketId,
                 outcome,
-                amountInWei, // using amount as shares input roughly 1:1 for now, or need better calc
+                amountInWei,
                 maxCost
             );
             const receipt = await betTx.wait();
