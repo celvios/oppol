@@ -5,8 +5,9 @@ import { ethers } from 'ethers';
 import { EncryptionService } from '../services/encryption';
 
 // Use correct environment variables matching .env
-const MARKET_CONTRACT_ADDRESS = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
-const USDC_ADDRESS = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+// FIX: Enforce correct Testnet Addresses (Token and Market mismatch in .env)
+const MARKET_CONTRACT_ADDRESS = '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+const USDC_ADDRESS = '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
 const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
 
 // ABI for PredictionMarketMulti contract
