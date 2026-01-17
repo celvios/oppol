@@ -52,6 +52,8 @@ export class TelegramController {
         try {
             const { telegramId, marketId, outcome, amount } = req.body;
 
+            console.log('[Telegram Bet] Starting bet placement:', { telegramId, marketId, outcome, amount });
+
             let userResult = await pool.query(
                 'SELECT * FROM telegram_users WHERE telegram_id = $1',
                 [telegramId]
@@ -60,19 +62,31 @@ export class TelegramController {
             // Auto-create user if not found (mock DB loses data on restart)
             if (userResult.rows.length === 0) {
                 console.log('[Telegram Bet] User not found, auto-creating...');
-                const wallet = await CustodialWalletService.createWallet(telegramId.toString());
-                userResult = await pool.query(
-                    'INSERT INTO telegram_users (telegram_id, username, wallet_address, encrypted_private_key) VALUES ($1, $2, $3, $4) RETURNING *',
-                    [telegramId, 'telegram_user', wallet.address, wallet.encryptedPrivateKey]
-                );
-                console.log('[Telegram Bet] User auto-created with wallet:', wallet.address);
+                try {
+                    const wallet = await CustodialWalletService.createWallet(telegramId.toString());
+                    userResult = await pool.query(
+                        'INSERT INTO telegram_users (telegram_id, username, wallet_address, encrypted_private_key) VALUES ($1, $2, $3, $4) RETURNING *',
+                        [telegramId, 'telegram_user', wallet.address, wallet.encryptedPrivateKey]
+                    );
+                    console.log('[Telegram Bet] User auto-created with wallet:', wallet.address);
+                } catch (createError: any) {
+                    console.error('[Telegram Bet] Failed to create user:', createError);
+                    throw new Error('Failed to create user wallet');
+                }
             }
 
             const user = userResult.rows[0];
             const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-            // Decrypt private key
-            const privateKey = EncryptionService.decrypt(user.encrypted_private_key);
+            // Decrypt private key with better error handling
+            let privateKey: string;
+            try {
+                privateKey = EncryptionService.decrypt(user.encrypted_private_key);
+            } catch (decryptError: any) {
+                console.error('[Telegram Bet] Decryption failed:', decryptError);
+                throw new Error('Unable to authenticate wallet data. Please contact support.');
+            }
+
             const wallet = new ethers.Wallet(privateKey, provider);
 
             // Convert amount to wei (USDC has 6 decimals)
@@ -85,22 +99,6 @@ export class TelegramController {
                 userWallet: wallet.address,
                 amount: amountInWei.toString()
             });
-
-            // ... (keep existing setup code)
-
-            // DEPRECATED: User pays gas
-            /*
-            // Approve USDC spending
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
-            const approveTx = await usdcContract.approve(MARKET_CONTRACT_ADDRESS, amountInWei);
-            await approveTx.wait();
-
-            // Place bet
-            const marketContract = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, wallet);
-            const maxCost = amountInWei * BigInt(2); // Allow 2x slippage
-            const betTx = await marketContract.buyShares(marketId, outcome, amountInWei, maxCost);
-            const receipt = await betTx.wait();
-            */
 
             // === GASLESS IMPLEMENTATION ===
 
@@ -188,7 +186,6 @@ export class TelegramController {
             });
         } catch (error: any) {
             console.error('Place bet error:', error);
-            // ... (error handling remains similar)
             res.status(400).json({ success: false, message: error.message });
         }
     }

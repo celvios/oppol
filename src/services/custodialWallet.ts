@@ -6,23 +6,14 @@ export class CustodialWalletService {
     /**
      * Create a new custodial wallet for a WhatsApp user
      */
-    static async createWallet(phoneNumber: string): Promise<{ address: string, encryptedPrivateKey: string }> {
+    static async createWallet(identifier: string): Promise<{ address: string, encryptedPrivateKey: string }> {
         // Generate new wallet
         const wallet = ethers.Wallet.createRandom();
 
         // Encrypt private key
         const encryptedKey = EncryptionService.encrypt(wallet.privateKey);
 
-        // Store in database
-        await query(
-            `INSERT INTO whatsapp_users (phone_number, wallet_address, encrypted_private_key) 
-             VALUES ($1, $2, $3)
-             ON CONFLICT (phone_number) DO UPDATE 
-             SET wallet_address = $2, encrypted_private_key = $3, last_active = NOW()`,
-            [phoneNumber, wallet.address, encryptedKey]
-        );
-
-        console.log(`✅ Created wallet for ${phoneNumber}: ${wallet.address}`);
+        console.log(`✅ Created wallet for ${identifier}: ${wallet.address}`);
         return { address: wallet.address, encryptedPrivateKey: encryptedKey };
     }
 
