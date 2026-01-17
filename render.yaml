@@ -46,6 +46,22 @@ services:
       - key: FRONTEND_URL
         value: https://oppol-gamma.vercel.app
 
+  # Telegram Bot
+  - type: worker
+    name: opoll-telegram-bot
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd telegram-bot && npm install && npm run build
+    startCommand: cd telegram-bot && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: API_URL
+        value: https://opoll-backend.onrender.com/api
+
 databases:
   - name: opoll-db
     databaseName: opoll

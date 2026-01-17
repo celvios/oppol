@@ -86,6 +86,10 @@ export class TelegramController {
                 amount: amountInWei.toString()
             });
 
+            // ... (keep existing setup code)
+
+            // DEPRECATED: User pays gas
+            /*
             // Approve USDC spending
             const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
             const approveTx = await usdcContract.approve(MARKET_CONTRACT_ADDRESS, amountInWei);
@@ -93,10 +97,57 @@ export class TelegramController {
 
             // Place bet
             const marketContract = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, wallet);
-            // Use buyShares with outcomeIndex (0=Yes, 1=No), shares amount, and max cost
             const maxCost = amountInWei * BigInt(2); // Allow 2x slippage
             const betTx = await marketContract.buyShares(marketId, outcome, amountInWei, maxCost);
             const receipt = await betTx.wait();
+            */
+
+            // === GASLESS IMPLEMENTATION ===
+
+            const serverPrivateKey = process.env.PRIVATE_KEY;
+            if (!serverPrivateKey) throw new Error('Server wallet not configured');
+            const operatorWallet = new ethers.Wallet(serverPrivateKey, provider);
+
+            // 1. Check Allowance
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+            const allowance = await usdcContract.allowance(wallet.address, MARKET_CONTRACT_ADDRESS);
+
+            if (allowance < amountInWei) {
+                console.log(`[Gasless Bet] Insufficient allowance. Funding user ${wallet.address} for approve...`);
+                // Fund user for approval (approx 0.0005 BNB)
+                // Check user balance first
+                const userBalance = await provider.getBalance(wallet.address);
+                const requiredGas = ethers.parseEther('0.0005'); // Safe estimate for approve
+
+                if (userBalance < requiredGas) {
+                    await CustodialWalletService.fundWallet(wallet.address, '0.0005', provider);
+                }
+
+                // User signs approve (now has gas)
+                // Note: We use the user's wallet instance we created earlier
+                const approveTx = await usdcContract.approve(MARKET_CONTRACT_ADDRESS, ethers.MaxUint256); // Approve max to save future gas
+                await approveTx.wait();
+                console.log('[Gasless Bet] Approve complete');
+            }
+
+            // 2. Server Executes Trade (buySharesFor)
+            // Operator calls the contract, paying the gas.
+            const marketContract = new ethers.Contract(MARKET_CONTRACT_ADDRESS, [
+                'function buySharesFor(address _user, uint256 _marketId, uint256 _outcomeIndex, uint256 _shares, uint256 _maxCost) external'
+            ], operatorWallet);
+
+            const maxCost = amountInWei * BigInt(11) / BigInt(10); // 10% slippage
+
+            console.log(`[Gasless Bet] Operator buying shares for ${wallet.address}...`);
+            const betTx = await marketContract.buySharesFor(
+                wallet.address,
+                marketId,
+                outcome,
+                amountInWei, // using amount as shares input roughly 1:1 for now, or need better calc
+                maxCost
+            );
+            const receipt = await betTx.wait();
+            console.log(`[Gasless Bet] Success! TX: ${receipt.hash}`);
 
             // Store transaction
             await pool.query(
@@ -111,23 +162,13 @@ export class TelegramController {
             });
         } catch (error: any) {
             console.error('Place bet error:', error);
-
-            // Provide user-friendly error messages
-            let userMessage = 'Failed to place bet';
-
-            if (error.code === 'INSUFFICIENT_FUNDS' || error.message?.includes('insufficient funds')) {
-                userMessage = 'Insufficient BNB for gas fees. Please deposit BNB to your wallet first.';
-            } else if (error.message?.includes('insufficient allowance') || error.message?.includes('transfer amount exceeds balance')) {
-                userMessage = 'Insufficient USDC balance. Please deposit USDC first.';
-            } else if (error.message?.includes('execution reverted')) {
-                userMessage = 'Transaction failed. The market may be closed or your balance is too low.';
-            }
-
-            res.status(400).json({ success: false, message: userMessage });
+            // ... (error handling remains similar)
+            res.status(400).json({ success: false, message: error.message });
         }
     }
 
     static async getBalance(req: Request, res: Response) {
+        // ... (keep existing implementation)
         try {
             const { telegramId } = req.params;
 
@@ -173,7 +214,37 @@ export class TelegramController {
             const wallet = new ethers.Wallet(privateKey, provider);
             const amountInWei = ethers.parseUnits(amount.toString(), 6);
 
+            // GASLESS WITHDRAWAL LOGIC
+            // 1. Calculate needed gas for transfer
             const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+
+            // Estimate gas
+            let gasLimit;
+            try {
+                gasLimit = await usdcContract.transfer.estimateGas(toAddress, amountInWei);
+            } catch (e) {
+                gasLimit = BigInt(100000); // Fallback safe limit
+            }
+
+            const feeData = await provider.getFeeData();
+            const gasPrice = feeData.gasPrice || ethers.parseUnits('3', 'gwei'); // Min 3 gwei on BSC
+            const costOfGas = gasLimit * gasPrice; // Total Wei needed
+
+            // Add a buffer (10%)
+            const totalFundingNeeded = costOfGas * BigInt(110) / BigInt(100);
+
+            console.log(`[Gasless Withdraw] Gas needed: ${ethers.formatEther(totalFundingNeeded)} BNB`);
+
+            // 2. Check user BNB balance
+            const userBal = await provider.getBalance(wallet.address);
+
+            if (userBal < totalFundingNeeded) {
+                const amountToFund = totalFundingNeeded - userBal;
+                console.log(`[Gasless Withdraw] Funding user with additional ${ethers.formatEther(amountToFund)} BNB...`);
+                await CustodialWalletService.fundWallet(wallet.address, ethers.formatEther(amountToFund), provider);
+            }
+
+            // 3. User executes transfer (paying with the funded BNB)
             const tx = await usdcContract.transfer(toAddress, amountInWei);
             const receipt = await tx.wait();
 

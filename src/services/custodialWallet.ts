@@ -74,4 +74,21 @@ export class CustodialWalletService {
 
         return address;
     }
+    /**
+     * Fund a wallet with BNB for gas
+     */
+    static async fundWallet(address: string, amountEth: string, provider: ethers.Provider): Promise<string> {
+        const privateKey = process.env.PRIVATE_KEY;
+        if (!privateKey) throw new Error('Server wallet not configured');
+
+        const signer = new ethers.Wallet(privateKey, provider);
+        const tx = await signer.sendTransaction({
+            to: address,
+            value: ethers.parseEther(amountEth)
+        });
+
+        await tx.wait();
+        console.log(`⛽ Funded ${address} with ${amountEth} BNB. TX: ${tx.hash}`);
+        return tx.hash;
+    }
 }

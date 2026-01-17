@@ -1,7 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import { initDatabase } from './models';
 import { startDepositWatcher, watchAddress, setDepositCallback } from './services/depositWatcher';
 import { sendDepositNotification } from './services/whatsappNotifications';
@@ -10,8 +12,6 @@ import { query } from './config/database';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
 import { apiRouter } from './routes/api';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

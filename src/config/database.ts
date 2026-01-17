@@ -11,11 +11,12 @@ if (!dbUrl) {
     throw new Error('❌ DATABASE_URL is missing. Please configure it in your environment variables.');
 }
 
+const isRender = dbUrl.includes('render.com');
+const sslConfig = (process.env.NODE_ENV === 'production' || isRender) ? { rejectUnauthorized: false } : undefined;
+
 const pool = new Pool({
     connectionString: dbUrl,
-    ssl: (process.env.NODE_ENV === 'production' || dbUrl.includes('render.com'))
-        ? { rejectUnauthorized: false }
-        : undefined,
+    ssl: sslConfig,
 });
 
 export const query = (text: string, params?: any[]) => pool.query(text, params);
