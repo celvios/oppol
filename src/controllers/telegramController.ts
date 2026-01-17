@@ -123,7 +123,7 @@ export class TelegramController {
 
                 } catch (healError: any) {
                     console.error('[Auto-Heal] Failed:', healError);
-                    throw new Error('Unable to authenticate wallet data. Please contact support.');
+                    throw new Error(`Authentication failed (Heal: ${healError.message || 'Unknown'}). Contact support.`);
                 }
             }
 
