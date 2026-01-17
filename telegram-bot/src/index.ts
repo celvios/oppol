@@ -342,7 +342,9 @@ bot.on('callback_query', async (query) => {
                     }
                 } catch (error: any) {
                     await bot.deleteMessage(chatId, processingMsg.message_id).catch(() => { });
-                    bot.sendMessage(chatId, `❌ Bet failed: ${error.message}`, {
+                    const cleanError = error.message.replace(/[_*[\]()~>#+=|{}.!-]/g, '\\$&'); // Escape all Markdown chars
+                    bot.sendMessage(chatId, `❌ Bet failed: ${cleanError}`, {
+                        parse_mode: 'MarkdownV2',
                         reply_markup: {
                             inline_keyboard: [[{ text: '🔙 Back to Markets', callback_data: 'markets' }]]
                         }
