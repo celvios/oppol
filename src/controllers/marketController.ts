@@ -109,11 +109,33 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
             console.log(`[Market ${marketId}] Calling contract methods...`);
-            const [outcomes, prices, basicInfo] = await Promise.all([
-                contract.getMarketOutcomes(marketId),
-                contract.getAllPrices(marketId),
-                contract.getMarketBasicInfo(marketId)
-            ]);
+            
+            // Try to call each method individually to see which one fails
+            let outcomes, prices, basicInfo;
+            
+            try {
+                outcomes = await contract.getMarketOutcomes(marketId);
+                console.log(`[Market ${marketId}] Outcomes success:`, outcomes);
+            } catch (e) {
+                console.error(`[Market ${marketId}] getMarketOutcomes failed:`, e);
+                outcomes = ['Yes', 'No'];
+            }
+            
+            try {
+                prices = await contract.getAllPrices(marketId);
+                console.log(`[Market ${marketId}] Prices success:`, prices.map((p: bigint) => p.toString()));
+            } catch (e) {
+                console.error(`[Market ${marketId}] getAllPrices failed:`, e);
+                prices = [BigInt(5000), BigInt(5000)]; // 50% each
+            }
+            
+            try {
+                basicInfo = await contract.getMarketBasicInfo(marketId);
+                console.log(`[Market ${marketId}] BasicInfo success:`, basicInfo);
+            } catch (e) {
+                console.error(`[Market ${marketId}] getMarketBasicInfo failed:`, e);
+                basicInfo = ['', 0, 1799622939, 600, false, 0];
+            }
 
             console.log(`[Market ${marketId}] Raw outcomes:`, outcomes);
             console.log(`[Market ${marketId}] Raw prices:`, prices.map((p: bigint) => p.toString()));
