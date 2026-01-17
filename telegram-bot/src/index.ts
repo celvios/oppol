@@ -226,6 +226,7 @@ bot.on('callback_query', async (query) => {
             } else if (data?.startsWith('market_')) {
                 const marketId = parseInt(data.split('_')[1]);
                 try {
+                    // Always fetch fresh market data
                     const market = await API.getMarket(marketId);
                     if (!market) {
                         bot.sendMessage(chatId, '❌ Market not found', {
@@ -253,11 +254,11 @@ bot.on('callback_query', async (query) => {
                         text += `${market.description}\n\n`;
                     }
 
-                    // Show outcome probabilities
+                    // Show outcome probabilities with fresh data
                     if (market.outcomes && market.prices) {
                         text += `📈 *Current Odds:*\n`;
                         market.outcomes.forEach((outcome, i) => {
-                            const price = market.prices![i] || 0;
+                            const price = Math.round(market.prices![i] || 50);
                             const emoji = i === 0 ? '🟢' : i === 1 ? '🔴' : '🔵';
                             text += `${emoji} ${outcome}: *${price}%*\n`;
                         });
@@ -266,18 +267,20 @@ bot.on('callback_query', async (query) => {
 
                     // Show liquidity and end time
                     text += `💰 *Liquidity:* $${market.liquidityParam || '0'}\n`;
-                    text += `⏰ *Ends:* ${endDate}\n\n`;
+                    text += `⏰ *Ends:* ${endDate}\n`;
+                    text += `🕐 *Updated:* ${new Date().toLocaleTimeString()}\n\n`;
 
                     text += `*Select an outcome to bet on:*`;
 
-                    // Build buttons for each outcome
+                    // Build buttons for each outcome with current prices
                     const outcomeButtons = (market.outcomes || ['Yes', 'No']).map((outcome, i) => {
-                        const price = market.prices?.[i] || 50;
+                        const price = Math.round(market.prices?.[i] || 50);
                         return [{ text: `${outcome} (${price}%)`, callback_data: `bet_${marketId}_${i}` }];
                     });
 
                     const buttons = [
                         ...outcomeButtons,
+                        [{ text: '🔄 Refresh Odds', callback_data: `market_${marketId}` }],
                         [{ text: '🔙 Back to Markets', callback_data: 'markets' }]
                     ];
 

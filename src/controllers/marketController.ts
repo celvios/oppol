@@ -30,13 +30,50 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
 export const getAllMarketMetadata = async (req: Request, res: Response) => {
     try {
         const result = await query('select * from markets', []);
-        const markets = result.rows.map((row: any) => ({
-            market_id: row.market_id,
-            question: row.question,
-            description: row.description || '',
-            image_url: row.image || '',
-            category_id: row.category || ''
-        }));
+        const markets = [];
+        
+        const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
+        const MARKET_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+        
+        const abi = [
+            'function getMarketOutcomes(uint256) view returns (string[])',
+            'function getAllPrices(uint256) view returns (uint256[])',
+            'function getMarketBasicInfo(uint256) view returns (string, uint256, uint256, uint256, bool, uint256)'
+        ];
+        const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
+        
+        for (const row of result.rows) {
+            let onChainData: any = {};
+            try {
+                const [outcomes, prices, basicInfo] = await Promise.all([
+                    contract.getMarketOutcomes(row.market_id),
+                    contract.getAllPrices(row.market_id),
+                    contract.getMarketBasicInfo(row.market_id)
+                ]);
+
+                onChainData = {
+                    outcomes: outcomes,
+                    prices: prices.map((p: bigint) => Number(p) / 100),
+                    liquidityParam: basicInfo[3].toString(),
+                    endTime: Number(basicInfo[2]),
+                    resolved: basicInfo[4],
+                    winningOutcome: Number(basicInfo[5])
+                };
+            } catch (err) {
+                console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
+                onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+            }
+            
+            markets.push({
+                market_id: row.market_id,
+                question: row.question,
+                description: row.description || '',
+                image_url: row.image || '',
+                category_id: row.category || '',
+                ...onChainData
+            });
+        }
+        
         res.json({ success: true, markets });
     } catch (error) {
         console.error('Get All Metadata Error:', error);
@@ -59,8 +96,10 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
         let onChainData: any = {};
         try {
             const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
-            // Hardcoded Correct Address
-            const MARKET_ADDRESS = '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+            // Use environment variable or fallback
+            const MARKET_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+            console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);
+            
             const abi = [
                 'function getMarketOutcomes(uint256) view returns (string[])',
                 'function getAllPrices(uint256) view returns (uint256[])',
@@ -74,6 +113,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 contract.getMarketBasicInfo(marketId)
             ]);
 
+            console.log(`[Market ${marketId}] Raw prices:`, prices.map(p => p.toString()));
+            
             onChainData = {
                 outcomes: outcomes,
                 prices: prices.map((p: bigint) => Number(p) / 100), // Basis points to %
@@ -82,6 +123,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 resolved: basicInfo[4],
                 winningOutcome: Number(basicInfo[5])
             };
+            
+            console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
         } catch (err) {
             console.error(`Failed to fetch on-chain data for ${marketId}:`, err);
             // Fallback for outcomes if on-chain fails (default Yes/No)
