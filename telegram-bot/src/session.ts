@@ -1,7 +1,16 @@
 import Redis from 'ioredis';
 import { Session, UserState } from './types';
 
-const redis = process.env.REDIS_URL
+const redisUrl = process.env.REDIS_URL;
+if (redisUrl) {
+    // Log masked URL for debugging connection issues
+    const masked = redisUrl.replace(/:[^@]+@/, ':***@');
+    console.log(`🔌 Connecting to REDIS_URL: ${masked}`);
+} else {
+    console.warn('⚠️ No REDIS_URL provided');
+}
+
+const redis = redisUrl
     ? new Redis(process.env.REDIS_URL, {
         retryStrategy: (times) => {
             // Retry for up to 20 seconds (20 * 1000ms)
