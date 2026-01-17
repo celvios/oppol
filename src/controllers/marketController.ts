@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { ethers } from 'ethers';
 
 // Helper to query mock DB
 const query = (text: string, params: any[]) => pool.query(text, params);
@@ -53,12 +54,47 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
         }
 
         const row = result.rows[0];
+
+        // FETCH ON-CHAIN DATA
+        let onChainData: any = {};
+        try {
+            const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
+            // Hardcoded Correct Address
+            const MARKET_ADDRESS = '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+            const abi = [
+                'function getMarketOutcomes(uint256) view returns (string[])',
+                'function getAllPrices(uint256) view returns (uint256[])',
+                'function getMarketBasicInfo(uint256) view returns (string, uint256, uint256, uint256, bool, uint256)'
+            ];
+            const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
+
+            const [outcomes, prices, basicInfo] = await Promise.all([
+                contract.getMarketOutcomes(marketId),
+                contract.getAllPrices(marketId),
+                contract.getMarketBasicInfo(marketId)
+            ]);
+
+            onChainData = {
+                outcomes: outcomes,
+                prices: prices.map((p: bigint) => Number(p) / 100), // Basis points to %
+                liquidityParam: basicInfo[3].toString(),
+                endTime: Number(basicInfo[2]),
+                resolved: basicInfo[4],
+                winningOutcome: Number(basicInfo[5])
+            };
+        } catch (err) {
+            console.error(`Failed to fetch on-chain data for ${marketId}:`, err);
+            // Fallback for outcomes if on-chain fails (default Yes/No)
+            onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+        }
+
         const market = {
             market_id: row.market_id,
             question: row.question,
             description: row.description || '',
             image_url: row.image || '',
-            category_id: row.category || ''
+            category_id: row.category || '',
+            ...onChainData
         };
 
         res.json({ success: true, market });
