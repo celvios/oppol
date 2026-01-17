@@ -61,6 +61,19 @@ services:
         sync: false
       - key: API_URL
         value: https://opoll-backend.onrender.com/api
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: opoll-redis
+          property: connectionString
+
+
+  # Redis
+  - type: redis
+    name: opoll-redis
+    region: oregon
+    plan: starter
+    ipAllowList: []
 
 databases:
   - name: opoll-db

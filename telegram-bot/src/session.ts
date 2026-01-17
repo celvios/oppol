@@ -1,14 +1,20 @@
 import Redis from 'ioredis';
 import { Session, UserState } from './types';
 
-const redis = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-    retryStrategy: () => null,
-    maxRetriesPerRequest: 1,
-    lazyConnect: true
-});
+const redis = process.env.REDIS_URL
+    ? new Redis(process.env.REDIS_URL, {
+        retryStrategy: () => null,
+        maxRetriesPerRequest: 1,
+        lazyConnect: true
+    })
+    : new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        password: process.env.REDIS_PASSWORD,
+        retryStrategy: () => null,
+        maxRetriesPerRequest: 1,
+        lazyConnect: true
+    });
 
 const inMemoryStore = new Map<number, Session>();
 const SESSION_TTL = 1800;
@@ -47,7 +53,7 @@ export class SessionManager {
                 SESSION_TTL,
                 JSON.stringify(session)
             );
-        } catch {}
+        } catch { }
     }
 
     static async update(userId: number, updates: Partial<Session>): Promise<void> {
@@ -64,6 +70,6 @@ export class SessionManager {
         if (!redisAvailable) return;
         try {
             await redis.del(this.getKey(userId));
-        } catch {}
+        } catch { }
     }
 }
