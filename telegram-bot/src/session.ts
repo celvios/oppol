@@ -16,18 +16,15 @@ const redis = process.env.REDIS_URL
         lazyConnect: true
     });
 
-const inMemoryStore = new Map<number, Session>();
 const SESSION_TTL = 1800;
-let redisAvailable = false;
 
 redis.connect().then(() => {
     console.log('✅ Redis connected');
-    redisAvailable = true;
-}).catch(() => {
-    console.warn('⚠️  Redis unavailable, using in-memory sessions');
+}).catch((err) => {
+    console.error('❌ Redis connection failed:', err);
+    // In production, force exit or handle error appropriately
+    // For now, we log error. Process manager (like Render) will restart if we crash.
 });
-
-redis.on('error', () => { redisAvailable = false; });
 
 export class SessionManager {
     private static getKey(userId: number): string {
@@ -35,25 +32,25 @@ export class SessionManager {
     }
 
     static async get(userId: number): Promise<Session | null> {
-        if (!redisAvailable) return inMemoryStore.get(userId) || null;
         try {
             const data = await redis.get(this.getKey(userId));
             return data ? JSON.parse(data) : null;
-        } catch {
-            return inMemoryStore.get(userId) || null;
+        } catch (error) {
+            console.error('Redis get error:', error);
+            return null;
         }
     }
 
     static async set(session: Session): Promise<void> {
-        inMemoryStore.set(session.userId, session);
-        if (!redisAvailable) return;
         try {
             await redis.setex(
                 this.getKey(session.userId),
                 SESSION_TTL,
                 JSON.stringify(session)
             );
-        } catch { }
+        } catch (error) {
+            console.error('Redis set error:', error);
+        }
     }
 
     static async update(userId: number, updates: Partial<Session>): Promise<void> {
@@ -66,10 +63,10 @@ export class SessionManager {
     }
 
     static async clear(userId: number): Promise<void> {
-        inMemoryStore.delete(userId);
-        if (!redisAvailable) return;
         try {
             await redis.del(this.getKey(userId));
-        } catch { }
+        } catch (error) {
+            console.error('Redis clear error:', error);
+        }
     }
 }
