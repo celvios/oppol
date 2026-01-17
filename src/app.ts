@@ -1405,6 +1405,35 @@ app.post('/api/admin/migrate', async (req, res) => {
   }
 });
 
+
+// NUKE MARKETS ENDPOINT (Triggered via Link)
+app.get('/api/admin/nuke-markets', async (req, res) => {
+  try {
+    const { query } = await import('./config/database');
+    const secret = req.query.secret;
+
+    // Validate secret
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123';
+    if (secret !== VALID_SECRET) {
+      return res.status(401).send('Unauthorized: Invalid Secret');
+    }
+
+    console.log('[Admin] Nuking markets table via API...');
+    await query('TRUNCATE TABLE markets CASCADE');
+    console.log('[Admin] Markets nuked successfully.');
+
+    res.send(`
+      <h1>✅ Markets Nuked Successfully</h1>
+      <p>The database metadata has been cleared.</p>
+      <p>The Bot and App will now fetch fresh data from the Blockchain.</p>
+      <a href="/">Go Home</a>
+    `);
+  } catch (error: any) {
+    console.error('Nuke error:', error);
+    res.status(500).send(`❌ Error: ${error.message}`);
+  }
+});
+
 // DATABASE STATUS ENDPOINT
 app.get('/api/admin/db-status', async (req, res) => {
   try {
