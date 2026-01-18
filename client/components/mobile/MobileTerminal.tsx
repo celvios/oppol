@@ -46,7 +46,7 @@ const getMarketContract = () => {
     try {
         const { getContracts } = require('@/lib/contracts');
         const contracts = getContracts() as any;
-        return (contracts.predictionMarket || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6') as `0x${string}`;
+        return (contracts.predictionMarket || '') as `0x${string}`;
     } catch (e) {
         return '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6' as `0x${string}`;
     }

@@ -25,7 +25,7 @@ const MARKET_ABI = [
 ] as const;
 
 const contracts = getContracts() as any;
-const MARKET_CONTRACT = (contracts.predictionMarket || '0x5F9C05bE2Af2adb520825950323774eFF308E353') as `0x${string}`;
+const MARKET_CONTRACT = (contracts.predictionMarket || '') as `0x${string}`;
 
 interface Market {
     id: number;
