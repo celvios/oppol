@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useCreationAccess } from "@/lib/use-creation-access";
 import { PlusCircle } from "lucide-react";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -42,12 +43,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 {/* Header / Toggle */}
                 <div className="mb-6 flex items-center justify-between px-2">
                     {!collapsed && (
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shadow-[0_0_10px_#00E0FF/20]">
-                                <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
-                            </div>
-                            <span className="font-mono font-bold text-lg tracking-wider text-white">OPoll</span>
-                        </div>
+                        <LogoBrand size="md" href="/" />
                     )}
                     <button
                         onClick={onToggle}

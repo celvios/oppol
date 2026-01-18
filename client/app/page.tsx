@@ -10,6 +10,7 @@ import MarketGrid from "@/components/market/MarketGrid";
 import ScrambleText from "@/components/ui/ScrambleText";
 import ScrollReveal from "@/components/ui/ScrollReveal";
 import MobileHero from "@/components/mobile/MobileHero";
+import LogoBrand from "@/components/ui/LogoBrand";
 import MobileFeatures from "@/components/mobile/MobileFeatures";
 import MobileMarketList from "@/components/mobile/MobileMarketList";
 
@@ -45,19 +46,15 @@ export default function Home() {
               <span className="text-xs font-mono font-bold tracking-[0.2em] text-outcome-a">SYSTEM ONLINE</span>
             </div>
 
-            <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default">
-              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 block">
-                <ScrambleText text="OPoll" />
-              </span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-2">
+            <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default flex flex-col items-center mt-16">
+              <LogoBrand size="lg" href="#" animate={false} className="scale-[3] mb-8" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-6">
                 PROTOCOL
               </span>
             </h1>
 
             <p className="text-lg md:text-xl text-text-secondary mb-12 leading-relaxed max-w-2xl font-light">
               The world's first <span className="text-white font-medium">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
-              <br className="hidden md:block" />
-              Experience liquidity that feels like water.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto justify-center">
@@ -166,7 +163,7 @@ export default function Home() {
       <footer className="py-12 relative z-10">
         <ScrollReveal>
           <div className="w-full max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-2xl font-bold mb-8">OPoll</h2>
+            <div className="flex justify-center mb-8"><LogoBrand size="md" href="/" /></div>
             <div className="flex justify-center gap-8 mb-8 text-text-secondary">
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Twitter</a>
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Discord</a>
