@@ -4,7 +4,7 @@ import { messages } from './messages';
 import { SessionManager } from './session';
 import { UserState } from './types';
 import { API, Market } from './api';
-import { paginateMarkets, buildMarketButtons } from './helpers';
+import { paginateMarkets, buildMarketButtons, escapeMarkdown } from './helpers';
 
 dotenv.config();
 
@@ -126,7 +126,7 @@ bot.on('callback_query', async (query) => {
                 bot.sendMessage(chatId,
                     `👤 *Your Profile*\n\n` +
                     `Telegram ID: ${chatId}\n` +
-                    `Username: @${query.from?.username || 'N/A'}\n` +
+                    `Username: @${escapeMarkdown(query.from?.username || 'N/A')}\n` +
                     `Wallet: ${userResult.user?.wallet_address?.substring(0, 10)}...\n` +
                     `Balance: ${balance} USDC`,
                     {
@@ -248,10 +248,10 @@ bot.on('callback_query', async (query) => {
                     }) : 'TBD';
 
                     // Build market details text
-                    let text = `📊 *${market.question}*\n\n`;
+                    let text = `📊 *${escapeMarkdown(market.question)}*\n\n`;
 
                     if (market.description) {
-                        text += `${market.description}\n\n`;
+                        text += `${escapeMarkdown(market.description)}\n\n`;
                     }
 
                     // Show outcome probabilities with fresh data

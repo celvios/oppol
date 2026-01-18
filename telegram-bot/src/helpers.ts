@@ -16,14 +16,20 @@ export function buildMarketButtons(markets: Market[], page: number, hasNext: boo
         text: `${m.question.substring(0, 60)}${m.question.length > 60 ? '...' : ''}`,
         callback_data: `market_${m.market_id}`
     }]);
-    
+
     const navButtons = [];
     if (hasPrev) navButtons.push({ text: '⬅️ Previous', callback_data: `page_${page - 1}` });
     if (hasNext) navButtons.push({ text: 'Next ➡️', callback_data: `page_${page + 1}` });
     if (navButtons.length > 0) buttons.push(navButtons);
-    
+
     buttons.push([{ text: '🔍 Search', callback_data: 'search' }]);
     buttons.push([{ text: '🔙 Back to Menu', callback_data: 'menu' }]);
-    
+
     return buttons;
+}
+
+export function escapeMarkdown(text: string): string {
+    if (!text) return '';
+    // Escape characters that have special meaning in Markdown V1
+    return text.replace(/[_*[\]`]/g, '\\$&');
 }
