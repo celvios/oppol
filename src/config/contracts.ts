@@ -5,9 +5,9 @@ dotenv.config();
 
 export const CONFIG = {
     MARKET_CONTRACT: getRequiredEnv('MARKET_CONTRACT'),
-    USDC_CONTRACT: getRequiredEnv('USDC_CONTRACT'),
-    RPC_URL: process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com', // RPC can have a default public node
-    MULTI_MARKET_ADDRESS: getRequiredEnv('MARKET_CONTRACT'), // Alias for compatibility
+    USDC_CONTRACT: process.env.USDC_CONTRACT || process.env.USDC_ADDRESS || getRequiredEnv('USDC_CONTRACT'), // Support both names
+    RPC_URL: process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com',
+    MULTI_MARKET_ADDRESS: getRequiredEnv('MARKET_CONTRACT'),
 };
 
 function getRequiredEnv(key: string): string {

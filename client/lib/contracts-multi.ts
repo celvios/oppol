@@ -1,10 +1,11 @@
+```javascript
 // Multi-Outcome Prediction Market Contract Configuration
 
 export const MULTI_CONTRACTS = {
     // BSC Testnet (DEPLOYED ✅) - Strict Env
     bscTestnet: {
-        predictionMarketMulti: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || "",
-        mockUSDC: process.env.NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS || "",
+        predictionMarketMulti: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || process.env.NEXT_PUBLIC_MARKET_ADDRESS || "", 
+        mockUSDC: process.env.NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS || process.env.NEXT_PUBLIC_USDC_ADDRESS || "",
         umaOracle: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
     },
     // Local Hardhat

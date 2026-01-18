@@ -22,10 +22,10 @@ export const CONTRACTS = {
     // BSC Testnet (UNIFIED - Multi-Outcome Contract ✅) - Strict Env
     bscTestnet: {
         // All markets now use the multi-outcome contract (Polymarket-style)
-        predictionMarket: getRequiredEnv('NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS'),
-        predictionMarketLMSR: getRequiredEnv('NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS'),
-        predictionMarketMulti: getRequiredEnv('NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS'),
-        mockUSDC: getRequiredEnv('NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS'),
+        predictionMarket: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || getRequiredEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
+        predictionMarketLMSR: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || getRequiredEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
+        predictionMarketMulti: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || getRequiredEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
+        mockUSDC: process.env.NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS || getRequiredEnv('NEXT_PUBLIC_USDC_ADDRESS', '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b'), // Support generic name too
         umaOracle: process.env.NEXT_PUBLIC_BSCTESTNET_UMA_ORACLE_ADDRESS || '0x8CFc696db36429Ff2D0C601c523F88AE8c30D1cd', // Optional
         zap: process.env.NEXT_PUBLIC_BSCTESTNET_ZAP_ADDRESS || '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D', // Optional
     },
