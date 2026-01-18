@@ -189,27 +189,47 @@ export default function DepositPage() {
                 await zapTx.wait();
             }
 
-            alert(`Successfully deposited ${depositAmount} ${selectedToken.symbol}!`);
+            // Add imports at top
+            import { AlertModal } from "@/components/ui/AlertModal";
+            import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
+
+            // ... inside component ...
+            const [successModalOpen, setSuccessModalOpen] = useState(false);
+            const [errorModalOpen, setErrorModalOpen] = useState(false);
+            const [modalError, setModalError] = useState({ title: '', message: '' });
+            const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDC', hash: '' });
+
+            // ... inside handleDeposit success block ...
+            setLastDeposit({
+                amount: depositAmount,
+                symbol: selectedToken.symbol,
+                hash: (selectedToken.direct ? '' : '') // You might want to capture tx hash if possible, but for now empty is fine or capture from receipt
+            });
+            setSuccessModalOpen(true);
             setDepositAmount('');
             fetchBalance();
 
+            // ... inside catch block ...
         } catch (error: any) {
             console.error('Deposit failed:', error);
             let errorMessage = 'Deposit failed';
+            let errorTitle = 'Transaction Failed';
 
             if (error.code === 'ACTION_REJECTED') {
                 errorMessage = 'Transaction was rejected by user';
+                errorTitle = 'Action Rejected';
             } else if (error.message?.includes('could not decode result data')) {
-                errorMessage = `⚠️ Contract Error\n\nThe ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Contract not deployed on BSC Testnet\n• Wrong network selected\n• Contract address incorrect\n\nPlease contact support.`;
+                errorMessage = `The ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Contract not deployed on BSC Testnet\n• Wrong network selected\n• Contract address incorrect`;
+                errorTitle = 'Contract Error';
             } else if (error.message?.includes('insufficient funds')) {
-                errorMessage = 'Insufficient funds for transaction';
-            } else if (error.message?.includes('Insufficient')) {
-                errorMessage = error.message;
+                errorMessage = 'Insufficient funds for transaction cost';
+                errorTitle = 'Insufficient Funds';
             } else if (error.message) {
-                errorMessage = error.message;
+                errorMessage = error.message.length > 100 ? error.message.substring(0, 100) + '...' : error.message;
             }
 
-            alert(errorMessage);
+            setModalError({ title: errorTitle, message: errorMessage });
+            setErrorModalOpen(true);
         } finally {
             setIsProcessing(false);
         }
@@ -347,6 +367,22 @@ export default function DepositPage() {
                     />
                 </>
             )}
+            {/* Modals */}
+            <DepositSuccessModal
+                isOpen={successModalOpen}
+                onClose={() => setSuccessModalOpen(false)}
+                amount={lastDeposit.amount}
+                symbol={lastDeposit.symbol}
+                txHash={lastDeposit.hash}
+            />
+
+            <AlertModal
+                isOpen={errorModalOpen}
+                onClose={() => setErrorModalOpen(false)}
+                title={modalError.title}
+                message={modalError.message}
+                type="error"
+            />
         </div>
     );
 }
