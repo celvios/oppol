@@ -27,9 +27,33 @@ export function useCreationAccess() {
 
             try {
                 setChecking(true);
-                // Use public RPC for reading state
-                const provider = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/"); // Mainnet
-                // Or specific env RPC
+
+                // Try multiple RPCs if one fails
+                const RPCS = [
+                    "https://bsc-dataseed.binance.org/",
+                    "https://bsc-dataseed1.defibit.io/",
+                    "https://bsc-dataseed1.ninicoin.io/",
+                    "https://bscrpc.com"
+                ];
+
+                let provider = null;
+                for (const rpc of RPCS) {
+                    try {
+                        const p = new ethers.JsonRpcProvider(rpc);
+                        await p.getNetwork(); // Test connection
+                        provider = p;
+                        break;
+                    } catch (e) {
+                        console.warn(`RPC ${rpc} failed, trying next...`);
+                    }
+                }
+
+                if (!provider) {
+                    console.error("All RPCs failed for creation check");
+                    setCanCreate(false); // Default to false if we can't check
+                    setChecking(false);
+                    return;
+                }
 
                 const marketAddress = process.env.NEXT_PUBLIC_MARKET_ADDRESS;
                 if (!marketAddress) return;
