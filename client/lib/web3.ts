@@ -85,16 +85,12 @@ export class Web3Service {
             const count = Number(await this.predictionMarket.marketCount());
             const ids = Array.from({ length: count }, (_, i) => i);
 
-            const markets: Market[] = [];
+            const marketPromises = ids.map(id => this.getMarket(id).catch(e => {
+                console.error(`Error fetching market ${id}:`, e);
+                return null;
+            }));
 
-            for (const id of ids) {
-                try {
-                    const market = await this.getMarket(id);
-                    if (market) markets.push(market);
-                } catch (e) {
-                    console.error(`Error fetching market ${id}:`, e);
-                }
-            }
+            const markets = (await Promise.all(marketPromises)).filter(m => m !== null) as Market[];
 
             return markets;
         } catch (error) {

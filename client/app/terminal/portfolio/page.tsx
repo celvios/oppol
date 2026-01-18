@@ -67,8 +67,14 @@ export default function PortfolioPage() {
                 const userPositions: Position[] = [];
                 let aggregatePnL = 0;
 
-                for (const market of markets) {
+                const positionPromises = markets.map(async (market) => {
                     const position = await web3Service.getUserPosition(market.id, address!);
+                    return { market, position };
+                });
+
+                const results = await Promise.all(positionPromises);
+
+                for (const { market, position } of results) {
                     if (!position) continue;
 
                     const yesShares = parseFloat(position.yesShares) || 0;
