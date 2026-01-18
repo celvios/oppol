@@ -6,6 +6,7 @@ import { useWallet } from "@/lib/use-wallet";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Link from "next/link";
+import WalletRequiredBadge from "@/components/wallet/WalletRequiredBadge";
 
 // Simple Custom Switch if HeadlessUI is not installed, to be safe.
 function SimpleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
@@ -26,27 +27,6 @@ export default function MenuPage() {
     const [reduceMotion, setReduceMotion] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
 
-    // WALLET CONNECTION GATE
-    if (!isConnected) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center -mt-20 p-6 text-center">
-                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                    <Wallet className="w-8 h-8 text-white/50" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Connect Wallet</h2>
-                <p className="text-white/50 mb-8 max-w-xs">
-                    Connect your wallet to access your profile, portfolio, and settings.
-                </p>
-                <NeonButton
-                    variant="cyan"
-                    onClick={connect}
-                    className="w-full max-w-xs"
-                >
-                    Connect Wallet
-                </NeonButton>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen pb-24 pt-8 px-4">
@@ -58,10 +38,24 @@ export default function MenuPage() {
                     <User size={32} />
                 </div>
                 <div className="flex-1 overflow-hidden">
-                    <h3 className="font-mono text-lg font-bold text-white truncate">{address}</h3>
-                    <button className="text-xs text-neon-cyan hover:underline mt-1">
-                        View on Explorer
-                    </button>
+                    {isConnected ? (
+                        <>
+                            <h3 className="font-mono text-lg font-bold text-white truncate">{address}</h3>
+                            <button className="text-xs text-neon-cyan hover:underline mt-1">
+                                View on Explorer
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-lg font-bold text-white">Not Connected</h3>
+                            <button
+                                onClick={connect}
+                                className="text-xs text-neon-cyan hover:underline mt-1"
+                            >
+                                Connect Wallet
+                            </button>
+                        </>
+                    )}
                 </div>
             </GlassCard>
 
@@ -87,7 +81,10 @@ export default function MenuPage() {
                             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white">
                                 <PieChart size={16} />
                             </div>
-                            <span className="font-medium text-white">Portfolio</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-white">Portfolio</span>
+                                {!isConnected && <WalletRequiredBadge />}
+                            </div>
                         </div>
                         <ChevronRight size={16} className="text-white/30" />
                     </GlassCard>

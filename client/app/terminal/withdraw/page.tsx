@@ -8,6 +8,7 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
 import { getContracts } from '@/lib/contracts';
 import { Contract, ethers } from 'ethers';
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
 const MARKET_ABI = [
     { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -22,6 +23,7 @@ export default function WithdrawPage() {
     const [errorMessage, setErrorMessage] = useState('');
     const [depositedBalance, setDepositedBalance] = useState('0.00');
     const [isBalanceLoading, setIsBalanceLoading] = useState(true);
+    const [showConnectModal, setShowConnectModal] = useState(false);
 
     const contracts = getContracts() as any;
     const MARKET_CONTRACT = contracts.predictionMarket as `0x${string}`;
@@ -40,10 +42,10 @@ export default function WithdrawPage() {
                 setDepositedBalance('0.00');
                 return;
             }
-            
+
             const provider = new ethers.BrowserProvider(window.ethereum);
             const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, provider);
-            
+
             const balance = await marketContract.userBalances(address);
             const formattedBalance = ethers.formatUnits(balance, 6); // USDC has 6 decimals
             setDepositedBalance(parseFloat(formattedBalance).toFixed(2));
@@ -67,28 +69,28 @@ export default function WithdrawPage() {
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-            
+
             const amountInWei = ethers.parseUnits(withdrawAmount, 6); // USDC has 6 decimals
-            
+
             console.log('Withdrawing from market contract...');
             const withdrawTx = await marketContract.withdraw(amountInWei);
-            
+
             console.log('Transaction sent, waiting for confirmation...');
             const receipt = await withdrawTx.wait();
-            
+
             console.log('Withdrawal successful!');
             setTxHash(receipt.hash);
             setStep('complete');
-            
+
             // Refresh balance after successful withdrawal
             setTimeout(() => {
                 fetchBalance();
             }, 2000);
-            
+
         } catch (error: any) {
             console.error('Withdrawal failed:', error);
             let errorMessage = 'Withdrawal failed';
-            
+
             if (error.code === 'ACTION_REJECTED') {
                 errorMessage = 'Transaction was rejected by user';
             } else if (error.message?.includes('insufficient funds')) {
@@ -98,7 +100,7 @@ export default function WithdrawPage() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             setErrorMessage(errorMessage);
             setStep('error');
         }
@@ -108,26 +110,34 @@ export default function WithdrawPage() {
     const formattedBalance = parseFloat(depositedBalance).toFixed(2);
 
     if (!isConnected) {
-        // Not connected view
         return (
             <div className="max-w-2xl mx-auto pt-8">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-mono font-bold text-white mb-2">WITHDRAW FUNDS</h1>
                     <p className="text-white/50">Connect your wallet to withdraw your funds</p>
                 </div>
-                <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
-                    <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center">
-                        <Wallet className="w-8 h-8 text-primary" />
+                <>
+                    <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
+                        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center">
+                            <Wallet className="w-8 h-8 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-3">Withdraw Funds</h2>
+                        <p className="text-white/50 mb-6">Connect your wallet to view your balance and withdraw funds.</p>
+                        <button
+                            onClick={() => setShowConnectModal(true)}
+                            className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all"
+                        >
+                            Connect Wallet
+                        </button>
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-3">Connect Wallet</h2>
-                    <p className="text-white/50 mb-6">Connect your wallet to view your balance and withdraw funds.</p>
-                    <button
-                        onClick={() => connect()}
-                        className="px-8 py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 transition-all"
-                    >
-                        Connect Wallet
-                    </button>
-                </div>
+
+                    <ConnectWalletModal
+                        isOpen={showConnectModal}
+                        onClose={() => setShowConnectModal(false)}
+                        onConnect={connect}
+                        context="withdraw"
+                    />
+                </>
             </div>
         );
     }

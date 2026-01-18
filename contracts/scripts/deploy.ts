@@ -3,13 +3,19 @@ import { ethers } from "hardhat";
 async function main() {
     console.log("🚀 Deploying OPOLL Contracts to BNB Chain...\n");
 
-    // Deploy MockUSDC (for testnet only)
-    console.log("📝 Deploying MockUSDC...");
-    const MockUSDC = await ethers.getContractFactory("MockUSDC");
-    const usdc = await MockUSDC.deploy();
-    await usdc.waitForDeployment();
-    const usdcAddress = await usdc.getAddress();
-    console.log("✅ MockUSDC deployed to:", usdcAddress);
+    // Check for existing USDC (Preserve User Funds)
+    let usdcAddress = process.env.USDC_CONTRACT;
+
+    if (!usdcAddress) {
+        console.log("📝 Deploying MockUSDC...");
+        const MockUSDC = await ethers.getContractFactory("MockUSDC");
+        const usdc = await MockUSDC.deploy();
+        await usdc.waitForDeployment();
+        usdcAddress = await usdc.getAddress();
+        console.log("✅ MockUSDC deployed to:", usdcAddress);
+    } else {
+        console.log("ℹ️  Using existing USDC Contract:", usdcAddress);
+    }
 
     // Deploy PredictionMarket
     console.log("\n📝 Deploying PredictionMarket...");

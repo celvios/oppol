@@ -7,6 +7,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getContracts } from "@/lib/contracts";
 import { Contract, ethers } from 'ethers';
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -33,6 +34,7 @@ export default function DepositPage() {
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [showConnectModal, setShowConnectModal] = useState(false);
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
@@ -293,16 +295,28 @@ export default function DepositPage() {
                     </div>
                 </div>
             ) : (
-                <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
-                        <Wallet className="w-8 h-8 text-primary" />
+                <>
+                    <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
+                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+                            <Wallet className="w-8 h-8 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">Deposit Funds</h2>
+                        <p className="text-white/50 mb-6">Connect your wallet to deposit and start trading</p>
+                        <button
+                            onClick={() => setShowConnectModal(true)}
+                            className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
+                        >
+                            Connect Wallet
+                        </button>
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-2">Connect Wallet</h2>
-                    <p className="text-white/50 mb-6">Connect your wallet to deposit funds</p>
-                    <button onClick={() => connect()} className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all">
-                        Connect Wallet
-                    </button>
-                </div>
+
+                    <ConnectWalletModal
+                        isOpen={showConnectModal}
+                        onClose={() => setShowConnectModal(false)}
+                        onConnect={connect}
+                        context="deposit"
+                    />
+                </>
             )}
         </div>
     );

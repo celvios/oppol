@@ -836,6 +836,75 @@ app.post('/api/admin/create-market', async (req, res) => {
   }
 });
 
+// ADMIN CREATE MARKET V2 ENDPOINT - SIMPLIFIED
+app.post('/api/admin/create-market-v2', async (req, res) => {
+  try {
+    const { ethers } = await import('ethers');
+    const adminSecret = req.headers['x-admin-secret'];
+
+    // Validate secret key
+    const VALID_SECRET = process.env.ADMIN_SECRET || 'admin123';
+    if (adminSecret !== VALID_SECRET) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { question, outcomes, category, image, description, durationDays } = req.body;
+
+    if (!question || !outcomes || outcomes.length < 2) {
+      return res.status(400).json({ success: false, error: 'Invalid market data' });
+    }
+
+    console.log(`[Admin V2] Creating market: "${question}" with ${outcomes.length} outcomes for ${durationDays} days`);
+
+    // Setup Provider & Signer
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) throw new Error('Server wallet not configured');
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    // Get Contract
+    const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae';
+    const marketABI = [
+      'function createMarket(string, string[], uint256) external returns (uint256)',
+      'function marketCount() view returns (uint256)'
+    ];
+    const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
+
+    // V2: Simple 3-parameter call!
+    const tx = await contract.createMarket(
+      question,
+      outcomes,
+      durationDays  // Just days, no conversion!
+    );
+
+    console.log(`[Admin V2] TX Sent: ${tx.hash}`);
+    await tx.wait();
+
+    // Get the new Market ID
+    const count = await contract.marketCount();
+    const newMarketId = Number(count) - 1;
+
+    console.log(`[Admin V2] Market Created. ID: ${newMarketId}`);
+
+    // Save Metadata to DB
+    await query(
+      `INSERT INTO markets (market_id, question, description, image, category, outcome_names)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (market_id) DO UPDATE 
+       SET question = $2, description = $3, image = $4, category = $5, outcome_names = $6`,
+      [newMarketId, question, description, image, category, JSON.stringify(outcomes)]
+    );
+
+    return res.json({ success: true, marketId: newMarketId, txHash: tx.hash });
+
+  } catch (error: any) {
+    console.error('Create market V2 error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
   try {

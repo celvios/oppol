@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
 
 interface Position {
     market: string;
@@ -154,29 +155,7 @@ export default function PortfolioPage() {
     }
 
     if (!isConnected) {
-        return (
-            <>
-                <div className="flex items-center justify-center min-h-[80vh]">
-                    <div className="text-center max-w-md">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                            <Wallet className="w-10 h-10 text-primary" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
-                        <p className="text-white/50 mb-8">
-                            Connect your wallet to view your portfolio
-                        </p>
-                        <div className="flex gap-4 justify-center">
-                            <button
-                                onClick={() => connect()}
-                                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
-                            >
-                                Connect Wallet
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </>
-        );
+        return <EmptyPortfolioState onConnect={connect} />;
     }
 
 
