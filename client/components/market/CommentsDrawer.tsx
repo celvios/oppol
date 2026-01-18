@@ -57,7 +57,9 @@ const CommentItem = ({
 }) => {
     const { address } = useWallet();
     const [likes, setLikes] = useState(parseInt(comment.likes as any || 0));
+    const [dislikes, setDislikes] = useState(parseInt(comment.dislikes as any || 0));
     const [userVote, setUserVote] = useState<boolean | null>(comment.user_vote ?? null);
+    const [isAnimating, setIsAnimating] = useState<'like' | 'dislike' | null>(null);
 
     // Reply handling
     const [replies, setReplies] = useState<Comment[]>(comment.replies || []);
@@ -75,19 +77,33 @@ const CommentItem = ({
         e.stopPropagation();
         if (!address) return;
 
+        // Trigger animation
+        setIsAnimating(isLike ? 'like' : 'dislike');
+        setTimeout(() => setIsAnimating(null), 200);
+
         const previousVote = userVote;
+        const previousLikes = likes;
+        const previousDislikes = dislikes;
 
         // Optimistic Update
         if (userVote === isLike) {
+            // Removing vote
             setUserVote(null);
-            if (isLike) setLikes(p => p - 1);
+            if (isLike) setLikes(p => Math.max(0, p - 1));
+            else setDislikes(p => Math.max(0, p - 1));
         } else {
-            if (userVote === !isLike) {
-                if (isLike) setLikes(p => p + 1);
-                else setLikes(p => p - 1); // If switching from dislike, logic varies but simplicity: just track likes for X style usually
-            } else {
-                if (isLike) setLikes(p => p + 1);
+            // Adding or switching vote
+            if (userVote === true) {
+                // Was like, now switching
+                setLikes(p => Math.max(0, p - 1));
+            } else if (userVote === false) {
+                // Was dislike, now switching
+                setDislikes(p => Math.max(0, p - 1));
             }
+
+            if (isLike) setLikes(p => p + 1);
+            else setDislikes(p => p + 1);
+
             setUserVote(isLike);
         }
 
@@ -98,7 +114,10 @@ const CommentItem = ({
                 body: JSON.stringify({ walletAddress: address, isLike: userVote === isLike ? null : isLike })
             });
         } catch (err) {
+            // Rollback on error
             setUserVote(previousVote);
+            setLikes(previousLikes);
+            setDislikes(previousDislikes);
         }
     };
 
@@ -171,22 +190,31 @@ const CommentItem = ({
                         {/* Like */}
                         <button
                             onClick={(e) => handleVote(true, e)}
-                            className={cn("group flex items-center gap-1.5 transition-colors", userVote === true ? "text-pink-500" : "text-white/40 hover:text-pink-500")}
+                            className={cn(
+                                "group flex items-center gap-1.5 transition-all duration-200",
+                                userVote === true ? "text-pink-500" : "text-white/40 hover:text-pink-500",
+                                isAnimating === 'like' && "scale-125"
+                            )}
                         >
                             <div className="p-1.5 rounded-full group-hover:bg-pink-500/10 transition-colors">
-                                <Heart className={cn("w-[18px] h-[18px]", userVote === true && "fill-current")} />
+                                <Heart className={cn("w-[18px] h-[18px] transition-transform", userVote === true && "fill-current")} />
                             </div>
                             <span className="text-xs font-medium">{likes > 0 && likes}</span>
                         </button>
 
-                        {/* Dislike (Subtle) */}
+                        {/* Dislike */}
                         <button
                             onClick={(e) => handleVote(false, e)}
-                            className={cn("group flex items-center gap-1.5 transition-colors", userVote === false ? "text-white" : "text-white/40 hover:text-white")}
+                            className={cn(
+                                "group flex items-center gap-1.5 transition-all duration-200",
+                                userVote === false ? "text-orange-500" : "text-white/40 hover:text-orange-500",
+                                isAnimating === 'dislike' && "scale-125"
+                            )}
                         >
-                            <div className="p-1.5 rounded-full group-hover:bg-white/10 transition-colors">
-                                <ThumbsDown className={cn("w-[18px] h-[18px]", userVote === false && "fill-current")} />
+                            <div className="p-1.5 rounded-full group-hover:bg-orange-500/10 transition-colors">
+                                <ThumbsDown className={cn("w-[18px] h-[18px] transition-transform", userVote === false && "fill-current")} />
                             </div>
+                            <span className="text-xs font-medium">{dislikes > 0 && dislikes}</span>
                         </button>
 
                         {/* Share / More */}
