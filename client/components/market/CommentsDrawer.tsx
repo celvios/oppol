@@ -249,9 +249,12 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
     const fetchComments = useCallback(async () => {
         try {
             const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/${marketId}?userId=${address ? encodeURIComponent(address) : ''}`;
+            console.log('📡 CommentsDrawer: Fetching comments from', url);
             const res = await fetch(url);
             const data = await res.json();
+            console.log('📡 CommentsDrawer: Fetch response:', data);
             if (data.success) {
+                console.log('📡 CommentsDrawer: Setting', data.comments.length, 'comments');
                 setComments(data.comments);
                 // Auto scroll to bottom
                 setTimeout(() => {
@@ -303,20 +306,28 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
 
     // Socket Listener
     useEffect(() => {
-        if (!isOpen || !marketId) return;
+        if (!isOpen || marketId === undefined) return;
 
         const socket = getSocket();
+        console.log('🔌 CommentsDrawer: Setting up socket for market', marketId);
 
-        const joinRoom = () => socket.emit('join-market', marketId);
+        const joinRoom = () => {
+            console.log('🔌 CommentsDrawer: Joining room market-' + marketId);
+            socket.emit('join-market', marketId);
+        };
         joinRoom();
         socket.on('connect', joinRoom);
 
         const handleNewComment = (comment: Comment) => {
+            console.log('🔔 CommentsDrawer: Received new-comment event:', comment);
             setComments(prev => {
-                if (prev.some(c => c.id === comment.id)) return prev;
+                if (prev.some(c => c.id === comment.id)) {
+                    console.log('🔔 CommentsDrawer: Duplicate comment, skipping');
+                    return prev;
+                }
 
                 if (!comment.parent_id) {
-                    // New Root Comment: Prepend to top (Feed Style)
+                    console.log('🔔 CommentsDrawer: Adding root comment to state');
                     return [comment, ...prev];
                 }
                 return addCommentToTree(prev, comment);
@@ -326,6 +337,7 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
         socket.on('new-comment', handleNewComment);
 
         return () => {
+            console.log('🔌 CommentsDrawer: Leaving room market-' + marketId);
             socket.emit('leave-market', marketId);
             socket.off('new-comment', handleNewComment);
             socket.off('connect', joinRoom);
