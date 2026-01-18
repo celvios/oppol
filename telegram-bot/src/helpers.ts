@@ -1,6 +1,6 @@
 import { Market } from './api';
 
-const MARKETS_PER_PAGE = 10;
+const MARKETS_PER_PAGE = 5;
 
 export function paginateMarkets(markets: Market[], page: number = 0) {
     const start = page * MARKETS_PER_PAGE;

@@ -219,23 +219,73 @@ export class TelegramController {
                 'function buySharesFor(address _user, uint256 _marketId, uint256 _outcomeIndex, uint256 _shares, uint256 _maxCost) external'
             ], operatorWallet);
 
-            const maxCost = amountInWei * BigInt(11) / BigInt(10); // 10% slippage
+            // Binary search to find max shares for the given USDC amount
+            const maxCostInUnits = amountInWei; // The input amount IS the max cost
+            let low = 1;
+            let high = Math.floor(amount * 2000000); // Rough estimate: if price is 0.05%, shares = 20x amount. 
+            // Use a safer high bound: amount (10e6 units) / 1 unit price (1). 
+            // Actually, if price is 1%, 1 USDC buys ~198 shares? No.
+            // 1 Share pays out 1 USDC. So Price is 0-1 USDC.
+            // Shares = Amount / Price. 
+            // If Price = 0.01 (1%), Shares = Amount / 0.01 = 100 * Amount.
+            // So High bound = Amount * 100.
+            // Since `amount` var is e.g. 10 (float). High = 10 * 100 = 1000.
+            // But shares are integer? Contract uses uint256 shares using whatever precision?
+            // "shares" in PredictionMarket.sol usually matches token decimals or 1e18?
+            // If checking app.ts line 225: high = floor(maxCost * 2). 
+            // If maxCost is "10", high = 20. 
+            // If shares are in 1e6 units? app.ts line 231: `sharesInUnits = ethers.parseUnits(mid.toString(), 6)`.
+            // So mid is "whole shares". 
+            // If I bet 10 USDC, at 50%, I get ~20 shares.
+            high = Math.floor(amount * 1000); // Safe upper bound
+            let bestShares = 0;
 
-            console.log(`[Gasless Bet] Operator buying shares for ${wallet.address}...`);
+            console.log(`[Telegram Bet] Starting binary search for max shares with budget ${amount} USDC`);
+
+            // We need a read-only contract for calculateCost
+            const marketContractReader = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, provider);
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const sharesInUnits = ethers.parseUnits(mid.toString(), 6); // Assuming shares use 6 decimals like USDC
+
+                try {
+                    const cost = await marketContractReader.calculateCost(marketId, outcome, sharesInUnits);
+
+                    if (cost <= maxCostInUnits) {
+                        bestShares = mid;
+                        low = mid + 1;
+                    } else {
+                        high = mid - 1;
+                    }
+                } catch (e) {
+                    // console.log('Calc cost error (likely too high):', e.message);
+                    high = mid - 1;
+                }
+            }
+
+            if (bestShares === 0) {
+                throw new Error('Amount too small to buy any shares');
+            }
+
+            const sharesToBuy = ethers.parseUnits(bestShares.toString(), 6);
+            const limitCost = maxCostInUnits * BigInt(11) / BigInt(10); // 10% slippage on the INPUT amount (which is the budget)
+
+            console.log(`[Gasless Bet] Buying ${bestShares} shares...`);
             const betTx = await marketContractOperator.buySharesFor(
                 wallet.address,
                 marketId,
                 outcome,
-                amountInWei,
-                maxCost
+                sharesToBuy,
+                limitCost
             );
             const receipt = await betTx.wait();
             console.log(`[Gasless Bet] Success! TX: ${receipt.hash}`);
 
             // Store transaction
             await pool.query(
-                'INSERT INTO telegram_transactions (telegram_id, type, market_id, outcome, amount, tx_hash, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                [telegramId, 'BET', marketId, outcome, amount, receipt.hash, 'CONFIRMED']
+                'INSERT INTO telegram_transactions (telegram_id, type, market_id, outcome, amount, shares, tx_hash, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+                [telegramId, 'BET', marketId, outcome, amount, bestShares, receipt.hash, 'CONFIRMED']
             );
 
             res.json({
@@ -246,6 +296,51 @@ export class TelegramController {
         } catch (error: any) {
             console.error('Place bet error:', error);
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    static async getPositions(req: Request, res: Response) {
+        try {
+            const { telegramId } = req.params;
+
+            const result = await pool.query(`
+                SELECT 
+                    t.market_id, 
+                    t.outcome, 
+                    SUM(t.shares) as total_shares, 
+                    SUM(t.amount) as total_invested,
+                    m.question,
+                    m.outcome_names
+                FROM telegram_transactions t
+                LEFT JOIN markets m ON t.market_id = m.market_id
+                WHERE t.telegram_id = $1 AND t.type = 'BET' AND t.status = 'CONFIRMED'
+                GROUP BY t.market_id, t.outcome, m.question, m.outcome_names
+            `, [telegramId]);
+
+            const positions = result.rows.map(row => {
+                let outcomeName = 'Unknown';
+                // Handle outcome names (JSONB or array)
+                const names = row.outcome_names;
+                if (names && Array.isArray(names) && names[row.outcome]) {
+                    outcomeName = names[row.outcome];
+                } else {
+                    outcomeName = row.outcome === 0 ? 'YES' : 'NO';
+                }
+
+                return {
+                    marketId: row.market_id,
+                    question: row.question || `Market ${row.market_id}`,
+                    outcome: row.outcome,
+                    outcomeName,
+                    shares: parseFloat(row.total_shares || '0'),
+                    totalInvested: parseFloat(row.total_invested || '0'),
+                };
+            });
+
+            res.json({ success: true, positions });
+        } catch (error: any) {
+            console.error('Get positions error:', error);
+            res.status(500).json({ success: false, message: 'Server error' });
         }
     }
 

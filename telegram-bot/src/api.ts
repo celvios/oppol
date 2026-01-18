@@ -13,8 +13,18 @@ export interface Market {
     outcomeCount?: number;
     endTime?: number;
     liquidityParam?: string;
+    totalVolume?: string; // Added for volume display
     resolved?: boolean;
     winningOutcome?: number;
+}
+
+export interface Position {
+    marketId: number;
+    question: string;
+    outcome: number;
+    outcomeName: string;
+    shares: number;
+    totalInvested: number;
 }
 
 export interface BetResponse {
@@ -87,6 +97,16 @@ export class API {
         } catch (error: any) {
             console.error('Failed to get balance:', error.message);
             return 0;
+        }
+    }
+
+    static async getUserPositions(telegramId: number): Promise<Position[]> {
+        try {
+            const { data } = await axios.get(`${API_URL}/api/telegram/positions/${telegramId}`);
+            return data.success ? data.positions : [];
+        } catch (error: any) {
+            console.error('Failed to get positions:', error.message);
+            return [];
         }
     }
 

@@ -119,6 +119,7 @@ const createTablesQuery = `
     market_id INTEGER,
     outcome INTEGER,
     amount DECIMAL(18, 6) NOT NULL,
+    shares DECIMAL(18, 6), -- Added for PnL calculation
     tx_hash VARCHAR(66),
     status VARCHAR(20) DEFAULT 'PENDING',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -185,6 +186,7 @@ export const initDatabase = async () => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       ALTER TABLE users ALTER COLUMN phone_number DROP NOT NULL;
+      ALTER TABLE telegram_transactions ADD COLUMN IF NOT EXISTS shares DECIMAL(18, 6);
     `);
 
     console.log('✅ Database Initialization Complete');

@@ -804,6 +804,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                                 onConfirm={handleBuy}
                                 isLoading={loading}
                                 side={side}
+                                color={outcomeColor}
                                 disabled={loading || !amount || parseFloat(balance) === 0}
                             />
                         )}

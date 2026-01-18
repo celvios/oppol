@@ -107,6 +107,68 @@ bot.on('callback_query', async (query) => {
             }
             break;
 
+        case 'positions':
+            try {
+                const [positions, activeMarkets] = await Promise.all([
+                    API.getUserPositions(chatId),
+                    API.getActiveMarkets()
+                ]);
+
+                if (positions.length === 0) {
+                    bot.sendMessage(chatId, '📉 *No active positions*\n\nStart trading to see them here!', {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [[{ text: '📊 Go to Markets', callback_data: 'markets' }], [{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                        }
+                    });
+                } else {
+                    let text = '📋 *My Positions*\n\n';
+                    let totalPnL = 0;
+
+                    for (const pos of positions) {
+                        const market = activeMarkets.find(m => m.market_id === pos.marketId);
+                        let currentValue = 0;
+                        let price = 0;
+
+                        if (market && market.prices && market.prices[pos.outcome]) {
+                            price = market.prices[pos.outcome];
+                            currentValue = pos.shares * (price / 100);
+                        } else {
+                            // If market not active/found (e.g. resolved), assume 0 or last known? 
+                            // For now, if resolved, we should fetch resolution?
+                            // Assuming 0 if not found for safety, or we could just use cost basics if market is missing.
+                            // Actually, resolved markets might not be in "activeMarkets".
+                            // But usually they stay for a bit.
+                            // Let's assume price 0 if not found (conservative).
+                        }
+
+                        const pnl = currentValue - pos.totalInvested;
+                        totalPnL += pnl;
+
+                        const pnlIcon = pnl >= 0 ? '🟢' : '🔴';
+                        const sign = pnl >= 0 ? '+' : '';
+
+                        text += `*${escapeMarkdown(pos.question)}*\n`;
+                        text += `Outcome: ${pos.outcomeName} | Shares: ${pos.shares}\n`;
+                        text += `Invested: $${pos.totalInvested.toFixed(2)} | Value: $${currentValue.toFixed(2)}\n`;
+                        text += `PnL: ${pnlIcon} ${sign}$${pnl.toFixed(2)} (${price}%)\n\n`;
+                    }
+
+                    text += `💰 *Total PnL:* $${totalPnL.toFixed(2)}`;
+
+                    bot.sendMessage(chatId, text, {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                        }
+                    });
+                }
+            } catch (error: any) {
+                console.error('Positions error:', error);
+                bot.sendMessage(chatId, `❌ Failed to load positions: ${error.message}`);
+            }
+            break;
+
         case 'search':
             await SessionManager.update(chatId, { state: UserState.SEARCHING_MARKETS });
             bot.sendMessage(chatId, '🔍 *Search Markets*\n\nType a keyword to search:', {
@@ -119,25 +181,48 @@ bot.on('callback_query', async (query) => {
 
         case 'profile':
             try {
-                await API.getOrCreateUser(chatId, query.from?.username);
-                const balance = await API.getUserBalance(chatId);
-                const userResult = await API.getOrCreateUser(chatId, query.from?.username);
+                const [userRaw, balance, positions, activeMarkets] = await Promise.all([
+                    API.getOrCreateUser(chatId, query.from?.username),
+                    API.getUserBalance(chatId),
+                    API.getUserPositions(chatId),
+                    API.getActiveMarkets()
+                ]);
 
-                // Better display logic: Show Username if exists, otherwise First Name
+                // Calculate PnL
+                let totalPnL = 0;
+                let totalValue = 0;
+
+                positions.forEach(pos => {
+                    const market = activeMarkets.find(m => m.market_id === pos.marketId);
+                    if (market && market.prices) {
+                        const price = market.prices[pos.outcome] || 0;
+                        const val = pos.shares * (price / 100);
+                        totalValue += val;
+                        totalPnL += (val - pos.totalInvested);
+                    }
+                });
+
+                const userResult = userRaw; // Re-use
                 const hasUsername = !!query.from?.username;
                 const displayLabel = hasUsername ? 'Username' : 'Name';
                 const displayValue = hasUsername ? `@${query.from.username}` : (query.from?.first_name || 'User');
+                const pnlSign = totalPnL >= 0 ? '+' : '';
 
                 bot.sendMessage(chatId,
                     `👤 *Your Profile*\n\n` +
                     `Telegram ID: ${chatId}\n` +
                     `${displayLabel}: ${escapeMarkdown(displayValue)}\n` +
-                    `Wallet: ${userResult.user?.wallet_address?.substring(0, 10)}...\n` +
-                    `Balance: ${balance} USDC`,
+                    `Wallet: \`${userResult.user?.wallet_address || 'N/A'}\`\n` +
+                    `Balance: $${balance.toFixed(2)} USDC\n` +
+                    `Est. Holdings Value: $${totalValue.toFixed(2)}\n` +
+                    `Unrealized PnL: ${pnlSign}$${totalPnL.toFixed(2)}`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
-                            inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'menu' }]]
+                            inline_keyboard: [
+                                [{ text: '📋 My Positions', callback_data: 'positions' }],
+                                [{ text: '🔙 Back to Menu', callback_data: 'menu' }]
+                            ]
                         }
                     }
                 );
@@ -207,6 +292,7 @@ bot.on('callback_query', async (query) => {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: '📊 Markets', callback_data: 'markets' }],
+                        [{ text: '📋 My Positions', callback_data: 'positions' }],
                         [{ text: '👤 Profile', callback_data: 'profile' }],
                         [{ text: '💰 Deposit', callback_data: 'deposit' }],
                         [{ text: '💸 Withdraw', callback_data: 'withdraw' }],
@@ -270,8 +356,9 @@ bot.on('callback_query', async (query) => {
                         text += `\n`;
                     }
 
-                    // Show liquidity and end time
-                    text += `💰 *Liquidity:* $${market.liquidityParam || '0'}\n`;
+                    // Show VOLUME and end time (Liquidity replaced by Volume)
+                    const vol = market.totalVolume ? `$${market.totalVolume}` : 'N/A';
+                    text += `📊 *Volume:* ${vol}\n`;
                     text += `⏰ *Ends:* ${endDate}\n`;
                     text += `🕐 *Updated:* ${new Date().toLocaleTimeString()}\n\n`;
 
@@ -328,7 +415,7 @@ bot.on('callback_query', async (query) => {
                         bot.sendMessage(chatId,
                             `✅ *Bet Placed Successfully!*\n\n` +
                             `Market ID: ${marketId}\n` +
-                            `Outcome: ${outcome === '1' ? 'YES' : 'NO'}\n` +
+                            `Outcome: ${outcome === '1' ? 'YES' : 'NO'}\n` + // Warning: simple binary assumption here, but multi-outcome works by index
                             `Amount: ${amount} USDC\n` +
                             `New Balance: ${balance} USDC\n\n` +
                             `Tx: \`${result.transactionHash}\``,
@@ -336,6 +423,7 @@ bot.on('callback_query', async (query) => {
                                 parse_mode: 'Markdown',
                                 reply_markup: {
                                     inline_keyboard: [
+                                        [{ text: '📋 My Positions', callback_data: 'positions' }],
                                         [{ text: '📊 View Markets', callback_data: 'markets' }],
                                         [{ text: '🔙 Main Menu', callback_data: 'menu' }]
                                     ]

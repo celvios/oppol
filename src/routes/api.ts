@@ -28,6 +28,7 @@ router.post('/telegram/user', TelegramController.getOrCreateUser);
 router.post('/telegram/bet', TelegramController.placeBet);
 router.get('/telegram/balance/:telegramId', TelegramController.getBalance);
 router.post('/telegram/withdraw', TelegramController.withdraw);
+router.get('/telegram/positions/:telegramId', TelegramController.getPositions);
 
 // Bet Routes
 router.post('/bet', placeBet);
