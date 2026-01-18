@@ -158,9 +158,9 @@ export class Web3Service {
             const sharesInUnits = ethers.parseUnits(shares.toString(), 6);
             const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
 
-            // Add 2% Protocol Fee Buffer
-            // We calculate fee manually here to match contract: fee = cost * 200 / 10000
-            const fee = (cost * BigInt(200)) / BigInt(10000);
+            // Add 5% Protocol Fee Buffer
+            // We calculate fee manually here to match contract: fee = cost * 500 / 10000
+            const fee = (cost * BigInt(500)) / BigInt(10000);
             const totalCost = cost + fee;
 
             return ethers.formatUnits(totalCost, 6);

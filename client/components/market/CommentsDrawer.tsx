@@ -23,6 +23,7 @@ interface Comment {
     reply_count?: number;
     parent_id?: string;
     replies?: Comment[];
+    market_id?: number | string;
 }
 
 interface CommentsDrawerProps {
@@ -348,6 +349,13 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
 
         const handleNewComment = (comment: Comment) => {
             console.log('🔔 CommentsDrawer: Received new-comment event:', comment);
+
+            // CRITICAL: Only add comments that belong to THIS market
+            if (comment.market_id !== undefined && comment.market_id !== marketId) {
+                console.log('🔔 CommentsDrawer: Ignoring comment for different market', comment.market_id, 'vs', marketId);
+                return;
+            }
+
             setComments(prev => {
                 if (prev.some(c => c.id === comment.id)) {
                     console.log('🔔 CommentsDrawer: Duplicate comment, skipping');

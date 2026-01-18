@@ -11,7 +11,7 @@ async function main() {
     console.log("💰 BNB Balance:", ethers.formatEther(balance));
 
     // 1. Configuration
-    const USDC_ADDRESS = "0x8AC76a51cc950d9822D68b83xE1Ad6dF6C5001a"; // Binance-Peg USDC
+    const USDC_ADDRESS = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"; // Binance-Peg USDC (BSC Mainnet)
     console.log("💵 USDC Address:", USDC_ADDRESS);
 
     // 2. Deploy SafeOracle

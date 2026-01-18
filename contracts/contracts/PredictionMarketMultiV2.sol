@@ -162,7 +162,7 @@ contract PredictionMarketMultiV2 is
         token = IERC20(_token);
         oracle = OptimisticOracleV3Interface(_oracle);
         assertionBond = 500 * 1e6;
-        protocolFee = 200; // 2% Default
+        protocolFee = 500; // 5% Default
     }
     
     // Required for UUPS upgrades

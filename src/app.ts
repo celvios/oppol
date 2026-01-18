@@ -1681,8 +1681,8 @@ io.on('connection', (socket) => {
         avatar_url: user.avatar_url,
         likes: 0,
         dislikes: 0,
-
-        parent_id: parentId ?? null, // Use nullish coalescing
+        market_id: marketId, // Include market_id for frontend filtering
+        parent_id: parentId ?? null,
         reply_count: 0
       };
 
