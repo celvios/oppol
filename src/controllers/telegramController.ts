@@ -5,8 +5,8 @@ import { ethers } from 'ethers';
 import { EncryptionService } from '../services/encryption';
 
 // Use correct environment variables matching .env
-const MARKET_CONTRACT_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
-const USDC_ADDRESS = process.env.USDC_CONTRACT || '0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634';
+const MARKET_CONTRACT_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x221C4CFADE97b5d3D8C1016C3FbAe3C23eC79772';
+const USDC_ADDRESS = process.env.USDC_CONTRACT || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b';
 const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
 
 // ABI for PredictionMarketMulti contract
