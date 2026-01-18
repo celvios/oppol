@@ -330,7 +330,15 @@ export function MobileTerminal() {
         );
     }
 
-    if (!market) return <div className="p-6 text-white/50 flex items-center justify-center h-[80vh] font-mono">[SYSTEM: NO MARKETS]</div>;
+    if (!market) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[80vh] text-white/50 p-6 text-center">
+                <Activity size={48} className="mb-4 opacity-50" />
+                <h2 className="text-xl font-bold mb-2 text-white">No Active Markets</h2>
+                <p className="text-sm">Check back later for new prediction markets.</p>
+            </div>
+        );
+    }
 
     const currentPrice = chartView === 'YES' ? market.yesOdds : (100 - market.yesOdds);
     const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
