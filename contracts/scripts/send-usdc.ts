@@ -8,7 +8,7 @@ import path from "path";
 const envPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: envPath });
 
-const USDC_ADDRESS = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+const USDC_ADDRESS = process.env.USDC_CONTRACT || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b';
 const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
@@ -18,7 +18,7 @@ if (!PRIVATE_KEY) {
 }
 
 // Target Address from user request
-const TARGET_ADDRESS = "0x9f555236d7DEd3C9c4e25e0Ba1c9072507739Df1";
+const TARGET_ADDRESS = "0xE434423371E3AacAF0fF8fC0B3Ef1F521e82CCC1";
 const AMOUNT_USDC = 2000;
 
 async function main() {

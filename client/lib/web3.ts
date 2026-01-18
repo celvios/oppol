@@ -216,3 +216,47 @@ export class Web3Service {
 }
 
 export const web3Service = new Web3Service();
+
+export async function checkAndSwitchNetwork(ethereumProvider: any): Promise<boolean> {
+    const network = getCurrentNetwork();
+    const chainIdHex = '0x' + network.chainId.toString(16);
+
+    try {
+        const currentChainId = await ethereumProvider.request({ method: 'eth_chainId' });
+        if (currentChainId === chainIdHex) return true;
+
+        await ethereumProvider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }],
+        });
+        return true;
+    } catch (switchError: any) {
+        // This error code 4902 indicates that the chain has not been added to MetaMask.
+        if (switchError.code === 4902) {
+            try {
+                await ethereumProvider.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [
+                        {
+                            chainId: chainIdHex,
+                            chainName: network.name,
+                            rpcUrls: [network.rpcUrl],
+                            nativeCurrency: {
+                                name: 'BNB',
+                                symbol: 'tBNB', // or BNB
+                                decimals: 18,
+                            },
+                            blockExplorerUrls: ['https://testnet.bscscan.com'],
+                        },
+                    ],
+                });
+                return true;
+            } catch (addError) {
+                console.error('Failed to add network:', addError);
+                return false;
+            }
+        }
+        console.error('Failed to switch network:', switchError);
+        return false;
+    }
+}

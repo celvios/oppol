@@ -88,7 +88,18 @@ export default function DepositPage() {
         try {
             if (!window.ethereum) return;
 
+            // Check network before trying to fetch
+            // We use a silent check first to avoid spamming switch requests on load if possible, 
+            // but for now let's just use the shared helper which might prompt.
+            // Actually, for fetchBalance (auto-run), let's just check chainId without switching first.
             const provider = new ethers.BrowserProvider(window.ethereum);
+            const network = await provider.getNetwork();
+            // 97 is BSC Testnet
+            if (Number(network.chainId) !== 97) {
+                console.warn("Wrong network detected. Skipping balance fetch.");
+                return;
+            }
+
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
 
             const balance = await tokenContract.balanceOf(address);
@@ -96,21 +107,26 @@ export default function DepositPage() {
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
             console.error('Failed to fetch balance:', error);
-
-            // Show user-friendly error message
-            if (error.message?.includes('could not decode result data')) {
-                alert(`⚠️ Token Contract Error\n\nThe ${selectedToken.symbol} contract at ${selectedToken.address} is not responding correctly.\n\nThis usually means:\n• The contract is not deployed on this network\n• The contract address is incorrect\n• You're on the wrong network\n\nPlease contact support or try again later.`);
-            }
+            // Suppress the alert for balance fetching, it's annoying. Just log it.
             setTokenBalance('0.00');
         }
     }
 
+    // ... (imports)
+
+    // ... (inside handleDeposit)
     async function handleDeposit() {
         if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         try {
             if (!window.ethereum) {
                 throw new Error('Please install MetaMask');
+            }
+
+            // Enforce Network Switch
+            const isCorrectNetwork = await checkAndSwitchNetwork(window.ethereum);
+            if (!isCorrectNetwork) {
+                throw new Error('Please switch to BSC Testnet to deposit.');
             }
 
             const provider = new ethers.BrowserProvider(window.ethereum);
