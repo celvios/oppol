@@ -14,7 +14,7 @@ import { PlusCircle } from "lucide-react";
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
-    const { isTradeModalOpen, isInputFocused } = useUIStore();
+    const { isTradeModalOpen, isInputFocused, isCommentsOpen } = useUIStore();
     const { isConnected, address, disconnect, connect } = useWallet();
     const { canCreate } = useCreationAccess();
     const [showWalletModal, setShowWalletModal] = useState(false);
@@ -27,7 +27,7 @@ export default function BottomNav() {
 
     const isLoggedIn = isConnected;
 
-    if (isTradeModalOpen || isInputFocused) return null;
+    if (isTradeModalOpen || isInputFocused || isCommentsOpen) return null;
 
     const navItems = [
         { name: "Terminal", icon: Home, href: "/terminal" },

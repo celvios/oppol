@@ -265,6 +265,7 @@ const CommentItem = ({
 export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDrawerProps) {
     const { address, isConnected, connect } = useWallet();
     const [comments, setComments] = useState<Comment[]>([]);
+    const { setCommentsOpen } = useUIStore();
 
     // Input state
     const [newComment, setNewComment] = useState("");
@@ -273,6 +274,12 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // Sync isOpen with global state to hide BottomNav
+    useEffect(() => {
+        setCommentsOpen(isOpen);
+        return () => setCommentsOpen(false);
+    }, [isOpen, setCommentsOpen]);
 
     // Initial Fetch
     const fetchComments = useCallback(async () => {

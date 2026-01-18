@@ -5,6 +5,8 @@ interface UIState {
     setTradeModalOpen: (isOpen: boolean) => void;
     isInputFocused: boolean;
     setInputFocused: (isFocused: boolean) => void;
+    isCommentsOpen: boolean;
+    setCommentsOpen: (isOpen: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -12,4 +14,7 @@ export const useUIStore = create<UIState>((set) => ({
     setTradeModalOpen: (isOpen) => set({ isTradeModalOpen: isOpen }),
     isInputFocused: false,
     setInputFocused: (isFocused) => set({ isInputFocused: isFocused }),
+    isCommentsOpen: false,
+    setCommentsOpen: (isOpen) => set({ isCommentsOpen: isOpen }),
 }));
+
