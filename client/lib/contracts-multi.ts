@@ -3,8 +3,8 @@
 export const MULTI_CONTRACTS = {
     // BSC Testnet (DEPLOYED ✅)
     bscTestnet: {
-        predictionMarketMulti: "0xB6a211822649a61163b94cf46e6fCE46119D3E1b",
-        mockUSDC: "0x87D45E316f5f1f2faffCb600c97160658B799Ee0",
+        predictionMarketMulti: "0xeA616854b8e87cB95628B5A65B9972d34D721710", // V2 Contract - Jan 2026
+        mockUSDC: "0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634", // Updated to match .env
         umaOracle: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
     },
     // Local Hardhat
