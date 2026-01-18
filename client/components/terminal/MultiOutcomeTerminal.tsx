@@ -320,7 +320,7 @@ export function MultiOutcomeTerminal() {
                                 className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-xs font-mono border border-white/10 transition-colors"
                             >
                                 <MessageCircle className="w-3.5 h-3.5 text-neon-cyan" />
-                                <span className="text-neon-cyan">LIVE CHAT</span>
+                                <span className="text-neon-cyan">COMMENTS</span>
                             </button>
                         </div>
                         <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">

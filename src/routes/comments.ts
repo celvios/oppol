@@ -48,6 +48,7 @@ router.get('/replies/:commentId', async (req, res) => {
                     u.avatar_url,
                     (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = TRUE) as likes,
                     (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = FALSE) as dislikes,
+                    (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) as reply_count,
                     ${userId ? `(SELECT is_like FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $2) as user_vote` : 'NULL as user_vote'}
              FROM comments c
              JOIN users u ON c.user_id = u.id
