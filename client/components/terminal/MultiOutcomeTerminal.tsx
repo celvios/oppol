@@ -71,20 +71,23 @@ export function MultiOutcomeTerminal() {
     }, []);
 
     // --- Data Fetching ---
+    // --- Data Fetching ---
     const fetchData = useCallback(async () => {
-        if (!isConnected || !address) return;
+        // Removed (!isConnected || !address) check to allow guest viewing
         console.log('[MultiTerminal] fetchData called');
         try {
-            const allMarkets = await web3MultiService.getMarkets();
+            // Parallel fetch for speed
+            const [allMarkets, depositedBalance] = await Promise.all([
+                web3MultiService.getMarkets(),
+                address ? web3MultiService.getDepositedBalance(address).catch(e => {
+                    console.error('[MultiTerminal] Balance fetch error:', e);
+                    return '0';
+                }) : Promise.resolve('0')
+            ]);
+
             console.log('[MultiTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
-            try {
-                const depositedBalance = await web3MultiService.getDepositedBalance(address);
-                setBalance(depositedBalance);
-            } catch (e) {
-                console.error('[MultiTerminal] Balance fetch error:', e);
-                setBalance('0');
-            }
+            setBalance(depositedBalance);
         } catch (error) {
             console.error('[MultiTerminal] Error in fetchData:', error);
         } finally {
@@ -93,15 +96,14 @@ export function MultiOutcomeTerminal() {
     }, [isConnected, address]);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isConnected) {
-            fetchData();
-            interval = setInterval(fetchData, 10000); // Refresh every 10s
-        } else {
-            setLoading(false);
-        }
+        // Initial fetch
+        fetchData();
+
+        // Poll every 10s regardless of connection
+        const interval = setInterval(fetchData, 10000);
+
         return () => clearInterval(interval);
-    }, [isConnected, address, fetchData]);
+    }, [fetchData]);
 
     useEffect(() => {
         if (markets.length > 0 && selectedMarketId === 0) {
