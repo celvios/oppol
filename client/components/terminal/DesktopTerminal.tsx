@@ -261,7 +261,17 @@ export function DesktopTerminal() {
 
 
 
-    if (loading || !market) return <div className="p-10"><SkeletonLoader /></div>;
+    if (loading) return <div className="p-10"><SkeletonLoader /></div>;
+
+    if (!market) {
+        return (
+            <div className="h-[calc(100vh-80px)] flex flex-col items-center justify-center text-white/50">
+                <Activity size={64} className="mb-4 opacity-50" />
+                <h2 className="text-2xl font-bold mb-2">No Active Markets</h2>
+                <p>Check back later for new prediction markets.</p>
+            </div>
+        );
+    }
 
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
         .map(point => ({
