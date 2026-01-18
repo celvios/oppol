@@ -66,14 +66,14 @@ export default function Home() {
               </Link>
 
               <a
-                href="https://wa.me/+1234567890?text=Hi%20OPOLL"
+                href="https://t.me/opoll_predict_bot"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto"
               >
                 <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group">
-                  <MessageCircle className="w-5 h-5 mr-2 text-neon-green" />
-                  JOIN ON WHATSAPP
+                  <MessageCircle className="w-5 h-5 mr-2 text-neon-cyan" />
+                  JOIN ON TELEGRAM
                 </NeonButton>
               </a>
             </div>

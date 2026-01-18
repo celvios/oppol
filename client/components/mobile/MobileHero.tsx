@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Terminal } from "lucide-react";
+import { Terminal, Send } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
-import ScrambleText from "@/components/ui/ScrambleText";
 import { motion } from "framer-motion";
 import HeroInteractive from "../landing/HeroInteractive";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 export default function MobileHero() {
     return (
@@ -33,26 +33,16 @@ export default function MobileHero() {
                     <span className="text-[10px] font-mono font-bold tracking-widest text-outcome-a">LIVE</span>
                 </div>
 
-                {/* Typography */}
-                {/* Logo & Typography */}
+                {/* LogoBrand - Same as Desktop */}
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-20 h-20 relative rounded-full overflow-hidden border-2 border-white/10 shadow-lg shadow-neon-cyan/20">
-                        <img src="/logo.jpg" alt="OPoll Logo" className="w-full h-full object-cover" />
-                    </div>
-
-                    <h1 className="font-heading font-bold leading-tight">
-                        <span className="text-6xl block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-2">
-                            <ScrambleText text="OPoll" />
-                        </span>
-                        <span className="text-2xl tracking-[0.3em] block text-neon-cyan/80">
-                            PROTOCOL
-                        </span>
-                    </h1>
+                    <LogoBrand size="lg" href="#" animate={false} className="scale-[2]" />
+                    <span className="text-2xl tracking-[0.3em] text-neon-cyan/80 font-heading font-bold mt-4">
+                        PROTOCOL
+                    </span>
                 </div>
 
                 <p className="text-text-secondary text-sm leading-relaxed max-w-xs">
                     The world's first <span className="text-white">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
-                    Liquidity like water.
                 </p>
 
                 {/* Actions */}
@@ -65,13 +55,14 @@ export default function MobileHero() {
                     </Link>
 
                     <a
-                        href="https://wa.me/+1234567890?text=Hi%20OPoll"
+                        href="https://t.me/opoll_predict_bot"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full"
                     >
                         <NeonButton variant="glass" className="w-full justify-center text-sm">
-                            JOIN ON WHATSAPP
+                            <Send className="w-4 h-4 mr-2" />
+                            JOIN ON TELEGRAM
                         </NeonButton>
                     </a>
                 </div>
