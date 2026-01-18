@@ -17,6 +17,14 @@ const sslConfig = (process.env.NODE_ENV === 'production' || isRender) ? { reject
 const pool = new Pool({
     connectionString: dbUrl,
     ssl: sslConfig,
+    max: 20, // Increased from default 10
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+});
+
+pool.on('error', (err, client) => {
+    console.error('❌ Unexpected error on idle client', err);
+    process.exit(-1);
 });
 
 export const query = (text: string, params?: any[]) => pool.query(text, params);

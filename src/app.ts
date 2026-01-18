@@ -1681,11 +1681,14 @@ io.on('connection', (socket) => {
         avatar_url: user.avatar_url,
         likes: 0,
         dislikes: 0,
-        parent_id: parentId || null,
+        likes: 0,
+        dislikes: 0,
+        parent_id: parentId ?? null, // Use nullish coalescing
         reply_count: 0
       };
 
       // Broadcast to all clients in the market room
+      console.log(`📡 Broadcasting comment to market-${marketId}... payload:`, newComment);
       console.log(`📡 Broadcasting comment to market-${marketId}...`);
       io.to(`market-${marketId}`).emit('new-comment', newComment);
       console.log(`📨 Comment broadcast successful:`, newComment);
