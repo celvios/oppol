@@ -3,7 +3,7 @@
 export const MULTI_CONTRACTS = {
     // BSC Testnet (DEPLOYED ✅) - V2.1 with Fixed LMSR
     bscTestnet: {
-        predictionMarketMulti: "0xfB661CBD10188c2619CAe6b07f34204062EfbB6C", // V2.1 - Fixed liquidity decimals
+        predictionMarketMulti: "0x221C4CFADE97b5d3D8C1016C3FbAe3C23eC79772", // V2.1 UUPS Proxy - Fixed LMSR
         mockUSDC: "0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b",
         umaOracle: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
     },
