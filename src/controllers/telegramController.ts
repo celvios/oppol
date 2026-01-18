@@ -310,11 +310,13 @@ export class TelegramController {
                     SUM(t.shares) as total_shares, 
                     SUM(t.amount) as total_invested,
                     m.question,
-                    m.outcome_names
+                    m.outcome_names,
+                    m.resolved,
+                    m.winning_outcome
                 FROM telegram_transactions t
                 LEFT JOIN markets m ON t.market_id = m.market_id
                 WHERE t.telegram_id = $1 AND t.type = 'BET' AND t.status = 'CONFIRMED'
-                GROUP BY t.market_id, t.outcome, m.question, m.outcome_names
+                GROUP BY t.market_id, t.outcome, m.question, m.outcome_names, m.resolved, m.winning_outcome
             `, [telegramId]);
 
             const positions = result.rows.map(row => {
@@ -334,6 +336,8 @@ export class TelegramController {
                     outcomeName,
                     shares: parseFloat(row.total_shares || '0'),
                     totalInvested: parseFloat(row.total_invested || '0'),
+                    resolved: row.resolved,
+                    winningOutcome: row.winning_outcome
                 };
             });
 

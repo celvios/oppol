@@ -12,7 +12,7 @@ import { useWallet } from "@/lib/use-wallet";
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
-    const { isTradeModalOpen } = useUIStore();
+    const { isTradeModalOpen, isInputFocused } = useUIStore();
     const { isConnected, address, disconnect, connect } = useWallet();
     const [showWalletModal, setShowWalletModal] = useState(false);
 
@@ -24,7 +24,7 @@ export default function BottomNav() {
 
     const isLoggedIn = isConnected;
 
-    if (isTradeModalOpen) return null;
+    if (isTradeModalOpen || isInputFocused) return null;
 
     const navItems = [
         { name: "Terminal", icon: Home, href: "/terminal" },

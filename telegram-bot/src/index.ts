@@ -130,16 +130,17 @@ bot.on('callback_query', async (query) => {
                         let currentValue = 0;
                         let price = 0;
 
-                        if (market && market.prices && market.prices[pos.outcome]) {
+                        if (pos.resolved) {
+                            // Market is resolved: Winner gets 100% ($1), Loser 0
+                            price = (pos.winningOutcome === pos.outcome) ? 100 : 0;
+                            currentValue = pos.shares * (price / 100);
+                        } else if (market && market.prices && market.prices[pos.outcome]) {
                             price = market.prices[pos.outcome];
                             currentValue = pos.shares * (price / 100);
                         } else {
-                            // If market not active/found (e.g. resolved), assume 0 or last known? 
-                            // For now, if resolved, we should fetch resolution?
-                            // Assuming 0 if not found for safety, or we could just use cost basics if market is missing.
-                            // Actually, resolved markets might not be in "activeMarkets".
-                            // But usually they stay for a bit.
-                            // Let's assume price 0 if not found (conservative).
+                            // Valid fallback if market still loading
+                            price = 0;
+                            currentValue = 0;
                         }
 
                         const pnl = currentValue - pos.totalInvested;
@@ -194,7 +195,12 @@ bot.on('callback_query', async (query) => {
 
                 positions.forEach(pos => {
                     const market = activeMarkets.find(m => m.market_id === pos.marketId);
-                    if (market && market.prices) {
+                    if (pos.resolved) {
+                        const price = (pos.winningOutcome === pos.outcome) ? 100 : 0;
+                        const val = pos.shares * (price / 100);
+                        totalValue += val;
+                        totalPnL += (val - pos.totalInvested);
+                    } else if (market && market.prices) {
                         const price = market.prices[pos.outcome] || 0;
                         const val = pos.shares * (price / 100);
                         totalValue += val;

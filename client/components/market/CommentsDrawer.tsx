@@ -7,6 +7,7 @@ import { useWallet } from "@/lib/use-wallet";
 import NeonButton from "@/components/ui/NeonButton";
 import { cn } from "@/lib/utils";
 import { getSocket } from "@/lib/socket";
+import { useUIStore } from "@/lib/store";
 
 interface Comment {
     id: string;
@@ -269,6 +270,8 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                                         value={newComment}
                                         onChange={(e) => setNewComment(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                        onFocus={() => useUIStore.getState().setInputFocused(true)}
+                                        onBlur={() => useUIStore.getState().setInputFocused(false)}
                                         placeholder="Type something..."
                                         className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-neon-cyan/50 transition-colors"
                                         disabled={isSending}

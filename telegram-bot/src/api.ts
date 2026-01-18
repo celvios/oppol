@@ -25,6 +25,8 @@ export interface Position {
     outcomeName: string;
     shares: number;
     totalInvested: number;
+    resolved?: boolean;
+    winningOutcome?: number;
 }
 
 export interface BetResponse {
