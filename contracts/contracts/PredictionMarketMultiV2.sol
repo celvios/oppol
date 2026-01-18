@@ -213,7 +213,7 @@ contract PredictionMarketMultiV2 is
         market.endTime = block.timestamp + (_durationDays * 1 days);
         
         // AUTO-CALCULATE liquidity: 100 USDC per outcome
-        market.liquidityParam = _outcomes.length * 100 * PRECISION;
+        market.liquidityParam = _outcomes.length * 100 * 1e6; // Match USDC decimals
         market.subsidyPool = 0; // No subsidy in V2
         
         // Initialize arrays

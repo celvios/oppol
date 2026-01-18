@@ -7,13 +7,13 @@ export const CONTRACTS = {
         predictionMarketMulti: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
         mockUSDC: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
     },
-    // BSC Testnet (UNIFIED - Multi-Outcome Contract ✅)
+    // BSC Testnet (UNIFIED - Multi-Outcome Contract ✅) - V2.1 Fixed LMSR
     bscTestnet: {
         // All markets now use the multi-outcome contract (Polymarket-style)
-        predictionMarket: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xeA616854b8e87cB95628B5A65B9972d34D721710', // V2 Multi-Outcome
-        predictionMarketLMSR: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xeA616854b8e87cB95628B5A65B9972d34D721710',
-        predictionMarketMulti: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xeA616854b8e87cB95628B5A65B9972d34D721710',
-        mockUSDC: process.env.NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS || '0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634',
+        predictionMarket: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xfB661CBD10188c2619CAe6b07f34204062EfbB6C', // V2.1 - Fixed decimals
+        predictionMarketLMSR: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xfB661CBD10188c2619CAe6b07f34204062EfbB6C',
+        predictionMarketMulti: process.env.NEXT_PUBLIC_BSCTESTNET_MARKET_ADDRESS || '0xfB661CBD10188c2619CAe6b07f34204062EfbB6C',
+        mockUSDC: process.env.NEXT_PUBLIC_BSCTESTNET_USDC_ADDRESS || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b',
         umaOracle: process.env.NEXT_PUBLIC_BSCTESTNET_UMA_ORACLE_ADDRESS || '0x8CFc696db36429Ff2D0C601c523F88AE8c30D1cd',
         zap: process.env.NEXT_PUBLIC_BSCTESTNET_ZAP_ADDRESS || '0x315640C6eb0635B0A7717b8345b0FB4c2a10157D',
     },

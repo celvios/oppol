@@ -1,10 +1,10 @@
 // Multi-Outcome Prediction Market Contract Configuration
 
 export const MULTI_CONTRACTS = {
-    // BSC Testnet (DEPLOYED ✅)
+    // BSC Testnet (DEPLOYED ✅) - V2.1 with Fixed LMSR
     bscTestnet: {
-        predictionMarketMulti: "0xeA616854b8e87cB95628B5A65B9972d34D721710", // V2 Contract - Jan 2026
-        mockUSDC: "0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634", // Updated to match .env
+        predictionMarketMulti: "0xfB661CBD10188c2619CAe6b07f34204062EfbB6C", // V2.1 - Fixed liquidity decimals
+        mockUSDC: "0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b",
         umaOracle: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
     },
     // Local Hardhat
