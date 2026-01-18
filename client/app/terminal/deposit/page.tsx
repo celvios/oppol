@@ -146,6 +146,9 @@ export default function DepositPage() {
 
             if (selectedToken.direct) {
                 // Direct USDC deposit
+                if (!MARKET_CONTRACT) {
+                    throw new Error("Market contract address is missing in configuration. Please report this issue.");
+                }
                 console.log('Direct USDC deposit to market contract:', MARKET_CONTRACT);
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
@@ -163,6 +166,9 @@ export default function DepositPage() {
 
             } else {
                 // Zap contract integration
+                if (!ZAP_CONTRACT || ZAP_CONTRACT === '0x...') {
+                    throw new Error("Zap contract address is missing or invalid. Please report this issue.");
+                }
                 console.log('Using Zap contract:', ZAP_CONTRACT);
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
 
