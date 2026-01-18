@@ -1635,10 +1635,10 @@ io.on('connection', (socket) => {
   });
 
   // Handle new comment
-  socket.on('send-comment', async (data: { marketId: string; text: string; walletAddress: string }) => {
+  socket.on('send-comment', async (data: { marketId: string; text: string; walletAddress: string; parentId?: string }) => {
     console.log('📨 Received send-comment event:', data);
     try {
-      const { marketId, text, walletAddress } = data;
+      const { marketId, text, walletAddress, parentId } = data;
 
       // Validate
       if (marketId === undefined || !text || !walletAddress) {
@@ -1665,10 +1665,10 @@ io.on('connection', (socket) => {
       // Insert comment
       console.log(`💾 Inserting comment into database...`);
       const insertResult = await query(
-        `INSERT INTO comments (market_id, user_id, text)
-         VALUES ($1, $2, $3)
+        `INSERT INTO comments (market_id, user_id, text, parent_id)
+         VALUES ($1, $2, $3, $4)
          RETURNING id, created_at`,
-        [marketId, user.id, text]
+        [marketId, user.id, text, parentId || null]
       );
       console.log(`✅ Comment inserted:`, insertResult.rows[0]);
 
@@ -1678,7 +1678,11 @@ io.on('connection', (socket) => {
         created_at: insertResult.rows[0].created_at,
         wallet_address: walletAddress,
         display_name: user.display_name || 'Web User',
-        avatar_url: user.avatar_url
+        avatar_url: user.avatar_url,
+        likes: 0,
+        dislikes: 0,
+        parent_id: parentId || null,
+        reply_count: 0
       };
 
       // Broadcast to all clients in the market room
