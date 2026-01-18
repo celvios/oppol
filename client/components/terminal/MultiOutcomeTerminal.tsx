@@ -93,7 +93,7 @@ export function MultiOutcomeTerminal() {
         } finally {
             setLoading(false);
         }
-    }, [isConnected, address]);
+    }, [address]); // Removed isConnected from dependencies
 
     useEffect(() => {
         // Initial fetch
