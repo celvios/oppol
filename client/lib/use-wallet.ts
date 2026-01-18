@@ -16,7 +16,7 @@ export function useWallet() {
     isConnecting: false,
     signer: null
   });
-  
+
   useEffect(() => {
     // Load cached state immediately
     const cached = localStorage.getItem('wallet_cache');
@@ -30,9 +30,9 @@ export function useWallet() {
             isConnecting: false
           });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
-    
+
     // Listen for wallet changes
     const handleWalletChange = (event: any) => {
       console.log('Wallet change event received:', event.detail);
@@ -43,7 +43,7 @@ export function useWallet() {
         isConnecting: false,
         signer: null // Reset signer when wallet changes
       });
-      
+
       // Update cache
       if (isConnected && address) {
         localStorage.setItem('wallet_cache', JSON.stringify({ address, isConnected }));
@@ -51,9 +51,9 @@ export function useWallet() {
         localStorage.removeItem('wallet_cache');
       }
     };
-    
+
     window.addEventListener('wallet-changed', handleWalletChange);
-    
+
     // Also listen for MetaMask account changes
     if (typeof window !== 'undefined' && window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
@@ -64,9 +64,9 @@ export function useWallet() {
           handleWalletChange({ detail: { address: null, isConnected: false } });
         }
       };
-      
+
       window.ethereum.on('accountsChanged', handleAccountsChanged);
-      
+
       return () => {
         window.removeEventListener('wallet-changed', handleWalletChange);
         if (window.ethereum && window.ethereum.removeListener) {
@@ -78,27 +78,27 @@ export function useWallet() {
       window.removeEventListener('wallet-changed', handleWalletChange);
     };
   }, []);
-  
+
   const connect = async () => {
     setState(prev => ({ ...prev, isConnecting: true }));
-    
+
     try {
       // Wait for Reown to be initialized
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Try multiple methods to open the modal
+      // Dispatch custom event to trigger Reown modal (primary method)
+      window.dispatchEvent(new CustomEvent('wallet-connect-request'));
+
+      // Also try to direct open if event listener isn't caught immediately or legacy
       const modal = document.querySelector('w3m-modal, appkit-modal, [data-testid="w3m-modal"]');
       if (modal) {
         (modal as any).open?.();
-      } else {
-        // Try to find and click connect button
-        const connectBtn = document.querySelector('w3m-connect-button, appkit-connect-button, [data-testid="connect-button"]');
-        if (connectBtn) {
-          (connectBtn as HTMLElement).click();
-        } else {
-          // Fallback - dispatch custom event to trigger modal
-          window.dispatchEvent(new CustomEvent('wallet-connect-request'));
-        }
+      }
+
+      const connectBtn = document.querySelector('w3m-connect-button, appkit-connect-button, [data-testid="connect-button"]');
+      if (connectBtn) {
+        (connectBtn as HTMLElement).click();
       }
     } catch (error) {
       console.error('Connection failed:', error);
@@ -108,7 +108,7 @@ export function useWallet() {
       }, 1000);
     }
   };
-  
+
   const disconnect = async () => {
     try {
       // Clear local state
@@ -117,16 +117,16 @@ export function useWallet() {
         address: null,
         isConnecting: false
       });
-      
+
       // Clear cache
       localStorage.removeItem('wallet_cache');
-      
+
       // Try to disconnect from AppKit if available
       const appKit = (window as any).__appkit;
       if (appKit && appKit.disconnect) {
         await appKit.disconnect();
       }
-      
+
       // Dispatch event for other components
       window.dispatchEvent(new CustomEvent('wallet-changed', {
         detail: { address: null, isConnected: false }
@@ -135,7 +135,7 @@ export function useWallet() {
       console.error('Disconnect failed:', error);
     }
   };
-  
+
   return {
     ...state,
     connect,
