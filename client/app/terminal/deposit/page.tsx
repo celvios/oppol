@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getContracts } from "@/lib/contracts";
+import { checkAndSwitchNetwork } from "@/lib/web3";
 import { Contract, ethers } from 'ethers';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
@@ -112,9 +113,7 @@ export default function DepositPage() {
         }
     }
 
-    // ... (imports)
 
-    // ... (inside handleDeposit)
     async function handleDeposit() {
         if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
