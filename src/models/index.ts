@@ -187,6 +187,19 @@ export const initDatabase = async () => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       ALTER TABLE users ALTER COLUMN phone_number DROP NOT NULL;
       ALTER TABLE telegram_transactions ADD COLUMN IF NOT EXISTS shares DECIMAL(18, 6);
+
+      -- Migration for Comments (Replies)
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE;
+
+      -- Create Comment Likes Table
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        is_like BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(comment_id, user_id)
+      );
     `);
 
     console.log('✅ Database Initialization Complete');

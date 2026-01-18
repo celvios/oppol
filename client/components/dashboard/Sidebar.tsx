@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
+import { useCreationAccess } from "@/lib/use-creation-access";
+import { PlusCircle } from "lucide-react";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -22,6 +24,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { isAdmin, isConnected, address, disconnect, connect } = useWallet();
+    const { canCreate } = useCreationAccess();
 
     const handleLogout = () => {
         disconnect();
@@ -83,6 +86,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             </Link>
                         );
                     })}
+
+                    {canCreate && (
+                        <Link
+                            href="/admin/create-market"
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 border border-neon-cyan/20 bg-neon-cyan/5 hover:bg-neon-cyan/10",
+                                pathname === "/admin/create-market"
+                                    ? "text-neon-cyan"
+                                    : "text-neon-cyan/80",
+                                collapsed ? "justify-center" : ""
+                            )}
+                            title={collapsed ? "Create Market" : undefined}
+                        >
+                            <PlusCircle className="w-5 h-5 text-neon-cyan" />
+                            {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Market</span>}
+                        </Link>
+                    )}
 
                     {isConnected ? (
                         <div

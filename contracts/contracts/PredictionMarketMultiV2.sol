@@ -65,6 +65,15 @@ contract PredictionMarketMultiV2 is
     uint256 public constant MIN_OUTCOMES = 2;
     uint256 public constant MAX_OUTCOMES = 10;
     
+    // Creation Gating
+    IERC20 public creationToken;
+    uint256 public minCreationBalance;
+    bool public publicCreation; // If true, anyone can create (subject to token limits if set)
+    
+    // Fees
+    uint256 public protocolFee; // In basis points (e.g. 200 = 2%)
+    uint256 public accumulatedFees;
+    
     // Operator (can execute trades on behalf of users)
     mapping(address => bool) public operators;
     
@@ -153,6 +162,7 @@ contract PredictionMarketMultiV2 is
         token = IERC20(_token);
         oracle = OptimisticOracleV3Interface(_oracle);
         assertionBond = 500 * 1e6;
+        protocolFee = 200; // 2% Default
     }
     
     // Required for UUPS upgrades
@@ -161,6 +171,24 @@ contract PredictionMarketMultiV2 is
     function setOperator(address _operator, bool _status) external onlyOwner {
         operators[_operator] = _status;
         emit OperatorUpdated(_operator, _status);
+    }
+
+    function setCreationSettings(address _token, uint256 _minBalance, bool _public) external onlyOwner {
+        creationToken = IERC20(_token);
+        minCreationBalance = _minBalance;
+        publicCreation = _public;
+    }
+
+    function setProtocolFee(uint256 _fee) external onlyOwner {
+        require(_fee <= 1000, "Max fee 10%");
+        protocolFee = _fee;
+    }
+
+    function claimFees() external onlyOwner {
+        uint256 amount = accumulatedFees;
+        require(amount > 0, "No fees");
+        accumulatedFees = 0;
+        require(token.transfer(owner(), amount), "Transfer failed");
     }
 
     function deposit(uint256 amount) external nonReentrant {
@@ -200,7 +228,13 @@ contract PredictionMarketMultiV2 is
         string memory _question,
         string[] memory _outcomes,
         uint256 _durationDays
-    ) external onlyOwner returns (uint256) {
+    ) external returns (uint256) {
+        if (msg.sender != owner()) {
+            require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
+            if (address(creationToken) != address(0)) {
+                require(creationToken.balanceOf(msg.sender) >= minCreationBalance, "Insufficient creation token balance");
+            }
+        }
         if (_outcomes.length < MIN_OUTCOMES || _outcomes.length > MAX_OUTCOMES) {
             revert InvalidOutcomeCount(_outcomes.length);
         }
@@ -423,20 +457,23 @@ contract PredictionMarketMultiV2 is
         }
         
         uint256 cost = calculateCost(_marketId, _outcomeIndex, _shares);
+        uint256 fee = (cost * protocolFee) / 10000;
+        uint256 totalCost = cost + fee;
         
-        if (cost > _maxCost) {
-            revert CostExceedsMax(cost, _maxCost);
+        if (totalCost > _maxCost) {
+            revert CostExceedsMax(totalCost, _maxCost);
         }
-        if (userBalances[msg.sender] < cost) {
-            revert InsufficientBalance(msg.sender, cost, userBalances[msg.sender]);
+        if (userBalances[msg.sender] < totalCost) {
+            revert InsufficientBalance(msg.sender, totalCost, userBalances[msg.sender]);
         }
         
-        userBalances[msg.sender] -= cost;
+        userBalances[msg.sender] -= totalCost;
+        accumulatedFees += fee;
         
         market.shares[_outcomeIndex] += _shares;
         positions[_marketId][msg.sender].shares[_outcomeIndex] += _shares;
         
-        emit SharesPurchased(_marketId, msg.sender, _outcomeIndex, _shares, cost);
+        emit SharesPurchased(_marketId, msg.sender, _outcomeIndex, _shares, totalCost);
     }
     
     function buySharesFor(
@@ -463,20 +500,23 @@ contract PredictionMarketMultiV2 is
         }
         
         uint256 cost = calculateCost(_marketId, _outcomeIndex, _shares);
+        uint256 fee = (cost * protocolFee) / 10000;
+        uint256 totalCost = cost + fee;
         
-        if (cost > _maxCost) {
-            revert CostExceedsMax(cost, _maxCost);
+        if (totalCost > _maxCost) {
+            revert CostExceedsMax(totalCost, _maxCost);
         }
-        if (userBalances[_user] < cost) {
-            revert InsufficientBalance(_user, cost, userBalances[_user]);
+        if (userBalances[_user] < totalCost) {
+            revert InsufficientBalance(_user, totalCost, userBalances[_user]);
         }
         
-        userBalances[_user] -= cost;
+        userBalances[_user] -= totalCost;
+        accumulatedFees += fee;
         
         market.shares[_outcomeIndex] += _shares;
         positions[_marketId][_user].shares[_outcomeIndex] += _shares;
         
-        emit SharesPurchased(_marketId, _user, _outcomeIndex, _shares, cost);
+        emit SharesPurchased(_marketId, _user, _outcomeIndex, _shares, totalCost);
     }
     
     function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) 

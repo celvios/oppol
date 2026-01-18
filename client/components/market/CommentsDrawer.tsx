@@ -16,7 +16,196 @@ interface Comment {
     display_name: string;
     wallet_address: string;
     avatar_url?: string;
+    likes?: number;
+    dislikes?: number;
+    user_vote?: boolean; // true = like, false = dislike, null = none
+    reply_count?: number;
+    parent_id?: string;
+    replies?: Comment[];
 }
+
+import { Heart, ThumbsDown, MessageSquare, ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
+
+const CommentItem = ({ comment, isReply, onReply }: { comment: Comment, isReply: boolean, onReply: (id: string, name: string) => void }) => {
+    const { address } = useWallet();
+    const [likes, setLikes] = useState(parseInt(comment.likes as any || 0));
+    const [dislikes, setDislikes] = useState(parseInt(comment.dislikes as any || 0));
+    const [userVote, setUserVote] = useState<boolean | null>(comment.user_vote ?? null);
+    const [showReplies, setShowReplies] = useState(false);
+    const [replies, setReplies] = useState<Comment[]>([]);
+    const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+
+    const handleVote = async (isLike: boolean) => {
+        if (!address) return; // Prompt login
+
+        // Optimistic UI update
+        const previousVote = userVote;
+
+        if (userVote === isLike) {
+            // Remove vote
+            setUserVote(null);
+            if (isLike) setLikes(prev => prev - 1);
+            else setDislikes(prev => prev - 1);
+        } else {
+            // Change or Add vote
+            if (userVote === !isLike) {
+                // Switch vote
+                if (isLike) { setLikes(prev => prev + 1); setDislikes(prev => prev - 1); }
+                else { setLikes(prev => prev - 1); setDislikes(prev => prev + 1); }
+            } else {
+                // Add new vote
+                if (isLike) setLikes(prev => prev + 1);
+                else setDislikes(prev => prev + 1);
+            }
+            setUserVote(isLike);
+        }
+
+        try {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/comments/${comment.id}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: address,
+                    isLike: userVote === isLike ? null : isLike
+                })
+            });
+        } catch (err) {
+            // Revert on error
+            setUserVote(previousVote);
+        }
+    };
+
+    const toggleReplies = async () => {
+        if (!showReplies && replies.length === 0 && (comment.reply_count || 0) > 0) {
+            setIsLoadingReplies(true);
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/comments/replies/${comment.id}?userId=${address ? encodeURIComponent(address) : ''}`);
+                const data = await res.json();
+                if (data.success) {
+                    setReplies(data.replies);
+                }
+            } catch (err) {
+                console.error("Failed to load replies", err);
+            } finally {
+                setIsLoadingReplies(false);
+            }
+        }
+        setShowReplies(!showReplies);
+    };
+
+    // Formatter
+    const formatTime = (isoString: string) => {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diff = (now.getTime() - date.getTime()) / 1000;
+
+        if (diff < 60) return "Just now";
+        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+        return date.toLocaleDateString();
+    };
+
+    return (
+        <div className={cn("flex flex-col w-full", isReply ? "mt-2 pl-2 border-l-2 border-white/10" : "mb-4")}>
+            <div className="flex gap-3">
+                {/* Avatar */}
+                <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-800 border border-white/10 shrink-0">
+                    <img
+                        src={comment.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${comment.wallet_address}`}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-bold text-white text-sm truncate">{comment.display_name}</span>
+                        <span className="text-white/40 text-xs">@{comment.wallet_address.slice(0, 6)}</span>
+                        <span className="text-white/40 text-[10px]">• {formatTime(comment.created_at)}</span>
+                    </div>
+
+                    {/* Text */}
+                    <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap break-words">{comment.text}</p>
+
+                    {/* Actions Row */}
+                    <div className="flex items-center gap-6 mt-2">
+                        {/* Reply Button */}
+                        <button
+                            onClick={() => onReply(comment.id, comment.display_name)}
+                            className="flex items-center gap-1.5 group text-white/50 hover:text-neon-cyan transition-colors"
+                        >
+                            <MessageSquare className="w-4 h-4" />
+                            <span className="text-xs font-medium">{comment.reply_count || 0 > 0 ? comment.reply_count : 'Reply'}</span>
+                        </button>
+
+                        {/* Like Button */}
+                        <button
+                            onClick={() => handleVote(true)}
+                            className={cn("flex items-center gap-1.5 group transition-colors", userVote === true ? "text-pink-500" : "text-white/50 hover:text-pink-500")}
+                        >
+                            <Heart className={cn("w-4 h-4", userVote === true && "fill-current")} />
+                            <span className="text-xs font-medium">{likes > 0 && likes}</span>
+                        </button>
+
+                        {/* Dislike Button */}
+                        <button
+                            onClick={() => handleVote(false)}
+                            className={cn("flex items-center gap-1.5 group transition-colors", userVote === false ? "text-red-500" : "text-white/50 hover:text-red-500")}
+                        >
+                            <ThumbsDown className={cn("w-4 h-4", userVote === false && "fill-current")} />
+                            <span className="text-xs font-medium">{dislikes > 0 && dislikes}</span>
+                        </button>
+                    </div>
+
+                    {/* View Replies Toggle */}
+                    {(comment.reply_count || 0) > 0 && (
+                        <button
+                            onClick={toggleReplies}
+                            className="mt-2 text-neon-cyan text-xs font-medium flex items-center gap-1 hover:underline"
+                        >
+                            {showReplies ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {showReplies ? "Hide Replies" : `View ${comment.reply_count} replies`}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Nested Replies */}
+            <AnimatePresence>
+                {showReplies && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden ml-4 pl-4"
+                    >
+                        {isLoadingReplies ? (
+                            <div className="py-2 pl-8 flex items-center gap-2 text-white/30 text-xs">
+                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                Loading replies...
+                            </div>
+                        ) : (
+                            replies.map(reply => (
+                                <div className="relative mt-3" key={reply.id}>
+                                    {/* Connecting Line */}
+                                    {/* <div className="absolute -left-6 top-0 bottom-0 w-px bg-white/10 rounded" />
+                                     <div className="absolute -left-6 top-4 w-4 h-px bg-white/10 rounded" /> */}
+                                    <CommentItem
+                                        comment={reply}
+                                        isReply={true}
+                                        onReply={onReply}
+                                    />
+                                </div>
+                            ))
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
 
 interface CommentsDrawerProps {
     marketId: string | number;
@@ -28,6 +217,7 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
     const { address, isConnected, connect } = useWallet();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
+    const [replyTo, setReplyTo] = useState<{ id: string, name: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -112,21 +302,20 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
         console.log('📤 Sending comment via WebSocket:', { marketId, text: newComment, walletAddress: address });
 
         // Send via WebSocket
+        // Send via WebSocket
         socket.emit('send-comment', {
             marketId,
             text: newComment,
-            walletAddress: address
+            walletAddress: address,
+            parentId: replyTo?.id
         });
 
         setNewComment('');
+        setReplyTo(null);
         setIsSending(false);
     };
 
-    // Date formatter
-    const formatTime = (isoString: string) => {
-        const date = new Date(isoString);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
+
 
     return (
         <AnimatePresence>
@@ -184,7 +373,7 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                         {/* Comments List */}
                         <div
                             ref={scrollRef}
-                            className="flex-1 overflow-y-auto p-4 space-y-4"
+                            className="flex-1 overflow-y-auto p-4 space-y-4 font-sans"
                         >
                             {comments.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-text-secondary opacity-50">
@@ -192,69 +381,31 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                                     <p>No comments yet. Be the first!</p>
                                 </div>
                             ) : (
-                                comments.map((c) => {
-                                    const isMe = address && c.wallet_address?.toLowerCase() === address.toLowerCase();
-                                    return (
-                                        <div
-                                            key={c.id}
-                                            className={cn(
-                                                "flex w-full mb-4 items-end gap-2",
-                                                isMe ? "justify-end" : "justify-start"
-                                            )}
-                                        >
-                                            {/* Avatar (Left for others) */}
-                                            {!isMe && (
-                                                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800 border border-white/10 shrink-0">
-                                                    <img
-                                                        src={c.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${c.wallet_address}`}
-                                                        alt="avatar"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className={cn(
-                                                "max-w-[85%] rounded-2xl px-4 py-3 text-sm relative shadow-sm",
-                                                isMe
-                                                    ? "bg-emerald-600 text-white rounded-br-none" // Green for sending
-                                                    : "bg-rose-700 text-white rounded-bl-none" // Red for receiving
-                                            )}>
-                                                {/* Author Name */}
-                                                {!isMe && (
-                                                    <div className="text-[10px] text-white/70 mb-1 font-bold flex items-center gap-1">
-                                                        {c.display_name}
-                                                    </div>
-                                                )}
-
-                                                <p className="leading-relaxed break-words">{c.text}</p>
-
-                                                {/* Timestamp */}
-                                                <div className={cn(
-                                                    "text-[10px] mt-1 opacity-70",
-                                                    isMe ? "text-right" : "text-left"
-                                                )}>
-                                                    {formatTime(c.created_at)}
-                                                </div>
-                                            </div>
-
-                                            {/* Avatar (Right for me) */}
-                                            {isMe && (
-                                                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800 border border-white/10 shrink-0">
-                                                    <img
-                                                        src={c.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${c.wallet_address}`}
-                                                        alt="avatar"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
+                                comments.map((c) => (
+                                    <CommentItem
+                                        key={c.id}
+                                        comment={c}
+                                        isReply={false}
+                                        onReply={(id, name) => setReplyTo({ id, name })}
+                                    />
+                                ))
                             )}
                         </div>
 
                         {/* Input Area */}
-                        <div className="p-4 border-t border-white/10 bg-white/5">
+                        <div className="p-4 border-t border-white/10 bg-white/5 relative z-10">
+                            {replyTo && (
+                                <div className="flex items-center justify-between bg-white/5 px-3 py-1.5 rounded-t-lg text-xs text-white/60">
+                                    <span className="flex items-center gap-1">
+                                        <CornerDownRight className="w-3 h-3" />
+                                        Replying to <span className="text-neon-cyan font-bold">@{replyTo.name}</span>
+                                    </span>
+                                    <button onClick={() => setReplyTo(null)} className="hover:text-white">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
+
                             {!isConnected ? (
                                 <NeonButton
                                     variant="cyan"
@@ -272,7 +423,7 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                                         onFocus={() => useUIStore.getState().setInputFocused(true)}
                                         onBlur={() => useUIStore.getState().setInputFocused(false)}
-                                        placeholder="Type something..."
+                                        placeholder={replyTo ? `Reply to ${replyTo.name}...` : "Type a comment..."}
                                         className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-neon-cyan/50 transition-colors"
                                         disabled={isSending}
                                     />

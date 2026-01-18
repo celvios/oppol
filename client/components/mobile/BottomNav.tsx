@@ -8,12 +8,15 @@ import { twMerge } from "tailwind-merge";
 import { useState } from "react";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
+import { useCreationAccess } from "@/lib/use-creation-access";
+import { PlusCircle } from "lucide-react";
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen, isInputFocused } = useUIStore();
     const { isConnected, address, disconnect, connect } = useWallet();
+    const { canCreate } = useCreationAccess();
     const [showWalletModal, setShowWalletModal] = useState(false);
 
     const handleLogout = () => {
@@ -29,6 +32,7 @@ export default function BottomNav() {
     const navItems = [
         { name: "Terminal", icon: Home, href: "/terminal" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
+        ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
         { name: "Search", icon: Search, href: "/search" },
         { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
     ];
