@@ -9,6 +9,8 @@ import { getContracts } from "@/lib/contracts";
 import { checkAndSwitchNetwork } from "@/lib/web3";
 import { Contract, ethers } from 'ethers';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+import { AlertModal } from "@/components/ui/AlertModal";
+import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -41,6 +43,12 @@ export default function DepositPage() {
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
+
+    // Modal State
+    const [successModalOpen, setSuccessModalOpen] = useState(false);
+    const [errorModalOpen, setErrorModalOpen] = useState(false);
+    const [modalError, setModalError] = useState({ title: '', message: '' });
+    const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDC', hash: '' });
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
@@ -189,21 +197,10 @@ export default function DepositPage() {
                 await zapTx.wait();
             }
 
-            // Add imports at top
-            import { AlertModal } from "@/components/ui/AlertModal";
-            import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
-
-            // ... inside component ...
-            const [successModalOpen, setSuccessModalOpen] = useState(false);
-            const [errorModalOpen, setErrorModalOpen] = useState(false);
-            const [modalError, setModalError] = useState({ title: '', message: '' });
-            const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDC', hash: '' });
-
-            // ... inside handleDeposit success block ...
             setLastDeposit({
                 amount: depositAmount,
                 symbol: selectedToken.symbol,
-                hash: (selectedToken.direct ? '' : '') // You might want to capture tx hash if possible, but for now empty is fine or capture from receipt
+                hash: (selectedToken.direct ? '' : '')
             });
             setSuccessModalOpen(true);
             setDepositAmount('');
