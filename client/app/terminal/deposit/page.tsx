@@ -23,14 +23,18 @@ const MARKET_ABI = [
     { name: 'deposit', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
 ];
 
-const STABLECOINS = [
-    { symbol: 'USDC', address: '0x5931e7b7a700037Fe62b876e28AD7F64dce14d11', decimals: 6, direct: true }, // MockUSDC - direct deposit
-];
+const getStablecoins = () => {
+    const c = getContracts() as any;
+    return [
+        { symbol: 'USDC', address: c.mockUSDC || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b', decimals: 6, direct: true },
+    ];
+};
 
 export default function DepositPage() {
+    const stablecoins = getStablecoins();
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const [copied, setCopied] = useState(false);
-    const [selectedToken, setSelectedToken] = useState(STABLECOINS[0]);
+    const [selectedToken, setSelectedToken] = useState(stablecoins[0]);
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -38,7 +42,10 @@ export default function DepositPage() {
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
-    const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '0x58c957342B8cABB9bE745BeBc09C267b70137959';
+    // Remove hardcoded fallback, strict config should handle it or it returns undefined which crashes (good for fail fast)
+    // Actually getContracts() returns string | undefined. We should trust it or default to empty string to avoid crash but fail cleanly.
+    const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '';
+
 
     async function mintTestTokens() {
         if (!address) return;
@@ -232,7 +239,7 @@ export default function DepositPage() {
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <label className="text-sm font-medium text-white/60 mb-3 block">Select Token</label>
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                                {STABLECOINS.map(token => (
+                                {stablecoins.map(token => (
                                     <button
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
