@@ -8,10 +8,12 @@ import { ethers } from 'ethers';
 // Configuration
 const BNB_WSS_URL = process.env.BNB_WSS_URL || 'wss://bsc-mainnet.blastapi.io/ws'; // For mainnet
 const BNB_TESTNET_WSS = 'wss://bsc-testnet.publicnode.com'; // For testnet
+import { CONFIG } from '../config/contracts';
+
 const LOCAL_WSS = 'ws://127.0.0.1:8545'; // For local hardhat
 
-// USDC Contract (BSC Mainnet: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d)
-const USDC_ADDRESS = process.env.USDC_ADDRESS || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b'; // BSC Testnet
+// USDC Contract
+const USDC_ADDRESS = CONFIG.USDC_CONTRACT;
 
 // ERC20 Transfer event signature
 const TRANSFER_TOPIC = ethers.id('Transfer(address,address,uint256)');

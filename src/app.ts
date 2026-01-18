@@ -1166,7 +1166,8 @@ app.get('/api/admin/stats', async (req, res) => {
     }
 
     // 4. Calculate Total Liquidity
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b';
+    const { CONFIG } = require('./config/contracts');
+    const USDC_ADDR = CONFIG.USDC_CONTRACT;
     const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
     const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
     const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);

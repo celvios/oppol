@@ -4,10 +4,12 @@ import { CustodialWalletService } from '../services/custodialWallet';
 import { ethers } from 'ethers';
 import { EncryptionService } from '../services/encryption';
 
-// Use correct environment variables matching .env
-const MARKET_CONTRACT_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x221C4CFADE97b5d3D8C1016C3FbAe3C23eC79772';
-const USDC_ADDRESS = process.env.USDC_CONTRACT || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b';
-const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+// Use strict config
+import { CONFIG } from '../config/contracts';
+
+const MARKET_CONTRACT_ADDRESS = CONFIG.MARKET_CONTRACT;
+const USDC_ADDRESS = CONFIG.USDC_CONTRACT;
+const RPC_URL = CONFIG.RPC_URL;
 
 // ABI for PredictionMarketMulti contract
 const PREDICTION_MARKET_ABI = [
