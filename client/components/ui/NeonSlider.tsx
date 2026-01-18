@@ -9,10 +9,11 @@ interface NeonSliderProps {
     onConfirm: () => void;
     isLoading?: boolean;
     disabled?: boolean;
-    side: string; // Changed from "YES" | "NO" to support multi-outcome names
+    side: string;
+    color?: string; // Custom color override for multi-outcome support
 }
 
-export default function NeonSlider({ onConfirm, isLoading, disabled, side }: NeonSliderProps) {
+export default function NeonSlider({ onConfirm, isLoading, disabled, side, color }: NeonSliderProps) {
     const [complete, setComplete] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
@@ -26,7 +27,6 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
                 const containerWidth = containerRef.current.offsetWidth;
                 const newLimit = containerWidth - 56; // Container width minus handle size
                 setDragLimit(newLimit);
-                console.log('Updated drag limit:', newLimit);
             }
         };
 
@@ -38,9 +38,13 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
     const backgroundWidth = useTransform(x, [0, dragLimit], [56, dragLimit + 56]);
     const progressOpacity = useTransform(x, [0, dragLimit * 0.5, dragLimit], [0.3, 0.6, 1]);
 
-    const colorClass = side === "YES" ? "bg-outcome-a" : "bg-outcome-b";
-    const shadowClass = side === "YES" ? "shadow-[0_0_30px_rgba(74,222,128,0.6)]" : "shadow-[0_0_30px_rgba(248,113,113,0.6)]";
-    const textClass = side === "YES" ? "text-outcome-a" : "text-outcome-b";
+    // Use custom color if provided, otherwise fallback to standard YES/NO logic
+    const colorStyle = color ? { backgroundColor: color, color: color } : {};
+    const shadowStyle = color ? { boxShadow: `0 0 30px ${color}60` } : {};
+
+    const colorClass = color ? "" : (side === "YES" ? "bg-outcome-a" : "bg-outcome-b");
+    const shadowClass = color ? "" : (side === "YES" ? "shadow-[0_0_30px_rgba(74,222,128,0.6)]" : "shadow-[0_0_30px_rgba(248,113,113,0.6)]");
+    const textClass = color ? "" : (side === "YES" ? "text-outcome-a" : "text-outcome-b");
 
     const handleDragEnd = () => {
         const currentX = x.get();
@@ -80,13 +84,16 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
         >
             {/* Progress Fill */}
             <motion.div
-                style={{ width: backgroundWidth, opacity: progressOpacity }}
+                style={{ width: backgroundWidth, opacity: progressOpacity, ...colorStyle, color: undefined }} // Set bg color via style
                 className={twMerge("absolute inset-y-0 left-0 h-full rounded-full", colorClass)}
             />
 
             {/* Text */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <span className={twMerge("font-heading font-bold tracking-widest text-sm", isLoading ? "text-white" : textClass)}>
+                <span
+                    className={twMerge("font-heading font-bold tracking-widest text-sm", isLoading ? "text-white" : textClass)}
+                    style={(!isLoading && color) ? { color: color } : {}}
+                >
                     {isLoading ? (
                         <span className="flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -95,7 +102,7 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
                     ) : complete ? (
                         "CONFIRMED!"
                     ) : (
-                        `SLIDE TO ${side}`
+                        `SLIDE TO BUY ${side}`
                     )}
                 </span>
             </div>
@@ -107,7 +114,7 @@ export default function NeonSlider({ onConfirm, isLoading, disabled, side }: Neo
                 dragElastic={0} // No elastic/bounce
                 dragMomentum={false}
                 onDragEnd={handleDragEnd}
-                style={{ x }}
+                style={{ x, ...colorStyle, color: undefined, ...shadowStyle }}
                 whileDrag={{ scale: 1.05 }}
                 className={twMerge(
                     "absolute top-1 left-1 w-12 h-12 rounded-full cursor-grab active:cursor-grabbing flex items-center justify-center z-20",

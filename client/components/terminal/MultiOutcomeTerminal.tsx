@@ -511,14 +511,13 @@ export function MultiOutcomeTerminal() {
                                 CONNECT WALLET TO TRADE
                             </NeonButton>
                         ) : (
-                            <NeonButton
-                                onClick={handleTrade}
-                                variant="cyan"
-                                className="w-full py-4"
+                            <NeonSlider
+                                onConfirm={handleTrade}
+                                isLoading={isTradeLoading}
+                                side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
+                                color={OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length]}
                                 disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
-                            >
-                                {isTradeLoading ? 'PROCESSING...' : `BUY ${(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}`}
-                            </NeonButton>
+                            />
                         )}
                     </div>
                 </GlassCard>
