@@ -11,7 +11,7 @@ const BNB_TESTNET_WSS = 'wss://bsc-testnet.publicnode.com'; // For testnet
 const LOCAL_WSS = 'ws://127.0.0.1:8545'; // For local hardhat
 
 // USDC Contract (BSC Mainnet: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d)
-const USDC_ADDRESS = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0'; // BSC Testnet
+const USDC_ADDRESS = process.env.USDC_ADDRESS || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b'; // BSC Testnet
 
 // ERC20 Transfer event signature
 const TRANSFER_TOPIC = ethers.id('Transfer(address,address,uint256)');

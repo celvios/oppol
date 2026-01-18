@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 
 // Configuration
 const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0x221C4CFADE97b5d3D8C1016C3FbAe3C23eC79772';
 
 const MARKET_ABI = [
     'function marketCount() view returns (uint256)',
