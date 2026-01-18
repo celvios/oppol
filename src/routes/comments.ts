@@ -7,26 +7,25 @@ const router = express.Router();
 router.get('/:marketId', async (req, res) => {
     try {
         const { marketId } = req.params;
-        const { limit = 50, offset = 0, userId } = req.query; // userId optional to check if liked
+        const { limit = 50, offset = 0, userId } = req.query;
 
-        // Fetch top-level comments with stats
-        const result = await query(
-            `SELECT c.id, c.market_id, c.text, c.created_at, c.parent_id,
-                    u.wallet_address, 
-                    COALESCE(u.display_name, u.phone_number, 'Web User') as display_name,
-                    u.avatar_url,
-                    (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = TRUE) as likes,
-                    (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = FALSE) as dislikes,
-                    (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) as reply_count,
-                    ${userId ? `(SELECT is_like FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $4) as user_vote,` : 'NULL as user_vote,'}
-                    CASE WHEN c.parent_id IS NULL THEN 'ROOT' ELSE 'REPLY' END as type
-             FROM comments c
-             JOIN users u ON c.user_id = u.id
-             WHERE c.market_id = $1 AND c.parent_id IS NULL
-             ORDER BY c.created_at DESC
-             LIMIT $2 OFFSET $3`,
-            userId ? [marketId, limit, offset, userId] : [marketId, limit, offset]
-        );
+        // Build query dynamically based on userId presence
+        let sql = `
+            SELECT c.id, c.market_id, c.text, c.created_at, c.parent_id,
+                   u.wallet_address, 
+                   COALESCE(u.display_name, u.phone_number, 'Web User') as display_name,
+                   u.avatar_url,
+                   (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = TRUE)::int as likes,
+                   (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = FALSE)::int as dislikes,
+                   (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id)::int as reply_count
+            FROM comments c
+            JOIN users u ON c.user_id = u.id
+            WHERE c.market_id = $1 AND c.parent_id IS NULL
+            ORDER BY c.created_at DESC
+            LIMIT $2 OFFSET $3
+        `;
+
+        const result = await query(sql, [marketId, limit, offset]);
 
         res.json({ success: true, comments: result.rows });
     } catch (error: any) {
