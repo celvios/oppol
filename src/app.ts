@@ -916,7 +916,9 @@ app.get('/api/markets', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
+      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+      'function getMarketOutcomes(uint256) view returns (string[])',
+      'function getAllPrices(uint256) view returns (uint256[])'
     ];
 
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
@@ -957,23 +959,38 @@ app.get('/api/markets', async (req, res) => {
     for (let i = 0; i < Number(count); i++) {
       try {
         console.log(`[Markets API] Fetching market ${i}...`);
-        const m = await marketContract.getMarketBasicInfo(i);
-        console.log(`[Markets API] Market ${i} question: ${m.question}`);
+
+        // Fetch complete market data including prices and outcomes
+        const [basicInfo, outcomes, prices] = await Promise.all([
+          marketContract.getMarketBasicInfo(i),
+          marketContract.getMarketOutcomes(i),
+          marketContract.getAllPrices(i)
+        ]);
+
+        console.log(`[Markets API] Market ${i} question: ${basicInfo.question}`);
         const metadata = metadataMap[i] || {};
 
         markets.push({
           market_id: i,
-          question: m.question,
+          question: basicInfo.question,
           description: metadata.description || '',
           image_url: metadata.image || '',
-          category_id: metadata.category || ''
+          category_id: metadata.category || '',
+          // Add complete market state data
+          outcomes: outcomes,
+          prices: prices.map((p: bigint) => Number(p) / 100), // Convert to percentage
+          outcomeCount: Number(basicInfo.outcomeCount),
+          endTime: Number(basicInfo.endTime),
+          liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
+          resolved: basicInfo.resolved,
+          winningOutcome: Number(basicInfo.winningOutcome)
         });
       } catch (err: any) {
         console.error(`[Markets API] Error fetching market ${i}:`, err.message || err);
       }
     }
 
-    console.log(`[Markets API] Returning ${markets.length} markets`);
+    console.log(`[Markets API] Returning ${markets.length} markets with full data`);
 
     return res.json({ success: true, markets });
   } catch (error: any) {
