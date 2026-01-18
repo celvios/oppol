@@ -123,10 +123,15 @@ bot.on('callback_query', async (query) => {
                 const balance = await API.getUserBalance(chatId);
                 const userResult = await API.getOrCreateUser(chatId, query.from?.username);
 
+                // Better display logic: Show Username if exists, otherwise First Name
+                const hasUsername = !!query.from?.username;
+                const displayLabel = hasUsername ? 'Username' : 'Name';
+                const displayValue = hasUsername ? `@${query.from.username}` : (query.from?.first_name || 'User');
+
                 bot.sendMessage(chatId,
                     `👤 *Your Profile*\n\n` +
                     `Telegram ID: ${chatId}\n` +
-                    `Username: @${escapeMarkdown(query.from?.username || 'N/A')}\n` +
+                    `${displayLabel}: ${escapeMarkdown(displayValue)}\n` +
                     `Wallet: ${userResult.user?.wallet_address?.substring(0, 10)}...\n` +
                     `Balance: ${balance} USDC`,
                     {
