@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle, Clock, AlertTriangle, Search } from "lucide-react";
+import { Loader2, CheckCircle, Clock, AlertTriangle, Search, Trash2 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 
@@ -85,6 +85,36 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
         }
     };
 
+    const handleDelete = async (id: number) => {
+        if (!confirm(`Are you sure you want to delete Market #${id}? This will remove it from the app (DB) but it remains on-chain.`)) {
+            return;
+        }
+
+        setIsSubmitting(true); // Re-using state, better to separate or rename but acceptable for now
+        try {
+            const res = await fetch('/api/admin/delete-market', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-secret': adminKey
+                },
+                body: JSON.stringify({ marketId: id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Remove locally to avoid full refetch delay
+                setMarkets(prev => prev.filter(m => m.id !== id));
+                alert("Market Deleted from DB");
+            } else {
+                alert("Error: " + data.error);
+            }
+        } catch (e) {
+            alert("Network Error");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <h2 className="text-xl font-bold text-white mb-4">Market Management</h2>
@@ -112,6 +142,14 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                             </div>
 
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleDelete(m.id)}
+                                    className="p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mr-2"
+                                    title="Delete from DB"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+
                                 {m.status === 'ENDED' && (
                                     <NeonButton
                                         variant="primary"

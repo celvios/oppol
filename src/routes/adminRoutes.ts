@@ -64,6 +64,40 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
     }
 });
 
+router.post('/delete-market', checkAdminAuth, async (req, res) => {
+    try {
+        const { marketId } = req.body;
+
+        if (marketId === undefined) {
+            return res.status(400).json({ success: false, error: 'Missing marketId' });
+        }
+
+        console.log(`[Admin] Deleting Market ID ${marketId}`);
+
+        // Delete from DB
+        // Note: This only removes it from the off-chain database logic.
+        // It does NOT remove it from the blockchain (blockchains are immutable).
+        // It just hides it from the UI.
+        const result = await query('DELETE FROM markets WHERE market_id = $1', [marketId]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Market not found in database' });
+        }
+
+        console.log(`[Admin] Market ${marketId} deleted from DB`);
+
+        return res.json({
+            success: true,
+            marketId,
+            message: 'Market deleted from database'
+        });
+
+    } catch (error: any) {
+        console.error('[Admin] Delete Error:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Delete failed' });
+    }
+});
+
 // GET /users - List all users with balances
 router.get('/users', checkAdminAuth, async (req, res) => {
     try {
