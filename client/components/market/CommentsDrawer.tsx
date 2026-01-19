@@ -50,11 +50,13 @@ const formatTime = (isoString?: string) => {
 const CommentItem = ({
     comment,
     onReply,
-    level = 0
+    level = 0,
+    marketId
 }: {
     comment: Comment,
     onReply: (id: string, name: string) => void,
-    level?: number
+    level?: number,
+    marketId: string | number
 }) => {
     const { address } = useWallet();
     const [likes, setLikes] = useState(parseInt(comment.likes as any || 0));
@@ -66,6 +68,21 @@ const CommentItem = ({
     const [replies, setReplies] = useState<Comment[]>(comment.replies || []);
     const [showReplies, setShowReplies] = useState(false);
     const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+
+    // Listen for vote updates from other users
+    useEffect(() => {
+        const socket = getSocket();
+        const handleVoteUpdate = (data: { commentId: string; likes: number; dislikes: number }) => {
+            if (data.commentId === comment.id) {
+                setLikes(data.likes);
+                setDislikes(data.dislikes);
+            }
+        };
+        socket.on('vote-update', handleVoteUpdate);
+        return () => {
+            socket.off('vote-update', handleVoteUpdate);
+        };
+    }, [comment.id]);
 
     // Sync local replies if prop updates
     useEffect(() => {
@@ -86,6 +103,9 @@ const CommentItem = ({
         const previousLikes = likes;
         const previousDislikes = dislikes;
 
+        // Determine the new vote value
+        const newVote = userVote === isLike ? null : isLike;
+
         // Optimistic Update
         if (userVote === isLike) {
             // Removing vote
@@ -95,10 +115,8 @@ const CommentItem = ({
         } else {
             // Adding or switching vote
             if (userVote === true) {
-                // Was like, now switching
                 setLikes(p => Math.max(0, p - 1));
             } else if (userVote === false) {
-                // Was dislike, now switching
                 setDislikes(p => Math.max(0, p - 1));
             }
 
@@ -108,11 +126,14 @@ const CommentItem = ({
             setUserVote(isLike);
         }
 
+        // Emit via socket so all users get the update
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/comments/${comment.id}/vote`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ walletAddress: address, isLike: userVote === isLike ? null : isLike })
+            const socket = getSocket();
+            socket.emit('vote-comment', {
+                marketId: String(marketId),
+                commentId: comment.id,
+                walletAddress: address,
+                isLike: newVote
             });
         } catch (err) {
             // Rollback on error
@@ -253,6 +274,7 @@ const CommentItem = ({
                                 comment={reply}
                                 onReply={onReply}
                                 level={level + 1}
+                                marketId={marketId}
                             />
                         ))}
                     </motion.div>
@@ -456,6 +478,7 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                                             <CommentItem
                                                 comment={c}
                                                 onReply={handleReplyClick}
+                                                marketId={marketId}
                                             />
                                         </div>
                                     ))

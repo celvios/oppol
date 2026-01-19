@@ -1699,6 +1699,65 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle comment vote (like/dislike) - broadcast to all users
+  socket.on('vote-comment', async (data: { marketId: string; commentId: string; walletAddress: string; isLike: boolean | null }) => {
+    console.log('👍 Received vote-comment event:', data);
+    try {
+      const { marketId, commentId, walletAddress, isLike } = data;
+
+      // Find user
+      const userResult = await query(
+        'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+        [walletAddress.toLowerCase()]
+      );
+
+      if (userResult.rows.length === 0) {
+        socket.emit('vote-error', { error: 'User not found' });
+        return;
+      }
+      const userId = userResult.rows[0].id;
+
+      if (isLike === null) {
+        // Remove vote
+        await query('DELETE FROM comment_likes WHERE comment_id = $1 AND user_id = $2', [commentId, userId]);
+      } else {
+        // Upsert vote
+        await query(
+          `INSERT INTO comment_likes (comment_id, user_id, is_like)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (comment_id, user_id) 
+           DO UPDATE SET is_like = $3`,
+          [commentId, userId, isLike]
+        );
+      }
+
+      // Get updated vote counts
+      const likesResult = await query(
+        'SELECT COUNT(*) as count FROM comment_likes WHERE comment_id = $1 AND is_like = true',
+        [commentId]
+      );
+      const dislikesResult = await query(
+        'SELECT COUNT(*) as count FROM comment_likes WHERE comment_id = $1 AND is_like = false',
+        [commentId]
+      );
+
+      const voteCounts = {
+        commentId,
+        marketId,
+        likes: parseInt(likesResult.rows[0].count),
+        dislikes: parseInt(dislikesResult.rows[0].count)
+      };
+
+      // Broadcast to all clients in the market room
+      console.log(`📡 Broadcasting vote update to market-${marketId}:`, voteCounts);
+      io.to(`market-${marketId}`).emit('vote-update', voteCounts);
+
+    } catch (error: any) {
+      console.error('❌ Socket vote error:', error);
+      socket.emit('vote-error', { error: error.message });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('❌ WebSocket client disconnected:', socket.id);
   });
