@@ -1566,14 +1566,14 @@ app.post('/api/register', async (req, res) => {
       // Update existing user
       const updateRes = await query(
         'UPDATE users SET display_name = $1, avatar_url = $2 WHERE id = $3 RETURNING *',
-        [username, avatarUrl, userRes.rows[0].id]
+        [username.toLowerCase(), avatarUrl, userRes.rows[0].id]
       );
       user = updateRes.rows[0];
     } else {
       // Create new user
       const insertRes = await query(
         'INSERT INTO users (wallet_address, display_name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
-        [walletAddress, username, avatarUrl]
+        [walletAddress, username.toLowerCase(), avatarUrl]
       );
       user = insertRes.rows[0];
     }

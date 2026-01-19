@@ -60,7 +60,7 @@ export default function LogoBrand({ size = "md", className, href = "/", animate 
                     textShadow: "0 0 20px rgba(0,255,255,0.3)",
                 }}
             >
-                POLL
+                Poll
             </span>
         </motion.div>
     );
