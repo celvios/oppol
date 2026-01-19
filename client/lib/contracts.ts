@@ -13,22 +13,21 @@ const getEnv = (key: string, fallback?: string): string => {
 
 export const CONTRACTS = {
     predictionMarket: getEnv('NEXT_PUBLIC_MARKET_ADDRESS', ''),
+    predictionMarketMulti: getEnv('NEXT_PUBLIC_MARKET_ADDRESS', ''),
     mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT', ''),
+    usdc: getEnv('NEXT_PUBLIC_USDC_CONTRACT', ''),
     zap: getEnv('NEXT_PUBLIC_ZAP_ADDRESS', ''),
     oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS', '')
 };
 
 export const NETWORK = {
-    chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 56), // Default to Mainnet
-    name: process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Smart Chain',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com',
-    explorer: process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://bscscan.com'
+    chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 97), // Default to BSC Testnet
+    name: process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Smart Chain Testnet',
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com',
+    explorer: process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://testnet.bscscan.com'
 };
 
 // Backwards compatibility alias
-export const NETWORKS = {
-    current: NETWORK
-};
-
-export const getCurrentNetwork = () => NETWORK;
 export const getContracts = () => CONTRACTS;
+export const getCurrentNetwork = () => NETWORK;
+
