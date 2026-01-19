@@ -27,18 +27,32 @@ const MARKET_ABI = [
     { name: 'deposit', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
 ];
 
-const getStablecoins = () => {
+// Mainnet Token Addresses (BSC)
+const TOKENS = {
+    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    USDT: '0x55d398326f99059fF775485246999027B3197955',
+    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    DAI: '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3'
+};
+
+const getTokens = () => {
     const c = getContracts() as any;
+    // Use env var or fall back to known Mainnet address
+    const usdcAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDC;
+
     return [
-        { symbol: 'USDC', address: c.mockUSDC || '0xa7d8e3da8CAc0083B46584F416b98AB934a1Ed0b', decimals: 6, direct: true },
+        { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true }, // USDC is 18 decimals on BSC? No, check below.
+        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false },
+        { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false },
+        { symbol: 'DAI', address: TOKENS.DAI, decimals: 18, direct: false },
     ];
 };
 
 export default function DepositPage() {
-    const stablecoins = getStablecoins();
+    const tokens = getTokens();
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const [copied, setCopied] = useState(false);
-    const [selectedToken, setSelectedToken] = useState(stablecoins[0]);
+    const [selectedToken, setSelectedToken] = useState(tokens[0]);
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -279,8 +293,8 @@ export default function DepositPage() {
                     <div className="space-y-4">
                         <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                             <label className="text-sm font-medium text-white/60 mb-3 block">Select Token</label>
-                            <div className="grid grid-cols-3 gap-2 mb-4">
-                                {stablecoins.map(token => (
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                {tokens.map((token) => (
                                     <button
                                         key={token.symbol}
                                         onClick={() => setSelectedToken(token)}
