@@ -22,7 +22,8 @@ export default function SystemHealth({ adminKey }: { adminKey: string }) {
 
     const fetchHealth = async () => {
         try {
-            const res = await fetch('/api/admin/health', {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${apiUrl}/api/admin/health`, {
                 headers: { 'x-admin-secret': adminKey }
             });
             const data = await res.json();
