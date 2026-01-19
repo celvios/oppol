@@ -40,24 +40,32 @@ export class Web3MultiService {
         const marketAddress = contracts.predictionMarketMulti;
 
 
-        // Only instantiate if address is present
-        if (contracts.predictionMarketMulti) {
-            this.predictionMarket = new ethers.Contract(
-                contracts.predictionMarketMulti,
-                PREDICTION_MARKET_MULTI_ABI,
-                this.provider
-            );
+        // Only instantiate if address is present and valid
+        if (contracts.predictionMarketMulti && contracts.predictionMarketMulti !== "") {
+            try {
+                this.predictionMarket = new ethers.Contract(
+                    contracts.predictionMarketMulti,
+                    PREDICTION_MARKET_MULTI_ABI,
+                    this.provider
+                );
+            } catch (e) {
+                console.error('[Web3Multi] Failed to instantiate Market Contract:', e);
+            }
         } else {
             console.warn('[Web3Multi] Missing Market Contract Address - Service execution will be limited');
         }
 
         const usdcAddress = (contracts as any).mockUSDC || (contracts as any).usdc;
-        if (usdcAddress) {
-            this.usdc = new ethers.Contract(
-                usdcAddress,
-                USDC_ABI,
-                this.provider
-            );
+        if (usdcAddress && usdcAddress !== "") {
+            try {
+                this.usdc = new ethers.Contract(
+                    usdcAddress,
+                    USDC_ABI,
+                    this.provider
+                );
+            } catch (e) {
+                console.error('[Web3Multi] Failed to instantiate USDC Contract:', e);
+            }
         }
     }
 

@@ -12,8 +12,8 @@ const getEnv = (key: string, fallback?: string): string => {
 };
 
 export const CONTRACTS = {
-    predictionMarket: getEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
-    mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT'),
+    predictionMarket: getEnv('NEXT_PUBLIC_MARKET_ADDRESS', ''),
+    mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT', ''),
     zap: getEnv('NEXT_PUBLIC_ZAP_ADDRESS', ''),
     oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS', '')
 };
