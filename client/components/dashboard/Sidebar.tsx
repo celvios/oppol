@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useCreationAccess } from "@/lib/use-creation-access";
 import { PlusCircle } from "lucide-react";
-import LogoBrand from "@/components/ui/LogoBrand";
 
 const navItems = [
     { name: "Terminal", href: "/terminal", icon: Home },
@@ -40,20 +40,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     collapsed ? "w-20" : "w-64"
                 )}
             >
-                {/* Header / Toggle */}
+                {/* Header / Logo */}
                 <div className="mb-6 flex items-center justify-between px-2">
+                    <Link href="/" className="flex items-center group">
+                        <Image
+                            src="/Opollll.jpg"
+                            alt="OPoll"
+                            width={collapsed ? 40 : 120}
+                            height={collapsed ? 40 : 36}
+                            className={cn(
+                                "object-contain transition-all duration-300",
+                                collapsed ? "w-10 h-10" : "h-9 w-auto"
+                            )}
+                            priority
+                        />
+                    </Link>
                     {!collapsed && (
-                        <LogoBrand size="md" href="/" />
+                        <button
+                            onClick={onToggle}
+                            className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                        >
+                            <ArrowDownRight className="rotate-[135deg]" />
+                        </button>
                     )}
-                    <button
-                        onClick={onToggle}
-                        className={cn(
-                            "p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors",
-                            collapsed ? "mx-auto" : ""
-                        )}
-                    >
-                        {collapsed ? <ArrowUpRight className="rotate-45" /> : <ArrowDownRight className="rotate-[135deg]" />}
-                    </button>
                 </div>
 
                 {/* Navigation */}
