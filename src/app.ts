@@ -1132,8 +1132,12 @@ app.get('/api/admin/stats', async (req, res) => {
 
     // 3. Get Active Markets (from contract) + Expiring Soon
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+    const chainId = parseInt(process.env.CHAIN_ID || '97');
+    // Create provider without enforcing chain ID to avoid network mismatch errors
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717';
+
+    console.log(`[Admin Stats] Using RPC: ${rpcUrl}, Chain: ${chainId}`);
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
@@ -1182,16 +1186,22 @@ app.get('/api/admin/stats', async (req, res) => {
       activeMarkets = marketCount;
     }
 
-    // 4. Calculate Total Liquidity
-    const { CONFIG } = require('./config/contracts');
-    const USDC_ADDR = CONFIG.USDC_CONTRACT;
-    const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
-    const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
-    const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);
-    const totalLiquidity = parseFloat(ethers.formatUnits(contractBalanceWei, 6));
-
-    // Liquidity Trend (simple: if > 0, stable; else new)
-    const liquidityTrend = totalLiquidity > 0 ? 'Stable' : 'Awaiting deposits';
+    // 4. Calculate Total Liquidity (with error handling)
+    let totalLiquidity = 0;
+    let liquidityTrend = 'Unknown';
+    try {
+      const USDC_ADDR = process.env.USDC_CONTRACT || process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+      console.log(`[Admin Stats] Fetching USDC balance from ${USDC_ADDR} for market ${MARKET_ADDR}`);
+      const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+      const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+      const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);
+      totalLiquidity = parseFloat(ethers.formatUnits(contractBalanceWei, 6));
+      liquidityTrend = totalLiquidity > 0 ? 'Stable' : 'Awaiting deposits';
+      console.log(`[Admin Stats] Total liquidity: $${totalLiquidity}`);
+    } catch (e: any) {
+      console.error(`[Admin Stats] Liquidity check FAILED: ${e.message}`);
+      liquidityTrend = 'Error fetching';
+    }
 
     return res.json({
       success: true,
