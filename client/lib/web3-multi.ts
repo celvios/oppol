@@ -29,8 +29,8 @@ const USDC_ABI = [
 
 export class Web3MultiService {
     private provider: ethers.JsonRpcProvider;
-    private predictionMarket: ethers.Contract;
-    private usdc: ethers.Contract;
+    private predictionMarket: ethers.Contract | null = null;
+    private usdc: ethers.Contract | null = null;
 
     constructor() {
         const network = getCurrentNetwork();

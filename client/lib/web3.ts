@@ -52,8 +52,8 @@ export interface Market {
 
 export class Web3Service {
     private provider: ethers.JsonRpcProvider;
-    private predictionMarket: ethers.Contract;
-    private usdc: ethers.Contract;
+    private predictionMarket: ethers.Contract | null = null;
+    private usdc: ethers.Contract | null = null;
 
     constructor() {
         const network = getCurrentNetwork();
@@ -62,19 +62,34 @@ export class Web3Service {
         const contracts = getContracts() as any;
 
         // Use the unified multi-outcome contract
+        // Use the unified multi-outcome contract
         const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
-        this.predictionMarket = new ethers.Contract(
-            marketAddress,
-            PREDICTION_MARKET_MULTI_ABI,
-            this.provider
-        );
+        if (marketAddress && marketAddress !== "") {
+            try {
+                this.predictionMarket = new ethers.Contract(
+                    marketAddress,
+                    PREDICTION_MARKET_MULTI_ABI,
+                    this.provider
+                );
+            } catch (e) {
+                console.error('[Web3Service] Failed to instantiate Market Contract:', e);
+            }
+        } else {
+            console.warn('[Web3Service] Missing Market Contract Address');
+        }
 
         const usdcAddress = contracts.mockUSDC || contracts.usdc;
-        this.usdc = new ethers.Contract(
-            usdcAddress,
-            USDC_ABI,
-            this.provider
-        );
+        if (usdcAddress && usdcAddress !== "") {
+            try {
+                this.usdc = new ethers.Contract(
+                    usdcAddress,
+                    USDC_ABI,
+                    this.provider
+                );
+            } catch (e) {
+                console.error('[Web3Service] Failed to instantiate USDC Contract:', e);
+            }
+        }
     }
 
     /**
@@ -152,6 +167,7 @@ export class Web3Service {
      * Calculate cost to buy shares
      */
     async calculateCost(marketId: number, isYes: boolean, shares: number): Promise<string> {
+        if (!this.predictionMarket) return '0';
         try {
             // Convert boolean isYes to outcomeIndex (0 = Yes, 1 = No for binary markets)
             const outcomeIndex = isYes ? 0 : 1;
