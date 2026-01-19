@@ -1566,14 +1566,14 @@ app.post('/api/register', async (req, res) => {
       // Update existing user
       const updateRes = await query(
         'UPDATE users SET display_name = $1, avatar_url = $2 WHERE id = $3 RETURNING *',
-        [username.toLowerCase(), avatarUrl, userRes.rows[0].id]
+        [username, avatarUrl, userRes.rows[0].id]
       );
       user = updateRes.rows[0];
     } else {
       // Create new user
       const insertRes = await query(
         'INSERT INTO users (wallet_address, display_name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
-        [walletAddress, username.toLowerCase(), avatarUrl]
+        [walletAddress, username, avatarUrl]
       );
       user = insertRes.rows[0];
     }
@@ -1681,13 +1681,11 @@ io.on('connection', (socket) => {
         avatar_url: user.avatar_url,
         likes: 0,
         dislikes: 0,
-        market_id: marketId, // Include market_id for frontend filtering
-        parent_id: parentId ?? null,
+        parent_id: parentId || null,
         reply_count: 0
       };
 
       // Broadcast to all clients in the market room
-      console.log(`📡 Broadcasting comment to market-${marketId}... payload:`, newComment);
       console.log(`📡 Broadcasting comment to market-${marketId}...`);
       io.to(`market-${marketId}`).emit('new-comment', newComment);
       console.log(`📨 Comment broadcast successful:`, newComment);
@@ -1696,65 +1694,6 @@ io.on('connection', (socket) => {
       console.error('❌ Socket comment error:', error);
       console.error('❌ Error stack:', error.stack);
       socket.emit('comment-error', { error: error.message });
-    }
-  });
-
-  // Handle comment vote (like/dislike) - broadcast to all users
-  socket.on('vote-comment', async (data: { marketId: string; commentId: string; walletAddress: string; isLike: boolean | null }) => {
-    console.log('👍 Received vote-comment event:', data);
-    try {
-      const { marketId, commentId, walletAddress, isLike } = data;
-
-      // Find user
-      const userResult = await query(
-        'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-        [walletAddress.toLowerCase()]
-      );
-
-      if (userResult.rows.length === 0) {
-        socket.emit('vote-error', { error: 'User not found' });
-        return;
-      }
-      const userId = userResult.rows[0].id;
-
-      if (isLike === null) {
-        // Remove vote
-        await query('DELETE FROM comment_likes WHERE comment_id = $1 AND user_id = $2', [commentId, userId]);
-      } else {
-        // Upsert vote
-        await query(
-          `INSERT INTO comment_likes (comment_id, user_id, is_like)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (comment_id, user_id) 
-           DO UPDATE SET is_like = $3`,
-          [commentId, userId, isLike]
-        );
-      }
-
-      // Get updated vote counts
-      const likesResult = await query(
-        'SELECT COUNT(*) as count FROM comment_likes WHERE comment_id = $1 AND is_like = true',
-        [commentId]
-      );
-      const dislikesResult = await query(
-        'SELECT COUNT(*) as count FROM comment_likes WHERE comment_id = $1 AND is_like = false',
-        [commentId]
-      );
-
-      const voteCounts = {
-        commentId,
-        marketId,
-        likes: parseInt(likesResult.rows[0].count),
-        dislikes: parseInt(dislikesResult.rows[0].count)
-      };
-
-      // Broadcast to all clients in the market room
-      console.log(`📡 Broadcasting vote update to market-${marketId}:`, voteCounts);
-      io.to(`market-${marketId}`).emit('vote-update', voteCounts);
-
-    } catch (error: any) {
-      console.error('❌ Socket vote error:', error);
-      socket.emit('vote-error', { error: error.message });
     }
   });
 

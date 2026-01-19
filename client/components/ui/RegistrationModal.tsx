@@ -79,7 +79,7 @@ export default function RegistrationModal({ isOpen, onRegister }: RegistrationMo
 
                         <div>
                             <h2 className="text-3xl font-heading font-bold text-white mb-2">
-                                Who are you?! 🥸
+                                Who are you?! 😎🔶
                             </h2>
                             <p className="text-gray-400">
                                 Connect a name to that fancy wallet address.
@@ -121,10 +121,9 @@ export default function RegistrationModal({ isOpen, onRegister }: RegistrationMo
 
                             <NeonButton
                                 variant="cyan"
-                                size="lg"
-                                className="w-full text-lg py-6"
+                                className="w-full"
                                 onClick={handleSubmit}
-                                disabled={loading}
+                                disabled={!username.trim()}
                             >
                                 {loading ? 'Making magic happens...' : '✨ Let Me In! ✨'}
                             </NeonButton>

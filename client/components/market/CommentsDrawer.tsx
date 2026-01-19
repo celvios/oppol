@@ -23,7 +23,6 @@ interface Comment {
     reply_count?: number;
     parent_id?: string;
     replies?: Comment[];
-    market_id?: number | string;
 }
 
 interface CommentsDrawerProps {
@@ -50,39 +49,20 @@ const formatTime = (isoString?: string) => {
 const CommentItem = ({
     comment,
     onReply,
-    level = 0,
-    marketId
+    level = 0
 }: {
     comment: Comment,
     onReply: (id: string, name: string) => void,
-    level?: number,
-    marketId: string | number
+    level?: number
 }) => {
     const { address } = useWallet();
     const [likes, setLikes] = useState(parseInt(comment.likes as any || 0));
-    const [dislikes, setDislikes] = useState(parseInt(comment.dislikes as any || 0));
     const [userVote, setUserVote] = useState<boolean | null>(comment.user_vote ?? null);
-    const [isAnimating, setIsAnimating] = useState<'like' | 'dislike' | null>(null);
 
     // Reply handling
     const [replies, setReplies] = useState<Comment[]>(comment.replies || []);
     const [showReplies, setShowReplies] = useState(false);
     const [isLoadingReplies, setIsLoadingReplies] = useState(false);
-
-    // Listen for vote updates from other users
-    useEffect(() => {
-        const socket = getSocket();
-        const handleVoteUpdate = (data: { commentId: string; likes: number; dislikes: number }) => {
-            if (data.commentId === comment.id) {
-                setLikes(data.likes);
-                setDislikes(data.dislikes);
-            }
-        };
-        socket.on('vote-update', handleVoteUpdate);
-        return () => {
-            socket.off('vote-update', handleVoteUpdate);
-        };
-    }, [comment.id]);
 
     // Sync local replies if prop updates
     useEffect(() => {
@@ -95,51 +75,30 @@ const CommentItem = ({
         e.stopPropagation();
         if (!address) return;
 
-        // Trigger animation
-        setIsAnimating(isLike ? 'like' : 'dislike');
-        setTimeout(() => setIsAnimating(null), 200);
-
         const previousVote = userVote;
-        const previousLikes = likes;
-        const previousDislikes = dislikes;
-
-        // Determine the new vote value
-        const newVote = userVote === isLike ? null : isLike;
 
         // Optimistic Update
         if (userVote === isLike) {
-            // Removing vote
             setUserVote(null);
-            if (isLike) setLikes(p => Math.max(0, p - 1));
-            else setDislikes(p => Math.max(0, p - 1));
+            if (isLike) setLikes(p => p - 1);
         } else {
-            // Adding or switching vote
-            if (userVote === true) {
-                setLikes(p => Math.max(0, p - 1));
-            } else if (userVote === false) {
-                setDislikes(p => Math.max(0, p - 1));
+            if (userVote === !isLike) {
+                if (isLike) setLikes(p => p + 1);
+                else setLikes(p => p - 1); // If switching from dislike, logic varies but simplicity: just track likes for X style usually
+            } else {
+                if (isLike) setLikes(p => p + 1);
             }
-
-            if (isLike) setLikes(p => p + 1);
-            else setDislikes(p => p + 1);
-
             setUserVote(isLike);
         }
 
-        // Emit via socket so all users get the update
         try {
-            const socket = getSocket();
-            socket.emit('vote-comment', {
-                marketId: String(marketId),
-                commentId: comment.id,
-                walletAddress: address,
-                isLike: newVote
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/comments/${comment.id}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress: address, isLike: userVote === isLike ? null : isLike })
             });
         } catch (err) {
-            // Rollback on error
             setUserVote(previousVote);
-            setLikes(previousLikes);
-            setDislikes(previousDislikes);
         }
     };
 
@@ -212,31 +171,22 @@ const CommentItem = ({
                         {/* Like */}
                         <button
                             onClick={(e) => handleVote(true, e)}
-                            className={cn(
-                                "group flex items-center gap-1.5 transition-all duration-200",
-                                userVote === true ? "text-pink-500" : "text-white/40 hover:text-pink-500",
-                                isAnimating === 'like' && "scale-125"
-                            )}
+                            className={cn("group flex items-center gap-1.5 transition-colors", userVote === true ? "text-pink-500" : "text-white/40 hover:text-pink-500")}
                         >
                             <div className="p-1.5 rounded-full group-hover:bg-pink-500/10 transition-colors">
-                                <Heart className={cn("w-[18px] h-[18px] transition-transform", userVote === true && "fill-current")} />
+                                <Heart className={cn("w-[18px] h-[18px]", userVote === true && "fill-current")} />
                             </div>
                             <span className="text-xs font-medium">{likes > 0 && likes}</span>
                         </button>
 
-                        {/* Dislike */}
+                        {/* Dislike (Subtle) */}
                         <button
                             onClick={(e) => handleVote(false, e)}
-                            className={cn(
-                                "group flex items-center gap-1.5 transition-all duration-200",
-                                userVote === false ? "text-orange-500" : "text-white/40 hover:text-orange-500",
-                                isAnimating === 'dislike' && "scale-125"
-                            )}
+                            className={cn("group flex items-center gap-1.5 transition-colors", userVote === false ? "text-white" : "text-white/40 hover:text-white")}
                         >
-                            <div className="p-1.5 rounded-full group-hover:bg-orange-500/10 transition-colors">
-                                <ThumbsDown className={cn("w-[18px] h-[18px] transition-transform", userVote === false && "fill-current")} />
+                            <div className="p-1.5 rounded-full group-hover:bg-white/10 transition-colors">
+                                <ThumbsDown className={cn("w-[18px] h-[18px]", userVote === false && "fill-current")} />
                             </div>
-                            <span className="text-xs font-medium">{dislikes > 0 && dislikes}</span>
                         </button>
 
                         {/* Share / More */}
@@ -274,7 +224,6 @@ const CommentItem = ({
                                 comment={reply}
                                 onReply={onReply}
                                 level={level + 1}
-                                marketId={marketId}
                             />
                         ))}
                     </motion.div>
@@ -287,7 +236,6 @@ const CommentItem = ({
 export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDrawerProps) {
     const { address, isConnected, connect } = useWallet();
     const [comments, setComments] = useState<Comment[]>([]);
-    const { setCommentsOpen } = useUIStore();
 
     // Input state
     const [newComment, setNewComment] = useState("");
@@ -297,22 +245,13 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Sync isOpen with global state to hide BottomNav
-    useEffect(() => {
-        setCommentsOpen(isOpen);
-        return () => setCommentsOpen(false);
-    }, [isOpen, setCommentsOpen]);
-
     // Initial Fetch
     const fetchComments = useCallback(async () => {
         try {
             const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/${marketId}?userId=${address ? encodeURIComponent(address) : ''}`;
-            console.log('📡 CommentsDrawer: Fetching comments from', url);
             const res = await fetch(url);
             const data = await res.json();
-            console.log('📡 CommentsDrawer: Fetch response:', data);
             if (data.success) {
-                console.log('📡 CommentsDrawer: Setting', data.comments.length, 'comments');
                 setComments(data.comments);
                 // Auto scroll to bottom
                 setTimeout(() => {
@@ -364,35 +303,20 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
 
     // Socket Listener
     useEffect(() => {
-        if (!isOpen || marketId === undefined) return;
+        if (!isOpen || !marketId) return;
 
         const socket = getSocket();
-        console.log('🔌 CommentsDrawer: Setting up socket for market', marketId);
 
-        const joinRoom = () => {
-            console.log('🔌 CommentsDrawer: Joining room market-' + marketId);
-            socket.emit('join-market', marketId);
-        };
+        const joinRoom = () => socket.emit('join-market', marketId);
         joinRoom();
         socket.on('connect', joinRoom);
 
         const handleNewComment = (comment: Comment) => {
-            console.log('🔔 CommentsDrawer: Received new-comment event:', comment);
-
-            // CRITICAL: Only add comments that belong to THIS market
-            if (comment.market_id !== undefined && comment.market_id !== marketId) {
-                console.log('🔔 CommentsDrawer: Ignoring comment for different market', comment.market_id, 'vs', marketId);
-                return;
-            }
-
             setComments(prev => {
-                if (prev.some(c => c.id === comment.id)) {
-                    console.log('🔔 CommentsDrawer: Duplicate comment, skipping');
-                    return prev;
-                }
+                if (prev.some(c => c.id === comment.id)) return prev;
 
                 if (!comment.parent_id) {
-                    console.log('🔔 CommentsDrawer: Adding root comment to state');
+                    // New Root Comment: Prepend to top (Feed Style)
                     return [comment, ...prev];
                 }
                 return addCommentToTree(prev, comment);
@@ -402,7 +326,6 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
         socket.on('new-comment', handleNewComment);
 
         return () => {
-            console.log('🔌 CommentsDrawer: Leaving room market-' + marketId);
             socket.emit('leave-market', marketId);
             socket.off('new-comment', handleNewComment);
             socket.off('connect', joinRoom);
@@ -478,7 +401,6 @@ export default function CommentsDrawer({ marketId, isOpen, onClose }: CommentsDr
                                             <CommentItem
                                                 comment={c}
                                                 onReply={handleReplyClick}
-                                                marketId={marketId}
                                             />
                                         </div>
                                     ))
