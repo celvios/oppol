@@ -22,9 +22,9 @@ export default function Header() {
                     <Image
                         src="/Opollll.jpg"
                         alt="OPoll"
-                        width={100}
-                        height={32}
-                        className="h-8 w-auto object-contain"
+                        width={160}
+                        height={48}
+                        className="h-12 w-auto object-contain"
                         priority
                     />
                 </Link>
