@@ -12,10 +12,10 @@ export const MULTI_CONTRACTS = {
         predictionMarketMulti: "",
         mockUSDC: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     },
-    // BSC Mainnet (TODO)
+    // BSC Mainnet
     bsc: {
-        predictionMarketMulti: "",
-        usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+        predictionMarketMulti: process.env.NEXT_PUBLIC_MARKET_ADDRESS || "",
+        usdc: process.env.NEXT_PUBLIC_USDC_CONTRACT || "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
     },
 };
 

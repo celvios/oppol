@@ -5,15 +5,15 @@ dotenv.config();
 
 export const CONFIG = {
     MARKET_CONTRACT: getRequiredEnv('MARKET_CONTRACT'),
-    USDC_CONTRACT: process.env.USDC_CONTRACT || process.env.USDC_ADDRESS || getRequiredEnv('USDC_CONTRACT'), // Support both names
-    RPC_URL: process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com',
+    USDC_CONTRACT: getRequiredEnv('USDC_CONTRACT'),
+    RPC_URL: getRequiredEnv('BNB_RPC_URL'),
     MULTI_MARKET_ADDRESS: getRequiredEnv('MARKET_CONTRACT'),
 };
 
 function getRequiredEnv(key: string): string {
-    const value = process.env[key] || process.env['MULTI_MARKET_ADDRESS']; // Check alias
+    const value = process.env[key] || process.env['MULTI_MARKET_ADDRESS'];
     if (!value) {
-        throw new Error(`❌ FATAL CONFIG ERROR: Missing environment variable '${key}'. No hardcoded fallbacks allowed.`);
+        throw new Error(`❌ FATAL CONFIG ERROR: Missing required environment variable '${key}'. Please set it in your .env file.`);
     }
     return value;
 }

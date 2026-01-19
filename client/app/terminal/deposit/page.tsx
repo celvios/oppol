@@ -64,7 +64,7 @@ export default function DepositPage() {
                 throw new Error('Please install MetaMask');
             }
 
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
             const signer = await provider.getSigner();
 
             // MockUSDC contract has a mint function for testing
@@ -102,10 +102,11 @@ export default function DepositPage() {
             // We use a silent check first to avoid spamming switch requests on load if possible, 
             // but for now let's just use the shared helper which might prompt.
             // Actually, for fetchBalance (auto-run), let's just check chainId without switching first.
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
             const network = await provider.getNetwork();
-            // 97 is BSC Testnet
-            if (Number(network.chainId) !== 97) {
+            // Dynamic Network Check
+            const targetChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 56);
+            if (Number(network.chainId) !== targetChainId) {
                 console.warn("Wrong network detected. Skipping balance fetch.");
                 return;
             }
@@ -134,10 +135,11 @@ export default function DepositPage() {
             // Enforce Network Switch
             const isCorrectNetwork = await checkAndSwitchNetwork(window.ethereum);
             if (!isCorrectNetwork) {
-                throw new Error('Please switch to BSC Testnet to deposit.');
+                const targetName = process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Chain';
+                throw new Error(`Please switch to ${targetName} to deposit.`);
             }
 
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
             const signer = await provider.getSigner();
 
             console.log('Using token:', selectedToken.address);

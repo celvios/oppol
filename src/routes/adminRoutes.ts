@@ -26,11 +26,12 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
         console.log(`[Admin] Resolving Market ID ${marketId} with Outcome Index ${outcomeIndex}`);
 
         // Setup Provider & Signer
-        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
         const privateKey = process.env.PRIVATE_KEY;
         if (!privateKey) throw new Error('Server wallet not configured');
 
-        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
         const signer = new ethers.Wallet(privateKey, provider);
 
         // Get Contract
@@ -131,8 +132,9 @@ router.get('/users', checkAdminAuth, async (req, res) => {
         const allUsers = [...waUsers, ...tgUsers, ...webUsers];
 
         // 2. Fetch on-chain balances
-        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
-        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
 
         if (MARKET_ADDR) {
@@ -163,8 +165,9 @@ router.get('/users', checkAdminAuth, async (req, res) => {
 // GET /health - System Health Check
 router.get('/health', checkAdminAuth, async (req, res) => {
     try {
-        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
-        const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
         const privateKey = process.env.PRIVATE_KEY;
 
         // 1. Check RPC

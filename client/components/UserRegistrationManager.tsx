@@ -17,13 +17,8 @@ export default function UserRegistrationManager() {
             }
 
             try {
-                // Prevent caching to ensure we get fresh data
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`, {
-                    cache: 'no-store',
-                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
-                });
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`);
                 const data = await res.json();
-                console.log('👤 User Status Check:', { address, found: !!data.user, displayName: data.user?.display_name });
 
                 if (data.success) {
                     // If user is null or doesn't have display_name (legacy users), show modal

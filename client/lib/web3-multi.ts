@@ -37,25 +37,35 @@ export class Web3MultiService {
         this.provider = new ethers.JsonRpcProvider(network.rpcUrl);
 
         const contracts = getMultiContracts();
+        const marketAddress = contracts.predictionMarketMulti;
 
-        this.predictionMarket = new ethers.Contract(
-            contracts.predictionMarketMulti,
-            PREDICTION_MARKET_MULTI_ABI,
-            this.provider
-        );
+
+        // Only instantiate if address is present
+        if (contracts.predictionMarketMulti) {
+            this.predictionMarket = new ethers.Contract(
+                contracts.predictionMarketMulti,
+                PREDICTION_MARKET_MULTI_ABI,
+                this.provider
+            );
+        } else {
+            console.warn('[Web3Multi] Missing Market Contract Address - Service execution will be limited');
+        }
 
         const usdcAddress = (contracts as any).mockUSDC || (contracts as any).usdc;
-        this.usdc = new ethers.Contract(
-            usdcAddress,
-            USDC_ABI,
-            this.provider
-        );
+        if (usdcAddress) {
+            this.usdc = new ethers.Contract(
+                usdcAddress,
+                USDC_ABI,
+                this.provider
+            );
+        }
     }
 
     /**
      * Get all multi-outcome markets
      */
     async getMarkets(): Promise<MultiMarket[]> {
+        if (!this.predictionMarket) return [];
         try {
             const count = Number(await this.predictionMarket.marketCount());
             const ids = Array.from({ length: count }, (_, i) => i);
@@ -82,6 +92,7 @@ export class Web3MultiService {
      * Get single multi-outcome market
      */
     async getMarket(marketId: number): Promise<MultiMarket | null> {
+        if (!this.predictionMarket) return null;
         try {
             const [basicInfo, outcomes, shares, prices] = await Promise.all([
                 this.predictionMarket.getMarketBasicInfo(marketId),
@@ -118,6 +129,7 @@ export class Web3MultiService {
      * Get price for specific outcome (0-100%)
      */
     async getOutcomePrice(marketId: number, outcomeIndex: number): Promise<number> {
+        if (!this.predictionMarket) return 0;
         try {
             const price = await this.predictionMarket.getPrice(marketId, outcomeIndex);
             return Number(price) / 100;
@@ -131,6 +143,7 @@ export class Web3MultiService {
      * Calculate cost to buy shares
      */
     async calculateCost(marketId: number, outcomeIndex: number, shares: number): Promise<string> {
+        if (!this.predictionMarket) return '0';
         try {
             const sharesInUnits = ethers.parseUnits(shares.toString(), 6);
             const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
@@ -145,6 +158,7 @@ export class Web3MultiService {
      * Get user position for a multi-outcome market
      */
     async getUserPosition(marketId: number, userAddress: string): Promise<MultiPosition | null> {
+        if (!this.predictionMarket) return null;
         try {
             const position = await this.predictionMarket.getUserPosition(marketId, userAddress);
             return {
@@ -161,6 +175,7 @@ export class Web3MultiService {
      * Get deposited balance in the contract
      */
     async getDepositedBalance(address: string): Promise<string> {
+        if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
             return ethers.formatUnits(balance, 6);
@@ -174,6 +189,7 @@ export class Web3MultiService {
      * Get USDC wallet balance
      */
     async getUSDCBalance(address: string): Promise<string> {
+        if (!this.usdc) return '0';
         try {
             const balance = await this.usdc.balanceOf(address);
             return ethers.formatUnits(balance, 6);

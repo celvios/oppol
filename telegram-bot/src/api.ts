@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_URL = process.env.API_URL || 'http://localhost:3001';
+const API_URL = getRequiredEnv('API_URL');
+
+function getRequiredEnv(key: string): string {
+    const value = process.env[key];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
+}
 
 export interface Market {
     market_id: number;

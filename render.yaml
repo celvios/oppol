@@ -42,9 +42,12 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_URL
-        value: https://opoll-backend.onrender.com/api
+        fromService:
+          type: web
+          name: opoll-backend
+          property: host
       - key: FRONTEND_URL
-        value: https://oppol-gamma.vercel.app
+        sync: false
 
   # Telegram Bot
   - type: worker

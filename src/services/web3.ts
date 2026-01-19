@@ -3,7 +3,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
+const provider = new ethers.JsonRpcProvider(getRequiredEnv('RPC_URL'));
+
+function getRequiredEnv(key: string): string {
+    const value = process.env[key];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
+}
 
 export const createRandomWallet = () => {
     const wallet = ethers.Wallet.createRandom();

@@ -1,6 +1,5 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-// Upgrades plugin disabled - causes compilation conflicts with OZ 5.x
 import "@openzeppelin/hardhat-upgrades";
 import * as dotenv from "dotenv";
 
@@ -28,9 +27,10 @@ const config: HardhatUserConfig = {
             timeout: 120000,
         },
         bsc: {
-            url: "https://bsc-dataseed.binance.org/",
+            url: "https://bsc-rpc.publicnode.com",
             chainId: 56,
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+            timeout: 600000,
         },
     },
     paths: {

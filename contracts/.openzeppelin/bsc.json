@@ -1,0 +1,393 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717",
+      "txHash": "0x2ff87fa219a017e901f46faeb0235a275b9edc8679bcc8e711e7761df93a64a2",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "195665c9e3bf28f4135d724bc5ed253c2aa722a91fd69d932240d25499cd2e25": {
+      "address": "0x3D076A43c28d27cf6882711E29aC07EE0DeD9279",
+      "txHash": "0x603b3786b4732e455bc50b5011824bbc804e97aeaee86bbb71e35ba87c0998e5",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC20)1232",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:56"
+          },
+          {
+            "label": "oracle",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(OptimisticOracleV3Interface)1742",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:57"
+          },
+          {
+            "label": "assertionBond",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:62"
+          },
+          {
+            "label": "creationToken",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_contract(IERC20)1232",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:69"
+          },
+          {
+            "label": "minCreationBalance",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:70"
+          },
+          {
+            "label": "publicCreation",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_bool",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:71"
+          },
+          {
+            "label": "protocolFee",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:74"
+          },
+          {
+            "label": "accumulatedFees",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_uint256",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:75"
+          },
+          {
+            "label": "operators",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:78"
+          },
+          {
+            "label": "marketCount",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_uint256",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:102"
+          },
+          {
+            "label": "markets",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_uint256,t_struct(Market)1820_storage)",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:103"
+          },
+          {
+            "label": "positions",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)1827_storage))",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:104"
+          },
+          {
+            "label": "assertionToMarket",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_bytes32,t_uint256)",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:105"
+          },
+          {
+            "label": "userBalances",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "PredictionMarketMultiV2",
+            "src": "contracts\\PredictionMarketMultiV2.sol:108"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_struct(InitializableStorage)73_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)13_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)226_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_string_storage)dyn_storage": {
+            "label": "string[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)1232": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(OptimisticOracleV3Interface)1742": {
+            "label": "contract OptimisticOracleV3Interface",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(Position)1827_storage)": {
+            "label": "mapping(address => struct PredictionMarketMultiV2.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_uint256)": {
+            "label": "mapping(bytes32 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)1827_storage))": {
+            "label": "mapping(uint256 => mapping(address => struct PredictionMarketMultiV2.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Market)1820_storage)": {
+            "label": "mapping(uint256 => struct PredictionMarketMultiV2.Market)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Market)1820_storage": {
+            "label": "struct PredictionMarketMultiV2.Market",
+            "members": [
+              {
+                "label": "question",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "outcomes",
+                "type": "t_array(t_string_storage)dyn_storage",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "shares",
+                "type": "t_array(t_uint256)dyn_storage",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "outcomeCount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "endTime",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "liquidityParam",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "5"
+              },
+              {
+                "label": "resolved",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "6"
+              },
+              {
+                "label": "winningOutcome",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "7"
+              },
+              {
+                "label": "subsidyPool",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "8"
+              },
+              {
+                "label": "assertionId",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "9"
+              },
+              {
+                "label": "assertionPending",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "10"
+              },
+              {
+                "label": "asserter",
+                "type": "t_address",
+                "offset": 1,
+                "slot": "10"
+              },
+              {
+                "label": "assertedOutcome",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "11"
+              },
+              {
+                "label": "deleted",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "12"
+              }
+            ],
+            "numberOfBytes": "416"
+          },
+          "t_struct(Position)1827_storage": {
+            "label": "struct PredictionMarketMultiV2.Position",
+            "members": [
+              {
+                "label": "shares",
+                "type": "t_mapping(t_uint256,t_uint256)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "claimed",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:43",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
