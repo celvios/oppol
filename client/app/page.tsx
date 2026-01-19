@@ -47,7 +47,7 @@ export default function Home() {
             </div>
 
             <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default flex flex-col items-center mt-16">
-              <LogoBrand size="lg" href="#" animate={false} className="scale-[3] mb-8" />
+              <LogoBrand size="xl" href="#" animate={false} className="mb-8" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-6">
                 PROTOCOL
               </span>
