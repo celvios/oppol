@@ -58,7 +58,7 @@ const corsOptions = {
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased limit for base64 image uploads
 
 // Request Logger
 app.use((req, res, next) => {
