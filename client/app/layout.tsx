@@ -6,6 +6,7 @@ import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import BottomNav from "@/components/mobile/BottomNav";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
+import Header from "@/components/ui/Header";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -47,6 +48,7 @@ export default function RootLayout({
             <SettingsProvider>
               <AnimatedBackground />
               <UserRegistrationManager />
+              <Header />
               {children}
               <BottomNav />
             </SettingsProvider>
