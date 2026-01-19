@@ -1,4 +1,3 @@
-import { CONFIG } from './config/secure';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -18,19 +17,42 @@ import commentsRoutes from './routes/comments';
 import { apiRouter } from './routes/api';
 
 const app = express();
-const PORT = CONFIG.PORT;
+const PORT = process.env.PORT || 3001;
 
 // Create HTTP server for Socket.IO
 const server = http.createServer(app);
 
-// CORS configuration - environment-driven origins
+// CORS configuration - allow Vercel frontends and localhost
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean)
-    : true,  // Allow all origins in development
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Allowed origins list
+    const allowedOrigins = [
+      'https://oppolbnb.vercel.app',
+      'https://oppol-gamma.vercel.app',
+      'https://oppol.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    // Check if origin is in allowed list or matches vercel.app pattern
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      /^https:\/\/.*\.vercel\.app$/.test(origin);
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret', 'X-Requested-With']
 };
 
 // Middleware
@@ -111,8 +133,8 @@ app.post('/api/calculate-cost', async (req, res) => {
     const sharesAmount = Math.floor(shares);
     const isYes = side.toUpperCase() === 'YES';
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = [
@@ -160,15 +182,14 @@ app.post('/api/bet', async (req, res) => {
     const outcomeIndex = explicitOutcome !== undefined ? explicitOutcome : (side?.toUpperCase() === 'YES' ? 0 : 1);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
     console.log('🔍 [BET DEBUG] Creating provider');
-    const chainId = Number(process.env.CHAIN_ID) || 56;
-    const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
@@ -326,14 +347,14 @@ app.post('/api/multi-bet', async (req, res) => {
     const maxCost = parseFloat(amount);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
     console.log('🔍 [MULTI-BET DEBUG] Creating provider');
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
@@ -491,8 +512,8 @@ app.post('/api/wallet/link', async (req, res) => {
     const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
 
     // Fetch balance from contract directly using connected wallet address
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
     console.log(`[Wallet Link] Using Market Address: ${MARKET_ADDR}`);
@@ -532,14 +553,14 @@ app.post('/api/faucet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid address required' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
 
     const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -594,14 +615,14 @@ app.post('/api/withdraw', async (req, res) => {
     // const userWallet = await getUserWallet(userId);
 
     // Use environment variables for production
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
 
     const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -643,8 +664,8 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
       return res.status(400).json({ error: 'Invalid wallet address' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -702,8 +723,8 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     }
 
     // Read deposited balance from market contract
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
@@ -760,11 +781,11 @@ app.post('/api/admin/create-market', async (req, res) => {
     console.log(`[Admin] Creating market: "${question}" with outcomes: ${outcomes.join(', ')}`);
 
     // Setup Provider & Signer (Owner)
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org'; // Default to public RPC if main failed
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org'; // Default to public RPC if main failed
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
 
     // Get Contract
@@ -853,11 +874,11 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
     console.log(`[Admin V2] Creating market: "${question}" with ${outcomes.length} outcomes for ${durationDays} days`);
 
     // Setup Provider & Signer
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const signer = new ethers.Wallet(privateKey, provider);
 
     // Get Contract
@@ -906,8 +927,8 @@ app.get('/api/markets', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     const marketABI = [
@@ -1005,8 +1026,8 @@ app.get('/api/markets/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid market ID' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
     const marketABI = [
@@ -1110,8 +1131,8 @@ app.get('/api/admin/stats', async (req, res) => {
     } catch { volumeTrend = 'N/A'; }
 
     // 3. Get Active Markets (from contract) + Expiring Soon
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
     const marketABI = [
@@ -1221,8 +1242,8 @@ app.get('/api/contract/check', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, Number(process.env.CHAIN_ID) || 56);
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     // Get contract code
@@ -1604,6 +1625,16 @@ app.get('/', (req, res) => {
     service: 'OPOLL Backend API',
     environment: process.env.NODE_ENV || 'development',
     database: process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory Mock'
+  });
+});
+
+// General Health Check (no auth required) - for CORS verification
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'OK',
+    service: 'OPOLL Backend API',
+    timestamp: new Date().toISOString()
   });
 });
 
