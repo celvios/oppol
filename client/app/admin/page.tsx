@@ -42,9 +42,20 @@ export default function AdminDashboard() {
         try {
             // Verify against health endpoint
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-            const res = await fetch(`${apiUrl}/api/admin/health`, {
-                headers: { 'x-admin-secret': key }
-            });
+
+            // Try specific admin health first, fallback to general health
+            let res;
+            try {
+                res = await fetch(`${apiUrl}/api/admin/health`, {
+                    headers: { 'x-admin-secret': key }
+                });
+            } catch (err) {
+                // Try fallback
+                console.log("Admin health check failed, trying general health...");
+                res = await fetch(`${apiUrl}/api/health`, {
+                    headers: { 'x-admin-secret': key }
+                });
+            }
 
             if (res.ok) {
                 setIsAuthenticated(true);
@@ -53,10 +64,12 @@ export default function AdminDashboard() {
             } else {
                 if (res.status === 401) {
                     setError("Invalid admin key");
+                    localStorage.removeItem("admin_secret");
+                } else if (res.status === 404) {
+                    setError("API endpoint not found (404)");
                 } else {
-                    setError("Server unavailable or error");
+                    setError(`Server error: ${res.statusText}`);
                 }
-                localStorage.removeItem("admin_secret");
             }
         } catch (e) {
             setError("Connection failed. Check authentication or network.");
