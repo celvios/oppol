@@ -21,7 +21,7 @@ export const CONTRACTS = {
 export const NETWORK = {
     chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 56), // Default to Mainnet
     name: process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Smart Chain',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org',
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com',
     explorer: process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://bscscan.com'
 };
 
