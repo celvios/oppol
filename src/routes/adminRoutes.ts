@@ -167,56 +167,85 @@ router.get('/health', checkAdminAuth, async (req, res) => {
     try {
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
         const chainId = Number(process.env.CHAIN_ID) || 56;
-        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
-        const privateKey = process.env.PRIVATE_KEY;
+        let provider;
 
         // 1. Check RPC
-        const blockNumber = await provider.getBlockNumber();
-        const rpcStatus = blockNumber > 0 ? 'OK' : 'ERROR';
+        let rpcStatus = 'UNKNOWN';
+        let blockNumber = 0;
+        let rpcError = null;
+        try {
+            provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+            blockNumber = await provider.getBlockNumber();
+            rpcStatus = 'OK';
+        } catch (e: any) {
+            rpcStatus = 'ERROR';
+            rpcError = e.message;
+            console.error('Health Check RPC Error:', e);
+        }
 
         // 2. Check Relayer Wallet
-        let walletStatus = { address: '', bnb: '0', usdc: '0' };
-        if (privateKey) {
-            const wallet = new ethers.Wallet(privateKey, provider);
-            const bnbBal = await provider.getBalance(wallet.address);
+        const privateKey = process.env.PRIVATE_KEY;
+        let walletStatus: any = { address: '', bnb: '0', usdc: '0', status: 'UNKNOWN' };
 
-            // USDC check
-            let usdcBal = BigInt(0);
-            const USDC_ADDR = process.env.USDC_CONTRACT;
-            if (USDC_ADDR) {
-                const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
-                const usdc = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
-                try {
-                    usdcBal = await usdc.balanceOf(wallet.address);
-                } catch (e) { console.error('USDC fetch failed', e); }
+        if (privateKey && provider && rpcStatus === 'OK') {
+            try {
+                const wallet = new ethers.Wallet(privateKey, provider);
+                const bnbBal = await provider.getBalance(wallet.address);
+
+                // USDC check
+                let usdcBal = BigInt(0);
+                const USDC_ADDR = process.env.USDC_CONTRACT;
+                if (USDC_ADDR) {
+                    try {
+                        const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+                        const usdc = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+                        usdcBal = await usdc.balanceOf(wallet.address);
+                    } catch (e) {
+                        console.error('USDC fetch failed', e);
+                        walletStatus.usdcError = 'Contract call failed';
+                    }
+                }
+
+                walletStatus = {
+                    address: wallet.address,
+                    bnb: ethers.formatEther(bnbBal),
+                    usdc: ethers.formatUnits(usdcBal, 6),
+                    status: 'OK'
+                };
+            } catch (e: any) {
+                walletStatus.status = 'ERROR';
+                walletStatus.error = e.message;
             }
-
-            walletStatus = {
-                address: wallet.address,
-                bnb: ethers.formatEther(bnbBal),
-                usdc: ethers.formatUnits(usdcBal, 6)
-            };
+        } else {
+            walletStatus.status = 'SKIPPED_OR_NO_KEY';
         }
 
         // 3. Check DB
         let dbStatus = 'UNKNOWN';
+        let dbError = null;
         try {
             await query('SELECT 1');
             dbStatus = 'OK';
-        } catch (e) { dbStatus = 'ERROR'; }
+        } catch (e: any) {
+            dbStatus = 'ERROR';
+            dbError = e.message;
+        }
 
         return res.json({
             success: true,
             health: {
                 rpc: rpcStatus,
+                rpcError,
                 blockNumber,
                 database: dbStatus,
+                dbError,
                 wallet: walletStatus,
                 timestamp: new Date().toISOString()
             }
         });
 
     } catch (error: any) {
+        console.error('Critical Health Check Error:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
