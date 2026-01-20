@@ -346,24 +346,6 @@ export function MobileTerminal() {
     return (
         <div className="pb-12 relative min-h-screen">
 
-            {/* 1. Header */}
-            <header className="px-4 py-4 pt-6 sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/5 flex justify-between items-center">
-                <button
-                    onClick={() => setIsCommentsOpen(true)}
-                    className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                >
-                    <MessageCircle className="w-6 h-6 text-neon-cyan" />
-                </button>
-                <div className="text-right">
-                    <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
-                    <div className="font-mono text-sm text-white">
-                        <span className="text-neon-cyan">$</span>
-                        {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </div>
-                </div>
-            </header>
-
-            {/* Rest of the component remains the same... */}
             {/* 2. Price Hero */}
             <div className="relative overflow-hidden mb-6">
                 {metadata && (
