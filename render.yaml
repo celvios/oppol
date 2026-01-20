@@ -21,7 +21,7 @@ services:
       - key: PRIVATE_KEY
         sync: false
       - key: BNB_RPC_URL
-        value: https://bsc-testnet-rpc.publicnode.com
+        value: https://bsc-rpc.publicnode.com
       - key: MARKET_ADDRESS
         sync: false
       - key: USDC_CONTRACT

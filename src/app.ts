@@ -133,7 +133,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     const sharesAmount = Math.floor(shares);
     const isYes = side.toUpperCase() === 'YES';
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
@@ -512,7 +512,7 @@ app.post('/api/wallet/link', async (req, res) => {
     const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
 
     // Fetch balance from contract directly using connected wallet address
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
@@ -553,7 +553,7 @@ app.post('/api/faucet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid address required' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -615,7 +615,7 @@ app.post('/api/withdraw', async (req, res) => {
     // const userWallet = await getUserWallet(userId);
 
     // Use environment variables for production
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -664,7 +664,7 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
       return res.status(400).json({ error: 'Invalid wallet address' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
@@ -723,7 +723,7 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     }
 
     // Read deposited balance from market contract
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
@@ -927,7 +927,7 @@ app.get('/api/markets', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
@@ -1026,7 +1026,7 @@ app.get('/api/markets/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid market ID' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
@@ -1131,7 +1131,7 @@ app.get('/api/admin/stats', async (req, res) => {
     } catch { volumeTrend = 'N/A'; }
 
     // 3. Get Active Markets (from contract) + Expiring Soon
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const chainId = parseInt(process.env.CHAIN_ID || '97');
     // Create provider without enforcing chain ID to avoid network mismatch errors
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -1252,7 +1252,7 @@ app.get('/api/contract/check', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 

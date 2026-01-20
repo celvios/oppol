@@ -14,7 +14,7 @@ const ERC20_ABI = [
 ];
 
 // Use environment variable or default to BSC Testnet
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com';
 const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '97');
 
 export function useCreationAccess() {

@@ -19,7 +19,7 @@ export const CONFIG = {
     // USDC contract - DO NOT fallback to market address!
     USDC_CONTRACT: getEnv('USDC_CONTRACT') || getEnv('USDC_ADDRESS', '0x87D45E316f5f1f2faffCb600c97160658B799Ee0'),
     // RPC URL - default to BSC Testnet
-    RPC_URL: getEnv('BNB_RPC_URL', 'https://bsc-testnet-rpc.publicnode.com'),
+    RPC_URL: getEnv('BNB_RPC_URL', 'https://bsc-rpc.publicnode.com'),
     // Chain ID - default to BSC Testnet (97)
     CHAIN_ID: parseInt(getEnv('CHAIN_ID', '97')),
     // Alias for backwards compatibility

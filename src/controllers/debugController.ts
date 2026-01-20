@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 
 export const checkContractMarkets = async (req: Request, res: Response) => {
     try {
-        const provider = new ethers.JsonRpcProvider('https://bsc-testnet-rpc.publicnode.com');
+        const provider = new ethers.JsonRpcProvider('https://bsc-rpc.publicnode.com');
         const CONTRACT = '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
         
         const abi = [

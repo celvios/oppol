@@ -32,7 +32,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         const result = await query('select * from markets', []);
         const markets = [];
 
-        const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
+        const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
         const { CONFIG } = require('../config/contracts');
         const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
         console.log('📄 Using contract address:', MARKET_ADDRESS);
@@ -97,7 +97,7 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
         // FETCH ON-CHAIN DATA
         let onChainData: any = {};
         try {
-            const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com');
+            const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
             const { CONFIG } = require('../config/contracts');
             const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
             console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);

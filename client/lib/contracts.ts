@@ -23,7 +23,7 @@ export const CONTRACTS = {
 export const NETWORK = {
     chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 97), // Default to BSC Testnet
     name: process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Smart Chain Testnet',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com',
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com',
     explorer: process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://testnet.bscscan.com'
 };
 

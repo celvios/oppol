@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 
 // Contract addresses
 const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
-const RPC_URL = process.env.RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+const RPC_URL = process.env.RPC_URL || 'https://bsc-rpc.publicnode.com';
 
 // Market contract ABI for buyShares
 const MARKET_ABI = [

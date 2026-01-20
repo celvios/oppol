@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../config/database';
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
+const RPC_URL = process.env.RPC_URL || 'https://bsc-rpc.publicnode.com';
 const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0x5F9C05bE2Af2adb520825950323774eFF308E353';
 const USDC_ADDRESS = process.env.USDC_ADDRESS || '0x0eAD2Cc3B5eC12B69140410A1F4Dc8611994E6Be';
 
