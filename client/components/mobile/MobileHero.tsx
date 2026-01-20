@@ -36,9 +36,7 @@ export default function MobileHero() {
                 {/* LogoBrand - Same as Desktop */}
                 <div className="flex flex-col items-center gap-4">
                     <LogoBrand size="lg" href="#" animate={false} />
-                    <span className="text-2xl tracking-[0.3em] text-neon-cyan/80 font-heading font-bold mt-4">
-                        PROTOCOL
-                    </span>
+
                 </div>
 
                 <p className="text-text-secondary text-sm leading-relaxed max-w-xs">

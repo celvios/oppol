@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+
 import { usePathname } from "next/navigation";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 export default function Header() {
     const pathname = usePathname();
-    
+
     // Hide header on terminal/admin pages (they have sidebar)
     if (pathname?.startsWith('/terminal') || pathname?.startsWith('/admin')) {
         return null;
@@ -17,14 +18,7 @@ export default function Header() {
             <div className="max-w-7xl mx-auto flex items-center">
                 {/* Logo */}
                 <Link href="/" className="flex items-center group">
-                    <Image
-                        src="/Opollll.jpg"
-                        alt="OPoll"
-                        width={200}
-                        height={60}
-                        className="h-16 w-auto object-contain"
-                        priority
-                    />
+                    <LogoBrand size="sm" animate={false} />
                 </Link>
             </div>
         </header>
