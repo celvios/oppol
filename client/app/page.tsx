@@ -10,7 +10,6 @@ import MarketGrid from "@/components/market/MarketGrid";
 import ScrambleText from "@/components/ui/ScrambleText";
 import ScrollReveal from "@/components/ui/ScrollReveal";
 import MobileHero from "@/components/mobile/MobileHero";
-import LogoBrand from "@/components/ui/LogoBrand";
 import MobileFeatures from "@/components/mobile/MobileFeatures";
 import MobileMarketList from "@/components/mobile/MobileMarketList";
 
@@ -46,9 +45,12 @@ export default function Home() {
               <span className="text-xs font-mono font-bold tracking-[0.2em] text-outcome-a">SYSTEM ONLINE</span>
             </div>
 
-            <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default flex flex-col items-center mt-16">
-              <LogoBrand size="xl" href="#" animate={false} className="mb-8" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-6">
+            <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default flex flex-col items-center">
+              <span className="block">
+                <span className="text-neon-cyan drop-shadow-[0_0_30px_rgba(0,224,255,0.5)]">O</span>
+                <span className="text-white">Poll</span>
+              </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-4">
                 PROTOCOL
               </span>
             </h1>
@@ -163,7 +165,9 @@ export default function Home() {
       <footer className="py-12 relative z-10">
         <ScrollReveal>
           <div className="w-full max-w-7xl mx-auto px-6 text-center">
-            <div className="flex justify-center mb-8"><LogoBrand size="md" href="/" /></div>
+            <h2 className="text-2xl font-heading font-bold text-center mb-8">
+              <span className="text-neon-cyan">O</span><span className="text-white">Poll</span>
+            </h2>
             <div className="flex justify-center gap-8 mb-8 text-text-secondary">
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Twitter</a>
               <a href="#" className="hover:text-neon-cyan transition-colors transform hover:-translate-y-1 inline-block">Discord</a>
