@@ -50,8 +50,8 @@ export default function Home() {
                 <span className="text-neon-cyan drop-shadow-[0_0_30px_rgba(0,224,255,0.5)]">O</span>
                 <span className="text-white">Poll</span>
               </span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan to-white/20 block text-4xl md:text-5xl lg:text-6xl tracking-[0.5em] mt-4">
-                PROTOCOL
+              <span className="text-neon-cyan/80 block text-2xl md:text-3xl lg:text-4xl tracking-[0.3em] mt-4 font-mono font-normal">
+                PREDICTION MARKET
               </span>
             </h1>
 

@@ -5,11 +5,10 @@ import { Terminal, Send, MessageCircle } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
 import { motion } from "framer-motion";
 import HeroInteractive from "../landing/HeroInteractive";
-import LogoBrand from "@/components/ui/LogoBrand";
 
 export default function MobileHero() {
     return (
-        <section className="relative min-h-[90vh] flex flex-col items-center justify-center p-6 text-center overflow-hidden md:hidden">
+        <section className="relative min-h-[90vh] flex flex-col items-center justify-center p-6 pt-20 text-center overflow-hidden md:hidden">
             {/* Background Decor - Interactive */}
             <div className="absolute inset-0 z-0">
                 <HeroInteractive isMobile={true} />
@@ -33,15 +32,21 @@ export default function MobileHero() {
                     <span className="text-[10px] font-mono font-bold tracking-widest text-outcome-a">LIVE</span>
                 </div>
 
-                {/* LogoBrand - Same as Desktop */}
-                <div className="flex flex-col items-center gap-4">
-                    <LogoBrand size="lg" href="#" animate={false} />
-
-                </div>
+                {/* OPoll Branding */}
+                <h1 className="text-6xl font-heading font-bold tracking-tighter leading-[0.9] cursor-default flex flex-col items-center">
+                    <span className="block">
+                        <span className="text-neon-cyan drop-shadow-[0_0_30px_rgba(0,224,255,0.5)]">O</span>
+                        <span className="text-white">Poll</span>
+                    </span>
+                    <span className="text-neon-cyan/80 block text-lg tracking-[0.2em] mt-2 font-mono font-normal">
+                        PREDICTION MARKET
+                    </span>
+                </h1>
 
                 <p className="text-text-secondary text-sm leading-relaxed max-w-xs">
                     The world's first <span className="text-white">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
                 </p>
+
 
                 {/* Actions */}
                 <div className="flex flex-col gap-3 w-full mt-8">
