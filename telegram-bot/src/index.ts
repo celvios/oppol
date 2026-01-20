@@ -251,9 +251,9 @@ bot.on('callback_query', async (query) => {
                 bot.sendMessage(chatId,
                     `💰 *Deposit USDC*\n\n` +
                     `Current Balance: ${balance} USDC\n\n` +
-                    `Send USDC (Base Sepolia) to:\n\n` +
+                    `Send USDC (BSC Mainnet) to:\n\n` +
                     `\`${walletAddress}\`\n\n` +
-                    `⚡ Funds arrive in ~2-5 seconds`,
+                    `⚡ Funds arrive in ~3-10 seconds`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
