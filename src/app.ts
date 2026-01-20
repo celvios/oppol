@@ -134,7 +134,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     const isYes = side.toUpperCase() === 'YES';
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = [
@@ -189,7 +189,7 @@ app.post('/api/bet', async (req, res) => {
     }
 
     console.log('🔍 [BET DEBUG] Creating provider');
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
@@ -354,7 +354,7 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     console.log('🔍 [MULTI-BET DEBUG] Creating provider');
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
@@ -513,7 +513,7 @@ app.post('/api/wallet/link', async (req, res) => {
 
     // Fetch balance from contract directly using connected wallet address
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
     console.log(`[Wallet Link] Using Market Address: ${MARKET_ADDR}`);
@@ -560,7 +560,7 @@ app.post('/api/faucet', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
     const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -622,7 +622,7 @@ app.post('/api/withdraw', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
     const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -665,7 +665,7 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
     }
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
@@ -724,7 +724,7 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
 
     // Read deposited balance from market contract
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
@@ -785,7 +785,7 @@ app.post('/api/admin/create-market', async (req, res) => {
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
     // Get Contract
@@ -878,7 +878,7 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
     // Get Contract
@@ -928,7 +928,7 @@ app.get('/api/markets', async (req, res) => {
     const { ethers } = await import('ethers');
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     const marketABI = [
@@ -1027,7 +1027,7 @@ app.get('/api/markets/:id', async (req, res) => {
     }
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
 
     const marketABI = [
@@ -1253,7 +1253,7 @@ app.get('/api/contract/check', async (req, res) => {
     const { ethers } = await import('ethers');
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, 97);
+    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
 
     // Get contract code
