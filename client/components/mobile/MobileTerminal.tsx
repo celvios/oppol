@@ -11,6 +11,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
 import { AnimatePresence, motion } from "framer-motion";
 import CommentsSection from "@/components/market/CommentsSection";
+import NeonButton from "@/components/ui/NeonButton";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
