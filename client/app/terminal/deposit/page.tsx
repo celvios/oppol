@@ -313,7 +313,7 @@ export default function DepositPage() {
                                             </span>
                                         </div>
                                     </button>
-                                ))})
+                                ))}
                             </div>
                             <div className="text-xs text-white/40 text-center">
                                 Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
