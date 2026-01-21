@@ -37,6 +37,10 @@ export interface Market {
     totalVolume: string;
     resolved: boolean;
     winningOutcome: number;
+    // Metadata from database (via API)
+    image_url?: string;
+    description?: string;
+    category_id?: string;
     // Legacy compatibility fields for binary markets
     yesOdds: number;
     noOdds: number;
@@ -93,24 +97,60 @@ export class Web3Service {
     }
 
     /**
-     * Get all markets (now uses multi-outcome contract)
+     * Get all markets - ALWAYS fetches from API to ensure metadata is included
      */
     async getMarkets(): Promise<Market[]> {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+            console.error('[Web3Service] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets with metadata.');
+            throw new Error('API URL not configured');
+        }
+
         try {
-            const count = Number(await this.predictionMarket.marketCount());
-            const ids = Array.from({ length: count }, (_, i) => i);
+            const response = await fetch(`${apiUrl}/api/markets`);
+            if (!response.ok) {
+                throw new Error(`API returned ${response.status}: ${response.statusText}`);
+            }
 
-            const marketPromises = ids.map(id => this.getMarket(id).catch(e => {
-                console.error(`Error fetching market ${id}:`, e);
-                return null;
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'API returned unsuccessful response');
+            }
+
+            if (!data.markets || data.markets.length === 0) {
+                console.warn('[Web3Service] API returned no markets');
+                return [];
+            }
+
+            // Map API response to Market interface - API is the source of truth
+            return data.markets.map((m: any) => ({
+                id: m.market_id !== undefined ? m.market_id : m.id,
+                question: m.question,
+                outcomes: m.outcomes || [],
+                outcomeCount: m.outcomeCount || m.outcomes?.length || 2,
+                shares: [], // API doesn't provide shares, will be empty
+                prices: m.prices || [],
+                endTime: m.endTime,
+                liquidityParam: m.liquidityParam || '0',
+                totalVolume: m.totalVolume || '0',
+                resolved: m.resolved || false,
+                winningOutcome: m.winningOutcome || 0,
+                // Metadata from API - REQUIRED
+                image_url: m.image_url || '',
+                description: m.description || '',
+                category_id: m.category_id || '',
+                // Legacy compatibility
+                yesOdds: m.prices?.[0] || 50,
+                noOdds: m.prices?.[1] || (100 - (m.prices?.[0] || 50)),
+                yesShares: '0',
+                noShares: '0',
+                yesPool: m.liquidityParam || '0',
+                noPool: '0',
+                outcome: m.resolved ? Number(m.winningOutcome) === 0 : undefined,
             }));
-
-            const markets = (await Promise.all(marketPromises)).filter(m => m !== null) as Market[];
-
-            return markets;
-        } catch (error) {
-            console.error('Error fetching markets:', error);
-            return [];
+        } catch (error: any) {
+            console.error('[Web3Service] Failed to fetch markets from API:', error);
+            throw new Error(`Failed to fetch markets: ${error.message || 'Unknown error'}`);
         }
     }
 

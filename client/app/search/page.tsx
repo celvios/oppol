@@ -5,7 +5,6 @@ import { Search, X, TrendingUp, Cpu, Globe, Zap } from "lucide-react";
 import { web3Service } from "@/lib/web3";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import Link from "next/link";
-import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Lazy load heavy components
 const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
@@ -115,7 +114,7 @@ export default function SearchPage() {
                                                 {/* Market Image */}
                                                 <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:border-neon-cyan/50 transition-colors overflow-hidden">
                                                     <img
-                                                        src={getMarketMetadata(m.question, m.id).image}
+                                                        src={m.image_url || ''}
                                                         alt=""
                                                         className="w-full h-full object-cover"
                                                         onError={(e) => {

@@ -13,7 +13,6 @@ import NeonButton from "@/components/ui/NeonButton";
 import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { getMultiMarketMetadata } from "@/lib/market-metadata";
 
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
@@ -63,7 +62,12 @@ export function MultiOutcomeTerminal() {
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
-    const metadata = market ? getMultiMarketMetadata(market.question, market.id) : null;
+    // Use API metadata - no fallback, API is source of truth
+    const metadata = market ? {
+        image: market.image_url || '',
+        description: market.description || '',
+        category: market.category_id || 'General'
+    } : null;
 
     useEffect(() => {
         marketRef.current = market;
@@ -325,7 +329,7 @@ export function MultiOutcomeTerminal() {
                                     {/* Market Image */}
                                     <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                         <img
-                                            src={getMultiMarketMetadata(m.question, m.id).image}
+                                            src={m.image_url || ''}
                                             alt=""
                                             className="w-full h-full object-cover"
                                             onError={(e) => {

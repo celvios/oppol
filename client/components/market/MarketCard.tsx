@@ -3,7 +3,6 @@
 import GlassCard from "@/components/ui/GlassCard";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { getMarketMetadata, getMultiMarketMetadata } from "@/lib/market-metadata";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -28,6 +27,9 @@ interface MarketCardProps {
     prices?: number[];
     outcomeCount?: number;
     color?: "cyan" | "coral" | "green";
+    // API metadata (optional)
+    image_url?: string;
+    description?: string;
 }
 
 export default function MarketCard({
@@ -40,9 +42,16 @@ export default function MarketCard({
     outcomes,
     prices,
     outcomeCount = 2,
-    color = "cyan"
+    color = "cyan",
+    image_url,
+    description
 }: MarketCardProps) {
-    const metadata = getMultiMarketMetadata(title, parseInt(id)) || getMarketMetadata(title, parseInt(id));
+    // Use API metadata - no fallback, API is source of truth
+    const metadata = {
+        image: image_url || '',
+        description: description || '',
+        category: 'General'
+    };
 
     // Determine if this is a multi-outcome market (more than 2 outcomes)
     const isMultiOutcome = outcomeCount > 2 || (outcomes && outcomes.length > 2);

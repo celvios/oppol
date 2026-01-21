@@ -6,7 +6,6 @@ import { TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { web3Service, Market } from "@/lib/web3";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { getMultiMarketMetadata, getMarketMetadata } from "@/lib/market-metadata";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -72,7 +71,12 @@ export default function MobileMarketList() {
             >
                 {markets.slice(0, 6).map((market) => {
                     const isMultiOutcome = (market.outcomes?.length || 0) > 2;
-                    const metadata = getMultiMarketMetadata(market.question, market.id) || getMarketMetadata(market.question, market.id);
+                    // Use API metadata - no fallback, API is source of truth
+                    const metadata = {
+                        image: market.image_url || '',
+                        description: market.description || '',
+                        category: market.category_id || 'General'
+                    };
 
                     // Find leading outcome for multi-outcome
                     let leadingOutcome = market.outcomes?.[0] || "Yes";

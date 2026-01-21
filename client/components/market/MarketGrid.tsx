@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import MarketCard from "./MarketCard";
 import { motion } from "framer-motion";
 import { web3Service, Market } from "@/lib/web3";
-import { getMarketMetadata, getMultiMarketMetadata } from "@/lib/market-metadata";
 
 interface MarketGridProps {
     limit?: number;  // Optional limit for trending markets
@@ -35,8 +34,9 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
     }, []);
 
     let filteredMarkets = markets.filter(m => {
-        const metadata = getMultiMarketMetadata(m.question, m.id) || getMarketMetadata(m.question, m.id);
-        const matchesCategory = selectedCategory === 'All' || metadata.category === selectedCategory;
+        // Use API category - no fallback
+        const category = m.category_id || 'General';
+        const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
         const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
@@ -111,6 +111,8 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
                             prices={market.prices}
                             outcomeCount={market.outcomes?.length || 2}
                             color="green"
+                            image_url={market.image_url}
+                            description={market.description}
                         />
                     </motion.div>
                 ))}

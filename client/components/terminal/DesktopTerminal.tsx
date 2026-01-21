@@ -17,7 +17,6 @@ import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { BalanceChecker } from "@/components/ui/BalanceChecker";
 import { formatDistanceToNow } from "date-fns";
-import { getMarketMetadata } from "@/lib/market-metadata";
 
 // Contract ABI
 const MARKET_ABI = [
@@ -79,7 +78,12 @@ export function DesktopTerminal() {
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
-    const metadata = market ? getMarketMetadata(market.question, market.id) : null;
+    // Use API metadata - no fallback, API is source of truth
+    const metadata = market ? {
+        image: market.image_url || '',
+        description: market.description || '',
+        category: market.category_id || 'General'
+    } : null;
 
     useEffect(() => {
         marketRef.current = market;
@@ -319,7 +323,7 @@ export function DesktopTerminal() {
                                 {/* Market Image */}
                                 <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                     <img
-                                        src={getMarketMetadata(m.question, m.id).image}
+                                        src={m.image_url || ''}
                                         alt=""
                                         className="w-full h-full object-cover"
                                         onError={(e) => {

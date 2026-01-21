@@ -946,15 +946,19 @@ app.get('/api/markets', async (req, res) => {
     const count = await marketContract.marketCount();
     console.log('[Markets API] Market count:', count.toString());
 
-    // Get market metadata from database
+    // Get market metadata from database - REQUIRED for proper market display
     let metadataMap: Record<number, any> = {};
     try {
       const metadataResult = await query('SELECT * FROM markets');
+      console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
       metadataResult.rows.forEach((row: any) => {
         metadataMap[row.market_id] = row;
+        console.log(`[Markets API] Metadata for market ${row.market_id}: image=${row.image ? 'present' : 'missing'}, description=${row.description ? 'present' : 'missing'}`);
       });
-    } catch (e) {
-      console.log('Database not available for metadata, using defaults');
+    } catch (e: any) {
+      console.error('[Markets API] CRITICAL: Database query failed for metadata:', e.message);
+      // Don't silently continue - metadata is required
+      throw new Error(`Failed to fetch market metadata from database: ${e.message}`);
     }
 
     // Get volume from database
@@ -985,14 +989,18 @@ app.get('/api/markets', async (req, res) => {
         ]);
 
         console.log(`[Markets API] Market ${i} question: ${basicInfo.question}`);
-        const metadata = metadataMap[i] || {};
+        const metadata = metadataMap[i];
+        
+        if (!metadata) {
+          console.warn(`[Markets API] WARNING: No metadata found in database for market ${i}. Market will have empty image/description.`);
+        }
 
         markets.push({
           market_id: i,
           question: basicInfo.question,
-          description: metadata.description || '',
-          image_url: metadata.image || '',
-          category_id: metadata.category || '',
+          description: metadata?.description || '',
+          image_url: metadata?.image || '',
+          category_id: metadata?.category || '',
           // Add complete market state data
           outcomes: outcomes,
           prices: prices.map((p: bigint) => Number(p) / 100), // Convert to percentage

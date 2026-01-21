@@ -8,7 +8,6 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
-import { getMarketMetadata } from "@/lib/market-metadata";
 import { AnimatePresence, motion } from "framer-motion";
 import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
@@ -157,7 +156,12 @@ export function MobileTerminal() {
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
-    const metadata = market ? getMarketMetadata(market.question, market.id) : null;
+    // Use API metadata - no fallback, API is source of truth
+    const metadata = market ? {
+        image: market.image_url || '',
+        description: market.description || '',
+        category: market.category_id || 'General'
+    } : null;
 
     useEffect(() => {
         marketRef.current = market;
