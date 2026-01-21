@@ -63,7 +63,7 @@ export default function Home() {
               <Link href="/terminal" className="w-full sm:w-auto">
                 <NeonButton variant="cyan" className="w-full sm:w-auto px-8 py-5 text-lg group">
                   <Terminal className="w-5 h-5 mr-2 group-hover:text-black transition-colors" />
-                  JOIN POLL
+                  PREDICT VIA WEB
                 </NeonButton>
               </Link>
 
@@ -72,7 +72,7 @@ export default function Home() {
                 className="w-full sm:w-auto px-8 py-5 text-lg font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] opacity-80 cursor-not-allowed"
               >
                 <MessageCircle className="w-5 h-5" />
-                JOIN ON WHATSAPP - COMING SOON
+                PREDICT VIA WHATSAPP (SOON)
               </button>
 
               <a
@@ -83,7 +83,7 @@ export default function Home() {
               >
                 <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group">
                   <Send className="w-5 h-5 mr-2 text-neon-cyan" />
-                  JOIN ON TELEGRAM
+                  PREDICT VIA TELEGRAM
                 </NeonButton>
               </a>
             </div>

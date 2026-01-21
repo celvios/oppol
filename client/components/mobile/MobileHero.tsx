@@ -53,7 +53,7 @@ export default function MobileHero() {
                     <Link href="/terminal" className="w-full">
                         <NeonButton variant="cyan" className="w-full justify-center">
                             <Terminal className="w-4 h-4 mr-2" />
-                            JOIN POLL
+                            PREDICT VIA WEB
                         </NeonButton>
                     </Link>
 
@@ -62,7 +62,7 @@ export default function MobileHero() {
                         className="w-full px-4 py-3 text-sm font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] opacity-80 cursor-not-allowed"
                     >
                         <MessageCircle className="w-4 h-4" />
-                        JOIN ON WHATSAPP - COMING SOON
+                        PREDICT VIA WHATSAPP (SOON)
                     </button>
 
                     <a
@@ -73,7 +73,7 @@ export default function MobileHero() {
                     >
                         <NeonButton variant="glass" className="w-full justify-center text-sm">
                             <Send className="w-4 h-4 mr-2" />
-                            JOIN ON TELEGRAM
+                            PREDICT VIA TELEGRAM
                         </NeonButton>
                     </a>
                 </div>
