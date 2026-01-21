@@ -44,7 +44,7 @@ export default function MobileHero() {
                 </h1>
 
                 <p className="text-text-secondary text-sm leading-relaxed max-w-xs">
-                    The world's first <span className="text-white">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
+                    The world’s first <span className="text-white">Web + Telegram + Whatsapp native</span> prediction market.
                 </p>
 
 

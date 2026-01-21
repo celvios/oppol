@@ -56,7 +56,7 @@ export default function Home() {
             </h1>
 
             <p className="text-lg md:text-xl text-text-secondary mb-12 leading-relaxed max-w-2xl font-light">
-              The world's first <span className="text-white font-medium">WhatsApp + Telegram + Web3 Native</span> Prediction Market.
+              The world’s first <span className="text-white font-medium">Web + Telegram + Whatsapp native</span> prediction market.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto justify-center">
