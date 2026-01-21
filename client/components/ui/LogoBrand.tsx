@@ -13,40 +13,32 @@ interface LogoBrandProps {
 }
 
 export default function LogoBrand({ className = "", size = "md", href, animate = false, showText = false }: LogoBrandProps) {
-    // Size mappings for the image logo
+    // Size mappings for the image logo - Adjusted for full logo aspect ratio (approx 3:1)
     const sizes = {
-        sm: { img: 28, text: "text-lg", subtext: "text-[8px] mt-[1px]" },
-        md: { img: 40, text: "text-2xl", subtext: "text-[10px] mt-0.5" },
-        lg: { img: 56, text: "text-3xl", subtext: "text-xs mt-1" },
-        xl: { img: 80, text: "text-5xl md:text-6xl", subtext: "text-base mt-2" }
+        sm: { width: 85, height: 28 },    // 28px height base
+        md: { width: 120, height: 40 },   // 40px height base
+        lg: { width: 168, height: 56 },   // 56px height base
+        xl: { width: 240, height: 80 }    // 80px height base
     };
 
     const s = sizes[size];
 
     const Content = () => (
-        <div className={`flex items-center gap-2 ${className}`}>
-            {/* Logo Image */}
+        <div className={`relative ${className} flex items-center`}>
             <Image
                 src="/opoll-logo.png"
                 alt="OPoll"
-                width={s.img}
-                height={s.img}
-                className={`object-contain mix-blend-screen drop-shadow-[0_0_10px_rgba(0,240,255,0.4)] ${animate ? 'animate-pulse' : ''}`}
+                width={s.width}
+                height={s.height}
+                className={`object-contain ${animate ? 'animate-pulse' : ''}`}
                 priority
             />
-
-            {/* Text branding */}
-            {showText && (
-                <span className={`font-heading font-bold ${s.text} leading-none tracking-wide text-white`}>
-                    <span className="text-neon-cyan">O</span>Poll
-                </span>
-            )}
         </div>
     );
 
     if (href) {
         return (
-            <Link href={href || "#"} className="hover:opacity-80 transition-opacity">
+            <Link href={href || "#"} className="hover:opacity-80 transition-opacity block">
                 <Content />
             </Link>
         );
