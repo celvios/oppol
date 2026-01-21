@@ -21,17 +21,10 @@ export default function TerminalLayout({
                 <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
             </div>
 
-            {/* Mobile Header with Logo */}
-            <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-void/80 backdrop-blur-md border-b border-white/5">
-                <div className="flex items-center justify-between px-4 py-3">
-                    <LogoBrand size="sm" href="/" />
-                </div>
-            </div>
-
             <main
                 className={cn(
                     "flex-1 relative overflow-y-auto overflow-x-hidden transition-all duration-300",
-                    "pt-16 md:pt-0 p-0 md:p-8", // Top padding for mobile header
+                    "p-0 md:p-8", // Removed top padding
                     // Margin logic for desktop sidebar
                     collapsed ? "md:ml-20" : "md:ml-64"
                 )}
