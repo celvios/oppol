@@ -31,8 +31,7 @@ const MARKET_ABI = [
 const TOKENS = {
     USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
     USDT: '0x55d398326f99059fF775485246999027B3197955',
-    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
-    DAI: '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3'
+    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'
 };
 
 const getTokens = () => {
@@ -44,7 +43,6 @@ const getTokens = () => {
         { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true }, // USDC is 18 decimals on BSC? No, check below.
         { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false },
         { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false },
-        { symbol: 'DAI', address: TOKENS.DAI, decimals: 18, direct: false },
     ];
 };
 
