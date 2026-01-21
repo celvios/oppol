@@ -29,7 +29,7 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Allowed origins list
     const allowedOrigins = [
       'https://oppolbnb.vercel.app',
@@ -38,11 +38,11 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001'
     ];
-    
+
     // Check if origin is in allowed list or matches vercel.app pattern
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      /^https:\/\/.*\.vercel\.app$/.test(origin);
-    
+    const isAllowed = allowedOrigins.includes(origin) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin);
+
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -1683,21 +1683,30 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Find user
+      // Check if user exists
       let userResult = await query(
         'SELECT * FROM users WHERE LOWER(wallet_address) = $1',
         [walletAddress.toLowerCase()]
       );
 
-      // Enforce registration (must have display_name)
-      if (userResult.rows.length === 0 || !userResult.rows[0].display_name) {
-        console.log(`❌ Unregistered user attempted to comment: ${walletAddress}`);
-        socket.emit('comment-error', { error: 'Registration required', code: 'UNREGISTERED' });
-        return;
+      let user;
+
+      // Auto-register if user doesn't exist
+      if (userResult.rows.length === 0) {
+        console.log(`ℹ️ Auto-registering user for comment: ${walletAddress}`);
+        const defaultName = `User ${walletAddress.slice(0, 6)}`;
+        const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${walletAddress}`;
+
+        const insertRes = await query(
+          'INSERT INTO users (wallet_address, display_name, avatar_url) VALUES ($1, $2, $3) RETURNING *',
+          [walletAddress, defaultName, avatarUrl]
+        );
+        user = insertRes.rows[0];
+      } else {
+        user = userResult.rows[0];
       }
 
-      const user = userResult.rows[0];
-      console.log(`✅ User found:`, user);
+      console.log(`✅ User verified for comment:`, user.display_name);
 
       // Insert comment
       console.log(`💾 Inserting comment into database...`);

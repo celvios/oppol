@@ -502,13 +502,13 @@ export function MultiOutcomeTerminal() {
                         ))}
                     </div>
                 </GlassCard>
-            </GlassCard>
 
-            {/* Comments Section (Inline) - Moved here to match width */}
-            <CommentsSection marketId={market.id} className="w-full" />
-        </div>
 
-            {/* RIGHT COLUMN: Trading Panel (3 cols) */ }
+                {/* Comments Section (Inline) - Moved here to match width */}
+                <CommentsSection marketId={market.id} className="w-full" />
+            </div>
+
+            {/* RIGHT COLUMN: Trading Panel (3 cols) */}
             <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full">
                 <GlassCard className="flex-none p-4 bg-gradient-to-br from-white/5 to-transparent border-neon-cyan/20">
                     <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Available Balance</div>
