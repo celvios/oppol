@@ -65,9 +65,28 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
     try {
         provider = new ethers.WebSocketProvider(wssUrl);
 
-        // Wait for connection
-        await provider.getNetwork();
-        console.log('✅ Connected to blockchain');
+        // Wait for connection with timeout
+        try {
+            await Promise.race([
+                provider.getNetwork(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
+            ]);
+            console.log('✅ Connected to blockchain');
+        } catch (networkError: any) {
+            // Check if it's an RPC limit error
+            if (networkError?.error?.message?.includes('daily request limit') || 
+                networkError?.error?.message?.includes('upgrade your account')) {
+                console.error('❌ RPC provider limit reached. Deposit watcher disabled.');
+                console.error('   Consider upgrading your RPC plan or using a fallback provider.');
+                isRunning = false;
+                if (provider) {
+                    provider.destroy();
+                    provider = null;
+                }
+                return;
+            }
+            throw networkError;
+        }
 
         // Create filter for USDC Transfer events
         const filter = {
@@ -137,9 +156,34 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
             });
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('❌ Failed to start deposit watcher:', error);
+        
+        // Check if it's an RPC limit error
+        if (error?.error?.message?.includes('daily request limit') || 
+            error?.error?.message?.includes('upgrade your account') ||
+            error?.message?.includes('daily request limit')) {
+            console.error('⚠️ RPC provider limit reached. Deposit watcher will remain disabled.');
+            console.error('   The application will continue to function, but deposit watching is unavailable.');
+        } else {
+            console.error('   Will retry in 30 seconds...');
+            // Retry after 30 seconds for non-limit errors
+            setTimeout(() => {
+                if (!isRunning) {
+                    startDepositWatcher(wssUrl);
+                }
+            }, 30000);
+        }
+        
         isRunning = false;
+        if (provider) {
+            try {
+                provider.destroy();
+            } catch (e) {
+                // Ignore destroy errors
+            }
+            provider = null;
+        }
     }
 }
 

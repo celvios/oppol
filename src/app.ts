@@ -35,13 +35,16 @@ const corsOptions = {
       'https://oppolbnb.vercel.app',
       'https://oppol-gamma.vercel.app',
       'https://oppol.vercel.app',
+      'https://www.opoll.org',
+      'https://opoll.org',
       'http://localhost:3000',
       'http://localhost:3001'
     ];
 
     // Check if origin is in allowed list or matches vercel.app pattern
     const isAllowed = allowedOrigins.includes(origin) ||
-      /^https:\/\/.*\.vercel\.app$/.test(origin);
+      /^https:\/\/.*\.vercel\.app$/.test(origin) ||
+      /^https:\/\/.*\.opoll\.org$/.test(origin);
 
     if (isAllowed) {
       callback(null, true);
