@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
-import { web3Service, Market } from "@/lib/web3";
+import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 
 // Outcome colors for multi-outcome markets
@@ -18,7 +18,7 @@ const OUTCOME_COLORS = [
 ];
 
 export default function MobileMarketList() {
-    const [markets, setMarkets] = useState<Market[]>([]);
+    const [markets, setMarkets] = useState<MultiMarket[]>([]);
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -80,7 +80,7 @@ export default function MobileMarketList() {
 
                     // Find leading outcome for multi-outcome
                     let leadingOutcome = market.outcomes?.[0] || "Yes";
-                    let leadingPrice = market.prices?.[0] || market.yesOdds;
+                    let leadingPrice = market.prices?.[0] || 50;
                     if (isMultiOutcome && market.prices) {
                         const maxIndex = market.prices.indexOf(Math.max(...market.prices));
                         leadingOutcome = market.outcomes?.[maxIndex] || "Option";
@@ -111,6 +111,10 @@ export default function MobileMarketList() {
                                             src={metadata.image}
                                             alt={market.question}
                                             className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                // Fallback to placeholder or hide
+                                                e.currentTarget.style.display = 'none';
+                                            }}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-void/80 to-transparent" />
                                     </div>
@@ -153,18 +157,18 @@ export default function MobileMarketList() {
                                         /* Binary YES/NO display */
                                         <div className="relative h-14 w-full bg-white/5 rounded-xl overflow-hidden flex font-mono text-sm font-bold border border-white/5 relative z-10">
                                             <div
-                                                style={{ width: `${market.yesOdds}%` }}
+                                                style={{ width: `${market.prices?.[0] || 50}%` }}
                                                 className="h-full bg-outcome-a text-[#020408] flex items-center pl-4 transition-all duration-1000"
                                             >
                                                 <div className="flex flex-col leading-none">
                                                     <span className="text-xs opacity-70">YES</span>
-                                                    <span className="text-lg">{market.yesOdds.toFixed(0)}%</span>
+                                                    <span className="text-lg">{(market.prices?.[0] || 50).toFixed(0)}%</span>
                                                 </div>
                                             </div>
                                             <div className="flex-1 h-full bg-outcome-b text-[#020408] flex items-center justify-end pr-4">
                                                 <div className="flex flex-col leading-none items-end">
                                                     <span className="text-xs opacity-70">NO</span>
-                                                    <span className="text-lg">{market.noOdds.toFixed(0)}%</span>
+                                                    <span className="text-lg">{(market.prices?.[1] || 50).toFixed(0)}%</span>
                                                 </div>
                                             </div>
                                             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-black/20 -translate-x-1/2" />

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { v4 as uuidv4 } from "uuid";
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 export async function POST(request: NextRequest) {
     try {
@@ -15,21 +20,24 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Create unique filename
-        const uniqueParams = uuidv4();
-        const extension = file.name.split('.').pop() || 'png';
-        const filename = `${uniqueParams}.${extension}`;
+        // Upload to Cloudinary using upload_stream
+        const result = await new Promise<any>((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'opoll-markets',
+                    resource_type: 'auto'
+                },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            uploadStream.end(buffer);
+        });
 
-        // Save to public/uploads
-        const path = join(process.cwd(), "public/uploads", filename);
-        await writeFile(path, buffer);
-
-        // Return public URL
-        const url = `/uploads/${filename}`;
-
-        return NextResponse.json({ success: true, url });
+        return NextResponse.json({ success: true, url: result.secure_url });
     } catch (error: any) {
-        console.error("Upload error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        console.error("Cloudinary upload error:", error);
+        return NextResponse.json({ success: false, error: error.message || "Upload failed" }, { status: 500 });
     }
 }

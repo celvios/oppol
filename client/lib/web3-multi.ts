@@ -120,8 +120,8 @@ export class Web3MultiService {
             }
 
             if (!data.markets || data.markets.length === 0) {
-                console.warn('[Web3MultiService] API returned no markets');
-                return [];
+                console.warn('[Web3MultiService] API returned no markets - forcing contract fallback');
+                throw new Error('API returned no markets');
             }
 
             // Map API response to MultiMarket interface - API is the source of truth
@@ -188,8 +188,8 @@ export class Web3MultiService {
             return {
                 id: marketId,
                 question: basicInfo.question,
-                image_url: '', // Contract doesn't have metadata, will be empty
-                description: '', // Contract doesn't have metadata, will be empty
+                image_url: basicInfo.image || '', // Map from contract
+                description: basicInfo.description || '', // Map from contract
                 category_id: '',
                 outcomes: outcomes,
                 outcomeCount: Number(basicInfo.outcomeCount),
@@ -201,7 +201,7 @@ export class Web3MultiService {
                 resolved: basicInfo.resolved,
                 winningOutcome: Number(basicInfo.winningOutcome),
                 // Legacy compatibility
-                image: '',
+                image: basicInfo.image || '',
             };
         } catch (error) {
             console.error('Error fetching multi-market:', error);

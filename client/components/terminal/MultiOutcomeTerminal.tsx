@@ -77,8 +77,14 @@ export function MultiOutcomeTerminal() {
     };
     
     // Use API metadata - no fallback, API is source of truth
+    // Support both image_url (API) and image (legacy) for compatibility
+    const getImageUrl = (m: MultiMarket) => {
+        const img = m.image_url || m.image || '';
+        return img && isValidImage(img) ? img.trim() : '';
+    };
+    
     const metadata = market ? {
-        image: market.image_url && isValidImage(market.image_url) ? market.image_url.trim() : '',
+        image: getImageUrl(market),
         description: market.description && market.description.trim() ? market.description.trim() : '',
         category: market.category_id || 'General'
     } : null;
@@ -382,9 +388,9 @@ export function MultiOutcomeTerminal() {
                                 <div className="flex gap-4 mb-3">
                                     {/* Market Image */}
                                     <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                        {m.image_url && isValidImage(m.image_url) ? (
+                                        {(m.image_url || m.image) && isValidImage(m.image_url || m.image) ? (
                                             <img
-                                                src={m.image_url.trim()}
+                                                src={(m.image_url || m.image || '').trim()}
                                                 alt=""
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => {

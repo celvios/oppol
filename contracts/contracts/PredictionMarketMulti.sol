@@ -1,7 +1,10 @@
+pragma solidity ^0.8.22;
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title OptimisticOracleV3Interface
@@ -38,7 +41,7 @@ interface OptimisticOracleV3Interface {
  * @dev Multi-outcome prediction market using LMSR + UMA Optimistic Oracle V3
  *      Supports 2-10 outcomes per market
  */
-contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     IERC20 public token;
     OptimisticOracleV3Interface public oracle;
     
@@ -547,4 +550,6 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
     function setAssertionBond(uint256 _bond) external onlyOwner {
         assertionBond = _bond;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import MarketCard from "./MarketCard";
 import { motion } from "framer-motion";
-import { web3Service, Market } from "@/lib/web3";
+import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 
 interface MarketGridProps {
     limit?: number;  // Optional limit for trending markets
@@ -13,7 +13,7 @@ interface MarketGridProps {
 const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainment', 'Science'];
 
 export default function MarketGrid({ limit, showFilters = true }: MarketGridProps) {
-    const [markets, setMarkets] = useState<Market[]>([]);
+    const [markets, setMarkets] = useState<MultiMarket[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -106,12 +106,12 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
                             volume={`$${market.totalVolume}`}
                             outcomeA={market.outcomes?.[0] || "Yes"}
                             outcomeB={market.outcomes?.[1] || "No"}
-                            probA={market.yesOdds / 100}
+                            probA={market.prices?.[0] ? market.prices[0] / 100 : 0.5} // Convert 0-100 to 0-1
                             outcomes={market.outcomes}
                             prices={market.prices}
-                            outcomeCount={market.outcomes?.length || 2}
+                            outcomeCount={market.outcomeCount}
                             color="green"
-                            image_url={market.image_url}
+                            image_url={market.image_url || market.image}
                             description={market.description}
                         />
                     </motion.div>
