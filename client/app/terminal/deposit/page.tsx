@@ -69,35 +69,7 @@ export default function DepositPage() {
     const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '';
 
 
-    async function mintTestTokens() {
-        if (!address) return;
-        try {
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask');
-            }
 
-            const provider = new ethers.BrowserProvider(window.ethereum as any);
-            const signer = await provider.getSigner();
-
-            // MockUSDC contract has a mint function for testing
-            const MINT_ABI = [
-                { name: 'mint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
-            ];
-
-            const tokenContract = new Contract(selectedToken.address, MINT_ABI, signer);
-            const mintAmount = ethers.parseUnits('1000', selectedToken.decimals);
-
-            console.log('Minting test tokens...');
-            const mintTx = await tokenContract.mint(address, mintAmount);
-            await mintTx.wait();
-
-            alert(`Minted 1000 test ${selectedToken.symbol} tokens!`);
-            fetchBalance();
-        } catch (error: any) {
-            console.error('Mint failed:', error);
-            alert('Failed to mint test tokens. This might not be available on this network.');
-        }
-    }
 
     useEffect(() => {
         if (address) {
@@ -328,11 +300,7 @@ export default function DepositPage() {
                                     <button onClick={() => setDepositAmount(tokenBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
                                         Balance: {tokenBalance}
                                     </button>
-                                    {parseFloat(tokenBalance) === 0 && (
-                                        <button onClick={mintTestTokens} className="text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
-                                            Get Test Tokens
-                                        </button>
-                                    )}
+
                                 </div>
                             </div>
                             <input
