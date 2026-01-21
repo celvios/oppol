@@ -17,13 +17,8 @@ export default function Header() {
             {/* Subtle backdrop blur to blend with landing page */}
             <div className="absolute inset-0 bg-void/60 backdrop-blur-sm border-b border-white/5" />
             <div className="relative w-full px-4 md:px-6 py-3 md:py-4 flex items-center justify-start">
-                {/* Logo - Top Left Position */}
-                <div className="hidden md:block">
-                    <LogoBrand size="xl" href="/" />
-                </div>
-                <div className="md:hidden">
-                    <LogoBrand size="md" href="/" />
-                </div>
+                {/* Logo removed as per request */}
+
             </div>
         </header>
     );

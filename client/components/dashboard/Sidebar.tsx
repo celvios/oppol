@@ -43,11 +43,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             >
                 {/* Header / Logo */}
                 <div className="mb-6 flex items-center justify-between px-2">
-                    <LogoBrand
-                        size="sm"
-                        href="/"
-                        showText={!collapsed}
-                    />
+                    {/* Logo removed */}
+                    <div /> {/* Spacer to keep toggle button to the right if needed, or just empty */}
+
                     {!collapsed && (
                         <button
                             onClick={onToggle}
