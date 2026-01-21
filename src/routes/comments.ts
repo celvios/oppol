@@ -7,7 +7,28 @@ const router = express.Router();
 router.get('/:marketId', async (req, res) => {
     try {
         const { marketId } = req.params;
-        const { limit = 50, offset = 0, userId } = req.query;
+        const { limit = 50, offset = 0, userId, walletAddress } = req.query;
+
+        // Get user_id from wallet_address if provided (frontend sends wallet address as userId)
+        let userIdParam = userId;
+        if (!userIdParam && walletAddress) {
+            const userResult = await query(
+                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                [walletAddress.toString().toLowerCase()]
+            );
+            if (userResult.rows.length > 0) {
+                userIdParam = userResult.rows[0].id;
+            }
+        } else if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            // If userId looks like a wallet address (not a UUID), look it up
+            const userResult = await query(
+                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                [userId.toString().toLowerCase()]
+            );
+            if (userResult.rows.length > 0) {
+                userIdParam = userResult.rows[0].id;
+            }
+        }
 
         // Build query dynamically based on userId presence
         let sql = `
@@ -17,7 +38,8 @@ router.get('/:marketId', async (req, res) => {
                    u.avatar_url,
                    (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = TRUE)::int as likes,
                    (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = FALSE)::int as dislikes,
-                   (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id)::int as reply_count
+                   (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id)::int as reply_count,
+                   ${userIdParam ? `(SELECT is_like FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $4) as user_vote` : 'NULL as user_vote'}
             FROM comments c
             JOIN users u ON c.user_id = u.id
             WHERE c.market_id = $1 AND c.parent_id IS NULL
@@ -25,7 +47,8 @@ router.get('/:marketId', async (req, res) => {
             LIMIT $2 OFFSET $3
         `;
 
-        const result = await query(sql, [marketId, limit, offset]);
+        const params = userIdParam ? [marketId, limit, offset, userIdParam] : [marketId, limit, offset];
+        const result = await query(sql, params);
 
         res.json({ success: true, comments: result.rows });
     } catch (error: any) {
@@ -38,7 +61,28 @@ router.get('/:marketId', async (req, res) => {
 router.get('/replies/:commentId', async (req, res) => {
     try {
         const { commentId } = req.params;
-        const { userId } = req.query;
+        const { userId, walletAddress } = req.query;
+
+        // Get user_id from wallet_address if provided
+        let userIdParam = userId;
+        if (!userIdParam && walletAddress) {
+            const userResult = await query(
+                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                [walletAddress.toString().toLowerCase()]
+            );
+            if (userResult.rows.length > 0) {
+                userIdParam = userResult.rows[0].id;
+            }
+        } else if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            // If userId looks like a wallet address (not a UUID), look it up
+            const userResult = await query(
+                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                [userId.toString().toLowerCase()]
+            );
+            if (userResult.rows.length > 0) {
+                userIdParam = userResult.rows[0].id;
+            }
+        }
 
         const result = await query(
             `SELECT c.id, c.market_id, c.text, c.created_at, c.parent_id,
@@ -48,12 +92,12 @@ router.get('/replies/:commentId', async (req, res) => {
                     (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = TRUE) as likes,
                     (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.is_like = FALSE) as dislikes,
                     (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) as reply_count,
-                    ${userId ? `(SELECT is_like FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $2) as user_vote` : 'NULL as user_vote'}
+                    ${userIdParam ? `(SELECT is_like FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $2) as user_vote` : 'NULL as user_vote'}
              FROM comments c
              JOIN users u ON c.user_id = u.id
              WHERE c.parent_id = $1
              ORDER BY c.created_at ASC`,
-            userId ? [commentId, userId] : [commentId]
+            userIdParam ? [commentId, userIdParam] : [commentId]
         );
 
         res.json({ success: true, replies: result.rows });

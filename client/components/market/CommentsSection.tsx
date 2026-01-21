@@ -62,6 +62,16 @@ const CommentItem = ({
     const [showReplies, setShowReplies] = useState(false);
     const [, setIsLoadingReplies] = useState(false);
 
+    // Sync user_vote when comment prop updates (after reload)
+    useEffect(() => {
+        if (comment.user_vote !== undefined) {
+            setUserVote(comment.user_vote);
+        }
+        if (comment.likes !== undefined) {
+            setLikes(parseInt(comment.likes as any || 0));
+        }
+    }, [comment.user_vote, comment.likes]);
+
     // Sync local replies if prop updates
     useEffect(() => {
         if (comment.replies) {
@@ -105,7 +115,7 @@ const CommentItem = ({
         if (!showReplies && replies.length === 0 && (comment.reply_count || 0) > 0) {
             setIsLoadingReplies(true);
             try {
-                const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/replies/${comment.id}?userId=${address ? encodeURIComponent(address) : ''}`;
+                const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/replies/${comment.id}${address ? `?walletAddress=${encodeURIComponent(address)}` : ''}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data.success) {
@@ -245,7 +255,7 @@ export default function CommentsSection({ marketId, className }: CommentsSection
     // Initial Fetch
     const fetchComments = useCallback(async () => {
         try {
-            const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/${marketId}?userId=${address ? encodeURIComponent(address) : ''}`;
+            const url = `${process.env.NEXT_PUBLIC_API_URL}/api/comments/${marketId}${address ? `?walletAddress=${encodeURIComponent(address)}` : ''}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.success) {
