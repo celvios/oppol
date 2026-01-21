@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ReownProvider } from "@/lib/reown-provider";
+import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import BottomNav from "@/components/mobile/BottomNav";
@@ -44,15 +45,17 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <div className="min-h-screen" suppressHydrationWarning={true}>
-          <ReownProvider>
-            <SettingsProvider>
-              <AnimatedBackground />
-              <UserRegistrationManager />
-              <Header />
-              {children}
-              <BottomNav />
-            </SettingsProvider>
-          </ReownProvider>
+          <Web3Provider>
+            <ReownProvider>
+              <SettingsProvider>
+                <AnimatedBackground />
+                <UserRegistrationManager />
+                <Header />
+                {children}
+                <BottomNav />
+              </SettingsProvider>
+            </ReownProvider>
+          </Web3Provider>
         </div>
       </body>
     </html>
