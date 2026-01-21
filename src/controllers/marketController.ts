@@ -30,7 +30,6 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
 export const getAllMarketMetadata = async (req: Request, res: Response) => {
     try {
         const result = await query('select * from markets', []);
-        const markets = [];
 
         const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
         const { CONFIG } = require('../config/contracts');
@@ -44,37 +43,40 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         ];
         const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
-        for (const row of result.rows) {
-            let onChainData: any = {};
-            try {
-                const [outcomes, prices, basicInfo] = await Promise.all([
-                    contract.getMarketOutcomes(row.market_id),
-                    contract.getAllPrices(row.market_id),
-                    contract.getMarketBasicInfo(row.market_id)
-                ]);
+        // Fetch ALL markets' on-chain data in PARALLEL for instant loading
+        const markets = await Promise.all(
+            result.rows.map(async (row) => {
+                let onChainData: any = {};
+                try {
+                    const [outcomes, prices, basicInfo] = await Promise.all([
+                        contract.getMarketOutcomes(row.market_id),
+                        contract.getAllPrices(row.market_id),
+                        contract.getMarketBasicInfo(row.market_id)
+                    ]);
 
-                onChainData = {
-                    outcomes: outcomes,
-                    prices: prices.map((p: bigint) => Number(p) / 100),
-                    liquidityParam: basicInfo[3].toString(),
-                    endTime: Number(basicInfo[2]),
-                    resolved: basicInfo[4],
-                    winningOutcome: Number(basicInfo[5])
+                    onChainData = {
+                        outcomes: outcomes,
+                        prices: prices.map((p: bigint) => Number(p) / 100),
+                        liquidityParam: basicInfo[3].toString(),
+                        endTime: Number(basicInfo[2]),
+                        resolved: basicInfo[4],
+                        winningOutcome: Number(basicInfo[5])
+                    };
+                } catch (err) {
+                    console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
+                    onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+                }
+
+                return {
+                    market_id: row.market_id,
+                    question: row.question,
+                    description: row.description || '',
+                    image_url: row.image || '',
+                    category_id: row.category || '',
+                    ...onChainData
                 };
-            } catch (err) {
-                console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
-                onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
-            }
-
-            markets.push({
-                market_id: row.market_id,
-                question: row.question,
-                description: row.description || '',
-                image_url: row.image || '',
-                category_id: row.category || '',
-                ...onChainData
-            });
-        }
+            })
+        );
 
         res.json({ success: true, markets });
     } catch (error) {
@@ -110,9 +112,6 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
             console.log(`[Market ${marketId}] Calling contract methods...`);
-
-            // Add a small delay to ensure blockchain state is updated
-            await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Try to call each method individually to see which one fails
             let outcomes, prices, basicInfo;
