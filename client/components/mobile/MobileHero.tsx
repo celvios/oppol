@@ -44,7 +44,7 @@ export default function MobileHero() {
                             priority
                         />
                     </span>
-                    <span className="text-neon-cyan/80 block text-lg tracking-[0.2em] mt-2 font-mono font-normal">
+                    <span className="text-sky-400 block text-xs tracking-[0.2em] mt-1 font-mono font-normal">
                         PREDICTION MARKET
                     </span>
                 </h1>

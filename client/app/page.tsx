@@ -56,7 +56,7 @@ export default function Home() {
                   priority
                 />
               </span>
-              <span className="text-neon-cyan/80 block text-2xl md:text-3xl lg:text-4xl tracking-[0.3em] mt-4 font-mono font-normal">
+              <span className="text-sky-400 block text-lg md:text-xl lg:text-2xl tracking-[0.3em] mt-2 font-mono font-normal">
                 PREDICTION MARKET
               </span>
             </h1>
