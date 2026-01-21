@@ -5,6 +5,8 @@ import { getCurrentNetwork } from './contracts';
 export interface MultiMarket {
     id: number;
     question: string;
+    image: string;          // New field
+    description: string;    // New field
     outcomes: string[];
     outcomeCount: number;
     shares: string[];
@@ -15,6 +17,11 @@ export interface MultiMarket {
     resolved: boolean;
     winningOutcome: number;
 }
+
+// ... (keep surrounding code)
+
+
+
 
 export interface MultiPosition {
     shares: string[];
@@ -117,6 +124,8 @@ export class Web3MultiService {
             return {
                 id: marketId,
                 question: basicInfo.question,
+                image: basicInfo.image,
+                description: basicInfo.description,
                 outcomes: outcomes,
                 outcomeCount: Number(basicInfo.outcomeCount),
                 shares: sharesFormatted,

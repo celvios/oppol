@@ -23,13 +23,28 @@ export default function UserRegistrationManager() {
                 return;
             }
 
-            // Check localStorage to avoid showing modal repeatedly
+            // Check localStorage first to avoid unnecessary API calls
             const storageKey = `user_registered_${address.toLowerCase()}`;
             const wasRegistered = localStorage.getItem(storageKey);
             if (wasRegistered === 'true') {
-                setIsRegistered(true);
-                setShowModal(false);
-                return;
+                // Still verify with API to ensure user actually exists
+                try {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`);
+                    const data = await res.json();
+                    if (data.success && data.user && data.user.display_name) {
+                        setIsRegistered(true);
+                        setShowModal(false);
+                        return;
+                    } else {
+                        // User was marked as registered but doesn't have display_name - clear localStorage
+                        localStorage.removeItem(storageKey);
+                    }
+                } catch (error) {
+                    // If API fails but localStorage says registered, trust localStorage
+                    setIsRegistered(true);
+                    setShowModal(false);
+                    return;
+                }
             }
 
             try {
@@ -43,24 +58,34 @@ export default function UserRegistrationManager() {
                         setShowModal(false);
                         localStorage.setItem(storageKey, 'true');
                     } else {
-                        // Only show modal if we haven't checked before or user doesn't exist
-                        if (!hasChecked || !data.user) {
-                            setShowModal(true);
-                        }
+                        // User doesn't exist or doesn't have display_name - show modal
+                        setShowModal(true);
                     }
+                } else {
+                    // API returned error - don't block user, but show modal
+                    setShowModal(true);
                 }
             } catch (error) {
                 console.error('Failed to check user status:', error);
-                // Don't show modal on error to avoid blocking users
+                // On error, check localStorage as fallback
+                const storageKey = `user_registered_${address.toLowerCase()}`;
+                const wasRegistered = localStorage.getItem(storageKey);
+                if (wasRegistered === 'true') {
+                    setIsRegistered(true);
+                    setShowModal(false);
+                } else {
+                    // Show modal if we can't verify
+                    setShowModal(true);
+                }
             } finally {
                 setHasChecked(true);
             }
         };
 
-        if (isConnected && address && !isRegistered) {
+        if (isConnected && address) {
             checkUserStatus();
         }
-    }, [isConnected, address, hasChecked, isRegistered]);
+    }, [isConnected, address]);
 
     const handleRegisterSuccess = async () => {
         setShowModal(false);

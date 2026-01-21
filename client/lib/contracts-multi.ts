@@ -27,7 +27,7 @@ export const getMultiContracts = () => {
 // ABI for PredictionMarketMulti
 export const PREDICTION_MARKET_MULTI_ABI = [
     'function marketCount() view returns (uint256)',
-    'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+    'function getMarketBasicInfo(uint256 marketId) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
     'function getMarketOutcomes(uint256 marketId) view returns (string[])',
     'function getMarketShares(uint256 marketId) view returns (uint256[])',
     'function getAllPrices(uint256 marketId) view returns (uint256[])',
@@ -40,4 +40,5 @@ export const PREDICTION_MARKET_MULTI_ABI = [
     'function withdraw(uint256 amount)',
     'function claimWinnings(uint256 marketId)',
     'function getMarketStatus(uint256 marketId) view returns (bool ended, bool assertionPending, bool resolved, uint256 winningOutcome, address asserter, bytes32 assertionId)',
+    'function createMarket(string question, string image, string description, string[] outcomes, uint256 duration, uint256 liquidityParam, uint256 subsidy) external returns (uint256)',
 ];

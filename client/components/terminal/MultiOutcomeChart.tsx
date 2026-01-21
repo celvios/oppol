@@ -36,7 +36,12 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
     const gradients = useMemo(() => (
         <defs>
             {outcomes.map((outcome, index) => {
-                const color = COLORS[index % COLORS.length];
+                let color;
+                const lower = outcome.toLowerCase();
+                if (lower === 'yes') color = '#27E8A7'; // Neon Green
+                else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
+                else color = COLORS[index % COLORS.length];
+
                 return (
                     <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={color} stopOpacity={0.4} />
@@ -87,7 +92,12 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
                         iconType="circle"
                     />
                     {outcomes.map((outcome, index) => {
-                        const color = COLORS[index % COLORS.length];
+                        let color;
+                        const lower = outcome.toLowerCase();
+                        if (lower === 'yes') color = '#27E8A7'; // Neon Green
+                        else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
+                        else color = COLORS[index % COLORS.length];
+
                         return (
                             <Area
                                 key={outcome}

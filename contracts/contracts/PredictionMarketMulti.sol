@@ -56,6 +56,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
     
     struct Market {
         string question;
+        string image;             // URL/Path to market image
+        string description;       // Market description/rules
         string[] outcomes;        // ["Option A", "Option B", "Option C", ...]
         uint256[] shares;         // Shares purchased per outcome
         uint256 outcomeCount;     // Number of outcomes
@@ -88,7 +90,7 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
     uint256 constant PRECISION = 1e18;
     uint256 constant MAX_EXPONENT = 100 * PRECISION;
 
-    event MarketCreated(uint256 indexed marketId, string question, string[] outcomes, uint256 liquidity);
+    event MarketCreated(uint256 indexed marketId, string question, string image, string description, string[] outcomes, uint256 liquidity);
     event SharesPurchased(uint256 indexed marketId, address indexed user, uint256 outcomeIndex, uint256 shares, uint256 cost);
     event OutcomeAsserted(uint256 indexed marketId, address indexed asserter, uint256 outcome, bytes32 assertionId);
     event MarketResolved(uint256 indexed marketId, uint256 outcome);
@@ -146,6 +148,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
     /**
      * @dev Create a multi-outcome market
      * @param _question The market question
+     * @param _image URL/Path to market image
+     * @param _description Market description/rules
      * @param _outcomes Array of outcome labels (2-10)
      * @param _duration Duration in seconds
      * @param _liquidityParam LMSR liquidity parameter
@@ -153,6 +157,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
      */
     function createMarket(
         string memory _question,
+        string memory _image,
+        string memory _description,
         string[] memory _outcomes,
         uint256 _duration,
         uint256 _liquidityParam,
@@ -169,6 +175,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
         Market storage market = markets[marketId];
         
         market.question = _question;
+        market.image = _image;
+        market.description = _description;
         market.outcomeCount = _outcomes.length;
         market.endTime = block.timestamp + _duration;
         market.liquidityParam = _liquidityParam;
@@ -180,7 +188,7 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
             market.shares.push(0);
         }
         
-        emit MarketCreated(marketId, _question, _outcomes, _liquidityParam);
+        emit MarketCreated(marketId, _question, _image, _description, _outcomes, _liquidityParam);
         return marketId;
     }
     
@@ -501,6 +509,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
     
     function getMarketBasicInfo(uint256 _marketId) external view returns (
         string memory question,
+        string memory image,
+        string memory description,  // New return value
         uint256 outcomeCount,
         uint256 endTime,
         uint256 liquidityParam,
@@ -510,6 +520,8 @@ contract PredictionMarketMulti is Initializable, OwnableUpgradeable, ReentrancyG
         Market storage market = markets[_marketId];
         return (
             market.question,
+            market.image,
+            market.description,     // Return stored description
             market.outcomeCount,
             market.endTime,
             market.liquidityParam,

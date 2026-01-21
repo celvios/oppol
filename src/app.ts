@@ -887,16 +887,24 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
     // Get Contract
     const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae';
     const marketABI = [
-      'function createMarket(string, string[], uint256) external returns (uint256)',
+      'function createMarket(string, string, string, string[], uint256, uint256, uint256) external returns (uint256)',
       'function marketCount() view returns (uint256)'
     ];
     const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
 
-    // V2: Simple 3-parameter call!
+    // V2: Updated Call with Image & Description
+    // Params: question, image, description, outcomes, duration, liquidity, subsidy
+    const durationSeconds = Math.floor(parseFloat(durationDays) * 24 * 60 * 60);
+    const liquidityParam = ethers.parseUnits("100", 18);
+
     const tx = await contract.createMarket(
       question,
+      image || "",
+      description || "",
       outcomes,
-      durationDays  // Just days, no conversion!
+      durationSeconds,
+      liquidityParam,
+      0 // Subsidy
     );
 
     console.log(`[Admin V2] TX Sent: ${tx.hash}`);
@@ -956,11 +964,11 @@ app.get('/api/markets', async (req, res) => {
       console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
       metadataResult.rows.forEach((row: any) => {
         metadataMap[row.market_id] = row;
-        const imageInfo = row.image 
-          ? `present (${row.image.length} chars, starts with: ${row.image.substring(0, 30)}...)` 
+        const imageInfo = row.image
+          ? `present (${row.image.length} chars, starts with: ${row.image.substring(0, 30)}...)`
           : 'missing';
-        const descInfo = row.description 
-          ? `present (${row.description.length} chars)` 
+        const descInfo = row.description
+          ? `present (${row.description.length} chars)`
           : 'missing';
         console.log(`[Markets API] Metadata for market ${row.market_id}: image=${imageInfo}, description=${descInfo}`);
       });
@@ -999,7 +1007,7 @@ app.get('/api/markets', async (req, res) => {
 
         console.log(`[Markets API] Market ${i} question: ${basicInfo.question}`);
         const metadata = metadataMap[i];
-        
+
         if (!metadata) {
           console.warn(`[Markets API] WARNING: No metadata found in database for market ${i}. Market will have empty image/description.`);
         }

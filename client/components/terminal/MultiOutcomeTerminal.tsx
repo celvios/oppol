@@ -271,11 +271,19 @@ export function MultiOutcomeTerminal() {
         );
     }
 
+    // Helper to get color for outcome
+    const getOutcomeColor = (outcome: string, index: number) => {
+        const lower = outcome.toLowerCase();
+        if (lower === 'yes') return '#27E8A7'; // Neon Green
+        if (lower === 'no') return '#FF2E63';  // Neon Coral/Red
+        return OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+    };
+
     // Build chart data showing all outcome prices
     const chartData = market.prices.map((price, i) => ({
         name: market.outcomes[i],
         price: price,
-        color: OUTCOME_COLORS[i % OUTCOME_COLORS.length]
+        color: getOutcomeColor(market.outcomes[i], i)
     }));
 
     const filteredMarkets = markets.filter(m =>
@@ -399,7 +407,7 @@ export function MultiOutcomeTerminal() {
                                             key={i}
                                             style={{
                                                 width: `${price}%`,
-                                                backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length],
+                                                backgroundColor: getOutcomeColor(m.outcomes[i], i),
                                                 minWidth: '2px'
                                             }}
                                         />
@@ -492,51 +500,54 @@ export function MultiOutcomeTerminal() {
                     </div>
 
                     <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2">
-                        {market.outcomes && market.prices && market.outcomes.map((outcome, i) => (
-                            <motion.button
-                                key={i}
-                                onClick={() => setSelectedOutcome(i)}
-                                className={`relative p-4 rounded-xl border transition-all text-left ${selectedOutcome === i
-                                    ? 'border-white/30 bg-white/10'
-                                    : 'border-white/5 bg-white/5 hover:bg-white/10'
-                                    }`}
-                                whileHover={{ scale: 1.01 }}
-                                whileTap={{ scale: 0.99 }}
-                            >
-                                <div className="flex justify-between items-center mb-2">
-                                    <div className="flex items-center gap-3">
-                                        <div
-                                            className="w-4 h-4 rounded-full"
-                                            style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
+                        {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
+                            const color = getOutcomeColor(outcome, i);
+                            return (
+                                <motion.button
+                                    key={i}
+                                    onClick={() => setSelectedOutcome(i)}
+                                    className={`relative p-4 rounded-xl border transition-all text-left ${selectedOutcome === i
+                                        ? 'border-white/30 bg-white/10'
+                                        : 'border-white/5 bg-white/5 hover:bg-white/10'
+                                        }`}
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                >
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-4 h-4 rounded-full"
+                                                style={{ backgroundColor: color }}
+                                            />
+                                            <span className="font-heading text-white font-medium">{outcome || 'Unknown'}</span>
+                                        </div>
+                                        <span
+                                            className="text-2xl font-mono font-bold"
+                                            style={{ color: color }}
+                                        >
+                                            {(market.prices[i] || 0).toFixed(1)}%
+                                        </span>
+                                    </div>
+
+                                    {/* Progress bar */}
+                                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                        <motion.div
+                                            className="h-full rounded-full"
+                                            style={{ backgroundColor: color }}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${market.prices[i] || 0}%` }}
+                                            transition={{ duration: 0.5, ease: "easeOut" }}
                                         />
-                                        <span className="font-heading text-white font-medium">{outcome || 'Unknown'}</span>
                                     </div>
-                                    <span
-                                        className="text-2xl font-mono font-bold"
-                                        style={{ color: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                                    >
-                                        {(market.prices[i] || 0).toFixed(1)}%
-                                    </span>
-                                </div>
 
-                                {/* Progress bar */}
-                                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div
-                                        className="h-full rounded-full"
-                                        style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${market.prices[i] || 0}%` }}
-                                        transition={{ duration: 0.5, ease: "easeOut" }}
-                                    />
-                                </div>
-
-                                {selectedOutcome === i && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_#fff]" />
-                                    </div>
-                                )}
-                            </motion.button>
-                        ))}
+                                    {selectedOutcome === i && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_#fff]" />
+                                        </div>
+                                    )}
+                                </motion.button>
+                            );
+                        })}
                     </div>
                 </GlassCard>
 
@@ -568,12 +579,12 @@ export function MultiOutcomeTerminal() {
                             <div className="flex items-center gap-3">
                                 <div
                                     className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length] }}
+                                    style={{ backgroundColor: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
                                 />
                                 <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
                                 <span
                                     className="ml-auto font-mono text-xl font-bold"
-                                    style={{ color: OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length] }}
+                                    style={{ color: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
                                 >
                                     {(market.prices[selectedOutcome] || 0).toFixed(1)}%
                                 </span>
@@ -643,7 +654,7 @@ export function MultiOutcomeTerminal() {
                                 onConfirm={handleTrade}
                                 isLoading={isTradeLoading}
                                 side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
-                                color={OUTCOME_COLORS[selectedOutcome % OUTCOME_COLORS.length]}
+                                color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
                                 disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
                             />
                         )}
@@ -654,28 +665,31 @@ export function MultiOutcomeTerminal() {
                 <GlassCard className="flex-none p-4">
                     <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
                     <div className="flex items-end gap-1 h-16">
-                        {market.prices.map((price, i) => (
-                            <div
-                                key={i}
-                                className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
-                                style={{
-                                    height: `${Math.max(price, 5)}%`,
-                                    backgroundColor: `${OUTCOME_COLORS[i % OUTCOME_COLORS.length]}40`
-                                }}
-                                onClick={() => setSelectedOutcome(i)}
-                            >
+                        {market.prices.map((price, i) => {
+                            const color = getOutcomeColor(market.outcomes[i], i);
+                            return (
                                 <div
-                                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                                />
-                                {selectedOutcome === i && (
+                                    key={i}
+                                    className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
+                                    style={{
+                                        height: `${Math.max(price, 5)}%`,
+                                        backgroundColor: `${color}40`
+                                    }}
+                                    onClick={() => setSelectedOutcome(i)}
+                                >
                                     <div
-                                        className="absolute inset-0"
-                                        style={{ backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
+                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        style={{ backgroundColor: color }}
                                     />
-                                )}
-                            </div>
-                        ))}
+                                    {selectedOutcome === i && (
+                                        <div
+                                            className="absolute inset-0"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                     <div className="flex gap-1 mt-2">
                         {market.outcomes.map((outcome, i) => (

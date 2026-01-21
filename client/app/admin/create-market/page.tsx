@@ -55,7 +55,7 @@ export default function CreateMarketPage() {
             setError('Please upload an image file');
             return;
         }
-        
+
         if (file.size > 5 * 1024 * 1024) { // 5MB limit
             setError('Image must be less than 5MB');
             return;
@@ -145,6 +145,30 @@ export default function CreateMarketPage() {
             let txHash: string;
 
             if (useAdminEndpoint) {
+                // Handle Image Upload if it's a base64 string (meaning a new file was selected)
+                let imageUrl = formData.image;
+                if (imageUrl && imageUrl.startsWith('data:')) {
+                    // It's a base64 string, we need to upload it
+                    // Convert base64 to blob/file
+                    const res = await fetch(imageUrl);
+                    const blob = await res.blob();
+                    const file = new File([blob], "image.png", { type: "image/png" });
+
+                    const uploadData = new FormData();
+                    uploadData.append("file", file);
+
+                    const uploadRes = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: uploadData
+                    });
+
+                    const uploadResult = await uploadRes.json();
+                    if (!uploadResult.success) {
+                        throw new Error(uploadResult.error || "Image upload failed");
+                    }
+                    imageUrl = uploadResult.url;
+                }
+
                 // Admin flow: Use API endpoint
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-market-v2`, {
                     method: "POST",
@@ -155,7 +179,7 @@ export default function CreateMarketPage() {
                     body: JSON.stringify({
                         question: formData.question,
                         description: formData.description,
-                        image: formData.image,
+                        image: imageUrl, // Use the uploaded URL
                         category: formData.category,
                         outcomes: formData.outcomes,
                         durationDays: parseFloat(formData.durationDays)
@@ -182,9 +206,9 @@ export default function CreateMarketPage() {
                 const signer = await provider.getSigner();
                 const contracts = getContracts();
                 const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
-                
+
                 const marketABI = [
-                    'function createMarket(string, string[], uint256) external returns (uint256)',
+                    'function createMarket(string, string, string, string[], uint256, uint256, uint256) external returns (uint256)',
                     'function marketCount() view returns (uint256)'
                 ];
 
@@ -193,8 +217,12 @@ export default function CreateMarketPage() {
                 // Call contract directly from user's wallet
                 const tx = await contract.createMarket(
                     formData.question,
+                    imageUrl || "",
+                    formData.description,
                     formData.outcomes,
-                    parseFloat(formData.durationDays)
+                    parseFloat(formData.durationDays) * 86400, // Convert days to seconds
+                    parseInt(formData.initialLiquidity),
+                    0 // Subsidy
                 );
 
                 txHash = tx.hash;
@@ -315,7 +343,7 @@ export default function CreateMarketPage() {
                                     <label className="text-sm text-text-secondary uppercase tracking-wider flex items-center gap-2">
                                         <ImageIcon size={14} /> Market Image
                                     </label>
-                                    
+
                                     {/* Hidden file input */}
                                     <input
                                         ref={fileInputRef}
@@ -324,7 +352,7 @@ export default function CreateMarketPage() {
                                         onChange={handleFileChange}
                                         className="hidden"
                                     />
-                                    
+
                                     {imagePreview ? (
                                         /* Image Preview */
                                         <div className="relative group">
@@ -360,8 +388,8 @@ export default function CreateMarketPage() {
                                             className={`
                                                 w-full h-48 border-2 border-dashed rounded-lg cursor-pointer
                                                 flex flex-col items-center justify-center gap-3 transition-all
-                                                ${isDragging 
-                                                    ? 'border-neon-cyan bg-neon-cyan/10' 
+                                                ${isDragging
+                                                    ? 'border-neon-cyan bg-neon-cyan/10'
                                                     : 'border-white/20 hover:border-white/40 bg-black/20 hover:bg-black/30'
                                                 }
                                             `}
