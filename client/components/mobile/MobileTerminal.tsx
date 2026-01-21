@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle } from "lucide-react";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
-import { web3Service, Market } from '@/lib/web3';
+import { web3MultiService as web3Service, MultiMarket as Market } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
