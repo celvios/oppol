@@ -69,8 +69,8 @@ export default function MobileHero() {
                         rel="noopener noreferrer"
                         className="w-full"
                     >
-                        <NeonButton variant="glass" className="w-full justify-center text-sm">
-                            <Send className="w-4 h-4 mr-2" />
+                        <NeonButton variant="glass" className="w-full justify-center text-sm text-[#229ED9]">
+                            <Send className="w-4 h-4 mr-2 text-[#229ED9]" />
                             PREDICT VIA TELEGRAM
                         </NeonButton>
                     </a>

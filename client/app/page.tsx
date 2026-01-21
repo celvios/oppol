@@ -79,8 +79,8 @@ export default function Home() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto"
               >
-                <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group">
-                  <Send className="w-5 h-5 mr-2 text-neon-cyan" />
+                <NeonButton variant="glass" className="w-full sm:w-auto px-8 py-5 text-lg group text-[#229ED9]">
+                  <Send className="w-5 h-5 mr-2 text-[#229ED9]" />
                   PREDICT VIA TELEGRAM
                 </NeonButton>
               </a>
