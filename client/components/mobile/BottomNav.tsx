@@ -30,7 +30,8 @@ export default function BottomNav() {
     if (isTradeModalOpen || isInputFocused || isCommentsOpen) return null;
 
     const navItems = [
-        { name: "Terminal", icon: Home, href: "/terminal" },
+        { name: "Home", icon: Home, href: "/" },
+        { name: "Terminal", icon: BarChart2, href: "/terminal" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
         ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
         { name: "Search", icon: Search, href: "/search" },
