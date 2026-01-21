@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from 'recharts';
+import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import { LoginModal } from "@/components/ui/LoginModal";
@@ -66,7 +66,6 @@ export function DesktopTerminal() {
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(true);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
-    const [chartView, setChartView] = useState<'YES' | 'NO'>('YES');
     const [mounted, setMounted] = useState(false);
 
     // Trade State
@@ -273,12 +272,7 @@ export function DesktopTerminal() {
         );
     }
 
-    const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
-        .map(point => ({
-            time: point.time,
-            yesPrice: point.price,
-            noPrice: 100 - point.price
-        }));
+
 
     return (
         <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
@@ -403,8 +397,8 @@ export function DesktopTerminal() {
                         <div className="flex gap-8 items-end mt-4">
                             <div>
                                 <div className="text-sm text-text-secondary uppercase tracking-widest mb-1">Chance</div>
-                                <div className={`text-6xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-outcome-a' : 'text-outcome-b'}`}>
-                                    {chartView === 'YES' ? market.yesOdds.toFixed(1) : market.noOdds.toFixed(1)}% Chance
+                                <div className="text-6xl font-mono font-bold tracking-tighter text-white">
+                                    {market.yesOdds.toFixed(1)}%
                                 </div>
                             </div>
 
@@ -429,96 +423,14 @@ export function DesktopTerminal() {
                 <GlassCard className="flex-1 min-h-[400px] p-6 flex flex-col relative overflow-hidden">
                     <div className="flex justify-between items-center mb-6 z-10 relative">
                         <h2 className="text-lg font-heading text-white">Chance Wave</h2>
-                        <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                            <button
-                                onClick={() => setChartView('YES')}
-                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${chartView === 'YES' ? 'bg-neon-green/20 text-neon-green shadow-[0_0_10px_rgba(39,232,167,0.2)]' : 'text-white/40 hover:text-white'}`}
-                            >
-                                YES POOL
-                            </button>
-                            <button
-                                onClick={() => setChartView('NO')}
-                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${chartView === 'NO' ? 'bg-neon-coral/20 text-neon-coral shadow-[0_0_10px_rgba(255,46,99,0.2)]' : 'text-white/40 hover:text-white'}`}
-                            >
-                                NO POOL
-                            </button>
-                        </div>
+                        {/* Optional filters can go here */}
                     </div>
 
                     <div className="flex-1 w-full h-full min-h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorYes" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#27E8A7" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#27E8A7" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorNo" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#FF2E63" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#FF2E63" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(5, 5, 10, 0.9)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        backdropFilter: 'blur(10px)'
-                                    }}
-                                    itemStyle={{ fontFamily: 'var(--font-jetbrains-mono)' }}
-                                />
-                                {chartView === 'YES' ? (
-                                    <>
-                                        <Area
-                                            type="monotone"
-                                            dataKey="noPrice"
-                                            name="NO"
-                                            stroke="#FF2E63"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorNo)"
-                                            className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)] transition-all duration-500"
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="yesPrice"
-                                            name="YES"
-                                            stroke="#27E8A7"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorYes)"
-                                            className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)] transition-all duration-500"
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <Area
-                                            type="monotone"
-                                            dataKey="yesPrice"
-                                            name="YES"
-                                            stroke="#27E8A7"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorYes)"
-                                            className="drop-shadow-[0_0_15px_rgba(39,232,167,0.3)] transition-all duration-500"
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="noPrice"
-                                            name="NO"
-                                            stroke="#FF2E63"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorNo)"
-                                            className="drop-shadow-[0_0_15px_rgba(255,46,99,0.3)] transition-all duration-500"
-                                        />
-                                    </>
-                                )}
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        <MultiOutcomeChart
+                            data={priceHistory}
+                            outcomes={market.outcomes || ["YES", "NO"]}
+                        />
                     </div>
                 </GlassCard>
             </div>
