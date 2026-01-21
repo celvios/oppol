@@ -344,7 +344,7 @@ export function MobileTerminal() {
         );
     }
 
-    const currentPrice = chartView === 'YES' ? market.yesOdds : (100 - market.yesOdds);
+    const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
     const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
     return (
@@ -440,7 +440,7 @@ export function MobileTerminal() {
                         : 'bg-white/5 border-white/5 text-white/40'
                         }`}
                 >
-                    {market.outcomes?.[0] || 'YES'} {market.yesOdds.toFixed(0)}%
+                    {market.outcomes?.[0] || 'YES'} {(market.yesOdds || 50).toFixed(0)}%
                 </button>
                 <button
                     onClick={() => { setChartView('NO'); setSelectedOutcomeIndex(1); }}
@@ -449,7 +449,7 @@ export function MobileTerminal() {
                         : 'bg-white/5 border-white/5 text-white/40'
                         }`}
                 >
-                    {market.outcomes?.[1] || 'NO'} {market.noOdds.toFixed(0)}%
+                    {market.outcomes?.[1] || 'NO'} {(market.noOdds || 50).toFixed(0)}%
                 </button>
             </div>
 
@@ -594,7 +594,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const isMultiOutcome = (market.outcomes?.length || 0) > 2;
     const currentPrice = isMultiOutcome
         ? (market.prices?.[outcomeIndex] || 50)
-        : (side === 'YES' ? market.yesOdds : (100 - market.yesOdds));
+        : (side === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50)));
     const outcomeName = isMultiOutcome
         ? (market.outcomes?.[outcomeIndex] || `Option ${outcomeIndex}`)
         : side;
