@@ -10,7 +10,7 @@ router.get('/:marketId', async (req, res) => {
         const { limit = 50, offset = 0, userId, walletAddress } = req.query;
 
         // Get user_id from wallet_address if provided (frontend sends wallet address as userId)
-        let userIdParam = userId;
+        let userIdParam: string | number | undefined = userId as string | undefined;
         if (!userIdParam && walletAddress) {
             const userResult = await query(
                 'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
@@ -19,14 +19,17 @@ router.get('/:marketId', async (req, res) => {
             if (userResult.rows.length > 0) {
                 userIdParam = userResult.rows[0].id;
             }
-        } else if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            // If userId looks like a wallet address (not a UUID), look it up
-            const userResult = await query(
-                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-                [userId.toString().toLowerCase()]
-            );
-            if (userResult.rows.length > 0) {
-                userIdParam = userResult.rows[0].id;
+        } else if (userId) {
+            const userIdStr = userId.toString();
+            if (!userIdStr.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                // If userId looks like a wallet address (not a UUID), look it up
+                const userResult = await query(
+                    'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                    [userIdStr.toLowerCase()]
+                );
+                if (userResult.rows.length > 0) {
+                    userIdParam = userResult.rows[0].id;
+                }
             }
         }
 
@@ -64,7 +67,7 @@ router.get('/replies/:commentId', async (req, res) => {
         const { userId, walletAddress } = req.query;
 
         // Get user_id from wallet_address if provided
-        let userIdParam = userId;
+        let userIdParam: string | number | undefined = userId as string | undefined;
         if (!userIdParam && walletAddress) {
             const userResult = await query(
                 'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
@@ -73,14 +76,17 @@ router.get('/replies/:commentId', async (req, res) => {
             if (userResult.rows.length > 0) {
                 userIdParam = userResult.rows[0].id;
             }
-        } else if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            // If userId looks like a wallet address (not a UUID), look it up
-            const userResult = await query(
-                'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-                [userId.toString().toLowerCase()]
-            );
-            if (userResult.rows.length > 0) {
-                userIdParam = userResult.rows[0].id;
+        } else if (userId) {
+            const userIdStr = userId.toString();
+            if (!userIdStr.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                // If userId looks like a wallet address (not a UUID), look it up
+                const userResult = await query(
+                    'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
+                    [userIdStr.toLowerCase()]
+                );
+                if (userResult.rows.length > 0) {
+                    userIdParam = userResult.rows[0].id;
+                }
             }
         }
 
