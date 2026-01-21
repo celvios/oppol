@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, MessageCircle, Terminal, Zap, Globe, Shield, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import dynamic from 'next/dynamic';
@@ -46,9 +47,14 @@ export default function Home() {
             </div>
 
             <h1 className="text-7xl md:text-8xl lg:text-9xl font-heading font-bold tracking-tighter mb-6 leading-[0.9] cursor-default flex flex-col items-center">
-              <span className="block">
-                <span className="text-neon-cyan drop-shadow-[0_0_30px_rgba(0,224,255,0.5)]">O</span>
-                <span className="text-white">Poll</span>
+              <span className="block relative w-[300px] h-[100px] md:w-[500px] md:h-[160px]">
+                <Image
+                  src="/opoll-logo-full.png"
+                  alt="OPoll"
+                  fill
+                  className="object-contain drop-shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                  priority
+                />
               </span>
               <span className="text-neon-cyan/80 block text-2xl md:text-3xl lg:text-4xl tracking-[0.3em] mt-4 font-mono font-normal">
                 PREDICTION MARKET

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Terminal, Send, MessageCircle } from "lucide-react";
 import NeonButton from "@/components/ui/NeonButton";
 import { motion } from "framer-motion";
@@ -34,9 +35,14 @@ export default function MobileHero() {
 
                 {/* OPoll Branding */}
                 <h1 className="text-6xl font-heading font-bold tracking-tighter leading-[0.9] cursor-default flex flex-col items-center">
-                    <span className="block">
-                        <span className="text-neon-cyan drop-shadow-[0_0_30px_rgba(0,224,255,0.5)]">O</span>
-                        <span className="text-white">Poll</span>
+                    <span className="block relative w-[240px] h-[80px]">
+                        <Image
+                            src="/opoll-logo-full.png"
+                            alt="OPoll"
+                            fill
+                            className="object-contain drop-shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                            priority
+                        />
                     </span>
                     <span className="text-neon-cyan/80 block text-lg tracking-[0.2em] mt-2 font-mono font-normal">
                         PREDICTION MARKET
