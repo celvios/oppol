@@ -298,7 +298,10 @@ export function ResolutionPanel({
                             <p className="text-white/60 text-sm">Winning Outcome</p>
                             <p className={`text-3xl font-bold ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
                                 }`}>
-                                {finalWinnerIndex === 0 ? 'YES' : (finalWinnerIndex === 1 ? 'NO' : `Option ${finalWinnerIndex}`)}
+                                {finalWinnerIndex !== null && finalWinnerIndex !== undefined
+                                    ? (finalWinnerIndex === 0 ? 'YES' : (finalWinnerIndex === 1 ? 'NO' : `Option ${finalWinnerIndex}`))
+                                    : 'Pending'
+                                }
                             </p>
                         </div>
 
