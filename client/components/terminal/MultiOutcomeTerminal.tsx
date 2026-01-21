@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
-import { TrendingUp, Wallet, Clock, Activity, MessageCircle } from "lucide-react";
+import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -57,6 +57,8 @@ export function MultiOutcomeTerminal() {
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
@@ -276,6 +278,10 @@ export function MultiOutcomeTerminal() {
         color: OUTCOME_COLORS[i % OUTCOME_COLORS.length]
     }));
 
+    const filteredMarkets = markets.filter(m =>
+        m.question.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
             {successData && (
@@ -299,16 +305,43 @@ export function MultiOutcomeTerminal() {
 
             {/* LEFT COLUMN: Market List (3 cols) */}
             <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
-                <GlassCard className="flex-none p-4 flex justify-between items-center bg-white/5">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse" />
-                        <span className="font-mono text-sm tracking-widest text-white/70">MULTI-OUTCOME</span>
-                    </div>
-                    <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{markets.length} ACTIVE</span>
+                <GlassCard className="flex-none p-4 flex justify-between items-center bg-white/5 min-h-[60px]">
+                    {isSearchOpen ? (
+                        <div className="flex items-center w-full gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                            <Search size={14} className="text-white/50" />
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="Search markets..."
+                                className="bg-transparent border-none outline-none text-sm text-white placeholder:text-white/30 w-full font-mono"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="p-1 hover:bg-white/10 rounded-full">
+                                <X size={14} className="text-white/50" />
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse" />
+                                <span className="font-mono text-sm tracking-widest text-white/70">MULTI-OUTCOME</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setIsSearchOpen(true)}
+                                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white group"
+                                >
+                                    <Search size={14} />
+                                </button>
+                                <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{filteredMarkets.length} ACTIVE</span>
+                            </div>
+                        </>
+                    )}
                 </GlassCard>
 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                    {markets.map((m) => {
+                    {filteredMarkets.map((m) => {
                         if (!m.outcomes || !m.prices || m.outcomes.length === 0 || m.prices.length === 0) return null;
                         const maxPrice = Math.max(...m.prices);
                         const maxIndex = m.prices.indexOf(maxPrice);
