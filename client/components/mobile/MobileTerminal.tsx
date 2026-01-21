@@ -103,30 +103,9 @@ export function MobileTerminal() {
         }
     }, [searchParams]);
 
-    const [markets, setMarkets] = useState<Market[]>([
-        // Mock market data for immediate display
-        {
-            id: 0,
-            question: "Will Bitcoin reach $100,000 by end of 2024?",
-            outcomes: ["YES", "NO"],
-            outcomeCount: 2,
-            shares: ["1000", "1000"],
-            prices: [65, 35],
-            endTime: Date.now() / 1000 + 86400,
-            liquidityParam: "5000",
-            totalVolume: "12500",
-            resolved: false,
-            winningOutcome: 0,
-            yesOdds: 65,
-            noOdds: 35,
-            yesShares: "1000",
-            noShares: "1000",
-            yesPool: "1000",
-            noPool: "1000"
-        }
-    ]);
+    const [markets, setMarkets] = useState<Market[]>([]);
     const [balance, setBalance] = useState<string>('0');
-    const [loading, setLoading] = useState(false); // Start with false to show cached data
+    const [loading, setLoading] = useState(true); // Start with loading state
     const [marketError, setMarketError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [isLoadingReal, setIsLoadingReal] = useState(true); // Track real data loading
@@ -219,36 +198,8 @@ export function MobileTerminal() {
         // Removed interval to avoid overwriting animation
     }, [selectedMarketId]);
 
-    // NEW: Load markets and set initial selection
-    useEffect(() => {
-        const fetchMarkets = async () => {
-            try {
-                const data = await web3Service.getMarkets();
-                setMarkets(data);
-            } catch (error) {
-                console.error("Failed to fetch markets:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchMarkets();
-    }, []); // Run once on mount
-
-    // Set initial market selection
-    useEffect(() => {
-        if (selectedMarketId === 0 && markets.length > 0) {
-            const urlId = Number(searchParams.get('marketId'));
-            if (urlId && markets.find(m => m.id === urlId)) {
-                setSelectedMarketId(urlId);
-            } else {
-                setSelectedMarketId(markets[0].id);
-            }
-        }
-    }, [markets, selectedMarketId, searchParams]);
-
+    // Single consolidated data fetch - runs once on mount
     const fetchData = useCallback(async () => {
-        // if (!isConnected || !address) return; // Allow fetching for visitors
-
         setMarketError(null);
         setIsLoadingReal(true);
 
@@ -266,35 +217,53 @@ export function MobileTerminal() {
             setMarkets(allMarkets);
             setBalance(depositedBalance);
             setRetryCount(0);
+            
+            // Set initial market selection
+            if (selectedMarketId === 0 && allMarkets.length > 0) {
+                const urlId = Number(searchParams.get('marketId'));
+                if (urlId && allMarkets.find(m => m.id === urlId)) {
+                    setSelectedMarketId(urlId);
+                } else {
+                    setSelectedMarketId(allMarkets[0].id);
+                }
+            }
         } catch (error: any) {
             console.error('[MobileTerminal] Error:', error);
             setMarketError(error.message || 'Failed to load markets');
 
-            if (retryCount < 2) { // Reduce retries to 2
-                setTimeout(() => setRetryCount(prev => prev + 1), 1000); // Faster retry
+            if (retryCount < 2) {
+                setTimeout(() => setRetryCount(prev => prev + 1), 1000);
             }
         } finally {
-            setIsLoadingReal(false);
-        }
-    }, [isConnected, address, retryCount]);
-
-    useEffect(() => {
-        if (!isConnected) {
             setLoading(false);
             setIsLoadingReal(false);
-            return;
         }
+    }, [address, retryCount, selectedMarketId, searchParams]);
+
+    // Initial fetch on mount
+    useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 30000); // Reduce polling frequency
+    }, []);
+
+    // Refresh balance when wallet connects/changes
+    useEffect(() => {
+        if (address) {
+            web3Service.getDepositedBalance(address).then(setBalance).catch(() => setBalance('0'));
+        }
+    }, [address]);
+
+    // Polling for live updates (less frequent)
+    useEffect(() => {
+        const interval = setInterval(fetchData, 30000);
         return () => clearInterval(interval);
-    }, [isConnected, address, fetchData]);
+    }, [fetchData]);
 
     // Trigger retry when retryCount changes
     useEffect(() => {
-        if (retryCount > 0 && isConnected && address) {
+        if (retryCount > 0) {
             fetchData();
         }
-    }, [retryCount, isConnected, address, fetchData]);
+    }, [retryCount]);
 
     if (errorInfo) {
         return (
