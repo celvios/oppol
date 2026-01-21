@@ -47,9 +47,20 @@ export default function MarketCard({
     description
 }: MarketCardProps) {
     // Use API metadata - no fallback, API is source of truth
+    // Base64 images should start with 'data:image/' or be a valid URL
+    const isValidImage = (img: string | undefined): boolean => {
+        if (!img || !img.trim()) return false;
+        const trimmed = img.trim();
+        // Check if it's a base64 data URI or a valid URL
+        return trimmed.startsWith('data:image/') || 
+               trimmed.startsWith('http://') || 
+               trimmed.startsWith('https://') ||
+               trimmed.startsWith('/');
+    };
+
     const metadata = {
-        image: image_url || '',
-        description: description || '',
+        image: image_url && isValidImage(image_url) ? image_url.trim() : '',
+        description: description && description.trim() ? description : '',
         category: 'General'
     };
 
@@ -96,15 +107,25 @@ export default function MarketCard({
                 className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}
             >
-                {/* Image Header */}
-                <div className="absolute inset-0 h-32 z-0">
-                    <img
-                        src={metadata.image}
-                        alt={title}
-                        className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-void/50 to-void" />
-                </div>
+                {/* Image Header - Only show if image exists and is valid */}
+                {metadata.image && metadata.image.length > 0 && (
+                    <div className="absolute inset-0 h-32 z-0">
+                        <img
+                            src={metadata.image}
+                            alt={title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                // Hide image on error
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                // Also hide the parent div
+                                const parent = target.parentElement;
+                                if (parent) parent.style.display = 'none';
+                            }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-void/50 to-void" />
+                    </div>
+                )}
 
                 {/* Content */}
                 <div className="relative z-10 flex flex-col justify-end h-full p-5">
@@ -114,6 +135,12 @@ export default function MarketCard({
                         <h3 className="text-xl font-heading font-bold leading-tight group-hover:text-outcome-a transition-colors">
                             {title}
                         </h3>
+                        {/* Description - Show if available */}
+                        {metadata.description && (
+                            <p className="text-xs text-white/60 mt-2 line-clamp-2 leading-relaxed">
+                                {metadata.description}
+                            </p>
+                        )}
                         <p className="text-xs text-text-secondary mt-1 font-mono">Vol: {volume}</p>
                     </div>
 

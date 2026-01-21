@@ -953,7 +953,13 @@ app.get('/api/markets', async (req, res) => {
       console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
       metadataResult.rows.forEach((row: any) => {
         metadataMap[row.market_id] = row;
-        console.log(`[Markets API] Metadata for market ${row.market_id}: image=${row.image ? 'present' : 'missing'}, description=${row.description ? 'present' : 'missing'}`);
+        const imageInfo = row.image 
+          ? `present (${row.image.length} chars, starts with: ${row.image.substring(0, 30)}...)` 
+          : 'missing';
+        const descInfo = row.description 
+          ? `present (${row.description.length} chars)` 
+          : 'missing';
+        console.log(`[Markets API] Metadata for market ${row.market_id}: image=${imageInfo}, description=${descInfo}`);
       });
     } catch (e: any) {
       console.error('[Markets API] CRITICAL: Database query failed for metadata:', e.message);
