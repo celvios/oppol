@@ -10,7 +10,7 @@ import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
 import { getMarketMetadata } from "@/lib/market-metadata";
 import { AnimatePresence, motion } from "framer-motion";
-import CommentsDrawer from "@/components/market/CommentsDrawer";
+import CommentsSection from "@/components/market/CommentsSection";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -83,7 +83,6 @@ export function MobileTerminal() {
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
-    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -543,53 +542,7 @@ export function MobileTerminal() {
                 </>
             )}
 
-            {/* 7. Other Markets */}
-            <div className="px-4 pb-4">
-                <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 px-2">Live Feeds</h3>
-                <div className="space-y-3">
-                    {markets.filter(m => m.id !== market.id).map(m => {
-                        const marketMetadata = getMarketMetadata(m.question, m.id);
-                        return (
-                            <div
-                                key={m.id}
-                                onClick={() => {
-                                    setSelectedMarketId(m.id);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                            >
-                                <GlassCard
-                                    className="p-4 active:scale-[0.98] transition-all duration-200"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {/* Market Icon */}
-                                        <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                            <img
-                                                src={marketMetadata.image}
-                                                alt=""
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    // Fallback to a simple icon if image fails
-                                                    e.currentTarget.style.display = 'none';
-                                                }}
-                                            />
-                                        </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="text-sm font-medium text-white line-clamp-2 leading-snug mb-1">{m.question}</h4>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs text-white/50">{marketMetadata.category}</span>
-                                                <span className={`font-mono text-lg font-bold ${m.yesOdds >= 50 ? 'text-neon-green' : 'text-neon-coral'}`}>
-                                                    {m.yesOdds.toFixed(0)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </GlassCard>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
 
             {/* Bottom Sheet */}
             <AnimatePresence>
@@ -606,12 +559,10 @@ export function MobileTerminal() {
                 )}
             </AnimatePresence>
 
-            {/* Comments Drawer */}
-            <CommentsDrawer
-                marketId={market.id}
-                isOpen={isCommentsOpen}
-                onClose={() => setIsCommentsOpen(false)}
-            />
+            {/* Comments Section (Mobile) */}
+            <div className="px-4 pb-20 mt-8">
+                <CommentsSection marketId={market.id} />
+            </div>
         </div>
     );
 }

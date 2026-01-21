@@ -10,7 +10,7 @@ import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import CommentsDrawer from "@/components/market/CommentsDrawer";
+import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { getMultiMarketMetadata } from "@/lib/market-metadata";
@@ -48,7 +48,6 @@ interface TradeSuccessData {
 export function MultiOutcomeTerminal() {
     const [markets, setMarkets] = useState<MultiMarket[]>([]);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
-    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
@@ -397,14 +396,7 @@ export function MultiOutcomeTerminal() {
                             <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green">{market.outcomeCount} Outcomes</span>
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
 
-                            {/* Chat Toggle */}
-                            <button
-                                onClick={() => setIsCommentsOpen(true)}
-                                className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-xs font-mono border border-white/10 transition-colors"
-                            >
-                                <MessageCircle className="w-3.5 h-3.5 text-neon-cyan" />
-                                <span className="text-neon-cyan">COMMENTS</span>
-                            </button>
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
                         </div>
                         <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">
                             {market.question}
@@ -653,12 +645,11 @@ export function MultiOutcomeTerminal() {
                     </div>
                 </GlassCard>
             </div>
-            {/* Comments Drawer */}
-            <CommentsDrawer
-                marketId={market.id}
-                isOpen={isCommentsOpen}
-                onClose={() => setIsCommentsOpen(false)}
-            />
+
+            {/* Comments Section (Inline) */}
+            <div className="col-span-12 mt-6">
+                <CommentsSection marketId={market.id} className="max-w-[1200px] mx-auto" />
+            </div>
 
             <ConnectWalletModal
                 isOpen={showConnectModal}
