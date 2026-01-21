@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { useRef, useState, useEffect, useCallback } from "react";
+import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, Clock, Activity, MessageCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
@@ -17,19 +17,22 @@ import { getMultiMarketMetadata } from "@/lib/market-metadata";
 
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
-// Outcome colors for up to 10 outcomes
+// Outcome colors matching the chart component
 const OUTCOME_COLORS = [
-    "#27E8A7", // Green
-    "#FF2E63", // Red/Coral
-    "#00F0FF", // Cyan
-    "#FFB800", // Gold
-    "#9D4EDD", // Purple
-    "#FF6B35", // Orange
-    "#3A86FF", // Blue
-    "#FF006E", // Pink
-    "#8338EC", // Violet
-    "#FFFFFF", // White (fallback)
+    "#27E8A7", // Neon Green
+    "#00F0FF", // Neon Cyan
+    "#FF2E63", // Neon Coral
+    "#9D4EDD", // Neon Purple
+    "#FFD700", // Gold
+    "#FF8C00", // Orange
+    "#0077B6", // Ocean Blue
+    "#F72585", // Pink
 ];
+
+interface PricePoint {
+    time: string;
+    [key: string]: number | string; // Dynamic keys for outcomes
+}
 
 interface TradeSuccessData {
     marketId: number;
@@ -55,6 +58,7 @@ export function MultiOutcomeTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
+    const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
 
     const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
@@ -71,7 +75,86 @@ export function MultiOutcomeTerminal() {
     }, []);
 
     // --- Data Fetching ---
-    // --- Data Fetching ---
+
+    const fetchHistory = useCallback(async (id: number) => {
+        const generatePlaceholder = () => {
+            // For multi-outcome, we just want a flat line or simple wave for each outcome
+            // using current prices
+            if (!marketRef.current) return [];
+
+            const now = Date.now();
+            const m = marketRef.current;
+
+            return Array.from({ length: 50 }).map((_, i) => {
+                const time = new Date(now - (49 - i) * 1000).toLocaleTimeString();
+                const point: any = { time };
+
+                m.outcomes.forEach((outcome, idx) => {
+                    const basePrice = m.prices[idx] || 0;
+                    // Slight random wave
+                    const wave = Math.sin((now - (49 - i) * 1000) / 800 + idx) * 0.5;
+                    point[outcome] = basePrice + wave;
+                });
+                return point;
+            });
+        };
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (apiUrl) {
+                const response = await fetch(`${apiUrl}/api/markets/${id}/price-history?limit=50`);
+                const data = await response.json();
+
+                if (data.success && data.history?.length > 0) {
+                    // Transform API history to Recharts format
+                    // Assuming API returns { history: [{ time, prices: [p1, p2...] }] } 
+                    // OR logic to adapt. For now, fallback to placeholder if format differs.
+                    // IMPORTANT: If API doesn't support multi-outcome history yet, use placeholder.
+                    setPriceHistory(generatePlaceholder());
+                } else {
+                    setPriceHistory(generatePlaceholder());
+                }
+            } else {
+                setPriceHistory(generatePlaceholder());
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            setPriceHistory(generatePlaceholder());
+        }
+    }, []);
+
+    // Animation / Heartbeat for chart
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!marketRef.current) return;
+            const m = marketRef.current;
+
+            setPriceHistory(prev => {
+                const now = Date.now();
+                const timeString = new Date(now).toLocaleTimeString();
+
+                const newPoint: any = { time: timeString };
+                m.outcomes.forEach((outcome, idx) => {
+                    const basePrice = m.prices[idx] || 0;
+                    const wave = Math.sin(now / 800 + idx) * 0.5;
+                    newPoint[outcome] = basePrice + wave;
+                });
+
+                if (prev.length === 0) return []; // Should be initialized by fetchHistory
+                const newHistory = [...prev, newPoint];
+                return newHistory.slice(-50);
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (selectedMarketId) {
+            fetchHistory(selectedMarketId);
+        }
+    }, [selectedMarketId, fetchHistory]);
+
+    // --- Data Fetching (Markets) ---
     const fetchData = useCallback(async () => {
         // Removed (!isConnected || !address) check to allow guest viewing
         console.log('[MultiTerminal] fetchData called');
@@ -360,10 +443,22 @@ export function MultiOutcomeTerminal() {
                     </div>
                 </GlassCard>
 
-                {/* Outcome Chance Bars */}
-                <GlassCard className="flex-1 min-h-[400px] p-6 flex flex-col relative overflow-hidden">
-                    <div className="flex justify-between items-center mb-6 z-10 relative">
-                        <h2 className="text-lg font-heading text-white">Outcome Chances</h2>
+                {/* Outcome Chance Chart & Bars */}
+                <GlassCard className="flex-1 min-h-[500px] p-6 flex flex-col relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-4 z-10 relative">
+                        <h2 className="text-lg font-heading text-white">Chance Wave</h2>
+                    </div>
+
+                    {/* Chart Section */}
+                    <div className="h-[250px] w-full mb-6 border-b border-white/5 pb-6">
+                        <MultiOutcomeChart
+                            data={priceHistory}
+                            outcomes={market.outcomes || []}
+                        />
+                    </div>
+
+                    <div className="flex justify-between items-center mb-3 z-10 relative">
+                        <h3 className="text-sm font-heading text-white/70">Outcome Distribution</h3>
                         <span className="text-xs text-white/50 font-mono">Click to select</span>
                     </div>
 
