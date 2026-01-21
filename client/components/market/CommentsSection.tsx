@@ -296,8 +296,58 @@ export default function CommentsSection({ marketId, className }: CommentsSection
 
         const handleNewComment = (comment: Comment) => {
             setComments(prev => {
-                if (prev.some(c => c.id === comment.id)) return prev;
+                // Check if this comment already exists (by ID)
+                const existingIndex = prev.findIndex(c => c.id === comment.id);
+                if (existingIndex !== -1) return prev;
 
+                // Helper function to find and replace temp comment in tree
+                const replaceTempComment = (nodes: Comment[]): Comment[] => {
+                    return nodes.map(node => {
+                        // Check if this node is the temp comment we're looking for
+                        if (node.id.startsWith('temp-') && 
+                            node.text === comment.text && 
+                            node.wallet_address === comment.wallet_address &&
+                            node.parent_id === comment.parent_id) {
+                            return comment;
+                        }
+                        
+                        // Check replies recursively
+                        if (node.replies && node.replies.length > 0) {
+                            const updatedReplies = replaceTempComment(node.replies);
+                            // Check if any reply was replaced
+                            const replyReplaced = updatedReplies.some((reply, idx) => 
+                                reply.id === comment.id && node.replies![idx].id.startsWith('temp-')
+                            );
+                            if (replyReplaced) {
+                                return { ...node, replies: updatedReplies };
+                            }
+                        }
+                        
+                        return node;
+                    });
+                };
+
+                // Check if there's a temp comment to replace
+                const hasTempComment = prev.some(c => 
+                    c.id.startsWith('temp-') && 
+                    c.text === comment.text && 
+                    c.wallet_address === comment.wallet_address &&
+                    c.parent_id === comment.parent_id
+                ) || prev.some(c => 
+                    c.replies?.some(r => 
+                        r.id.startsWith('temp-') && 
+                        r.text === comment.text && 
+                        r.wallet_address === comment.wallet_address &&
+                        r.parent_id === comment.parent_id
+                    )
+                );
+
+                if (hasTempComment) {
+                    // Replace temp comment with real one
+                    return replaceTempComment(prev);
+                }
+
+                // New comment - add it
                 if (!comment.parent_id) {
                     // New Root Comment: Prepend to top (Feed Style)
                     return [comment, ...prev];
@@ -319,12 +369,37 @@ export default function CommentsSection({ marketId, className }: CommentsSection
         if (!newComment.trim() || !address) return;
         setIsSending(true);
 
+        const commentText = newComment.trim();
+        const parentId = replyTo?.id;
+
+        // Optimistic update: Add comment immediately to UI
+        const tempId = `temp-${Date.now()}-${Math.random()}`;
+        const optimisticComment: Comment = {
+            id: tempId,
+            text: commentText,
+            created_at: new Date().toISOString(),
+            display_name: 'You',
+            wallet_address: address,
+            likes: 0,
+            dislikes: 0,
+            reply_count: 0,
+            parent_id: parentId || undefined
+        };
+
+        // Add optimistically
+        setComments(prev => {
+            if (parentId) {
+                return addCommentToTree(prev, optimisticComment);
+            }
+            return [optimisticComment, ...prev];
+        });
+
         const socket = getSocket();
         socket.emit('send-comment', {
             marketId,
-            text: newComment,
+            text: commentText,
             walletAddress: address,
-            parentId: replyTo?.id
+            parentId: parentId
         });
 
         setNewComment('');
