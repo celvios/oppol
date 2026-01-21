@@ -1,13 +1,22 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ArrowLeft, Plus, Trash2, Calendar, Image as ImageIcon, Save, Loader2, Upload, X } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useWallet } from "@/lib/use-wallet";
+import { useCreationAccess } from "@/lib/use-creation-access";
+import { useRouter } from "next/navigation";
+import { getContracts } from "@/lib/contracts";
+import { ethers } from "ethers";
 
 export default function CreateMarketPage() {
+    const { address, isConnected } = useWallet();
+    const { canCreate, checking } = useCreationAccess();
+    const router = useRouter();
+    const [hasAdminAccess, setHasAdminAccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -24,6 +33,17 @@ export default function CreateMarketPage() {
         durationDays: "30",
         outcomes: ["Yes", "No"] // Default to binary, user can add more
     });
+
+    // Check for admin access on mount
+    useEffect(() => {
+        const adminKey = localStorage.getItem("admin_secret");
+        if (adminKey) {
+            setHasAdminAccess(true);
+        }
+    }, []);
+
+    // Note: We don't redirect automatically - we show an error message instead
+    // This allows users to see why they can't create markets
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -104,55 +124,154 @@ export default function CreateMarketPage() {
         setError("");
         setSuccess("");
 
+        if (!isConnected || !address) {
+            setError("Please connect your wallet first");
+            setIsLoading(false);
+            return;
+        }
+
         const adminKey = localStorage.getItem("admin_secret");
-        if (!adminKey) {
-            setError("Admin key not found. Please login again.");
+        const useAdminEndpoint = adminKey && hasAdminAccess;
+        const usePublicEndpoint = canCreate && !useAdminEndpoint;
+
+        if (!useAdminEndpoint && !usePublicEndpoint) {
+            setError("You don't have permission to create markets. You need BFT token or admin access.");
             setIsLoading(false);
             return;
         }
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-market`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-admin-secret": adminKey
-                },
-                body: JSON.stringify({
-                    question: formData.question,
-                    description: formData.description,
-                    image: formData.image,
-                    category: formData.category,
-                    outcomes: formData.outcomes,
-                    initialLiquidity: parseFloat(formData.initialLiquidity),
-                    durationHours: parseFloat(formData.durationDays) * 24
-                })
-            });
+            let marketId: number;
+            let txHash: string;
 
-            const data = await res.json();
+            if (useAdminEndpoint) {
+                // Admin flow: Use API endpoint
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-market-v2`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-admin-secret": adminKey!
+                    },
+                    body: JSON.stringify({
+                        question: formData.question,
+                        description: formData.description,
+                        image: formData.image,
+                        category: formData.category,
+                        outcomes: formData.outcomes,
+                        durationDays: parseFloat(formData.durationDays)
+                    })
+                });
 
-            if (data.success) {
-                setSuccess(`Market created successfully! ID: ${data.marketId}`);
-                // Clear form or redirect
-                setTimeout(() => {
-                    window.location.href = "/admin";
-                }, 2000);
+                const data = await res.json();
+                if (!data.success) {
+                    setError(data.error || "Failed to create market");
+                    setIsLoading(false);
+                    return;
+                }
+                marketId = data.marketId;
+                txHash = data.txHash;
             } else {
-                setError(data.error || "Failed to create market");
+                // Public flow: User calls contract directly, then saves metadata
+                if (!window.ethereum) {
+                    setError("Please install MetaMask or connect a wallet");
+                    setIsLoading(false);
+                    return;
+                }
+
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const contracts = getContracts();
+                const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
+                
+                const marketABI = [
+                    'function createMarket(string, string[], uint256) external returns (uint256)',
+                    'function marketCount() view returns (uint256)'
+                ];
+
+                const contract = new ethers.Contract(marketAddress, marketABI, signer);
+
+                // Call contract directly from user's wallet
+                const tx = await contract.createMarket(
+                    formData.question,
+                    formData.outcomes,
+                    parseFloat(formData.durationDays)
+                );
+
+                txHash = tx.hash;
+                await tx.wait();
+
+                // Get market ID
+                const count = await contract.marketCount();
+                marketId = Number(count) - 1;
+
+                // Save metadata via API
+                const metadataRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/markets/metadata`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        marketId,
+                        question: formData.question,
+                        description: formData.description,
+                        image: formData.image,
+                        category: formData.category,
+                        outcome_names: formData.outcomes
+                    })
+                });
+
+                const metadataData = await metadataRes.json();
+                if (!metadataData.success) {
+                    console.warn("Market created but metadata save failed:", metadataData.error);
+                }
             }
+
+            setSuccess(`Market created successfully! ID: ${marketId}`);
+            setTimeout(() => {
+                window.location.href = useAdminEndpoint ? "/admin" : "/terminal";
+            }, 2000);
         } catch (e: any) {
-            setError(e.message || "Network error");
+            console.error("Create market error:", e);
+            setError(e.message || e.reason || "Failed to create market");
         } finally {
             setIsLoading(false);
         }
     };
+
+    // Show loading while checking access
+    if (checking) {
+        return (
+            <div className="min-h-screen bg-void flex items-center justify-center">
+                <div className="text-white">Checking access...</div>
+            </div>
+        );
+    }
+
+    // Show error if no access (only if connected - allow viewing form if not connected)
+    if (isConnected && !canCreate && !hasAdminAccess) {
+        return (
+            <div className="min-h-screen bg-void flex items-center justify-center p-4">
+                <GlassCard className="max-w-md w-full p-8">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-heading font-bold text-white mb-4">Access Denied</h1>
+                        <p className="text-text-secondary mb-6">
+                            You need BFT token or admin access to create markets.
+                        </p>
+                        <Link href="/">
+                            <NeonButton variant="cyan" className="w-full">Go Home</NeonButton>
+                        </Link>
+                    </div>
+                </GlassCard>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-void pb-20 pt-24 px-4 md:px-6">
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <Link href="/admin" className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                    <Link href={hasAdminAccess ? "/admin" : "/"} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors">
                         <ArrowLeft size={20} />
                     </Link>
                     <div>

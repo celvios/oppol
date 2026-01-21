@@ -1231,21 +1231,23 @@ app.get('/api/admin/stats', async (req, res) => {
   }
 });
 
-// SAVE MARKET METADATA ENDPOINT
+// SAVE MARKET METADATA ENDPOINT (Public - for users who created markets via contract)
 app.post('/api/markets/metadata', async (req, res) => {
   try {
-    const { marketId, question, description, image, category } = req.body;
+    const { marketId, question, description, image, category, outcome_names } = req.body;
 
     if (marketId === undefined || !question) {
       return res.status(400).json({ success: false, error: 'Missing marketId or question' });
     }
 
+    console.log(`[Metadata] Saving metadata for market ${marketId}`);
+
     await query(
-      `INSERT INTO markets (market_id, question, description, image, category)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO markets (market_id, question, description, image, category, outcome_names)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (market_id) DO UPDATE 
-       SET question = $2, description = $3, image = $4, category = $5`,
-      [marketId, question, description, image, category]
+       SET question = $2, description = $3, image = $4, category = $5, outcome_names = $6`,
+      [marketId, question, description || '', image || '', category || 'General', outcome_names ? JSON.stringify(outcome_names) : null]
     );
 
     return res.json({ success: true });
