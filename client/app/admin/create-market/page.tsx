@@ -486,17 +486,6 @@ export default function CreateMarketPage() {
                                         className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
                                     />
                                 </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm text-text-secondary uppercase tracking-wider">Initial Liquidity (Tokens)</label>
-                                    <input
-                                        type="number"
-                                        name="initialLiquidity"
-                                        value={formData.initialLiquidity}
-                                        onChange={handleInputChange}
-                                        className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
-                                    />
-                                </div>
                             </div>
                         </div>
 
@@ -524,7 +513,7 @@ export default function CreateMarketPage() {
                                     <Loader2 className="animate-spin" /> ESTABLISHING MARKET...
                                 </span>
                             ) : (
-                                "CREATE MARKET DO YOU COPY?"
+                                "CREATE MARKET"
                             )}
                         </NeonButton>
                     </GlassCard>
