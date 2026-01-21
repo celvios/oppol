@@ -64,10 +64,22 @@ export function MultiOutcomeTerminal() {
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
+    
+    // Helper to validate image
+    const isValidImage = (img: string | undefined): boolean => {
+        if (!img || !img.trim()) return false;
+        const trimmed = img.trim();
+        // Check if it's a base64 data URI or a valid URL
+        return trimmed.startsWith('data:image/') || 
+               trimmed.startsWith('http://') || 
+               trimmed.startsWith('https://') ||
+               trimmed.startsWith('/');
+    };
+    
     // Use API metadata - no fallback, API is source of truth
     const metadata = market ? {
-        image: market.image_url || '',
-        description: market.description || '',
+        image: market.image_url && isValidImage(market.image_url) ? market.image_url.trim() : '',
+        description: market.description && market.description.trim() ? market.description.trim() : '',
         category: market.category_id || 'General'
     } : null;
 
@@ -164,7 +176,8 @@ export function MultiOutcomeTerminal() {
         // Removed (!isConnected || !address) check to allow guest viewing
         console.log('[MultiTerminal] fetchData called');
         try {
-            // Parallel fetch for speed
+            // Fetch markets from API (includes metadata: image_url, description)
+            // web3MultiService.getMarkets() now fetches from API automatically
             const [allMarkets, depositedBalance] = await Promise.all([
                 web3MultiService.getMarkets(),
                 address ? web3MultiService.getDepositedBalance(address).catch(e => {
@@ -369,15 +382,19 @@ export function MultiOutcomeTerminal() {
                                 <div className="flex gap-4 mb-3">
                                     {/* Market Image */}
                                     <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                        <img
-                                            src={m.image_url || ''}
-                                            alt=""
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.parentElement?.classList.add('bg-neon-green/10');
-                                            }}
-                                        />
+                                        {m.image_url && isValidImage(m.image_url) ? (
+                                            <img
+                                                src={m.image_url.trim()}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    const target = e.currentTarget;
+                                                    target.style.display = 'none';
+                                                    const parent = target.parentElement;
+                                                    if (parent) parent.classList.add('bg-neon-green/10');
+                                                }}
+                                            />
+                                        ) : null}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start gap-2">
@@ -424,12 +441,18 @@ export function MultiOutcomeTerminal() {
 
                 {/* Header Info */}
                 <GlassCard className="p-6 relative overflow-hidden group">
-                    {metadata && (
+                    {metadata && metadata.image && (
                         <div className="absolute top-0 right-0 h-full w-2/3 opacity-20 mask-image-linear-to-l pointer-events-none mix-blend-screen">
                             <img
                                 src={metadata.image}
                                 alt=""
                                 className="h-full w-full object-cover object-center"
+                                onError={(e) => {
+                                    const target = e.currentTarget;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent) parent.style.display = 'none';
+                                }}
                             />
                             <div className="absolute inset-0 bg-gradient-to-l from-transparent to-surface" />
                         </div>

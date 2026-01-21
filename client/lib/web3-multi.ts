@@ -5,8 +5,9 @@ import { getCurrentNetwork } from './contracts';
 export interface MultiMarket {
     id: number;
     question: string;
-    image: string;          // New field
-    description: string;    // New field
+    image_url?: string;     // API metadata field (primary)
+    description?: string;   // API metadata field
+    category_id?: string;  // API metadata field
     outcomes: string[];
     outcomeCount: number;
     shares: string[];
@@ -16,6 +17,9 @@ export interface MultiMarket {
     totalVolume: string;
     resolved: boolean;
     winningOutcome: number;
+    // Legacy fields for backward compatibility
+    image?: string;          // Alias for image_url
+    description?: string;     // Already defined above
 }
 
 // ... (keep surrounding code)
@@ -77,29 +81,89 @@ export class Web3MultiService {
     }
 
     /**
-     * Get all multi-outcome markets
+     * Get all multi-outcome markets - ALWAYS fetches from API to ensure metadata is included
      */
     async getMarkets(): Promise<MultiMarket[]> {
-        if (!this.predictionMarket) return [];
-        try {
-            const count = Number(await this.predictionMarket.marketCount());
-            const ids = Array.from({ length: count }, (_, i) => i);
-
-            const markets: MultiMarket[] = [];
-
-            for (const id of ids) {
-                try {
-                    const market = await this.getMarket(id);
-                    if (market) markets.push(market);
-                } catch (e) {
-                    console.error(`Error fetching market ${id}:`, e);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+            console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets with metadata.');
+            // Fallback to contract if no API
+            if (!this.predictionMarket) return [];
+            try {
+                const count = Number(await this.predictionMarket.marketCount());
+                const ids = Array.from({ length: count }, (_, i) => i);
+                const markets: MultiMarket[] = [];
+                for (const id of ids) {
+                    try {
+                        const market = await this.getMarket(id);
+                        if (market) markets.push(market);
+                    } catch (e) {
+                        console.error(`Error fetching market ${id}:`, e);
+                    }
                 }
+                return markets;
+            } catch (error) {
+                console.error('Error fetching multi-markets:', error);
+                return [];
+            }
+        }
+
+        try {
+            const response = await fetch(`${apiUrl}/api/markets`);
+            if (!response.ok) {
+                throw new Error(`API returned ${response.status}: ${response.statusText}`);
             }
 
-            return markets;
-        } catch (error) {
-            console.error('Error fetching multi-markets:', error);
-            return [];
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'API returned unsuccessful response');
+            }
+
+            if (!data.markets || data.markets.length === 0) {
+                console.warn('[Web3MultiService] API returned no markets');
+                return [];
+            }
+
+            // Map API response to MultiMarket interface - API is the source of truth
+            return data.markets.map((m: any) => ({
+                id: m.market_id !== undefined ? m.market_id : m.id,
+                question: m.question,
+                image_url: m.image_url || '', // Primary field from API
+                description: m.description || '', // Primary field from API
+                category_id: m.category_id || '',
+                outcomes: m.outcomes || [],
+                outcomeCount: m.outcomeCount || m.outcomes?.length || 2,
+                shares: [], // API doesn't provide shares
+                prices: m.prices || [],
+                endTime: m.endTime,
+                liquidityParam: m.liquidityParam || '0',
+                totalVolume: m.totalVolume || '0',
+                resolved: m.resolved || false,
+                winningOutcome: m.winningOutcome || 0,
+                // Legacy compatibility
+                image: m.image_url || '', // Alias for image_url
+            }));
+        } catch (error: any) {
+            console.error('[Web3MultiService] Error fetching markets from API:', error);
+            // Fallback to contract if API fails
+            if (!this.predictionMarket) return [];
+            try {
+                const count = Number(await this.predictionMarket.marketCount());
+                const ids = Array.from({ length: count }, (_, i) => i);
+                const markets: MultiMarket[] = [];
+                for (const id of ids) {
+                    try {
+                        const market = await this.getMarket(id);
+                        if (market) markets.push(market);
+                    } catch (e) {
+                        console.error(`Error fetching market ${id}:`, e);
+                    }
+                }
+                return markets;
+            } catch (contractError) {
+                console.error('Error fetching multi-markets from contract:', contractError);
+                return [];
+            }
         }
     }
 
@@ -124,8 +188,9 @@ export class Web3MultiService {
             return {
                 id: marketId,
                 question: basicInfo.question,
-                image: basicInfo.image,
-                description: basicInfo.description,
+                image_url: '', // Contract doesn't have metadata, will be empty
+                description: '', // Contract doesn't have metadata, will be empty
+                category_id: '',
                 outcomes: outcomes,
                 outcomeCount: Number(basicInfo.outcomeCount),
                 shares: sharesFormatted,
@@ -135,6 +200,8 @@ export class Web3MultiService {
                 totalVolume: totalVolume.toFixed(2),
                 resolved: basicInfo.resolved,
                 winningOutcome: Number(basicInfo.winningOutcome),
+                // Legacy compatibility
+                image: '',
             };
         } catch (error) {
             console.error('Error fetching multi-market:', error);
