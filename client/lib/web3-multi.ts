@@ -202,6 +202,13 @@ export class Web3MultiService {
                 winningOutcome: Number(basicInfo.winningOutcome),
                 // Legacy compatibility
                 image: basicInfo.image || '',
+                yesOdds: yesOdds || 50,
+                noOdds: noOdds || 50,
+                yesShares: sharesFormatted[0] || '0',
+                noShares: sharesFormatted[1] || '0',
+                yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),
+                noPool: '0',
+                outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
             };
         } catch (error) {
             console.error('Error fetching multi-market:', error);
