@@ -57,14 +57,6 @@ export default function MobileHero() {
                         </NeonButton>
                     </Link>
 
-                    <button
-                        disabled
-                        className="w-full px-4 py-3 text-sm font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] opacity-80 cursor-not-allowed"
-                    >
-                        <MessageCircle className="w-4 h-4" />
-                        PREDICT VIA WHATSAPP (SOON)
-                    </button>
-
                     <a
                         href="https://t.me/opoll_predict_bot"
                         target="_blank"
@@ -76,6 +68,14 @@ export default function MobileHero() {
                             PREDICT VIA TELEGRAM
                         </NeonButton>
                     </a>
+
+                    <button
+                        disabled
+                        className="w-full px-4 py-3 text-sm font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] opacity-80 cursor-not-allowed"
+                    >
+                        <MessageCircle className="w-4 h-4" />
+                        PREDICT VIA WHATSAPP (SOON)
+                    </button>
                 </div>
             </motion.div>
         </section>
