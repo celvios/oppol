@@ -29,7 +29,9 @@ export const metadata: Metadata = {
   description: "Predict the future. Own the outcome.",
   themeColor: "#05050A",
   icons: {
-    icon: '/favicon.png',
+    icon: '/brand-logo.png',
+    shortcut: '/brand-logo.png',
+    apple: '/brand-logo.png',
   },
 };
 
