@@ -19,7 +19,7 @@ export default function RegistrationModal({ isOpen, onRegister }: RegistrationMo
 
     const handleSubmit = async () => {
         if (!username.trim()) {
-            setError('Yo! Need a name, mysterious stranger!');
+            setError('Yo! Need a name, mysterious cultivator!');
             return;
         }
 
@@ -123,7 +123,6 @@ export default function RegistrationModal({ isOpen, onRegister }: RegistrationMo
 
                             <NeonButton
                                 variant="cyan"
-                                size="lg"
                                 className="w-full text-lg py-6"
                                 onClick={handleSubmit}
                                 disabled={loading}
