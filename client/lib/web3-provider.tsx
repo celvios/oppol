@@ -5,7 +5,7 @@ import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { cookieStorage, createStorage, cookieToInitialState } from 'wagmi';
 
 const projectId = '70415295a4738286445072f5c2392457';
@@ -44,6 +44,8 @@ interface Web3ProviderProps {
 }
 
 export function Web3Provider({ children }: Web3ProviderProps) {
+    const [mounted, setMounted] = useState(false);
+
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -52,6 +54,14 @@ export function Web3Provider({ children }: Web3ProviderProps) {
             },
         },
     }));
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) {
+        return null;
+    }
 
     return (
         <WagmiProvider config={config} reconnectOnMount={true}>
