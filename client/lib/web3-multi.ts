@@ -43,11 +43,14 @@ export class Web3MultiService {
     private predictionMarket: ethers.Contract | null = null;
     private usdc: ethers.Contract | null = null;
     
-    // Client-side cache to prevent duplicate API calls when multiple components mount
+    // Client-side cache to prevent duplicate API calls and speed up navigation
     private marketsCache: { data: MultiMarket[], timestamp: number } | null = null;
-    private readonly CACHE_TTL = 5000; // 5 seconds
+    private readonly CACHE_TTL = 60000; // 60 seconds - survives page navigation
+    private readonly STORAGE_KEY = 'opoll_markets_cache';
 
     constructor() {
+        // Restore cache from localStorage on init (survives page navigations)
+        this.restoreCacheFromStorage();
         const network = getCurrentNetwork();
         this.provider = new ethers.JsonRpcProvider(network.rpcUrl);
 
@@ -85,6 +88,40 @@ export class Web3MultiService {
     }
 
     /**
+     * Restore cache from localStorage (survives page navigations)
+     */
+    private restoreCacheFromStorage(): void {
+        if (typeof window === 'undefined') return; // SSR check
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Only restore if not expired
+                if (Date.now() - parsed.timestamp < this.CACHE_TTL) {
+                    this.marketsCache = parsed;
+                    console.log('[Web3MultiService] Restored markets from localStorage cache');
+                }
+            }
+        } catch (e) {
+            // Ignore localStorage errors
+        }
+    }
+
+    /**
+     * Save cache to localStorage
+     */
+    private saveCacheToStorage(): void {
+        if (typeof window === 'undefined') return; // SSR check
+        try {
+            if (this.marketsCache) {
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.marketsCache));
+            }
+        } catch (e) {
+            // Ignore localStorage errors (quota exceeded, etc)
+        }
+    }
+
+    /**
      * Get all multi-outcome markets - ALWAYS fetches from API to ensure metadata is included
      * Uses client-side cache to prevent duplicate calls when multiple components mount
      */
@@ -102,6 +139,7 @@ export class Web3MultiService {
             // Fallback to contract if no API - PARALLEL fetch
             const markets = await this.getMarketsFromContract();
             this.marketsCache = { data: markets, timestamp: Date.now() };
+            this.saveCacheToStorage();
             return markets;
         }
 
@@ -141,14 +179,16 @@ export class Web3MultiService {
                 image: m.image_url || '', // Alias for image_url
             }));
             
-            // Cache the results
+            // Cache the results and persist to localStorage
             this.marketsCache = { data: markets, timestamp: Date.now() };
+            this.saveCacheToStorage();
             return markets;
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
             // Fallback to contract if API fails - PARALLEL fetch
             const markets = await this.getMarketsFromContract();
             this.marketsCache = { data: markets, timestamp: Date.now() };
+            this.saveCacheToStorage();
             return markets;
         }
     }
