@@ -8,16 +8,28 @@ import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 interface MarketGridProps {
     limit?: number;  // Optional limit for trending markets
     showFilters?: boolean;  // Whether to show category filters
+    initialMarkets?: MultiMarket[];  // SSR data for instant load
 }
 
 const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainment', 'Science'];
 
-export default function MarketGrid({ limit, showFilters = true }: MarketGridProps) {
-    const [markets, setMarkets] = useState<MultiMarket[]>([]);
+export default function MarketGrid({ limit, showFilters = true, initialMarkets = [] }: MarketGridProps) {
+    // Use server-provided data if available (SSR = instant load!)
+    const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
+        // Skip fetch if we already have initial data
+        if (initialMarkets.length > 0) {
+            // Sort by volume
+            const sorted = [...initialMarkets].sort((a, b) =>
+                parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
+            );
+            setMarkets(sorted);
+            return;
+        }
+        
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
@@ -31,7 +43,7 @@ export default function MarketGrid({ limit, showFilters = true }: MarketGridProp
             }
         }
         fetchMarkets();
-    }, []);
+    }, [initialMarkets]);
 
     let filteredMarkets = markets.filter(m => {
         // Use API category - no fallback

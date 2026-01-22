@@ -17,12 +17,27 @@ const OUTCOME_COLORS = [
     "#FF6B35", // Orange
 ];
 
-export default function MobileMarketList() {
-    const [markets, setMarkets] = useState<MultiMarket[]>([]);
-    const [loading, setLoading] = useState(true);
+interface MobileMarketListProps {
+    initialMarkets?: MultiMarket[];
+}
+
+export default function MobileMarketList({ initialMarkets = [] }: MobileMarketListProps) {
+    // Use server-provided data if available (SSR = instant load!)
+    const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
+    const [loading, setLoading] = useState(initialMarkets.length === 0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Skip fetch if we already have initial data
+        if (initialMarkets.length > 0) {
+            const sorted = [...initialMarkets].sort((a, b) =>
+                parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
+            );
+            setMarkets(sorted);
+            setLoading(false);
+            return;
+        }
+        
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
@@ -38,7 +53,7 @@ export default function MobileMarketList() {
             }
         }
         fetchMarkets();
-    }, []);
+    }, [initialMarkets]);
 
     // Auto-scroll effect
     useEffect(() => {
