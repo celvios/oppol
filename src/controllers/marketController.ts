@@ -229,3 +229,16 @@ export const getCategories = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+export const deleteCategory = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        if (!id) return res.status(400).json({ success: false, message: 'Category ID is required' });
+
+        await query('delete from categories where id = $1', [id]);
+        res.json({ success: true, message: 'Category deleted' });
+    } catch (error) {
+        console.error('Delete Category Error:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Shield, Activity, DollarSign, Users, RefreshCw, BarChart3, Lock } from "lucide-react";
+import { Shield, Activity, DollarSign, Users, RefreshCw, BarChart3, Lock, Tag } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import SystemHealth from "@/components/admin/SystemHealth";
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
 
                 {/* Quick Actions */}
                 <h2 className="text-xl font-heading font-bold text-white mt-12 mb-6">Management</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <ActionCard
                         title="Create Market"
                         description="Launch a new binary or multi-outcome market"
@@ -223,6 +223,12 @@ export default function AdminDashboard() {
                         description="Set outcomes for ended markets"
                         icon={Shield}
                         href="/admin/markets"
+                    />
+                    <ActionCard
+                        title="Categories"
+                        description="Manage market categories"
+                        icon={Tag}
+                        href="/admin/categories"
                     />
                     <ActionCard
                         title="User Management"

@@ -35,7 +35,7 @@ router.post('/bet', placeBet);
 router.get('/bet/estimate', estimateBetCost);
 
 // Market & Category Routes
-import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories } from '../controllers/marketController';
+import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories, deleteCategory } from '../controllers/marketController';
 import { checkContractMarkets } from '../controllers/debugController';
 
 router.post('/markets', createMarketMetadata);
@@ -43,6 +43,7 @@ router.post('/markets', createMarketMetadata);
 
 router.post('/categories', createCategory);
 router.get('/categories', getCategories);
+router.delete('/categories/:id', deleteCategory);
 
 router.get('/debug/contract', checkContractMarkets);
 

@@ -11,8 +11,6 @@ interface MarketGridProps {
     initialMarkets?: MultiMarket[];  // SSR data for instant load
 }
 
-const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainment', 'Science'];
-
 const EMPTY_ARRAY: MultiMarket[] = [];
 
 export default function MarketGrid({ limit, showFilters = true, initialMarkets = EMPTY_ARRAY }: MarketGridProps) {
@@ -20,6 +18,28 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
+    const [categories, setCategories] = useState<string[]>(['All']);
+
+    // Fetch categories from API
+    useEffect(() => {
+        async function fetchCategories() {
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                if (apiUrl) {
+                    const response = await fetch(`${apiUrl}/api/categories`);
+                    const data = await response.json();
+                    if (data.success && data.categories) {
+                        const categoryNames = data.categories.map((cat: any) => cat.name);
+                        setCategories(['All', ...categoryNames]);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch categories:", error);
+                // Keep default 'All' category
+            }
+        }
+        fetchCategories();
+    }, []);
 
     useEffect(() => {
         // Skip fetch if we already have initial data
@@ -90,7 +110,7 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
 
                     {/* Category Filters */}
                     <div className="flex flex-wrap gap-3 justify-center mb-10">
-                        {CATEGORIES.map(cat => (
+                        {categories.map((cat: string) => (
                             <button
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
