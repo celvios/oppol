@@ -17,11 +17,13 @@ const OUTCOME_COLORS = [
     "#FF6B35", // Orange
 ];
 
+const EMPTY_ARRAY: MultiMarket[] = [];
+
 interface MobileMarketListProps {
     initialMarkets?: MultiMarket[];
 }
 
-export default function MobileMarketList({ initialMarkets = [] }: MobileMarketListProps) {
+export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: MobileMarketListProps) {
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [loading, setLoading] = useState(initialMarkets.length === 0);
@@ -37,7 +39,7 @@ export default function MobileMarketList({ initialMarkets = [] }: MobileMarketLi
             setLoading(false);
             return;
         }
-        
+
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
