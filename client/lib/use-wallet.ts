@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { waitForAppKit, getAppKitInstance } from './reown-provider';
 
 interface WalletState {
   isConnected: boolean;
@@ -35,13 +36,13 @@ export function useWallet() {
 
     // Listen for wallet changes
     const handleWalletChange = (event: any) => {
-      console.log('Wallet change event received:', event.detail);
+      console.log('[useWallet] Wallet change event received:', event.detail);
       const { address, isConnected } = event.detail;
       setState({
         isConnected: isConnected || false,
         address: address || null,
         isConnecting: false,
-        signer: null // Reset signer when wallet changes
+        signer: null
       });
 
       // Update cache
@@ -57,7 +58,7 @@ export function useWallet() {
     // Also listen for MetaMask account changes
     if (typeof window !== 'undefined' && window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
-        console.log('MetaMask accounts changed:', accounts);
+        console.log('[useWallet] MetaMask accounts changed:', accounts);
         if (accounts.length > 0) {
           handleWalletChange({ detail: { address: accounts[0], isConnected: true } });
         } else {
@@ -83,25 +84,21 @@ export function useWallet() {
     setState(prev => ({ ...prev, isConnecting: true }));
 
     try {
-      // Wait for Reown to be initialized
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Try multiple methods to open the modal
-      // Dispatch custom event to trigger Reown modal (primary method)
-      window.dispatchEvent(new CustomEvent('wallet-connect-request'));
-
-      // Also try to direct open if event listener isn't caught immediately or legacy
-      const modal = document.querySelector('w3m-modal, appkit-modal, [data-testid="w3m-modal"]');
-      if (modal) {
-        (modal as any).open?.();
-      }
-
-      const connectBtn = document.querySelector('w3m-connect-button, appkit-connect-button, [data-testid="connect-button"]');
-      if (connectBtn) {
-        (connectBtn as HTMLElement).click();
+      console.log('[useWallet] Connect requested, waiting for AppKit...');
+      
+      // Wait for AppKit to be fully initialized
+      const appKit = await waitForAppKit();
+      
+      if (appKit && appKit.open) {
+        console.log('[useWallet] Opening AppKit modal...');
+        await appKit.open();
+      } else {
+        // Fallback: dispatch event for the provider to handle
+        console.log('[useWallet] Fallback: dispatching wallet-connect-request event');
+        window.dispatchEvent(new CustomEvent('wallet-connect-request'));
       }
     } catch (error) {
-      console.error('Connection failed:', error);
+      console.error('[useWallet] Connection failed:', error);
     } finally {
       setTimeout(() => {
         setState(prev => ({ ...prev, isConnecting: false }));
@@ -111,7 +108,9 @@ export function useWallet() {
 
   const disconnect = async () => {
     try {
-      // Clear local state
+      console.log('[useWallet] Disconnecting...');
+      
+      // Clear local state first
       setState({
         isConnected: false,
         address: null,
@@ -121,8 +120,8 @@ export function useWallet() {
       // Clear cache
       localStorage.removeItem('wallet_cache');
 
-      // Try to disconnect from AppKit if available
-      const appKit = (window as any).__appkit;
+      // Try to disconnect from AppKit
+      const appKit = getAppKitInstance();
       if (appKit && appKit.disconnect) {
         await appKit.disconnect();
       }
@@ -132,7 +131,7 @@ export function useWallet() {
         detail: { address: null, isConnected: false }
       }));
     } catch (error) {
-      console.error('Disconnect failed:', error);
+      console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
