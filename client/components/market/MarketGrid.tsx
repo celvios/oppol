@@ -13,7 +13,9 @@ interface MarketGridProps {
 
 const CATEGORIES = ['All', 'Crypto', 'Tech', 'Sports', 'Politics', 'Entertainment', 'Science'];
 
-export default function MarketGrid({ limit, showFilters = true, initialMarkets = [] }: MarketGridProps) {
+const EMPTY_ARRAY: MultiMarket[] = [];
+
+export default function MarketGrid({ limit, showFilters = true, initialMarkets = EMPTY_ARRAY }: MarketGridProps) {
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [selectedCategory, setSelectedCategory] = useState('All');
@@ -29,7 +31,7 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
             setMarkets(sorted);
             return;
         }
-        
+
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
