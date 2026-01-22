@@ -125,6 +125,17 @@ export class Web3MultiService {
     }
 
     /**
+     * Seed cache with server-fetched data (for SSR - instant load!)
+     */
+    seedCache(markets: MultiMarket[]): void {
+        if (markets.length > 0) {
+            this.marketsCache = { data: markets, timestamp: Date.now() };
+            this.saveCacheToStorage();
+            console.log('[Web3MultiService] Cache seeded with server data');
+        }
+    }
+
+    /**
      * Subscribe to market updates (for components that want real-time data)
      */
     onMarketsUpdate(callback: (markets: MultiMarket[]) => void): () => void {

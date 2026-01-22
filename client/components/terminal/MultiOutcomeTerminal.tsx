@@ -44,11 +44,16 @@ interface TradeSuccessData {
     hash: string;
 }
 
-export function MultiOutcomeTerminal() {
-    const [markets, setMarkets] = useState<MultiMarket[]>([]);
-    const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
+interface MultiOutcomeTerminalProps {
+    initialMarkets?: MultiMarket[];
+}
+
+export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTerminalProps) {
+    // Use server-provided data if available (SSR = instant load!)
+    const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
+    const [selectedMarketId, setSelectedMarketId] = useState<number>(initialMarkets[0]?.id || 0);
     const [balance, setBalance] = useState<string>('0');
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(initialMarkets.length === 0); // No loading if we have initial data!
     const [mounted, setMounted] = useState(false);
     const [selectedOutcome, setSelectedOutcome] = useState<number>(0);
     const [amount, setAmount] = useState('100');

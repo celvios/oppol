@@ -74,7 +74,11 @@ interface TradeSuccessData {
 
 import { useSearchParams } from "next/navigation";
 
-export function MobileTerminal() {
+interface MobileTerminalProps {
+    initialMarkets?: Market[];
+}
+
+export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
@@ -103,9 +107,10 @@ export function MobileTerminal() {
         }
     }, [searchParams]);
 
-    const [markets, setMarkets] = useState<Market[]>([]);
+    // Use server-provided data if available (SSR = instant load!)
+    const [markets, setMarkets] = useState<Market[]>(initialMarkets);
     const [balance, setBalance] = useState<string>('0');
-    const [loading, setLoading] = useState(true); // Start with loading state
+    const [loading, setLoading] = useState(initialMarkets.length === 0); // No loading if we have initial data!
     const [marketError, setMarketError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [isLoadingReal, setIsLoadingReal] = useState(true); // Track real data loading

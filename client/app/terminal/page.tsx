@@ -1,25 +1,16 @@
-"use client";
-
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import { getMarketsServer } from "@/lib/server-fetch";
+import { TerminalClient } from "./TerminalClient";
 
-// Lazy load heavy terminal components
-const MultiOutcomeTerminal = lazy(() => import("@/components/terminal/MultiOutcomeTerminal").then(m => ({ default: m.MultiOutcomeTerminal })));
-const MobileTerminal = lazy(() => import("@/components/mobile/MobileTerminal").then(m => ({ default: m.MobileTerminal })));
+// This is a SERVER COMPONENT - data is fetched on server, HTML arrives with data!
+export default async function TerminalPage() {
+    // Fetch markets on the SERVER (no loading spinner for user!)
+    const markets = await getMarketsServer();
 
-export default function TerminalPage() {
     return (
-        <>
-            <div className="hidden md:block">
-                <Suspense fallback={<SkeletonLoader />}>
-                    <MultiOutcomeTerminal />
-                </Suspense>
-            </div>
-            <div className="block md:hidden">
-                <Suspense fallback={<SkeletonLoader />}>
-                    <MobileTerminal />
-                </Suspense>
-            </div>
-        </>
+        <Suspense fallback={<SkeletonLoader />}>
+            <TerminalClient initialMarkets={markets} />
+        </Suspense>
     );
 }
