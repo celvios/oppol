@@ -23,7 +23,7 @@ const config = defaultWagmiConfig({
     chains,
     projectId,
     metadata,
-    ssr: true,
+    ssr: false,
     storage: createStorage({
         storage: typeof window !== 'undefined' ? window.localStorage : cookieStorage,
     }),
