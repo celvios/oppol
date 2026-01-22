@@ -145,31 +145,7 @@ export default function CreateMarketPage() {
             let txHash: string;
 
             if (useAdminEndpoint) {
-                // Handle Image Upload if it's a base64 string (meaning a new file was selected)
-                let imageUrl = formData.image;
-                if (imageUrl && imageUrl.startsWith('data:')) {
-                    // It's a base64 string, we need to upload it
-                    // Convert base64 to blob/file
-                    const res = await fetch(imageUrl);
-                    const blob = await res.blob();
-                    const file = new File([blob], "image.png", { type: "image/png" });
-
-                    const uploadData = new FormData();
-                    uploadData.append("file", file);
-
-                    const uploadRes = await fetch('/api/upload', {
-                        method: 'POST',
-                        body: uploadData
-                    });
-
-                    const uploadResult = await uploadRes.json();
-                    if (!uploadResult.success) {
-                        throw new Error(uploadResult.error || "Image upload failed");
-                    }
-                    imageUrl = uploadResult.url;
-                }
-
-                // Admin flow: Use API endpoint
+                // Admin flow: Use API endpoint with base64 image directly
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-market-v2`, {
                     method: "POST",
                     headers: {
@@ -179,7 +155,7 @@ export default function CreateMarketPage() {
                     body: JSON.stringify({
                         question: formData.question,
                         description: formData.description,
-                        image: imageUrl, // Use the uploaded URL
+                        image: formData.image, // Use base64 image directly
                         category: formData.category,
                         outcomes: formData.outcomes,
                         durationDays: parseFloat(formData.durationDays)
@@ -217,7 +193,7 @@ export default function CreateMarketPage() {
                 // Call contract directly from user's wallet
                 const tx = await contract.createMarket(
                     formData.question,
-                    imageUrl || "",
+                    formData.image || "",
                     formData.description,
                     formData.outcomes,
                     parseFloat(formData.durationDays) * 86400, // Convert days to seconds
