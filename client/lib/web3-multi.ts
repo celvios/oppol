@@ -87,25 +87,8 @@ export class Web3MultiService {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!apiUrl) {
             console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets with metadata.');
-            // Fallback to contract if no API
-            if (!this.predictionMarket) return [];
-            try {
-                const count = Number(await this.predictionMarket.marketCount());
-                const ids = Array.from({ length: count }, (_, i) => i);
-                const markets: MultiMarket[] = [];
-                for (const id of ids) {
-                    try {
-                        const market = await this.getMarket(id);
-                        if (market) markets.push(market);
-                    } catch (e) {
-                        console.error(`Error fetching market ${id}:`, e);
-                    }
-                }
-                return markets;
-            } catch (error) {
-                console.error('Error fetching multi-markets:', error);
-                return [];
-            }
+            // Fallback to contract if no API - PARALLEL fetch
+            return this.getMarketsFromContract();
         }
 
         try {
@@ -145,25 +128,33 @@ export class Web3MultiService {
             }));
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
-            // Fallback to contract if API fails
-            if (!this.predictionMarket) return [];
-            try {
-                const count = Number(await this.predictionMarket.marketCount());
-                const ids = Array.from({ length: count }, (_, i) => i);
-                const markets: MultiMarket[] = [];
-                for (const id of ids) {
-                    try {
-                        const market = await this.getMarket(id);
-                        if (market) markets.push(market);
-                    } catch (e) {
-                        console.error(`Error fetching market ${id}:`, e);
-                    }
-                }
-                return markets;
-            } catch (contractError) {
-                console.error('Error fetching multi-markets from contract:', contractError);
-                return [];
-            }
+            // Fallback to contract if API fails - PARALLEL fetch
+            return this.getMarketsFromContract();
+        }
+    }
+
+    /**
+     * Fallback: Get markets directly from contract in PARALLEL
+     */
+    private async getMarketsFromContract(): Promise<MultiMarket[]> {
+        if (!this.predictionMarket) return [];
+        try {
+            const count = Number(await this.predictionMarket.marketCount());
+            const ids = Array.from({ length: count }, (_, i) => i);
+            
+            // PARALLEL fetch all markets at once
+            const marketPromises = ids.map(id => 
+                this.getMarket(id).catch(e => {
+                    console.error(`Error fetching market ${id}:`, e);
+                    return null;
+                })
+            );
+            
+            const results = await Promise.all(marketPromises);
+            return results.filter((m): m is MultiMarket => m !== null);
+        } catch (error) {
+            console.error('Error fetching multi-markets from contract:', error);
+            return [];
         }
     }
 

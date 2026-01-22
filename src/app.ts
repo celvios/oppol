@@ -991,46 +991,40 @@ app.get('/api/markets', async (req, res) => {
       console.log('Database not available for volume calculation');
     }
 
-    const markets = [];
-    console.log(`[Markets API] Fetching ${Number(count)} markets...`);
+    console.log(`[Markets API] Fetching ${Number(count)} markets in PARALLEL...`);
 
-    for (let i = 0; i < Number(count); i++) {
-      try {
-        console.log(`[Markets API] Fetching market ${i}...`);
-
-        // Fetch complete market data including prices and outcomes
-        const [basicInfo, outcomes, prices] = await Promise.all([
-          marketContract.getMarketBasicInfo(i),
-          marketContract.getMarketOutcomes(i),
-          marketContract.getAllPrices(i)
-        ]);
-
-        console.log(`[Markets API] Market ${i} question: ${basicInfo.question}`);
+    // PARALLEL fetch all markets at once (not sequential!)
+    const marketPromises = Array.from({ length: Number(count) }, (_, i) =>
+      Promise.all([
+        marketContract.getMarketBasicInfo(i),
+        marketContract.getMarketOutcomes(i),
+        marketContract.getAllPrices(i)
+      ]).then(([basicInfo, outcomes, prices]) => {
         const metadata = metadataMap[i];
-
         if (!metadata) {
-          console.warn(`[Markets API] WARNING: No metadata found in database for market ${i}. Market will have empty image/description.`);
+          console.warn(`[Markets API] WARNING: No metadata found for market ${i}`);
         }
-
-        markets.push({
+        return {
           market_id: i,
           question: basicInfo.question,
           description: metadata?.description || '',
           image_url: metadata?.image || '',
           category_id: metadata?.category || '',
-          // Add complete market state data
           outcomes: outcomes,
-          prices: prices.map((p: bigint) => Number(p) / 100), // Convert to percentage
+          prices: prices.map((p: bigint) => Number(p) / 100),
           outcomeCount: Number(basicInfo.outcomeCount),
           endTime: Number(basicInfo.endTime),
           liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
           resolved: basicInfo.resolved,
           winningOutcome: Number(basicInfo.winningOutcome)
-        });
-      } catch (err: any) {
+        };
+      }).catch(err => {
         console.error(`[Markets API] Error fetching market ${i}:`, err.message || err);
-      }
-    }
+        return null;
+      })
+    );
+
+    const markets = (await Promise.all(marketPromises)).filter(m => m !== null);
 
     console.log(`[Markets API] Returning ${markets.length} markets with full data`);
 
