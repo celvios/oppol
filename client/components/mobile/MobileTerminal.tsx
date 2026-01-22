@@ -252,9 +252,9 @@ export function MobileTerminal() {
         }
     }, [address]);
 
-    // Polling for live updates (less frequent)
+    // Polling for live updates (60s to reduce RPC usage)
     useEffect(() => {
-        const interval = setInterval(fetchData, 30000);
+        const interval = setInterval(fetchData, 60000);
         return () => clearInterval(interval);
     }, [fetchData]);
 

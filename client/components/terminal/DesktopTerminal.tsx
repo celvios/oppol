@@ -162,7 +162,7 @@ export function DesktopTerminal() {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000);
+        const interval = setInterval(fetchData, 60000); // Poll every 60s instead of 5s to reduce RPC usage
         return () => clearInterval(interval);
     }, [fetchData]);
 

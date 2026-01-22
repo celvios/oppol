@@ -5,6 +5,24 @@ import { ethers } from 'ethers';
 // Helper to query mock DB
 const query = (text: string, params: any[]) => pool.query(text, params);
 
+// --- CACHING: Reduce RPC calls by caching market data ---
+interface CacheEntry {
+    data: any;
+    timestamp: number;
+}
+
+const marketCache: { all?: CacheEntry; single: Map<string, CacheEntry> } = {
+    all: undefined,
+    single: new Map()
+};
+
+const CACHE_TTL_MS = 30000; // 30 seconds cache TTL
+
+function isCacheValid(entry: CacheEntry | undefined): boolean {
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < CACHE_TTL_MS;
+}
+
 // --- MARKETS ---
 
 export const createMarketMetadata = async (req: Request, res: Response) => {
@@ -29,6 +47,13 @@ export const createMarketMetadata = async (req: Request, res: Response) => {
 
 export const getAllMarketMetadata = async (req: Request, res: Response) => {
     try {
+        // Check cache first - return cached data if valid
+        if (isCacheValid(marketCache.all)) {
+            console.log('📦 Returning cached markets data');
+            return res.json({ success: true, markets: marketCache.all!.data });
+        }
+
+        console.log('🔄 Cache miss - fetching fresh market data from blockchain');
         const result = await query('select * from markets', []);
 
         const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
@@ -77,6 +102,10 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 };
             })
         );
+
+        // Store in cache
+        marketCache.all = { data: markets, timestamp: Date.now() };
+        console.log('✅ Markets cached for 30 seconds');
 
         res.json({ success: true, markets });
     } catch (error) {

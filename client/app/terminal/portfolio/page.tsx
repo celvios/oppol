@@ -145,8 +145,8 @@ export default function PortfolioPage() {
         // Initial fetch
         fetchData();
 
-        // Auto-refresh every 10 seconds
-        const interval = setInterval(fetchData, 10000);
+        // Auto-refresh every 60 seconds to reduce RPC usage
+        const interval = setInterval(fetchData, 60000);
 
         // Cleanup on unmount
         return () => clearInterval(interval);
