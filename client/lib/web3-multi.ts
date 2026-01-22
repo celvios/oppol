@@ -46,7 +46,10 @@ export class Web3MultiService {
     // Client-side cache to prevent duplicate API calls and speed up navigation
     private marketsCache: { data: MultiMarket[], timestamp: number } | null = null;
     private readonly CACHE_TTL = 60000; // 60 seconds - survives page navigation
+    private readonly STALE_TTL = 300000; // 5 minutes - show stale data while revalidating
     private readonly STORAGE_KEY = 'opoll_markets_cache';
+    private isRevalidating = false; // Prevent multiple simultaneous background fetches
+    private updateListeners: Set<(markets: MultiMarket[]) => void> = new Set();
 
     constructor() {
         // Restore cache from localStorage on init (survives page navigations)
@@ -122,25 +125,81 @@ export class Web3MultiService {
     }
 
     /**
-     * Get all multi-outcome markets - ALWAYS fetches from API to ensure metadata is included
-     * Uses client-side cache to prevent duplicate calls when multiple components mount
+     * Subscribe to market updates (for components that want real-time data)
+     */
+    onMarketsUpdate(callback: (markets: MultiMarket[]) => void): () => void {
+        this.updateListeners.add(callback);
+        return () => this.updateListeners.delete(callback);
+    }
+
+    /**
+     * Notify all listeners of market updates
+     */
+    private notifyListeners(markets: MultiMarket[]): void {
+        this.updateListeners.forEach(cb => cb(markets));
+    }
+
+    /**
+     * Background revalidation - fetches fresh data without blocking UI
+     */
+    private async revalidateInBackground(): Promise<void> {
+        if (this.isRevalidating) return; // Already revalidating
+        this.isRevalidating = true;
+        
+        console.log('[Web3MultiService] Background revalidation started...');
+        try {
+            const freshMarkets = await this.fetchMarketsFromAPI();
+            if (freshMarkets.length > 0) {
+                this.marketsCache = { data: freshMarkets, timestamp: Date.now() };
+                this.saveCacheToStorage();
+                this.notifyListeners(freshMarkets);
+                console.log('[Web3MultiService] Background revalidation complete - cache updated');
+            }
+        } catch (e) {
+            console.error('[Web3MultiService] Background revalidation failed:', e);
+        } finally {
+            this.isRevalidating = false;
+        }
+    }
+
+    /**
+     * Get all multi-outcome markets - Stale-While-Revalidate pattern
+     * Returns cached data instantly, refreshes in background if stale
      */
     async getMarkets(): Promise<MultiMarket[]> {
-        // Return cached data if fresh (prevents duplicate API calls)
         const now = Date.now();
-        if (this.marketsCache && (now - this.marketsCache.timestamp) < this.CACHE_TTL) {
-            console.log('[Web3MultiService] Returning cached markets data');
+        
+        // If cache exists and is within stale TTL, return it immediately
+        if (this.marketsCache && (now - this.marketsCache.timestamp) < this.STALE_TTL) {
+            const isFresh = (now - this.marketsCache.timestamp) < this.CACHE_TTL;
+            
+            if (isFresh) {
+                console.log('[Web3MultiService] Returning fresh cached data');
+            } else {
+                console.log('[Web3MultiService] Returning stale data, revalidating in background...');
+                // Trigger background refresh (non-blocking)
+                this.revalidateInBackground();
+            }
+            
             return this.marketsCache.data;
         }
 
+        // Cache is too old or doesn't exist - must fetch fresh
+        console.log('[Web3MultiService] Cache expired or empty, fetching fresh data...');
+        const markets = await this.fetchMarketsFromAPI();
+        this.marketsCache = { data: markets, timestamp: Date.now() };
+        this.saveCacheToStorage();
+        return markets;
+    }
+
+    /**
+     * Fetch markets from API (internal method)
+     */
+    private async fetchMarketsFromAPI(): Promise<MultiMarket[]> {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!apiUrl) {
-            console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets with metadata.');
-            // Fallback to contract if no API - PARALLEL fetch
-            const markets = await this.getMarketsFromContract();
-            this.marketsCache = { data: markets, timestamp: Date.now() };
-            this.saveCacheToStorage();
-            return markets;
+            console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set.');
+            return this.getMarketsFromContract();
         }
 
         try {
@@ -159,37 +218,27 @@ export class Web3MultiService {
                 throw new Error('API returned no markets');
             }
 
-            // Map API response to MultiMarket interface - API is the source of truth
-            const markets = data.markets.map((m: any) => ({
+            // Map API response to MultiMarket interface
+            return data.markets.map((m: any) => ({
                 id: m.market_id !== undefined ? m.market_id : m.id,
                 question: m.question,
-                image_url: m.image_url || '', // Primary field from API
-                description: m.description || '', // Primary field from API
+                image_url: m.image_url || '',
+                description: m.description || '',
                 category_id: m.category_id || '',
                 outcomes: m.outcomes || [],
                 outcomeCount: m.outcomeCount || m.outcomes?.length || 2,
-                shares: [], // API doesn't provide shares
+                shares: [],
                 prices: m.prices || [],
                 endTime: m.endTime,
                 liquidityParam: m.liquidityParam || '0',
                 totalVolume: m.totalVolume || '0',
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
-                // Legacy compatibility
-                image: m.image_url || '', // Alias for image_url
+                image: m.image_url || '',
             }));
-            
-            // Cache the results and persist to localStorage
-            this.marketsCache = { data: markets, timestamp: Date.now() };
-            this.saveCacheToStorage();
-            return markets;
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
-            // Fallback to contract if API fails - PARALLEL fetch
-            const markets = await this.getMarketsFromContract();
-            this.marketsCache = { data: markets, timestamp: Date.now() };
-            this.saveCacheToStorage();
-            return markets;
+            return this.getMarketsFromContract();
         }
     }
 
