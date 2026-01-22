@@ -17,15 +17,19 @@ export interface MultiMarket {
     totalVolume: string;
     resolved: boolean;
     winningOutcome: number;
+    assertionPending?: boolean;
+    assertedOutcome?: number;
+    asserter?: string;
     // Legacy fields for backward compatibility
     image?: string;          // Alias for image_url
-    description?: string;     // Already defined above
+    yesOdds?: number;
+    noOdds?: number;
+    yesShares?: string;
+    noShares?: string;
+    yesPool?: string;
+    noPool?: string;
+    outcome?: boolean; // true if YES won, false if NO won (for binary)
 }
-
-// ... (keep surrounding code)
-
-
-
 
 export interface MultiPosition {
     shares: string[];
@@ -42,7 +46,7 @@ export class Web3MultiService {
     private provider: ethers.JsonRpcProvider;
     private predictionMarket: ethers.Contract | null = null;
     private usdc: ethers.Contract | null = null;
-    
+
     // Client-side cache to prevent duplicate API calls and speed up navigation
     private marketsCache: { data: MultiMarket[], timestamp: number } | null = null;
     private readonly CACHE_TTL = 60000; // 60 seconds - survives page navigation
@@ -156,7 +160,7 @@ export class Web3MultiService {
     private async revalidateInBackground(): Promise<void> {
         if (this.isRevalidating) return; // Already revalidating
         this.isRevalidating = true;
-        
+
         console.log('[Web3MultiService] Background revalidation started...');
         try {
             const freshMarkets = await this.fetchMarketsFromAPI();
@@ -179,11 +183,11 @@ export class Web3MultiService {
      */
     async getMarkets(): Promise<MultiMarket[]> {
         const now = Date.now();
-        
+
         // If cache exists and is within stale TTL, return it immediately
         if (this.marketsCache && (now - this.marketsCache.timestamp) < this.STALE_TTL) {
             const isFresh = (now - this.marketsCache.timestamp) < this.CACHE_TTL;
-            
+
             if (isFresh) {
                 console.log('[Web3MultiService] Returning fresh cached data');
             } else {
@@ -191,7 +195,7 @@ export class Web3MultiService {
                 // Trigger background refresh (non-blocking)
                 this.revalidateInBackground();
             }
-            
+
             return this.marketsCache.data;
         }
 
@@ -261,15 +265,15 @@ export class Web3MultiService {
         try {
             const count = Number(await this.predictionMarket.marketCount());
             const ids = Array.from({ length: count }, (_, i) => i);
-            
+
             // PARALLEL fetch all markets at once
-            const marketPromises = ids.map(id => 
+            const marketPromises = ids.map(id =>
                 this.getMarket(id).catch(e => {
                     console.error(`Error fetching market ${id}:`, e);
                     return null;
                 })
             );
-            
+
             const results = await Promise.all(marketPromises);
             return results.filter((m): m is MultiMarket => m !== null);
         } catch (error) {
@@ -296,6 +300,10 @@ export class Web3MultiService {
 
             const totalVolume = sharesFormatted.reduce((sum: number, s: string) => sum + parseFloat(s), 0);
 
+            // Legacy binary odds calculation
+            const yesPrice = pricesFormatted[0] || 50;
+            const noPrice = pricesFormatted[1] || 50;
+
             return {
                 id: marketId,
                 question: basicInfo.question,
@@ -311,10 +319,13 @@ export class Web3MultiService {
                 totalVolume: totalVolume.toFixed(2),
                 resolved: basicInfo.resolved,
                 winningOutcome: Number(basicInfo.winningOutcome),
+                assertionPending: basicInfo.assertionPending || false,
+                assertedOutcome: Number(basicInfo.assertedOutcome || 0),
+                asserter: basicInfo.asserter || ethers.ZeroAddress,
                 // Legacy compatibility
                 image: basicInfo.image || '',
-                yesOdds: yesOdds || 50,
-                noOdds: noOdds || 50,
+                yesOdds: yesPrice,
+                noOdds: noPrice,
                 yesShares: sharesFormatted[0] || '0',
                 noShares: sharesFormatted[1] || '0',
                 yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),

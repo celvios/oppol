@@ -139,7 +139,7 @@ export default function AdminDashboard() {
                         )}
 
                         <NeonButton
-                            variant="primary"
+                            variant="cyan"
                             className="w-full"
                             disabled={isLoading}
                             type="submit"
@@ -168,7 +168,8 @@ export default function AdminDashboard() {
                         >
                             Logout
                         </button>
-                        <NeonButton variant="secondary" icon={RefreshCw} onClick={() => fetchStats(adminKey)}>
+                        <NeonButton variant="glass" onClick={() => fetchStats(adminKey)}>
+                            <RefreshCw size={16} className="mr-2" />
                             Refresh
                         </NeonButton>
                     </div>
@@ -242,7 +243,16 @@ export default function AdminDashboard() {
     );
 }
 
-function StatCard({ title, value, icon: Icon, trend, color }: any) {
+
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: any;
+    trend: string;
+    color: string;
+}
+
+function StatCard({ title, value, icon: Icon, trend, color }: StatCardProps) {
     return (
         <GlassCard className="p-6">
             <div className="flex justify-between items-start mb-4">
@@ -261,7 +271,14 @@ function StatCard({ title, value, icon: Icon, trend, color }: any) {
     );
 }
 
-function ActionCard({ title, description, icon: Icon, href }: any) {
+interface ActionCardProps {
+    title: string;
+    description: string;
+    icon: any;
+    href: string;
+}
+
+function ActionCard({ title, description, icon: Icon, href }: ActionCardProps) {
     return (
         <Link href={href} className="group text-left block h-full">
             <GlassCard className="p-6 h-full hover:bg-white/10 transition-colors border-white/5 hover:border-neon-cyan/30">
