@@ -1,6 +1,6 @@
 'use client';
 
-import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react';
+import { createWeb3Modal } from '@web3modal/wagmi/react';
 import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
 import { WagmiProvider, useAccount, useDisconnect } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
@@ -34,7 +34,7 @@ let modalInitialized = false;
 
 function initializeModal() {
     if (!modalInitialized && typeof window !== 'undefined') {
-        createWeb3Modal({
+        const modal = createWeb3Modal({
             wagmiConfig: config,
             projectId,
             enableAnalytics: false,
@@ -43,13 +43,14 @@ function initializeModal() {
                 '--w3m-accent': '#00FF94',
             },
         });
+        // Store modal instance on window for WagmiBridge to access
+        (window as any).web3modal = modal;
         modalInitialized = true;
     }
 }
 
 // Bridge component to sync Wagmi state with custom events
 function WagmiBridge() {
-    const { open } = useWeb3Modal();
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
 
@@ -70,7 +71,11 @@ function WagmiBridge() {
     // Listen for connection requests
     useEffect(() => {
         const handleConnectRequest = () => {
-            open();
+            // Access Web3Modal directly from window if available
+            const modal = (window as any).web3modal;
+            if (modal && modal.open) {
+                modal.open();
+            }
         };
 
         const handleDisconnectRequest = () => {
@@ -83,7 +88,7 @@ function WagmiBridge() {
             window.removeEventListener('wallet-connect-request', handleConnectRequest);
             window.removeEventListener('wallet-disconnect-request', handleDisconnectRequest);
         };
-    }, [open, disconnect]);
+    }, [disconnect]);
 
     return null;
 }
