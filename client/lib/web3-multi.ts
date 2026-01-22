@@ -42,6 +42,10 @@ export class Web3MultiService {
     private provider: ethers.JsonRpcProvider;
     private predictionMarket: ethers.Contract | null = null;
     private usdc: ethers.Contract | null = null;
+    
+    // Client-side cache to prevent duplicate API calls when multiple components mount
+    private marketsCache: { data: MultiMarket[], timestamp: number } | null = null;
+    private readonly CACHE_TTL = 5000; // 5 seconds
 
     constructor() {
         const network = getCurrentNetwork();
@@ -82,13 +86,23 @@ export class Web3MultiService {
 
     /**
      * Get all multi-outcome markets - ALWAYS fetches from API to ensure metadata is included
+     * Uses client-side cache to prevent duplicate calls when multiple components mount
      */
     async getMarkets(): Promise<MultiMarket[]> {
+        // Return cached data if fresh (prevents duplicate API calls)
+        const now = Date.now();
+        if (this.marketsCache && (now - this.marketsCache.timestamp) < this.CACHE_TTL) {
+            console.log('[Web3MultiService] Returning cached markets data');
+            return this.marketsCache.data;
+        }
+
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!apiUrl) {
             console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets with metadata.');
             // Fallback to contract if no API - PARALLEL fetch
-            return this.getMarketsFromContract();
+            const markets = await this.getMarketsFromContract();
+            this.marketsCache = { data: markets, timestamp: Date.now() };
+            return markets;
         }
 
         try {
@@ -108,7 +122,7 @@ export class Web3MultiService {
             }
 
             // Map API response to MultiMarket interface - API is the source of truth
-            return data.markets.map((m: any) => ({
+            const markets = data.markets.map((m: any) => ({
                 id: m.market_id !== undefined ? m.market_id : m.id,
                 question: m.question,
                 image_url: m.image_url || '', // Primary field from API
@@ -126,10 +140,16 @@ export class Web3MultiService {
                 // Legacy compatibility
                 image: m.image_url || '', // Alias for image_url
             }));
+            
+            // Cache the results
+            this.marketsCache = { data: markets, timestamp: Date.now() };
+            return markets;
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
             // Fallback to contract if API fails - PARALLEL fetch
-            return this.getMarketsFromContract();
+            const markets = await this.getMarketsFromContract();
+            this.marketsCache = { data: markets, timestamp: Date.now() };
+            return markets;
         }
     }
 
