@@ -1,8 +1,8 @@
 'use client';
 
-import { createWeb3Modal } from '@web3modal/wagmi/react';
+import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react';
 import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, useAccount, useDisconnect } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState, useEffect } from 'react';
@@ -32,11 +32,69 @@ const config = defaultWagmiConfig({
 // Track if modal has been initialized (client-side only)
 let modalInitialized = false;
 
+function initializeModal() {
+    if (!modalInitialized && typeof window !== 'undefined') {
+        createWeb3Modal({
+            wagmiConfig: config,
+            projectId,
+            enableAnalytics: false,
+            themeMode: 'dark',
+            themeVariables: {
+                '--w3m-accent': '#00FF94',
+            },
+        });
+        modalInitialized = true;
+    }
+}
+
+// Bridge component to sync Wagmi state with custom events
+function WagmiBridge() {
+    const { open } = useWeb3Modal();
+    const { address, isConnected } = useAccount();
+    const { disconnect } = useDisconnect();
+
+    // Sync Wagmi state -> Custom Events (for useWallet)
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('wallet-changed', {
+            detail: { address: address || null, isConnected: isConnected }
+        }));
+
+        // Update local cache
+        if (isConnected && address) {
+            localStorage.setItem('wallet_cache', JSON.stringify({ address, isConnected }));
+        } else {
+            localStorage.removeItem('wallet_cache');
+        }
+    }, [address, isConnected]);
+
+    // Listen for connection requests
+    useEffect(() => {
+        const handleConnectRequest = () => {
+            open();
+        };
+
+        const handleDisconnectRequest = () => {
+            disconnect();
+        };
+
+        window.addEventListener('wallet-connect-request', handleConnectRequest);
+        window.addEventListener('wallet-disconnect-request', handleDisconnectRequest);
+        return () => {
+            window.removeEventListener('wallet-connect-request', handleConnectRequest);
+            window.removeEventListener('wallet-disconnect-request', handleDisconnectRequest);
+        };
+    }, [open, disconnect]);
+
+    return null;
+}
+
 interface Web3ProviderProps {
     children: ReactNode;
 }
 
 export function Web3Provider({ children }: Web3ProviderProps) {
+    const [mounted, setMounted] = useState(false);
+
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -46,25 +104,21 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         },
     }));
 
-    // Initialize Web3Modal only on client side
     useEffect(() => {
-        if (!modalInitialized && typeof window !== 'undefined') {
-            createWeb3Modal({
-                wagmiConfig: config,
-                projectId,
-                enableAnalytics: false,
-                themeMode: 'dark',
-                themeVariables: {
-                    '--w3m-accent': '#00FF94',
-                },
-            });
-            modalInitialized = true;
-        }
+        setMounted(true);
+        initializeModal();
     }, []);
+
+    // During SSR, render children without Wagmi context
+    // useWallet will use cached state from localStorage
+    if (!mounted) {
+        return <>{children}</>;
+    }
 
     return (
         <WagmiProvider config={config} reconnectOnMount={true}>
             <QueryClientProvider client={queryClient}>
+                <WagmiBridge />
                 {children}
             </QueryClientProvider>
         </WagmiProvider>
