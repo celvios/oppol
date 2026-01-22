@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, lazy, Suspense } from "react";
-import { Search, X, TrendingUp, Cpu, Globe, Zap } from "lucide-react";
+import { Search, X, TrendingUp, Cpu, Globe, Zap, Tag } from "lucide-react";
 import { web3Service } from "@/lib/web3";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import Link from "next/link";
@@ -11,12 +11,13 @@ const GlassCard = lazy(() => import("@/components/ui/GlassCard"));
 const AnimatePresence = lazy(() => import("framer-motion").then(m => ({ default: m.AnimatePresence })));
 const motion = lazy(() => import("framer-motion").then(m => ({ default: m.motion })));
 
-const FILTERS = [
-    { id: 'all', label: 'All', icon: Zap },
-    { id: 'crypto', label: 'Crypto', icon: TrendingUp },
-    { id: 'tech', label: 'Tech', icon: Cpu },
-    { id: 'culture', label: 'Culture', icon: Globe },
-];
+// Icon mapping for categories
+const CATEGORY_ICONS: Record<string, any> = {
+    'All': Zap,
+    'Crypto': TrendingUp,
+    'Tech': Cpu,
+    'Culture': Globe,
+};
 
 interface Market {
     id: number;
@@ -26,11 +27,51 @@ interface Market {
     totalVolume: string;
 }
 
+interface CategoryFilter {
+    id: string;
+    label: string;
+    icon: any;
+}
+
 export default function SearchPage() {
     const [query, setQuery] = useState("");
     const [activeFilter, setActiveFilter] = useState("all");
     const [markets, setMarkets] = useState<Market[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState<CategoryFilter[]>([
+        { id: 'all', label: 'All', icon: Zap }
+    ]);
+
+    // Fetch categories from API
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                if (apiUrl) {
+                    const response = await fetch(`${apiUrl}/api/categories`);
+                    const data = await response.json();
+                    if (data.success && data.categories) {
+                        const categoryFilters: CategoryFilter[] = [
+                            { id: 'all', label: 'All', icon: Zap }
+                        ];
+
+                        data.categories.forEach((cat: any) => {
+                            categoryFilters.push({
+                                id: cat.name.toLowerCase(),
+                                label: cat.name,
+                                icon: CATEGORY_ICONS[cat.name] || Tag
+                            });
+                        });
+
+                        setFilters(categoryFilters);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch categories:", error);
+            }
+        };
+        fetchCategories();
+    }, []);
 
     useEffect(() => {
         const fetchMarkets = async () => {
@@ -77,7 +118,7 @@ export default function SearchPage() {
             </div>
 
             <div className="flex gap-3 mb-8 overflow-x-auto pb-2 -mx-4 px-4">
-                {FILTERS.map((filter) => {
+                {filters.map((filter) => {
                     const Icon = filter.icon;
                     const isActive = activeFilter === filter.id;
                     return (
