@@ -69,25 +69,25 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
-    
+
     // Helper to validate image
     const isValidImage = (img: string | undefined): boolean => {
         if (!img || !img.trim()) return false;
         const trimmed = img.trim();
         // Check if it's a base64 data URI or a valid URL
-        return trimmed.startsWith('data:image/') || 
-               trimmed.startsWith('http://') || 
-               trimmed.startsWith('https://') ||
-               trimmed.startsWith('/');
+        return trimmed.startsWith('data:image/') ||
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('/');
     };
-    
+
     // Use API metadata - no fallback, API is source of truth
     // Support both image_url (API) and image (legacy) for compatibility
     const getImageUrl = (m: MultiMarket) => {
         const img = m.image_url || m.image || '';
         return img && isValidImage(img) ? img.trim() : '';
     };
-    
+
     const metadata = market ? {
         image: getImageUrl(market),
         description: market.description && market.description.trim() ? market.description.trim() : '',
@@ -357,7 +357,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         <>
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse" />
-                                <span className="font-mono text-sm tracking-widest text-white/70">MULTI-OUTCOME</span>
+                                <span className="font-mono text-sm tracking-widest text-white/70">SEARCH MARKETS</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
