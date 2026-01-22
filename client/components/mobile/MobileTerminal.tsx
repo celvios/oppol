@@ -88,25 +88,6 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
     const [errorInfo, setErrorInfo] = useState<string | null>(null);
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const copyAddress = () => {
-        if (address) {
-            navigator.clipboard.writeText(address);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
-    };
-
-    useEffect(() => {
-        const urlId = Number(searchParams.get('marketId'));
-        if (urlId && !isNaN(urlId)) {
-            setSelectedMarketId(urlId);
-        }
-    }, [searchParams]);
-
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<Market[]>(initialMarkets);
     const [balance, setBalance] = useState<string>('0');
@@ -125,6 +106,35 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const { setTradeModalOpen } = useUIStore();
 
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const copyAddress = () => {
+        if (address) {
+            navigator.clipboard.writeText(address);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    // Handle marketId from URL query parameter
+    useEffect(() => {
+        const urlId = Number(searchParams.get('marketId'));
+        if (urlId && !isNaN(urlId) && markets.length > 0) {
+            const marketExists = markets.find(m => m.id === urlId);
+            if (marketExists) {
+                setSelectedMarketId(urlId);
+            } else if (markets.length > 0) {
+                // If market doesn't exist, default to first market
+                setSelectedMarketId(markets[0].id);
+            }
+        } else if (markets.length > 0 && selectedMarketId === 0) {
+            // No URL param, set to first market
+            setSelectedMarketId(markets[0].id);
+        }
+    }, [searchParams, markets, selectedMarketId]);
 
     const handleLogout = () => {
         localStorage.clear();
@@ -222,7 +232,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             setMarkets(allMarkets);
             setBalance(depositedBalance);
             setRetryCount(0);
-            
+
             // Set initial market selection
             if (selectedMarketId === 0 && allMarkets.length > 0) {
                 const urlId = Number(searchParams.get('marketId'));
