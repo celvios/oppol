@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -49,6 +50,8 @@ interface MultiOutcomeTerminalProps {
 }
 
 export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTerminalProps) {
+    const searchParams = useSearchParams();
+
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [selectedMarketId, setSelectedMarketId] = useState<number>(initialMarkets[0]?.id || 0);
@@ -101,6 +104,20 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    // Handle marketId from URL query parameter
+    useEffect(() => {
+        const marketIdParam = searchParams.get('marketId');
+        if (marketIdParam && markets.length > 0) {
+            const marketId = parseInt(marketIdParam, 10);
+            if (!isNaN(marketId)) {
+                const marketExists = markets.find(m => m.id === marketId);
+                if (marketExists) {
+                    setSelectedMarketId(marketId);
+                }
+            }
+        }
+    }, [searchParams, markets]);
 
     // --- Data Fetching ---
 
