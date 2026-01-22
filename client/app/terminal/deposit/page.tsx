@@ -40,9 +40,10 @@ const getTokens = () => {
     const usdcAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDC;
 
     return [
-        { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true }, // USDC is 18 decimals on BSC? No, check below.
-        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false },
-        { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false },
+        { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true, comingSoon: false },
+        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false, comingSoon: false },
+        { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
+        { symbol: 'BC400', address: '0x0000000000000000000000000000000000000000', decimals: 18, direct: false, comingSoon: true },
     ];
 };
 
@@ -267,21 +268,24 @@ export default function DepositPage() {
                                 {tokens.map((token) => (
                                     <button
                                         key={token.symbol}
-                                        onClick={() => setSelectedToken(token)}
-                                        className={`py-2 px-3 rounded-lg font-bold transition-all border ${selectedToken.symbol === token.symbol
-                                            ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
-                                            : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
+                                        onClick={() => !token.comingSoon && setSelectedToken(token)}
+                                        disabled={token.comingSoon}
+                                        className={`py-2 px-3 rounded-lg font-bold transition-all border ${token.comingSoon
+                                            ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                                            : selectedToken.symbol === token.symbol
+                                                ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
+                                                : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                             }`}
                                     >
                                         <div className="flex flex-col items-center gap-1">
                                             <div className="flex items-center gap-1">
                                                 <span className="text-sm">{token.symbol}</span>
-                                                {selectedToken.symbol === token.symbol && (
+                                                {selectedToken.symbol === token.symbol && !token.comingSoon && (
                                                     <CheckCircle className="w-3 h-3" />
                                                 )}
                                             </div>
-                                            <span className="text-xs opacity-60">
-                                                {token.direct ? 'Direct' : 'Swap'}
+                                            <span className={`text-xs ${token.comingSoon ? 'text-amber-400 font-bold' : 'opacity-60'}`}>
+                                                {token.comingSoon ? 'Coming Soon' : token.direct ? 'Direct' : 'Swap'}
                                             </span>
                                         </div>
                                     </button>
@@ -314,11 +318,11 @@ export default function DepositPage() {
 
                         <button
                             onClick={handleDeposit}
-                            disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing}
+                            disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing || selectedToken.comingSoon}
                             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            {isProcessing ? 'Processing...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
-                            <ArrowRight className="w-5 h-5" />
+                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
+                            {!selectedToken.comingSoon && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>
