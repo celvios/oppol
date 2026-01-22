@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ReownProvider } from "@/lib/reown-provider";
+// import { ReownProvider } from "@/lib/reown-provider"; // REMOVED
 import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
@@ -48,15 +48,13 @@ export default function RootLayout({
       >
         <div className="min-h-screen" suppressHydrationWarning={true}>
           <Web3Provider>
-            <ReownProvider>
-              <SettingsProvider>
-                <AnimatedBackground />
-                <UserRegistrationManager />
-                <Header />
-                {children}
-                <BottomNav />
-              </SettingsProvider>
-            </ReownProvider>
+            <SettingsProvider>
+              <AnimatedBackground />
+              <UserRegistrationManager />
+              <Header />
+              {children}
+              <BottomNav />
+            </SettingsProvider>
           </Web3Provider>
         </div>
       </body>

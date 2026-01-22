@@ -1,8 +1,8 @@
 'use client';
 
-import { createWeb3Modal } from '@web3modal/wagmi/react';
+import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'; // Ensure import
 import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, useAccount } from 'wagmi'; // Ensure useAccount import
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState, useEffect } from 'react';
@@ -29,6 +29,7 @@ const config = defaultWagmiConfig({
     }),
 });
 
+// Initialize modal outside component is fine for singleton behavior
 createWeb3Modal({
     wagmiConfig: config,
     projectId,
@@ -38,6 +39,40 @@ createWeb3Modal({
         '--w3m-accent': '#00FF94',
     },
 });
+
+// Bridge component to sync Wagmi state with the app's custom event system
+function WagmiBridge() {
+    const { open } = useWeb3Modal();
+    const { address, isConnected } = useAccount();
+
+    // Sync Wagmi state -> Custom Events (for useWallet)
+    useEffect(() => {
+        // Dispatch event for other components using useWallet
+        window.dispatchEvent(new CustomEvent('wallet-changed', {
+            detail: { address: address || null, isConnected: isConnected }
+        }));
+
+        // Update local cache for immediate hydration on reload
+        if (isConnected && address) {
+            localStorage.setItem('wallet_cache', JSON.stringify({ address, isConnected }));
+        } else {
+            localStorage.removeItem('wallet_cache');
+        }
+    }, [address, isConnected]);
+
+    // Listen for connection requests -> Open Wagmi Modal
+    useEffect(() => {
+        const handleConnectRequest = () => {
+            console.log('[WagmiBridge] Opening modal...');
+            open();
+        };
+
+        window.addEventListener('wallet-connect-request', handleConnectRequest);
+        return () => window.removeEventListener('wallet-connect-request', handleConnectRequest);
+    }, [open]);
+
+    return null;
+}
 
 interface Web3ProviderProps {
     children: ReactNode;
@@ -60,12 +95,13 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     }, []);
 
     if (!mounted) {
-        return <>{children}</>;
+        return null;
     }
 
     return (
         <WagmiProvider config={config} reconnectOnMount={true}>
             <QueryClientProvider client={queryClient}>
+                <WagmiBridge />
                 {children}
             </QueryClientProvider>
         </WagmiProvider>
