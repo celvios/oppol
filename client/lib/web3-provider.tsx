@@ -5,7 +5,7 @@ import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { cookieStorage, createStorage } from 'wagmi';
 
 const projectId = '70415295a4738286445072f5c2392457';
@@ -29,16 +29,8 @@ const config = defaultWagmiConfig({
     }),
 });
 
-// Initialize modal outside component is fine for singleton behavior
-createWeb3Modal({
-    wagmiConfig: config,
-    projectId,
-    enableAnalytics: false,
-    themeMode: 'dark',
-    themeVariables: {
-        '--w3m-accent': '#00FF94',
-    },
-});
+// Track if modal has been initialized (client-side only)
+let modalInitialized = false;
 
 interface Web3ProviderProps {
     children: ReactNode;
@@ -53,6 +45,22 @@ export function Web3Provider({ children }: Web3ProviderProps) {
             },
         },
     }));
+
+    // Initialize Web3Modal only on client side
+    useEffect(() => {
+        if (!modalInitialized && typeof window !== 'undefined') {
+            createWeb3Modal({
+                wagmiConfig: config,
+                projectId,
+                enableAnalytics: false,
+                themeMode: 'dark',
+                themeVariables: {
+                    '--w3m-accent': '#00FF94',
+                },
+            });
+            modalInitialized = true;
+        }
+    }, []);
 
     return (
         <WagmiProvider config={config} reconnectOnMount={true}>
