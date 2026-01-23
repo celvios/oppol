@@ -59,13 +59,6 @@ function WagmiBridge() {
         window.dispatchEvent(new CustomEvent('wallet-changed', {
             detail: { address: address || null, isConnected: isConnected }
         }));
-
-        // Update local cache
-        if (isConnected && address) {
-            localStorage.setItem('wallet_cache', JSON.stringify({ address, isConnected }));
-        } else {
-            localStorage.removeItem('wallet_cache');
-        }
     }, [address, isConnected]);
 
     // Listen for connection requests

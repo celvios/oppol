@@ -1,89 +1,50 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-
-interface WalletState {
-  isConnected: boolean;
-  address: string | null;
-  isConnecting: boolean;
-}
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useEffect, useState } from 'react';
 
 export function useWallet() {
-  const [state, setState] = useState<WalletState>({
-    isConnected: false,
-    address: null,
-    isConnecting: false
-  });
+  const { address, isConnected } = useAccount();
+  const { connectAsync, isPending } = useConnect();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const [isConnecting, setIsConnecting] = useState(false);
 
+  // Sync Wagmi state to custom events for backward compatibility
   useEffect(() => {
-    // Load cached state immediately for fast hydration
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('wallet_cache');
-      if (cached) {
-        try {
-          const { address, isConnected } = JSON.parse(cached);
-          if (address && isConnected) {
-            setState({
-              isConnected: true,
-              address,
-              isConnecting: false
-            });
-          }
-        } catch (e) { }
-      }
-    }
+    window.dispatchEvent(new CustomEvent('wallet-changed', {
+      detail: { address: address || null, isConnected }
+    }));
+  }, [address, isConnected]);
 
-    // Listen for wallet changes from WagmiBridge
-    const handleWalletChange = (event: CustomEvent) => {
-      const { address, isConnected } = event.detail;
-      setState({
-        isConnected: isConnected || false,
-        address: address || null,
-        isConnecting: false
-      });
-    };
-
-    window.addEventListener('wallet-changed', handleWalletChange as EventListener);
-
-    return () => {
-      window.removeEventListener('wallet-changed', handleWalletChange as EventListener);
-    };
-  }, []);
-
-  const connect = useCallback(async () => {
-    setState(prev => ({ ...prev, isConnecting: true }));
-
+  const connect = async () => {
+    setIsConnecting(true);
     try {
-      // Dispatch event for WagmiBridge to open the modal
-      window.dispatchEvent(new CustomEvent('wallet-connect-request'));
+      // Open Web3Modal
+      const modal = (window as any).web3modal;
+      if (modal && modal.open) {
+        await modal.open();
+      } else {
+        window.dispatchEvent(new CustomEvent('wallet-connect-request'));
+      }
     } catch (error) {
       console.error('[useWallet] Connection failed:', error);
     } finally {
-      setTimeout(() => {
-        setState(prev => ({ ...prev, isConnecting: false }));
-      }, 1000);
+      setTimeout(() => setIsConnecting(false), 1000);
     }
-  }, []);
+  };
 
-  const disconnect = useCallback(async () => {
+  const disconnect = async () => {
     try {
-      localStorage.removeItem('wallet_cache');
-      setState({
-        isConnected: false,
-        address: null,
-        isConnecting: false
-      });
-      // Dispatch event for WagmiBridge to disconnect
-      window.dispatchEvent(new CustomEvent('wallet-disconnect-request'));
+      wagmiDisconnect();
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
-  }, []);
+  };
 
   return {
-    isConnected: state.isConnected,
-    address: state.address,
-    isConnecting: state.isConnecting,
+    isConnected,
+    address: address || null,
+    isConnecting: isConnecting || isPending,
     connect,
     disconnect
   };
