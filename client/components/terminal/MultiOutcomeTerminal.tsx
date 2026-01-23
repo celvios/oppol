@@ -66,7 +66,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
@@ -508,38 +507,26 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 {/* LEFT COLUMN: Market List (3 cols) */}
                 <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
                     <GlassCard className="flex-none p-4 flex justify-between items-center bg-white/5 min-h-[60px]">
-                        {isSearchOpen ? (
-                            <div className="flex items-center w-full gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                                <Search size={14} className="text-white/50" />
+                        <div className="flex items-center w-full gap-3">
+                            <div className="flex-1 flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/5 focus-within:border-white/20 transition-colors">
+                                <Search size={14} className="text-white/50 flex-shrink-0" />
                                 <input
-                                    autoFocus
                                     type="text"
                                     placeholder="Search markets..."
                                     className="bg-transparent border-none outline-none text-sm text-white placeholder:text-white/30 w-full font-mono"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
-                                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="p-1 hover:bg-white/10 rounded-full">
-                                    <X size={14} className="text-white/50" />
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse" />
-                                    <span className="font-mono text-sm tracking-widest text-white/70">SEARCH MARKETS</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setIsSearchOpen(true)}
-                                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white group"
-                                    >
-                                        <Search size={14} />
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery("")} className="hover:text-white text-white/50">
+                                        <X size={14} />
                                     </button>
-                                    <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{filteredMarkets.length} ACTIVE</span>
-                                </div>
-                            </>
-                        )}
+                                )}
+                            </div>
+                            <span className="text-xs bg-white/10 px-2 py-1.5 rounded text-white/50 whitespace-nowrap font-mono border border-white/5">
+                                {filteredMarkets.length} ACTIVE
+                            </span>
+                        </div>
                     </GlassCard>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
