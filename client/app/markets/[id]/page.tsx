@@ -29,7 +29,11 @@ export default function MarketPage() {
             </nav>
 
             {/* Mobile View */}
-            <MobileTradingView outcome={selectedOutcome} setOutcome={setSelectedOutcome} />
+            <MobileTradingView 
+                outcome={selectedOutcome === 0 ? "YES" : "NO"} 
+                setOutcome={(o) => setSelectedOutcome(o === "YES" ? 0 : 1)}
+                marketId={id ? parseInt(id as string) : undefined}
+            />
 
             <main className="hidden md:grid max-w-7xl mx-auto px-6 grid-cols-1 lg:grid-cols-3 gap-8">
 
