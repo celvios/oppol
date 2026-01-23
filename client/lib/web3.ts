@@ -4,7 +4,7 @@ import { getContracts, getCurrentNetwork } from './contracts';
 // ABI for PredictionMarketMulti - Unified contract for all markets
 const PREDICTION_MARKET_MULTI_ABI = [
     'function marketCount() view returns (uint256)',
-    'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+    'function getMarketBasicInfo(uint256 marketId) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
     'function getMarketOutcomes(uint256 marketId) view returns (string[])',
     'function getMarketShares(uint256 marketId) view returns (uint256[])',
     'function getAllPrices(uint256 marketId) view returns (uint256[])',

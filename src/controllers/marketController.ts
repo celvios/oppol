@@ -64,7 +64,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         const abi = [
             'function getMarketOutcomes(uint256) view returns (string[])',
             'function getAllPrices(uint256) view returns (uint256[])',
-            'function getMarketBasicInfo(uint256) view returns (string, uint256, uint256, uint256, bool, uint256)'
+            'function getMarketBasicInfo(uint256) view returns (string, string, string, uint256, uint256, uint256, bool, uint256)'
         ];
         const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
