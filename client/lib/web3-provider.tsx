@@ -155,7 +155,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     // Always render with Wagmi context to ensure proper hydration
     // The useWallet hook will handle the mounted state internally
     return (
-        <WagmiProvider config={config} reconnectOnMount={true}>
+        <WagmiProvider config={config} reconnectOnMount={false}>
             <QueryClientProvider client={queryClient}>
                 <WagmiBridge />
                 {children}
