@@ -41,8 +41,9 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
 
             setDbStats({
                 count: data.dbCount !== undefined ? data.dbCount : -1,
-                error: data.dbError || null
-            });
+                error: data.dbError || null,
+                ids: data.dbIds || []
+            } as any);
 
             if (data.success) {
                 const loadedMarkets: Market[] = data.markets.map((m: any) => ({
@@ -141,9 +142,17 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
         <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Market Management</h2>
-                <div className="text-xs font-mono text-white/30 flex gap-2">
-                    <span title="Total DB Rows">DB Rows: {dbStats.count}</span>
-                    {dbStats.error && <span className="text-red-400">Error: {dbStats.error}</span>}
+                <div className="flex flex-col items-end">
+                    <div className="text-xs font-mono text-white/30 flex gap-2">
+                        <span title="Total DB Rows">DB Rows: {dbStats.count}</span>
+                        {dbStats.error && <span className="text-red-400">Error: {dbStats.error}</span>}
+                    </div>
+                    {/* Debug List */}
+                    {dbStats.count > 0 && (
+                        <div className="text-[10px] text-white/20 max-w-[200px] text-right truncate">
+                            IDs: {(dbStats as any).ids?.join(', ')}
+                        </div>
+                    )}
                 </div>
             </div>
 
