@@ -993,38 +993,54 @@ app.get('/api/markets', async (req, res) => {
 
     console.log(`[Markets API] Fetching ${Number(count)} markets in PARALLEL...`);
 
-    // PARALLEL fetch all markets at once (not sequential!)
-    const marketPromises = Array.from({ length: Number(count) }, (_, i) =>
-      Promise.all([
-        marketContract.getMarketBasicInfo(i),
-        marketContract.getMarketOutcomes(i),
-        marketContract.getAllPrices(i)
-      ]).then(([basicInfo, outcomes, prices]) => {
-        const metadata = metadataMap[i];
-        if (!metadata) {
-          console.warn(`[Markets API] WARNING: No metadata found for market ${i}`);
-        }
-        return {
-          market_id: i,
-          question: basicInfo.question,
-          description: metadata?.description || '',
-          image_url: metadata?.image || '',
-          category_id: metadata?.category || '',
-          outcomes: outcomes,
-          prices: prices.map((p: bigint) => Number(p) / 100),
-          outcomeCount: Number(basicInfo.outcomeCount),
-          endTime: Number(basicInfo.endTime),
-          liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
-          resolved: basicInfo.resolved,
-          winningOutcome: Number(basicInfo.winningOutcome)
-        };
-      }).catch(err => {
-        console.error(`[Markets API] Error fetching market ${i}:`, err.message || err);
-        return null;
-      })
-    );
+    // BATCHED Fetching to avoid Rate Limits (50 req/sec)
+    const BATCH_SIZE = 5;
+    const markets: any[] = [];
 
-    const markets = (await Promise.all(marketPromises)).filter(m => m !== null);
+    // Create array of market IDs to fetch
+    const marketIds = Array.from({ length: Number(count) }, (_, i) => i);
+
+    // Process in batches
+    for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
+      const batchIds = marketIds.slice(i, i + BATCH_SIZE);
+      console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1} (${batchIds.join(', ')})...`);
+
+      const batchPromises = batchIds.map(id =>
+        Promise.all([
+          marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
+          marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
+          marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
+        ]).then(([basicInfo, outcomes, prices]) => {
+          const metadata = metadataMap[id];
+          return {
+            market_id: id,
+            question: basicInfo.question,
+            description: metadata?.description || '',
+            image_url: metadata?.image || '',
+            category_id: metadata?.category || '',
+            outcomes: outcomes,
+            prices: prices.map((p: bigint) => Number(p) / 100),
+            outcomeCount: Number(basicInfo.outcomeCount),
+            endTime: Number(basicInfo.endTime),
+            liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
+            resolved: basicInfo.resolved,
+            winningOutcome: Number(basicInfo.winningOutcome)
+          };
+        }).catch(err => {
+          console.error(`[Markets API] Error fetching market ${id}:`, err.message || err);
+          // Return a minimal error object or null to filter out
+          return null;
+        })
+      );
+
+      const batchResults = await Promise.all(batchPromises);
+      markets.push(...batchResults.filter(m => m !== null));
+
+      // Small delay between batches to be nice to RPC
+      if (i + BATCH_SIZE < marketIds.length) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
 
     console.log(`[Markets API] Returning ${markets.length} markets with full data`);
 
