@@ -332,7 +332,163 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     );
 
     return (
-        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
+        <>
+            {/* MOBILE VIEW */}
+            <div className="md:hidden h-[calc(100vh-80px)] p-4 flex flex-col gap-4 max-w-[1800px] mx-auto overflow-y-auto pb-32">
+                {successData && (
+                    <SuccessModal
+                        isOpen={isSuccessModalOpen}
+                        onClose={() => {
+                            setIsSuccessModalOpen(false);
+                            fetchData();
+                        }}
+                        data={{
+                            marketId: successData.marketId,
+                            side: successData.outcome,
+                            shares: successData.shares,
+                            cost: successData.cost,
+                            question: successData.question,
+                            newPrice: successData.newPrice,
+                            hash: successData.hash
+                        }}
+                    />
+                )}
+
+                {/* Market Header */}
+                <GlassCard className="p-4">
+                    <div className="flex gap-2 mb-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
+                        {!market.resolved && Date.now() / 1000 < market.endTime && (
+                            <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-neon-green rounded-full animate-pulse" />
+                                LIVE
+                            </span>
+                        )}
+                        {market.resolved && (
+                            <span className="px-2 py-0.5 rounded bg-green-500/20 text-[10px] font-mono uppercase tracking-wider text-green-400">
+                                RESOLVED
+                            </span>
+                        )}
+                        {!market.resolved && Date.now() / 1000 >= market.endTime && (
+                            <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-[10px] font-mono uppercase tracking-wider text-yellow-400">
+                                ENDED
+                            </span>
+                        )}
+                    </div>
+                    <h1 className="text-xl font-heading font-bold text-white mb-2">
+                        {market.question}
+                    </h1>
+                    {metadata && metadata.description && (
+                        <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                            {metadata.description}
+                        </p>
+                    )}
+                    <div className="flex gap-4 text-xs text-text-secondary">
+                        <div>Vol: ${market.totalVolume}</div>
+                        <div>{market.outcomeCount} outcomes</div>
+                        <div>{formatDistanceToNow(market.endTime * 1000)}</div>
+                    </div>
+                </GlassCard>
+
+                {/* Chart */}
+                <GlassCard className="p-4">
+                    <h2 className="text-sm font-heading text-white mb-3">Chance Wave</h2>
+                    <div className="h-[200px] w-full">
+                        <MultiOutcomeChart
+                            data={priceHistory}
+                            outcomes={market.outcomes || []}
+                        />
+                    </div>
+                </GlassCard>
+
+                {/* Outcomes */}
+                <GlassCard className="p-4">
+                    <h3 className="text-sm font-heading text-white/70 mb-3">Outcomes</h3>
+                    <div className="space-y-2">
+                        {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
+                            const color = getOutcomeColor(outcome, i);
+                            return (
+                                <button
+                                    key={i}
+                                    onClick={() => setSelectedOutcome(i)}
+                                    className={`w-full p-3 rounded-lg border transition-all text-left ${selectedOutcome === i
+                                        ? 'border-white/30 bg-white/10'
+                                        : 'border-white/5 bg-white/5'
+                                        }`}
+                                    disabled={market.resolved || Date.now() / 1000 >= market.endTime}
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                                            <span className="font-heading text-white text-sm">{outcome}</span>
+                                        </div>
+                                        <span className="text-lg font-mono font-bold" style={{ color: color }}>
+                                            {(market.prices[i] || 0).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </GlassCard>
+
+                {/* Trading Panel - Only if market is active */}
+                {!market.resolved && Date.now() / 1000 < market.endTime && (
+                    <div className="fixed bottom-20 left-0 right-0 p-4 bg-void/95 backdrop-blur-xl border-t border-white/10 z-40">
+                        <div className="max-w-md mx-auto space-y-3">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="text-[10px] text-text-secondary uppercase">Amount</div>
+                                    <input
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="bg-transparent w-24 text-white font-mono text-lg focus:outline-none"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] text-text-secondary uppercase">Selected</div>
+                                    <div className="text-sm font-heading text-white">{market.outcomes[selectedOutcome]}</div>
+                                </div>
+                            </div>
+                            {!isConnected ? (
+                                <NeonButton onClick={() => setShowConnectModal(true)} variant="cyan" className="w-full py-3">
+                                    CONNECT WALLET
+                                </NeonButton>
+                            ) : (
+                                <NeonSlider
+                                    onConfirm={handleTrade}
+                                    isLoading={isTradeLoading}
+                                    side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
+                                    color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
+                                    disabled={!amount || parseFloat(amount) <= 0 || isTradeLoading}
+                                />
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Resolution Status - Only if resolved or ended */}
+                {(market.resolved || Date.now() / 1000 >= market.endTime) && (
+                    <GlassCard className="p-4">
+                        <h3 className="text-sm font-heading text-white mb-2">Resolution Status</h3>
+                        <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                            <div className="text-lg font-heading text-white">
+                                {market.resolved 
+                                    ? `Winning Outcome: ${market.outcomes[market.winningOutcome]}`
+                                    : 'Market Ended - Awaiting Resolution'
+                                }
+                            </div>
+                        </div>
+                    </GlassCard>
+                )}
+
+                <CommentsSection marketId={market.id} className="w-full" />
+            </div>
+
+            {/* DESKTOP VIEW */}
+            <div className="hidden md:grid h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 max-w-[1800px] mx-auto">
             {successData && (
                 <SuccessModal
                     isOpen={isSuccessModalOpen}
@@ -752,8 +908,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </GlassCard>
             </div>
 
-
-
             <ConnectWalletModal
                 isOpen={showConnectModal}
                 onClose={() => setShowConnectModal(false)}
@@ -761,6 +915,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 context="bet"
                 contextData={{ marketName: market.question }}
             />
-        </div >
+        </>
     );
 }
