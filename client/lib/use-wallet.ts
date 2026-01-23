@@ -46,27 +46,20 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 }
 
 export function useWallet() {
-  const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
-  // Wagmi hooks
+  // Wagmi hooks - these are always available since Web3Provider is in root layout
   const { address, isConnected } = useAccount();
   const { connectAsync, isPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   
-  // Get stored state for initial display
+  // Get stored state for fallback
   const storedState = getStoredWalletState();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Store state when Wagmi state changes
   useEffect(() => {
-    if (mounted) {
-      storeWalletState(address || null, isConnected);
-    }
-  }, [address, isConnected, mounted]);
+    storeWalletState(address || null, isConnected);
+  }, [address, isConnected]);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -91,10 +84,13 @@ export function useWallet() {
     }
   };
 
-  // Show stored state until mounted, then show Wagmi state
+  // Always return Wagmi state since Web3Provider is persistent
+  // Only fallback to stored state if Wagmi shows disconnected but we have stored connection
+  const shouldUseStored = !isConnected && storedState?.isConnected;
+  
   return {
-    isConnected: mounted ? isConnected : (storedState?.isConnected || false),
-    address: mounted ? (address || null) : (storedState?.address || null),
+    isConnected: shouldUseStored ? true : isConnected,
+    address: shouldUseStored ? storedState.address : (address || null),
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
