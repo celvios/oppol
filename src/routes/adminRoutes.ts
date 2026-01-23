@@ -173,6 +173,14 @@ router.post('/delete-market', checkAdminAuth, async (req, res) => {
 
         console.log(`[Admin] Market ${marketId} deleted from DB`);
 
+        // Invalidate public API cache immediately
+        // @ts-ignore
+        if (global.marketsCache) {
+            // @ts-ignore
+            global.marketsCache = null;
+            console.log('[Admin] Invalidated markets cache');
+        }
+
         return res.json({
             success: true,
             marketId,

@@ -14,6 +14,7 @@ interface Market {
     volume?: string;
     image?: string;
     outcomes: string[];
+    isHidden: boolean;
 }
 
 export default function AdminMarketList({ adminKey }: { adminKey: string }) {
@@ -45,10 +46,11 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                     resolved: m.resolved,
                     winningOutcome: 0, // Not needed for list display, detailed view handles it
                     formattedEndTime: new Date(m.endTime * 1000).toLocaleString(),
-                    status: m.resolved ? 'RESOLVED' : (Date.now() / 1000 > m.endTime ? 'ENDED' : 'ACTIVE'),
+                    status: m.isHidden ? 'DELETED' : (m.resolved ? 'RESOLVED' : (Date.now() / 1000 > m.endTime ? 'ENDED' : 'ACTIVE')),
                     volume: m.volume,
                     image: m.image,
-                    outcomes: m.outcomes || ["YES", "NO"] // Fallback
+                    outcomes: m.outcomes || ["YES", "NO"], // Fallback
+                    isHidden: m.isHidden
                 }));
                 // Sort by ID desc (newest first)
                 loadedMarkets.sort((a, b) => b.id - a.id);
@@ -96,7 +98,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
             return;
         }
 
-        setIsSubmitting(true); // Re-using state, better to separate or rename but acceptable for now
+        setIsSubmitting(true);
         try {
             const res = await fetch('/api/admin/delete-market', {
                 method: 'POST',
@@ -106,10 +108,18 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                 },
                 body: JSON.stringify({ marketId: id })
             });
+
+            // Handle 404 cleanly (already deleted)
+            if (res.status === 404) {
+                setMarkets(prev => prev.map(m => m.id === id ? { ...m, isHidden: true, status: 'DELETED' } : m));
+                alert("Market was already deleted.");
+                return;
+            }
+
             const data = await res.json();
             if (data.success) {
-                // Remove locally to avoid full refetch delay
-                setMarkets(prev => prev.filter(m => m.id !== id));
+                // Update local state to mark as deleted instead of removing
+                setMarkets(prev => prev.map(m => m.id === id ? { ...m, isHidden: true, status: 'DELETED' } : m));
                 alert("Market Deleted from DB");
             } else {
                 alert("Error: " + data.error);
@@ -132,13 +142,14 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
             ) : (
                 <div className="grid gap-4">
                     {markets.map(m => (
-                        <GlassCard key={m.id} className="p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <GlassCard key={m.id} className={`p-4 flex flex-col md:flex-row justify-between items-center gap-4 ${m.isHidden ? 'opacity-50 grayscale' : ''}`}>
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs font-mono text-white/40">#{m.id}</span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full border ${m.status === 'ACTIVE' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' :
-                                        m.status === 'RESOLVED' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
-                                            'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                                    <span className={`text-xs px-2 py-0.5 rounded-full border ${m.status === 'DELETED' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
+                                            m.status === 'ACTIVE' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' :
+                                                m.status === 'RESOLVED' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+                                                    'border-amber-500/50 text-amber-400 bg-amber-500/10'
                                         }`}>
                                         {m.status}
                                     </span>
@@ -148,13 +159,15 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handleDelete(m.id)}
-                                    className="p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mr-2"
-                                    title="Delete from DB"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+                                {!m.isHidden && (
+                                    <button
+                                        onClick={() => handleDelete(m.id)}
+                                        className="p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors mr-2"
+                                        title="Delete from DB"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
 
                                 {m.status === 'ENDED' && (
                                     <NeonButton
