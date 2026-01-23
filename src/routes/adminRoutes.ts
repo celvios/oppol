@@ -90,14 +90,20 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         console.log(`[Admin API] Fetching ${marketCount} total markets...`);
 
         // Get DB metadata for enrichment where possible
-        let metadataMap: Record<number, any> = {};
+        let metadataMap: Record<string, any> = {};
+        let dbCount = 0;
         try {
             const metadataResult = await query('SELECT * FROM markets');
+            dbCount = metadataResult.rows.length;
+            console.log(`[Admin API] DB returned ${dbCount} rows`);
+
             metadataResult.rows.forEach((row: any) => {
-                metadataMap[row.market_id] = row;
+                // Force string key to avoid number/string mismatch
+                metadataMap[String(row.market_id)] = row;
             });
-        } catch (e) {
-            console.warn('[Admin API] DB metadata fetch failed, continuing with raw chain data');
+        } catch (e: any) {
+            console.error('[Admin API] DB metadata fetch failed:', e.message);
+            // We continue, but all markets will appear "Deleted" if this fails
         }
 
         const markets: any[] = [];
@@ -113,7 +119,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                     marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
                     marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
                 ]).then(([basicInfo, outcomes, prices]) => {
-                    const metadata = metadataMap[id];
+                    const metadata = metadataMap[String(id)];
                     return {
                         market_id: id,
                         question: basicInfo.question,
@@ -143,7 +149,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
             }
         }
 
-        return res.json({ success: true, markets });
+        return res.json({ success: true, markets, dbCount });
 
     } catch (error: any) {
         console.error('[Admin] Get Markets Error:', error);
