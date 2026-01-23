@@ -99,6 +99,65 @@ router.post('/delete-market', checkAdminAuth, async (req, res) => {
     }
 });
 
+// GET /stats - Dashboard Statistics
+router.get('/stats', checkAdminAuth, async (req, res) => {
+    try {
+        // 1. Get Market Stats
+        // Active markets: not resolved and end_time > now
+        const activeMarketsRes = await query(`
+            SELECT COUNT(*) FROM markets 
+            WHERE resolved = false 
+            AND (end_time IS NULL OR end_time > NOW())
+        `);
+
+        // Expiring soon: ending in next 7 days
+        const expiringRes = await query(`
+            SELECT COUNT(*) FROM markets 
+            WHERE resolved = false 
+            AND end_time > NOW() 
+            AND end_time < NOW() + INTERVAL '7 days'
+        `);
+
+        // 2. Get User Stats
+        const webUsersRes = await query('SELECT COUNT(*) FROM users');
+        const waUsersRes = await query('SELECT COUNT(*) FROM whatsapp_users');
+        const tgUsersRes = await query('SELECT COUNT(*) FROM telegram_users');
+
+        const totalUsers =
+            parseInt(webUsersRes.rows[0].count) +
+            parseInt(waUsersRes.rows[0].count) +
+            parseInt(tgUsersRes.rows[0].count);
+
+        // New users (last 24h)
+        const newWebRes = await query("SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '24 hours'");
+        const newWaRes = await query("SELECT COUNT(*) FROM whatsapp_users WHERE created_at > NOW() - INTERVAL '24 hours'");
+        const newTgRes = await query("SELECT COUNT(*) FROM telegram_users WHERE created_at > NOW() - INTERVAL '24 hours'");
+
+        const newUsers =
+            parseInt(newWebRes.rows[0].count) +
+            parseInt(newWaRes.rows[0].count) +
+            parseInt(newTgRes.rows[0].count);
+
+        return res.json({
+            success: true,
+            stats: {
+                totalLiquidity: "$0.00", // TODO: Calculate from contract
+                totalVolume: "$0.00",    // TODO: Sum trade volumes
+                activeMarkets: parseInt(activeMarketsRes.rows[0].count),
+                totalUsers: totalUsers,
+                volumeTrend: "Stable",
+                liquidityTrend: "Stable",
+                expiringMarkets: parseInt(expiringRes.rows[0].count),
+                newUsersToday: newUsers
+            }
+        });
+
+    } catch (error: any) {
+        console.error('[Admin] Stats Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // GET /users - List all users with balances
 router.get('/users', checkAdminAuth, async (req, res) => {
     try {
