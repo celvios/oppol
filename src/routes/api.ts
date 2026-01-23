@@ -45,6 +45,9 @@ router.post('/categories', createCategory);
 router.get('/categories', getCategories);
 router.delete('/categories/:id', deleteCategory);
 
+import { uploadImage } from '../controllers/uploadController';
+router.post('/upload', uploadImage);
+
 router.get('/debug/contract', checkContractMarkets);
 
 router.get('/health', (req, res) => {

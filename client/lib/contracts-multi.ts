@@ -40,5 +40,5 @@ export const PREDICTION_MARKET_MULTI_ABI = [
     'function withdraw(uint256 amount)',
     'function claimWinnings(uint256 marketId)',
     'function getMarketStatus(uint256 marketId) view returns (bool ended, bool assertionPending, bool resolved, uint256 winningOutcome, address asserter, bytes32 assertionId)',
-    'function createMarket(string question, string image, string description, string[] outcomes, uint256 duration, uint256 liquidityParam, uint256 subsidy) external returns (uint256)',
+    'function createMarket(string question, string image, string description, string[] outcomes, uint256 durationDays) external returns (uint256)',
 ];

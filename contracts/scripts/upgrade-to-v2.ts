@@ -1,17 +1,15 @@
 import { ethers, upgrades } from "hardhat";
 
 async function main() {
-    console.log("🔄 Upgrading PredictionMarketMulti to V2...\n");
+    console.log("🔄 Upgrading PredictionMarketMulti to V2 with image/description support...\n");
 
     const [deployer] = await ethers.getSigners();
     console.log("Upgrading with account:", deployer.address);
 
-    // The proxy address from your .env
-    const PROXY_ADDRESS = process.env.MULTI_MARKET_ADDRESS || "0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae";
+    const PROXY_ADDRESS = process.env.MULTI_MARKET_ADDRESS || process.env.NEXT_PUBLIC_MARKET_ADDRESS || "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
 
     console.log(`\n📍 Proxy Address: ${PROXY_ADDRESS}`);
 
-    // Get the V2 contract factory
     console.log("\n1️⃣ Compiling V2 implementation...");
     const PredictionMarketMultiV2 = await ethers.getContractFactory("PredictionMarketMultiV2");
 
@@ -21,11 +19,9 @@ async function main() {
 
     console.log("✅ Upgrade complete!");
 
-    // Get new implementation address
     const newImplAddress = await upgrades.erc1967.getImplementationAddress(PROXY_ADDRESS);
     console.log(`\n📝 New Implementation Address: ${newImplAddress}`);
 
-    // Verify the upgrade worked
     console.log("\n3️⃣ Verifying upgrade...");
     const contract = await ethers.getContractAt("PredictionMarketMultiV2", PROXY_ADDRESS);
     const marketCount = await contract.marketCount();
@@ -36,8 +32,8 @@ async function main() {
     console.log(`Proxy Address (unchanged): ${PROXY_ADDRESS}`);
     console.log(`New Implementation: ${newImplAddress}`);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("\n✨ You can now use the simplified createMarket function!");
-    console.log("   createMarket(question, outcomes, durationDays)");
+    console.log("\n✨ You can now use createMarket with image/description!");
+    console.log("   createMarket(question, image, description, outcomes, durationDays)");
 }
 
 main()

@@ -21,6 +21,7 @@ export default function CreateMarketPage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,7 +66,9 @@ export default function CreateMarketPage() {
         reader.onload = (e) => {
             const base64 = e.target?.result as string;
             setImagePreview(base64);
+            // We store the base64 for preview, but we'll upload the file on submit
             setFormData(prev => ({ ...prev, image: base64 }));
+            setSelectedFile(file);
             setError('');
         };
         reader.readAsDataURL(file);
@@ -95,6 +98,7 @@ export default function CreateMarketPage() {
 
     const removeImage = () => {
         setImagePreview(null);
+        setSelectedFile(null);
         setFormData(prev => ({ ...prev, image: '' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -116,6 +120,25 @@ export default function CreateMarketPage() {
             const newOutcomes = formData.outcomes.filter((_, i) => i !== index);
             setFormData({ ...formData, outcomes: newOutcomes });
         }
+    };
+
+    const uploadImage = async (file: File) => {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Image upload failed');
+
+        // Return full URL if needed, or relative
+        // For contract, we probably want full URL if storage is external, 
+        // but for local, relative is fine if frontend allows it.
+        // Let's prepend API URL if it's relative
+        return `${process.env.NEXT_PUBLIC_API_URL}${data.url}`;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -143,9 +166,30 @@ export default function CreateMarketPage() {
         try {
             let marketId: number;
             let txHash: string;
+            let finalImageUrl = formData.image;
+
+            // Upload image if selected
+            if (selectedFile) {
+                try {
+                    finalImageUrl = await uploadImage(selectedFile);
+                } catch (err: any) {
+                    setError(`Image upload failed: ${err.message}`);
+                    setIsLoading(false);
+                    return;
+                }
+            } else if (formData.image.startsWith('data:')) {
+                // If it's base64 but no file (maybe pasted?), warn or strip
+                // But normally processFile sets selectedFile.
+                // If the user didn't change image, assuming it's empty or URL
+                if (finalImageUrl.length > 1000) {
+                    setError("Image is too large (base64). Please upload a file.");
+                    setIsLoading(false);
+                    return;
+                }
+            }
 
             if (useAdminEndpoint) {
-                // Admin flow: Use API endpoint with base64 image directly
+                // Admin flow: Use API endpoint
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/create-market-v2`, {
                     method: "POST",
                     headers: {
@@ -155,7 +199,7 @@ export default function CreateMarketPage() {
                     body: JSON.stringify({
                         question: formData.question,
                         description: formData.description,
-                        image: formData.image, // Use base64 image directly
+                        image: finalImageUrl,
                         category: formData.category,
                         outcomes: formData.outcomes,
                         durationDays: parseFloat(formData.durationDays)
@@ -184,21 +228,20 @@ export default function CreateMarketPage() {
                 const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
 
                 const marketABI = [
-                    'function createMarket(string, string, string, string[], uint256, uint256, uint256) external returns (uint256)',
+                    'function createMarket(string, string, string, string[], uint256) external returns (uint256)',
                     'function marketCount() view returns (uint256)'
                 ];
 
                 const contract = new ethers.Contract(marketAddress, marketABI, signer);
 
                 // Call contract directly from user's wallet
+                // V2 with image/description: createMarket(question, image, description, outcomes[], durationDays)
                 const tx = await contract.createMarket(
                     formData.question,
-                    formData.image || "",
+                    finalImageUrl || "",
                     formData.description,
                     formData.outcomes,
-                    parseFloat(formData.durationDays) * 86400, // Convert days to seconds
-                    parseInt(formData.initialLiquidity),
-                    0 // Subsidy
+                    parseFloat(formData.durationDays)
                 );
 
                 txHash = tx.hash;
@@ -218,7 +261,7 @@ export default function CreateMarketPage() {
                         marketId,
                         question: formData.question,
                         description: formData.description,
-                        image: formData.image,
+                        image: finalImageUrl,
                         category: formData.category,
                         outcome_names: formData.outcomes
                     })

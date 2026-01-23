@@ -65,20 +65,13 @@ contract PredictionMarketMultiV2 is
     uint256 public constant MIN_OUTCOMES = 2;
     uint256 public constant MAX_OUTCOMES = 10;
     
-    // Creation Gating
-    IERC20 public creationToken;
-    uint256 public minCreationBalance;
-    bool public publicCreation; // If true, anyone can create (subject to token limits if set)
-    
-    // Fees
-    uint256 public protocolFee; // In basis points (e.g. 200 = 2%)
-    uint256 public accumulatedFees;
-    
     // Operator (can execute trades on behalf of users)
     mapping(address => bool) public operators;
     
     struct Market {
         string question;
+        string image;               // URL/Path to market image
+        string description;         // Market description/rules
         string[] outcomes;
         uint256[] shares;
         uint256 outcomeCount;
@@ -106,13 +99,20 @@ contract PredictionMarketMultiV2 is
     
     // User Balances
     mapping(address => uint256) public userBalances;
+    
+    // NEW V2 VARIABLES - MUST BE AT END
+    IERC20 public creationToken;
+    uint256 public minCreationBalance;
+    bool public publicCreation;
+    uint256 public protocolFee;
+    uint256 public accumulatedFees;
 
     // Fixed-point math
     uint256 constant PRECISION = 1e18;
     uint256 constant MAX_EXPONENT = 100 * PRECISION;
 
     // Events
-    event MarketCreated(uint256 indexed marketId, string question, string[] outcomes, uint256 liquidity);
+    event MarketCreated(uint256 indexed marketId, string question, string image, string description, string[] outcomes, uint256 liquidity);
     event SharesPurchased(uint256 indexed marketId, address indexed user, uint256 outcomeIndex, uint256 shares, uint256 cost);
     event OutcomeAsserted(uint256 indexed marketId, address indexed asserter, uint256 outcome, bytes32 assertionId);
     event MarketResolvedEvent(uint256 indexed marketId, uint256 outcome);
@@ -218,6 +218,8 @@ contract PredictionMarketMultiV2 is
     /**
      * @dev SIMPLIFIED Create Market - V2 Version
      * @param _question The market question
+     * @param _image URL/Path to market image
+     * @param _description Market description/rules
      * @param _outcomes Array of outcome labels (2-10)
      * @param _durationDays Duration in DAYS (not seconds!)
      * 
@@ -226,6 +228,8 @@ contract PredictionMarketMultiV2 is
      */
     function createMarket(
         string memory _question,
+        string memory _image,
+        string memory _description,
         string[] memory _outcomes,
         uint256 _durationDays
     ) external returns (uint256) {
@@ -243,6 +247,8 @@ contract PredictionMarketMultiV2 is
         Market storage market = markets[marketId];
         
         market.question = _question;
+        market.image = _image;
+        market.description = _description;
         market.outcomeCount = _outcomes.length;
         market.endTime = block.timestamp + (_durationDays * 1 days);
         
@@ -256,7 +262,7 @@ contract PredictionMarketMultiV2 is
             market.shares.push(0);
         }
         
-        emit MarketCreated(marketId, _question, _outcomes, market.liquidityParam);
+        emit MarketCreated(marketId, _question, _image, _description, _outcomes, market.liquidityParam);
         return marketId;
     }
     
@@ -266,6 +272,8 @@ contract PredictionMarketMultiV2 is
      */
     function createMarket(
         string memory _question,
+        string memory _image,
+        string memory _description,
         string[] memory _outcomes,
         uint256 _duration,
         uint256 _liquidityParam,
@@ -284,6 +292,8 @@ contract PredictionMarketMultiV2 is
         Market storage market = markets[marketId];
         
         market.question = _question;
+        market.image = _image;
+        market.description = _description;
         market.outcomeCount = _outcomes.length;
         market.endTime = block.timestamp + _duration;
         market.liquidityParam = _liquidityParam;
@@ -294,7 +304,7 @@ contract PredictionMarketMultiV2 is
             market.shares.push(0);
         }
         
-        emit MarketCreated(marketId, _question, _outcomes, _liquidityParam);
+        emit MarketCreated(marketId, _question, _image, _description, _outcomes, _liquidityParam);
         return marketId;
     }
     
@@ -707,6 +717,8 @@ contract PredictionMarketMultiV2 is
         marketExists(_marketId) 
         returns (
             string memory question,
+            string memory image,
+            string memory description,
             uint256 outcomeCount,
             uint256 endTime,
             uint256 liquidityParam,
@@ -717,6 +729,8 @@ contract PredictionMarketMultiV2 is
         Market storage market = markets[_marketId];
         return (
             market.question,
+            market.image,
+            market.description,
             market.outcomeCount,
             market.endTime,
             market.liquidityParam,
