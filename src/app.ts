@@ -977,30 +977,36 @@ app.get('/api/markets', async (req, res) => {
     console.log('[Markets API] Market count:', count.toString());
 
     // Get market metadata from database - REQUIRED for proper market display
+    // We treating the DB as the "Active List". If it's not in the DB (deleted), we don't show it.
     let metadataMap: Record<number, any> = {};
+    const validMarketIds: number[] = [];
     try {
       const metadataResult = await query('SELECT * FROM markets');
       console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
       metadataResult.rows.forEach((row: any) => {
         metadataMap[row.market_id] = row;
+        validMarketIds.push(row.market_id);
       });
     } catch (e: any) {
       console.error('[Markets API] DB metadata fetch failed (non-fatal):', e.message);
-      // Continue without metadata, some fields will be empty
+      // In case of DB error, we might fallback to empty map, effectively showing nothing.
+      // Or we could fallback to showing everything if we want to fail-open, but fail-close is safer for "deleted" items.
     }
 
-    console.log(`[Markets API] Fetching ${Number(count)} markets in PARALLEL...`);
+    // Only fetch markets that are in the database (this handles "soft delete")
+    // Filter on-chain IDs against validMarketIds
+    const onChainCount = Number(count);
+    const visibleMarketIds = validMarketIds.filter(id => id < onChainCount);
+
+    console.log(`[Markets API] Fetching ${visibleMarketIds.length} visible markets in PARALLEL...`);
 
     // BATCHED Fetching to avoid Rate Limits (50 req/sec)
     const BATCH_SIZE = 5;
     const markets: any[] = [];
 
-    // Create array of market IDs to fetch
-    const marketIds = Array.from({ length: Number(count) }, (_, i) => i);
-
     // Process in batches
-    for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
-      const batchIds = marketIds.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < visibleMarketIds.length; i += BATCH_SIZE) {
+      const batchIds = visibleMarketIds.slice(i, i + BATCH_SIZE);
       // console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1}...`);
 
       const batchPromises = batchIds.map(id =>
@@ -1096,15 +1102,20 @@ app.get('/api/markets/:id', async (req, res) => {
       marketContract.getAllPrices(marketId)
     ]);
 
-    // Get metadata from database if available
-    let metadata: any = {};
+    // Get metadata from database - REQUIRED (Acts as deletion check)
+    let metadata: any = null;
     try {
       const metadataResult = await query('SELECT * FROM markets WHERE market_id = $1', [marketId]);
       if (metadataResult.rows.length > 0) {
         metadata = metadataResult.rows[0];
       }
     } catch (e) {
-      // Database not available, use defaults
+      // Database error
+    }
+
+    // If not in DB, treat as not found (Deleted)
+    if (!metadata) {
+      return res.status(404).json({ success: false, message: 'Market not active' });
     }
 
     const market = {
