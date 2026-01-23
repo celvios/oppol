@@ -161,7 +161,7 @@ export default function PortfolioPage() {
         return () => clearInterval(interval);
     }, [address]);
 
-    if (isConnecting || loading) {
+    if (isConnecting) {
         return (
             <div className="flex items-center justify-center min-h-[80vh]">
                 <SkeletonLoader />
@@ -171,6 +171,14 @@ export default function PortfolioPage() {
 
     if (!isConnected) {
         return <EmptyPortfolioState onConnect={connect} />;
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[80vh]">
+                <SkeletonLoader />
+            </div>
+        );
     }
 
 

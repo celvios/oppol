@@ -55,9 +55,12 @@ export function useWallet() {
   
   // Get stored state and use it as the source of truth
   const storedState = getStoredWalletState();
-  const [displayState, setDisplayState] = useState(storedState || { address: null, isConnected: false });
+  const [displayState, setDisplayState] = useState(() => {
+    // Initialize with stored state if available
+    return storedState || { address: null, isConnected: false };
+  });
 
-  // Only update display state when Wagmi shows a real connection change
+  // Only update display state when Wagmi shows a real connection
   useEffect(() => {
     if (isConnected && address) {
       // Connected - update immediately
@@ -65,7 +68,7 @@ export function useWallet() {
       setDisplayState(newState);
       storeWalletState(address, true);
     }
-    // Don't update on disconnect - let it stay connected visually
+    // Never update on disconnect - UI stays connected
   }, [address, isConnected]);
 
   const connectWallet = async () => {
@@ -94,6 +97,7 @@ export function useWallet() {
     }
   };
 
+  // Always return stored/display state - never Wagmi state directly
   return {
     isConnected: displayState.isConnected,
     address: displayState.address,
