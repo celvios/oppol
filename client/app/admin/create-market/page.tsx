@@ -134,11 +134,8 @@ export default function CreateMarketPage() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Image upload failed');
 
-        // Return full URL if needed, or relative
-        // For contract, we probably want full URL if storage is external, 
-        // but for local, relative is fine if frontend allows it.
-        // Let's prepend API URL if it's relative
-        return `${process.env.NEXT_PUBLIC_API_URL}${data.url}`;
+        // Cloudinary returns full URL directly
+        return data.url;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {

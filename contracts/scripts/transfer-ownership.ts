@@ -1,39 +1,37 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    const NEW_OWNER = "0xa4B1B886f955b2342bC9bB4f7B80839357378b76"; // Server Wallet from error log
-    const CONTRACT_ADDRESS = "0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717"; // Contract from error log
+    const MARKET_ADDRESS = "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
+    const NEW_OWNER = "0xa4B1B886f955b2342bC9bB4f7B80839357378b76"; // The address getting the error
 
-    console.log(`\n👑 Transferring Ownership`);
-    console.log(`Contract:  ${CONTRACT_ADDRESS}`);
-    console.log(`New Owner: ${NEW_OWNER}`);
+    const [deployer] = await ethers.getSigners();
+    console.log("Transferring ownership...");
+    console.log("Contract:", MARKET_ADDRESS);
+    console.log("From (Deployer):", deployer.address);
+    console.log("To (User):", NEW_OWNER);
 
-    const [signer] = await ethers.getSigners();
-    console.log(`\nCaller:    ${signer.address}`);
+    const market = await ethers.getContractAt("PredictionMarketMultiV2", MARKET_ADDRESS);
 
-    const contract = await ethers.getContractAt("PredictionMarketMultiV2", CONTRACT_ADDRESS);
-
-    // Check current owner
-    const currentOwner = await contract.owner();
-    console.log(`Current:   ${currentOwner}`);
-
-    if (currentOwner.toLowerCase() === NEW_OWNER.toLowerCase()) {
-        console.log("\n✅ Target wallet is ALREADY the owner.");
-        return;
+    // Check current owner if possible
+    try {
+        const currentOwner = await market.owner();
+        console.log("Current Owner:", currentOwner);
+        if (currentOwner.toLowerCase() === NEW_OWNER.toLowerCase()) {
+            console.log("Target is already the owner.");
+            return;
+        }
+        if (currentOwner.toLowerCase() !== deployer.address.toLowerCase()) {
+            console.error("❌ Deployer is NOT the owner. Cannot transfer.");
+            return;
+        }
+    } catch (e) {
+        console.log("Warning: Could not fetch current owner (check network/ABI). Attempting transfer anyway...");
     }
 
-    if (currentOwner.toLowerCase() !== signer.address.toLowerCase()) {
-        console.error("\n❌ Caller is NOT the current owner. Cannot transfer.");
-        return;
-    }
-
-    // Transfer
-    console.log("\nSending transaction...");
-    const tx = await contract.transferOwnership(NEW_OWNER);
-    console.log(`Tx Hash: ${tx.hash}`);
-
+    const tx = await market.transferOwnership(NEW_OWNER);
+    console.log("Tx sent:", tx.hash);
     await tx.wait();
-    console.log("\n✅ Ownership transferred successfully!");
+    console.log("✅ Ownership transferred successfully!");
 }
 
 main()

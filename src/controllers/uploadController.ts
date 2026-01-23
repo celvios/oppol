@@ -1,23 +1,17 @@
-
 import { Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
 
-// Configure storage
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, '../../client/public/uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Use memory storage for Cloudinary upload
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
@@ -31,8 +25,33 @@ const upload = multer({
     }
 });
 
+// Helper to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer: Buffer, filename: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: 'opoll-markets',
+                public_id: filename,
+                resource_type: 'image'
+            },
+            (error: any, result: any) => {
+                if (error) {
+                    reject(error);
+                } else if (result) {
+                    resolve(result.secure_url);
+                } else {
+                    reject(new Error('Upload failed'));
+                }
+            }
+        );
+
+        const readable = Readable.from(buffer);
+        readable.pipe(uploadStream);
+    });
+};
+
 export const uploadImage = (req: Request, res: Response) => {
-    upload.single('image')(req, res, (err) => {
+    upload.single('image')(req, res, async (err) => {
         if (err) {
             return res.status(400).json({ success: false, error: err.message });
         }
@@ -40,8 +59,19 @@ export const uploadImage = (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
 
-        // Return the URL relative to the public folder
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ success: true, url: fileUrl });
+        try {
+            // Upload to Cloudinary
+            const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+            const cloudinaryUrl = await uploadToCloudinary(req.file.buffer, uniqueFilename);
+
+            // Return the full Cloudinary URL
+            res.json({ success: true, url: cloudinaryUrl });
+        } catch (uploadError: any) {
+            console.error('Cloudinary upload error:', uploadError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to upload to Cloudinary: ' + uploadError.message
+            });
+        }
     });
 };
