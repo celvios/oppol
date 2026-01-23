@@ -34,8 +34,17 @@ export default function PortfolioPage() {
     }, [isConnected, isConnecting, address]);
 
     useEffect(() => {
-        // Only fetch data if wallet is connected
-        if (!address) {
+        // Reset loading state when wallet connection changes
+        if (!isConnected && !isConnecting) {
+            setLoading(false);
+            setPositions([]);
+            setBalance('0');
+            setTotalPnL(0);
+            return;
+        }
+        
+        // Only fetch data if wallet is connected and we have an address
+        if (!isConnected || !address) {
             setLoading(false);
             return;
         }

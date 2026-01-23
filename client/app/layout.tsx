@@ -8,6 +8,8 @@ import { SettingsProvider } from "@/lib/settings-context";
 import BottomNav from "@/components/mobile/BottomNav";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
+import { WalletDebugPanel } from "@/components/ui/WalletDebugPanel";
+import { WalletConnectionTest } from "@/components/ui/WalletConnectionTest";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -55,6 +57,8 @@ export default function RootLayout({
                 <Header />
                 {children}
                 <BottomNav />
+                <WalletDebugPanel />
+                <WalletConnectionTest />
               </SettingsProvider>
             </ReownProvider>
           </Web3Provider>
