@@ -13,6 +13,7 @@ interface Market {
     status: 'ACTIVE' | 'ENDED' | 'RESOLVED';
     volume?: string;
     image?: string;
+    outcomes: string[];
 }
 
 export default function AdminMarketList({ adminKey }: { adminKey: string }) {
@@ -42,7 +43,8 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                     formattedEndTime: new Date(m.endTime * 1000).toLocaleString(),
                     status: m.resolved ? 'RESOLVED' : (Date.now() / 1000 > m.endTime ? 'ENDED' : 'ACTIVE'),
                     volume: m.volume,
-                    image: m.image
+                    image: m.image,
+                    outcomes: m.outcomes || ["YES", "NO"] // Fallback
                 }));
                 // Sort by ID desc (newest first)
                 loadedMarkets.sort((a, b) => b.id - a.id);
@@ -179,7 +181,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                         <p className="text-white/60 mb-6">Select the winning outcome index (0 = Yes, 1 = No for binary).</p>
 
                         <div className="grid grid-cols-2 gap-3 mb-6">
-                            {[0, 1, 2, 3].map((idx) => (
+                            {markets.find(m => m.id === resolvingId)?.outcomes?.map((outcome, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => setSelectedOutcome(idx)}
@@ -188,8 +190,8 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                                         : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
-                                    <span className="text-lg font-bold">Outcome {idx}</span>
-                                    <span className="block text-xs opacity-50">{idx === 0 ? "Usually YES" : idx === 1 ? "Usually NO" : "Other"}</span>
+                                    <span className="text-lg font-bold">{outcome}</span>
+                                    <span className="block text-xs opacity-50">Index {idx}</span>
                                 </button>
                             ))}
                         </div>
