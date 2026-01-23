@@ -65,13 +65,20 @@ async function main() {
                         SET question = $1, 
                             image = $2, 
                             description = $3,
-                            category = $4
-                        WHERE market_id = $5
+                            category = $4,
+                            end_time = $5,
+                            resolved = $6,
+                            winning_outcome = $7,
+                            updated_at = NOW()
+                        WHERE market_id = $8
                     `, [
                         question,
                         image || '',
                         description || '',
                         'Other',
+                        endTime,
+                        resolved,
+                        resolved ? winningOutcome : null,
                         i
                     ]);
                     console.log(`  ✅ Updated Market ${i}: "${question.substring(0, 50)}..."`);
@@ -84,15 +91,23 @@ async function main() {
                             image, 
                             description,
                             category,
-                            outcome_names
-                        ) VALUES ($1, $2, $3, $4, $5, $6)
+                            outcome_names,
+                            end_time,
+                            resolved,
+                            winning_outcome,
+                            created_at,
+                            updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
                     `, [
                         i,
                         question,
                         image || '',
                         description || '',
                         'Other',
-                        JSON.stringify(outcomes)
+                        JSON.stringify(outcomes),
+                        endTime,
+                        resolved,
+                        resolved ? winningOutcome : null
                     ]);
                     console.log(`  ✅ Inserted Market ${i}: "${question.substring(0, 50)}..."`);
                 }

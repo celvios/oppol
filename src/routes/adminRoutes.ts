@@ -134,11 +134,11 @@ router.get('/stats', checkAdminAuth, async (req, res) => {
             stats: {
                 totalLiquidity: "$0.00", // TODO: Calculate from contract
                 totalVolume: "$0.00",    // TODO: Sum trade volumes
-                activeMarkets: parseInt(activeMarketsRes.rows[0].count),
+                activeMarkets: Number(activeMarketsRes.rows[0].count),
                 totalUsers: totalUsers,
                 volumeTrend: "Stable",
                 liquidityTrend: "Stable",
-                expiringMarkets: parseInt(expiringRes.rows[0].count),
+                expiringMarkets: Number(expiringRes.rows[0].count),
                 newUsersToday: newUsers
             }
         });

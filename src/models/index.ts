@@ -191,6 +191,11 @@ export const initDatabase = async () => {
       -- Migration for Comments (Replies)
       ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE;
 
+      -- Migration for Markets (Add Missing Columns)
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT FALSE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS winning_outcome INTEGER;
+
       -- Create Comment Likes Table
       CREATE TABLE IF NOT EXISTS comment_likes (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
