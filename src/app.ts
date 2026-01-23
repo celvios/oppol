@@ -940,7 +940,7 @@ app.get('/api/markets', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
@@ -1063,7 +1063,7 @@ app.get('/api/markets/:id', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xB6a211822649a61163b94cf46e6fCE46119D3E1b';
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
