@@ -103,20 +103,11 @@ router.post('/delete-market', checkAdminAuth, async (req, res) => {
 router.get('/stats', checkAdminAuth, async (req, res) => {
     try {
         // 1. Get Market Stats
-        // Active markets: not resolved and end_time > now
-        const activeMarketsRes = await query(`
-            SELECT COUNT(*) FROM markets 
-            WHERE resolved = false 
-            AND (end_time IS NULL OR end_time > NOW())
-        `);
+        // Active markets (All markets for now as schema lacks resolved/end_time)
+        const activeMarketsRes = await query(`SELECT COUNT(*) FROM markets`);
 
-        // Expiring soon: ending in next 7 days
-        const expiringRes = await query(`
-            SELECT COUNT(*) FROM markets 
-            WHERE resolved = false 
-            AND end_time > NOW() 
-            AND end_time < NOW() + INTERVAL '7 days'
-        `);
+        // Expiring soon (Cannot check without end_time, returning 0 for now)
+        const expiringRes = { rows: [{ count: 0 }] };
 
         // 2. Get User Stats
         const webUsersRes = await query('SELECT COUNT(*) FROM users');
