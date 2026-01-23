@@ -47,39 +47,26 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 
 export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
-  const [stableConnection, setStableConnection] = useState<{address: string | null, isConnected: boolean} | null>(null);
   
   // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connectAsync, isPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   
-  // Get stored state for initialization
+  // Get stored state and use it as the source of truth
   const storedState = getStoredWalletState();
+  const [displayState, setDisplayState] = useState(storedState || { address: null, isConnected: false });
 
-  // Initialize stable connection from storage
-  useEffect(() => {
-    if (!stableConnection && storedState) {
-      setStableConnection(storedState);
-    }
-  }, [stableConnection, storedState]);
-
-  // Update stable connection only when truly connected
+  // Only update display state when Wagmi shows a real connection change
   useEffect(() => {
     if (isConnected && address) {
+      // Connected - update immediately
       const newState = { address, isConnected: true };
-      setStableConnection(newState);
+      setDisplayState(newState);
       storeWalletState(address, true);
-    } else if (!isConnected && !address && stableConnection?.isConnected) {
-      // Only clear if we were previously connected and now fully disconnected
-      setTimeout(() => {
-        if (!isConnected && !address) {
-          setStableConnection({ address: null, isConnected: false });
-          storeWalletState(null, false);
-        }
-      }, 2000); // 2 second grace period for reconnection
     }
-  }, [address, isConnected, stableConnection]);
+    // Don't update on disconnect - let it stay connected visually
+  }, [address, isConnected]);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -98,17 +85,18 @@ export function useWallet() {
   const disconnectWallet = async () => {
     try {
       wagmiDisconnect();
-      setStableConnection({ address: null, isConnected: false });
+      // Only clear on manual disconnect
+      const newState = { address: null, isConnected: false };
+      setDisplayState(newState);
       storeWalletState(null, false);
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
-  // Return stable connection state
   return {
-    isConnected: stableConnection?.isConnected || false,
-    address: stableConnection?.address || null,
+    isConnected: displayState.isConnected,
+    address: displayState.address,
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
