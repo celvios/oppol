@@ -23,6 +23,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
     const [resolvingId, setResolvingId] = useState<number | null>(null);
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [dbStats, setDbStats] = useState<{ count: number, error: string | null }>({ count: -1, error: null });
 
     useEffect(() => {
         fetchMarkets();
@@ -37,6 +38,11 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                 }
             });
             const data = await res.json();
+
+            setDbStats({
+                count: data.dbCount !== undefined ? data.dbCount : -1,
+                error: data.dbError || null
+            });
 
             if (data.success) {
                 const loadedMarkets: Market[] = data.markets.map((m: any) => ({
@@ -133,7 +139,13 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold text-white mb-4">Market Management</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Market Management</h2>
+                <div className="text-xs font-mono text-white/30 flex gap-2">
+                    <span title="Total DB Rows">DB Rows: {dbStats.count}</span>
+                    {dbStats.error && <span className="text-red-400">Error: {dbStats.error}</span>}
+                </div>
+            </div>
 
             {isLoading ? (
                 <div className="flex justify-center p-12">
@@ -147,9 +159,9 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs font-mono text-white/40">#{m.id}</span>
                                     <span className={`text-xs px-2 py-0.5 rounded-full border ${m.status === 'DELETED' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
-                                            m.status === 'ACTIVE' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' :
-                                                m.status === 'RESOLVED' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
-                                                    'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                                        m.status === 'ACTIVE' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' :
+                                            m.status === 'RESOLVED' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+                                                'border-amber-500/50 text-amber-400 bg-amber-500/10'
                                         }`}>
                                         {m.status}
                                     </span>

@@ -149,11 +149,20 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
             }
         }
 
-        return res.json({ success: true, markets, dbCount });
+        return res.json({
+            success: true,
+            markets,
+            dbCount,
+            dbError: null
+        });
 
     } catch (error: any) {
         console.error('[Admin] Get Markets Error:', error);
-        return res.status(500).json({ success: false, error: error.message });
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+            dbError: error.message
+        });
     }
 });
 
