@@ -469,16 +469,13 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     </div>
                 )}
 
-                {/* Resolution Status - Only if resolved or ended */}
-                {(market.resolved || Date.now() / 1000 >= market.endTime) && (
+                {/* Resolution Status - Only if truly resolved */}
+                {market.resolved && market.winningOutcome < market.outcomeCount && (
                     <GlassCard className="p-4">
                         <h3 className="text-sm font-heading text-white mb-2">Resolution Status</h3>
                         <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                             <div className="text-lg font-heading text-white">
-                                {market.resolved
-                                    ? `Winning Outcome: ${market.outcomes[market.winningOutcome]}`
-                                    : 'Market Ended - Awaiting Resolution'
-                                }
+                                Winning Outcome: {market.outcomes[market.winningOutcome]}
                             </div>
                         </div>
                     </GlassCard>
