@@ -144,6 +144,13 @@ export function useWallet() {
       const modal = ensureModal();
       if (modal && modal.open) {
         console.log('[useWallet] Opening Web3Modal');
+        
+        // Close modal first to clear any pending requests
+        if (modal.close) {
+          modal.close();
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
         await modal.open();
       } else {
         console.log('[useWallet] Dispatching connect request event');
