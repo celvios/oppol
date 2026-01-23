@@ -30,7 +30,11 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
     const fetchMarkets = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/markets');
+            const res = await fetch('/api/admin/markets', {
+                headers: {
+                    'x-admin-secret': adminKey
+                }
+            });
             const data = await res.json();
 
             if (data.success) {

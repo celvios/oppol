@@ -65,6 +65,92 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
     }
 });
 
+// GET /markets - List ALL markets (including deleted ones) for Admin
+router.get('/markets', checkAdminAuth, async (req, res) => {
+    try {
+        // Fetch ALL markets from contract (no DB filter)
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+
+        // FORCE CORRECT CONTRACT
+        const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
+
+        const marketABI = [
+            'function marketCount() view returns (uint256)',
+            'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+            'function getMarketOutcomes(uint256) view returns (string[])',
+            'function getAllPrices(uint256) view returns (uint256[])'
+        ];
+
+        const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+        const count = await marketContract.marketCount();
+        const marketCount = Number(count);
+
+        console.log(`[Admin API] Fetching ${marketCount} total markets...`);
+
+        // Get DB metadata for enrichment where possible
+        let metadataMap: Record<number, any> = {};
+        try {
+            const metadataResult = await query('SELECT * FROM markets');
+            metadataResult.rows.forEach((row: any) => {
+                metadataMap[row.market_id] = row;
+            });
+        } catch (e) {
+            console.warn('[Admin API] DB metadata fetch failed, continuing with raw chain data');
+        }
+
+        const markets: any[] = [];
+        const BATCH_SIZE = 5;
+        const marketIds = Array.from({ length: marketCount }, (_, i) => i);
+
+        // Fetch all in batches
+        for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
+            const batchIds = marketIds.slice(i, i + BATCH_SIZE);
+            const batchPromises = batchIds.map(id =>
+                Promise.all([
+                    marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
+                    marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
+                    marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
+                ]).then(([basicInfo, outcomes, prices]) => {
+                    const metadata = metadataMap[id];
+                    return {
+                        market_id: id,
+                        question: basicInfo.question,
+                        // Mark as "Deleted" or "Hidden" if not in DB
+                        isHidden: !metadata,
+                        description: metadata?.description || '',
+                        image_url: metadata?.image || '',
+                        category_id: metadata?.category || '',
+                        outcomes: outcomes,
+                        prices: prices.map((p: bigint) => Number(p) / 100),
+                        outcomeCount: Number(basicInfo.outcomeCount),
+                        endTime: Number(basicInfo.endTime),
+                        resolved: basicInfo.resolved,
+                        winningOutcome: Number(basicInfo.winningOutcome)
+                    };
+                }).catch(err => {
+                    console.error(`[Admin API] Error fetching market ${id}:`, err.message);
+                    return null;
+                })
+            );
+
+            const batchResults = await Promise.all(batchPromises);
+            markets.push(...batchResults.filter(m => m !== null));
+
+            if (i + BATCH_SIZE < marketIds.length) {
+                await new Promise(r => setTimeout(r, 100)); // Slight delay
+            }
+        }
+
+        return res.json({ success: true, markets });
+
+    } catch (error: any) {
+        console.error('[Admin] Get Markets Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 router.post('/delete-market', checkAdminAuth, async (req, res) => {
     try {
         const { marketId } = req.body;
