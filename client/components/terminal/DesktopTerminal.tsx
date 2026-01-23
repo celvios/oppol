@@ -299,12 +299,21 @@ export function DesktopTerminal() {
 
             {/* LEFT COLUMN: Market List (3 cols) */}
             <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
-                <GlassCard className="flex-none p-4 flex justify-between items-center bg-white/5">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-neon-cyan rounded-full animate-pulse" />
-                        <span className="font-mono text-sm tracking-widest text-white/70">LIVE MARKETS</span>
+                <GlassCard className="flex-none p-4 flex flex-col gap-3 bg-white/5">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-neon-cyan rounded-full animate-pulse" />
+                            <span className="font-mono text-sm tracking-widest text-white/70">LIVE MARKETS</span>
+                        </div>
+                        <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{markets.length} ACTIVE</span>
                     </div>
-                    <span className="text-xs bg-white/10 px-2 py-1 rounded text-white/50">{markets.length} ACTIVE</span>
+                    <a
+                        href="/markets"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono text-neon-cyan border border-neon-cyan/20 hover:border-neon-cyan/50 transition-all"
+                    >
+                        <ArrowUpRight size={14} />
+                        EXPLORE ALL MARKETS
+                    </a>
                 </GlassCard>
 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
