@@ -134,7 +134,7 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                                         </td>
                                         <td className="p-4 text-right">
                                             <a
-                                                href={`https://testnet.bscscan.com/address/${user.wallet_address}`}
+                                                href={`https://bscscan.com/address/${user.wallet_address}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="inline-flex items-center gap-1 text-xs text-primary hover:underline hover:text-neon-cyan"
