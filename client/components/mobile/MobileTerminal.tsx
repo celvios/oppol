@@ -462,7 +462,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             </div>
 
             {/* Market Status or Trade Actions */}
-            {market && (Date.now() / 1000 > market.endTime || market.resolved || market.assertionPending) ? (
+            {market && (market.resolved || market.assertionPending) ? (
                 <div className="px-6 pb-24">
                     <ResolutionPanel
                         marketId={market.id}
