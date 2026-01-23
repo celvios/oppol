@@ -126,10 +126,8 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             const marketExists = markets.find(m => m.id === urlId);
             if (marketExists) {
                 setSelectedMarketId(urlId);
-            } else if (markets.length > 0) {
-                // If market doesn't exist, default to first market
-                setSelectedMarketId(markets[0].id);
             }
+            // Removed fallback: else if (markets.length > 0) { setSelectedMarketId(markets[0].id); }
         } else if (markets.length > 0 && selectedMarketId === 0) {
             // No URL param, set to first market
             setSelectedMarketId(markets[0].id);
@@ -148,7 +146,27 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
         setTradeModalOpen(isTradeSheetOpen);
     }, [isTradeSheetOpen, setTradeModalOpen]);
 
-    const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+    const market = markets.find(m => m.id === selectedMarketId); // Removed fallback to markets[0]
+
+    // Fetch specific market if missing (deep link support)
+    useEffect(() => {
+        if (selectedMarketId && !market && !loading && !isLoadingReal && mounted) {
+            console.log(`[MobileTerminal] Market ${selectedMarketId} missing, fetching details...`);
+            setIsLoadingReal(true);
+            web3Service.getMarket(selectedMarketId).then(fetchedMarket => {
+                if (fetchedMarket) {
+                    setMarkets(prev => {
+                        if (prev.find(m => m.id === fetchedMarket.id)) return prev;
+                        return [...prev, fetchedMarket];
+                    });
+                }
+            }).catch(e => {
+                console.error("Failed to fetch specific market", e);
+            }).finally(() => {
+                setIsLoadingReal(false);
+            });
+        }
+    }, [selectedMarketId, market, loading, isLoadingReal, mounted]);
     const marketRef = useRef(market);
     // Use API metadata - no fallback, API is source of truth
     const metadata = market ? {
@@ -319,11 +337,20 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     }
 
     if (!market) {
+        if (isLoadingReal) {
+            return <div className="p-6"><SkeletonLoader /></div>;
+        }
         return (
             <div className="flex flex-col items-center justify-center h-[80vh] text-white/50 p-6 text-center">
                 <Activity size={48} className="mb-4 opacity-50" />
-                <h2 className="text-xl font-bold mb-2 text-white">No Active Markets</h2>
-                <p className="text-sm">Check back later for new prediction markets.</p>
+                <h2 className="text-xl font-bold mb-2 text-white">Market Not Found</h2>
+                <p className="text-sm">This market may not exist or hasn't loaded yet.</p>
+                <button
+                    onClick={() => { setSelectedMarketId(markets[0]?.id || 0); }}
+                    className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-white transition-colors"
+                >
+                    Go to Featured Market
+                </button>
             </div>
         );
     }
