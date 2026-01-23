@@ -56,30 +56,17 @@ export function useWallet() {
   
   // Get stored state for initial display
   const storedState = getStoredWalletState();
-  const [stableState, setStableState] = useState(storedState || { address: null, isConnected: false });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Update stable state only after a delay to prevent flicker
+  // Store state when Wagmi state changes
   useEffect(() => {
-    if (!mounted) return;
-    
-    const currentAddress = address || null;
-    const currentConnected = isConnected;
-    
-    // Delay state updates to allow Wagmi to reconnect
-    const timeout = setTimeout(() => {
-      if (currentAddress !== stableState.address || currentConnected !== stableState.isConnected) {
-        const newState = { address: currentAddress, isConnected: currentConnected };
-        setStableState(newState);
-        storeWalletState(currentAddress, currentConnected);
-      }
-    }, 1000); // 1 second delay
-    
-    return () => clearTimeout(timeout);
-  }, [address, isConnected, mounted, stableState]);
+    if (mounted) {
+      storeWalletState(address || null, isConnected);
+    }
+  }, [address, isConnected, mounted]);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -98,18 +85,16 @@ export function useWallet() {
   const disconnectWallet = async () => {
     try {
       wagmiDisconnect();
-      const newState = { address: null, isConnected: false };
-      setStableState(newState);
       storeWalletState(null, false);
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
-  // Return stable state to prevent flicker
+  // Show stored state until mounted, then show Wagmi state
   return {
-    isConnected: stableState.isConnected,
-    address: stableState.address,
+    isConnected: mounted ? isConnected : (storedState?.isConnected || false),
+    address: mounted ? (address || null) : (storedState?.address || null),
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
