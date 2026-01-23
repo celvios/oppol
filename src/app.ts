@@ -938,6 +938,23 @@ app.get('/api/markets', async (req, res) => {
   try {
     const { ethers } = await import('ethers');
 
+    // Simple In-Memory Cache (Global)
+    // Note: In serverless (Vercel), this persists only while the lambda is warm. 
+    // This is still very effective for high-concurrency spikes (50 users at once).
+    if (!global.marketsCache) {
+      global.marketsCache = { data: null, lastFetch: 0 };
+    }
+
+    const CACHE_TTL = 15000; // 15 seconds cache
+    const now = Date.now();
+
+    if (global.marketsCache.data && (now - global.marketsCache.lastFetch < CACHE_TTL)) {
+      console.log('[Markets API] Serving from cache (15s TTL)');
+      return res.json({ success: true, markets: global.marketsCache.data });
+    }
+
+    console.log(`[Markets API] Cache stale or empty. Fetching from contract...`);
+
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     // FORCE CORRECT CONTRACT (Ignore Env Var which is likely wrong)
@@ -966,31 +983,10 @@ app.get('/api/markets', async (req, res) => {
       console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
       metadataResult.rows.forEach((row: any) => {
         metadataMap[row.market_id] = row;
-        const imageInfo = row.image
-          ? `present (${row.image.length} chars, starts with: ${row.image.substring(0, 30)}...)`
-          : 'missing';
-        const descInfo = row.description
-          ? `present (${row.description.length} chars)`
-          : 'missing';
-        console.log(`[Markets API] Metadata for market ${row.market_id}: image=${imageInfo}, description=${descInfo}`);
       });
     } catch (e: any) {
-      console.error('[Markets API] CRITICAL: Database query failed for metadata:', e.message);
-      // Don't silently continue - metadata is required
-      throw new Error(`Failed to fetch market metadata from database: ${e.message}`);
-    }
-
-    // Get volume from database
-    let volumeByMarket: Record<number, number> = {};
-    try {
-      const volumeResult = await query(
-        `SELECT market_id, SUM(total_cost) as volume FROM trades GROUP BY market_id`
-      );
-      volumeResult.rows.forEach((row: any) => {
-        volumeByMarket[row.market_id] = parseFloat(row.volume);
-      });
-    } catch (e) {
-      console.log('Database not available for volume calculation');
+      console.error('[Markets API] DB metadata fetch failed (non-fatal):', e.message);
+      // Continue without metadata, some fields will be empty
     }
 
     console.log(`[Markets API] Fetching ${Number(count)} markets in PARALLEL...`);
@@ -1005,7 +1001,7 @@ app.get('/api/markets', async (req, res) => {
     // Process in batches
     for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
       const batchIds = marketIds.slice(i, i + BATCH_SIZE);
-      console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1} (${batchIds.join(', ')})...`);
+      // console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1}...`);
 
       const batchPromises = batchIds.map(id =>
         Promise.all([
@@ -1030,7 +1026,6 @@ app.get('/api/markets', async (req, res) => {
           };
         }).catch(err => {
           console.error(`[Markets API] Error fetching market ${id}:`, err.message || err);
-          // Return a minimal error object or null to filter out
           return null;
         })
       );
@@ -1044,7 +1039,13 @@ app.get('/api/markets', async (req, res) => {
       }
     }
 
-    console.log(`[Markets API] Returning ${markets.length} markets with full data`);
+    console.log(`[Markets API] Caching ${markets.length} markets...`);
+
+    // Update Cache
+    global.marketsCache = {
+      data: markets,
+      lastFetch: Date.now()
+    };
 
     return res.json({ success: true, markets });
   } catch (error: any) {
@@ -1052,6 +1053,11 @@ app.get('/api/markets', async (req, res) => {
     return res.status(500).json({ success: false, error: error.message || 'Failed to fetch markets' });
   }
 });
+
+// Declare global type for cache
+declare global {
+  var marketsCache: { data: any[] | null, lastFetch: number };
+}
 
 // GET SINGLE MARKET ENDPOINT - Fetch from contract
 app.get('/api/markets/:id', async (req, res) => {
