@@ -1040,7 +1040,7 @@ app.get('/api/markets', async (req, res) => {
       markets.push(...batchResults.filter(m => m !== null));
 
       // Small delay between batches to be nice to RPC
-      if (i + BATCH_SIZE < marketIds.length) {
+      if (i + BATCH_SIZE < visibleMarketIds.length) {
         await new Promise(r => setTimeout(r, 200));
       }
     }
