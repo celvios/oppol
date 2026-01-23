@@ -82,10 +82,11 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     onChainData = {
                         outcomes: outcomes,
                         prices: prices.map((p: bigint) => Number(p) / 100),
-                        liquidityParam: basicInfo[3].toString(),
-                        endTime: Number(basicInfo[2]),
-                        resolved: basicInfo[4],
-                        winningOutcome: Number(basicInfo[5])
+                        outcomeCount: Number(basicInfo[3]),
+                        endTime: Number(basicInfo[4]),
+                        liquidityParam: basicInfo[5].toString(),
+                        resolved: basicInfo[6],
+                        winningOutcome: Number(basicInfo[7])
                     };
                 } catch (err) {
                     console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
@@ -175,11 +176,12 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
             onChainData = {
                 outcomes: outcomes,
-                prices: prices.map((p: bigint) => Number(p) / 100), // Basis points to %
-                liquidityParam: basicInfo[3].toString(),
-                endTime: Number(basicInfo[2]),
-                resolved: basicInfo[4],
-                winningOutcome: Number(basicInfo[5])
+                prices: prices.map((p: bigint) => Number(p) / 100),
+                outcomeCount: Number(basicInfo[3]),
+                endTime: Number(basicInfo[4]),
+                liquidityParam: basicInfo[5].toString(),
+                resolved: basicInfo[6],
+                winningOutcome: Number(basicInfo[7])
             };
 
             console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
