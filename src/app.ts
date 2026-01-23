@@ -944,7 +944,7 @@ app.get('/api/markets', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
       'function getMarketOutcomes(uint256) view returns (string[])',
       'function getAllPrices(uint256) view returns (uint256[])'
     ];
@@ -1051,7 +1051,7 @@ app.get('/api/markets/:id', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+      'function getMarketBasicInfo(uint256) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
       'function getMarketOutcomes(uint256) view returns (string[])',
       'function getAllPrices(uint256) view returns (uint256[])'
     ];
@@ -1160,7 +1160,7 @@ app.get('/api/admin/stats', async (req, res) => {
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256 marketId) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
+      'function getMarketBasicInfo(uint256 marketId) view returns (string question, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)'
     ];
     const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
