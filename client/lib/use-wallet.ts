@@ -47,19 +47,39 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 
 export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [stableConnection, setStableConnection] = useState<{address: string | null, isConnected: boolean} | null>(null);
   
-  // Wagmi hooks - these are always available since Web3Provider is in root layout
+  // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connectAsync, isPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   
-  // Get stored state for fallback
+  // Get stored state for initialization
   const storedState = getStoredWalletState();
 
-  // Store state when Wagmi state changes
+  // Initialize stable connection from storage
   useEffect(() => {
-    storeWalletState(address || null, isConnected);
-  }, [address, isConnected]);
+    if (!stableConnection && storedState) {
+      setStableConnection(storedState);
+    }
+  }, [stableConnection, storedState]);
+
+  // Update stable connection only when truly connected
+  useEffect(() => {
+    if (isConnected && address) {
+      const newState = { address, isConnected: true };
+      setStableConnection(newState);
+      storeWalletState(address, true);
+    } else if (!isConnected && !address && stableConnection?.isConnected) {
+      // Only clear if we were previously connected and now fully disconnected
+      setTimeout(() => {
+        if (!isConnected && !address) {
+          setStableConnection({ address: null, isConnected: false });
+          storeWalletState(null, false);
+        }
+      }, 2000); // 2 second grace period for reconnection
+    }
+  }, [address, isConnected, stableConnection]);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -78,19 +98,17 @@ export function useWallet() {
   const disconnectWallet = async () => {
     try {
       wagmiDisconnect();
+      setStableConnection({ address: null, isConnected: false });
       storeWalletState(null, false);
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
-  // Always return Wagmi state since Web3Provider is persistent
-  // Only fallback to stored state if Wagmi shows disconnected but we have stored connection
-  const shouldUseStored = !isConnected && storedState?.isConnected;
-  
+  // Return stable connection state
   return {
-    isConnected: shouldUseStored ? true : isConnected,
-    address: shouldUseStored ? storedState.address : (address || null),
+    isConnected: stableConnection?.isConnected || false,
+    address: stableConnection?.address || null,
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
