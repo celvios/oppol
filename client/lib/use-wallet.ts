@@ -1,7 +1,7 @@
 'use client';
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useEffect, useState, useRef } from 'react';
+import { useAccount, useConnect, useDisconnect, useReconnect } from 'wagmi';
+import { useEffect, useState } from 'react';
 
 // Storage keys for persistence
 const WALLET_STORAGE_KEY = 'opoll-wallet-state';
@@ -49,47 +49,31 @@ export function useWallet() {
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
-  // Get stored state immediately
-  const storedState = getStoredWalletState();
-  const [displayState, setDisplayState] = useState(storedState || { address: null, isConnected: false });
-  
   // Wagmi hooks
-  let account = { address: undefined, isConnected: false };
-  let connect = { connectAsync: async () => {}, isPending: false };
-  let disconnect = { disconnect: () => {} };
+  const { address, isConnected } = useAccount();
+  const { connectAsync, isPending } = useConnect();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { reconnect } = useReconnect();
   
-  try {
-    if (typeof window !== 'undefined') {
-      account = useAccount();
-      connect = useConnect();
-      disconnect = useDisconnect();
-    }
-  } catch (e) {
-    console.warn('[useWallet] Wagmi hooks not available:', e);
-  }
-  
-  const { address, isConnected } = account;
-  const { connectAsync, isPending } = connect;
-  const { disconnect: wagmiDisconnect } = disconnect;
+  // Get stored state for initial display
+  const storedState = getStoredWalletState();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  // Sync Wagmi state with display state
-  useEffect(() => {
-    if (!mounted) return;
     
-    const currentAddress = address || null;
-    const currentConnected = isConnected;
-    
-    // Update display state and storage when Wagmi state changes
-    if (currentAddress !== displayState.address || currentConnected !== displayState.isConnected) {
-      const newState = { address: currentAddress, isConnected: currentConnected };
-      setDisplayState(newState);
-      storeWalletState(currentAddress, currentConnected);
+    // If we have stored connection but Wagmi shows disconnected, try to reconnect
+    if (storedState?.isConnected && !isConnected) {
+      console.log('[useWallet] Attempting to restore connection from storage');
+      reconnect();
     }
-  }, [address, isConnected, mounted, displayState]);
+  }, [storedState, isConnected, reconnect]);
+
+  // Store state when Wagmi state changes
+  useEffect(() => {
+    if (mounted) {
+      storeWalletState(address || null, isConnected);
+    }
+  }, [address, isConnected, mounted]);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -108,18 +92,16 @@ export function useWallet() {
   const disconnectWallet = async () => {
     try {
       wagmiDisconnect();
-      const newState = { address: null, isConnected: false };
-      setDisplayState(newState);
       storeWalletState(null, false);
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
-  // Always return stored state until mounted and Wagmi is ready
+  // Show stored state until mounted, then show Wagmi state
   return {
-    isConnected: mounted ? isConnected : displayState.isConnected,
-    address: mounted ? (address || null) : displayState.address,
+    isConnected: mounted ? isConnected : (storedState?.isConnected || false),
+    address: mounted ? (address || null) : (storedState?.address || null),
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
