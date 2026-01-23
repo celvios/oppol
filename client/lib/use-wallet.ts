@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 // Storage keys for persistence
 const WALLET_STORAGE_KEY = 'opoll-wallet-state';
@@ -48,11 +48,14 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 export function useWallet() {
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const stableStateRef = useRef({ address: null, isConnected: false });
   
   // Initialize with stored state for immediate availability
   const [cachedState, setCachedState] = useState(() => {
     const stored = getStoredWalletState();
-    return stored || { address: null, isConnected: false };
+    const initialState = stored || { address: null, isConnected: false };
+    stableStateRef.current = initialState;
+    return initialState;
   });
   
   // Safe defaults for SSR
@@ -88,15 +91,28 @@ export function useWallet() {
     const currentAddress = address || null;
     const currentConnected = isConnected;
     
+    // Only update if this is a meaningful change (not just a temporary disconnect)
+    const hasStoredConnection = getStoredWalletState()?.isConnected;
+    
+    // If we have stored connection but Wagmi shows disconnected, wait for reconnection
+    if (hasStoredConnection && !currentConnected && currentAddress === null) {
+      console.log('[useWallet] Temporary disconnect detected, maintaining cached state');
+      return;
+    }
+    
     console.log('[useWallet] Wagmi state changed:', { 
       address: currentAddress, 
       isConnected: currentConnected,
-      cached: cachedState 
+      cached: cachedState,
+      hasStored: hasStoredConnection
     });
     
-    // Update cached state if Wagmi state is different
-    if (currentAddress !== cachedState.address || currentConnected !== cachedState.isConnected) {
+    // Update cached state if this is a real change
+    if (currentAddress !== stableStateRef.current.address || 
+        currentConnected !== stableStateRef.current.isConnected) {
+      
       const newState = { address: currentAddress, isConnected: currentConnected };
+      stableStateRef.current = newState;
       setCachedState(newState);
       storeWalletState(currentAddress, currentConnected);
       
@@ -114,7 +130,6 @@ export function useWallet() {
     let modal = (window as any).web3modal;
     if (!modal) {
       console.warn('[useWallet] Web3Modal not found, triggering initialization');
-      // Trigger modal initialization
       window.dispatchEvent(new CustomEvent('init-web3modal'));
       modal = (window as any).web3modal;
     }
@@ -137,7 +152,6 @@ export function useWallet() {
     } catch (error) {
       console.error('[useWallet] Connection failed:', error);
     } finally {
-      // Longer timeout to account for user interaction
       setTimeout(() => setIsConnecting(false), 2000);
     }
   };
@@ -146,8 +160,8 @@ export function useWallet() {
     console.log('[useWallet] Disconnect wallet requested');
     try {
       wagmiDisconnect();
-      // Clear cached state immediately
       const newState = { address: null, isConnected: false };
+      stableStateRef.current = newState;
       setCachedState(newState);
       storeWalletState(null, false);
       
@@ -159,15 +173,17 @@ export function useWallet() {
     }
   };
 
-  // Return the most current state available
+  // Return stable state - prefer cached state during navigation
+  const shouldUseCached = !mounted || (cachedState.isConnected && !isConnected && !address);
+  
   const finalState = {
-    isConnected: mounted ? isConnected : cachedState.isConnected,
-    address: mounted ? (address || null) : cachedState.address,
+    isConnected: shouldUseCached ? cachedState.isConnected : isConnected,
+    address: shouldUseCached ? cachedState.address : (address || null),
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
   };
   
-  console.log('[useWallet] Returning state:', finalState);
+  console.log('[useWallet] Returning state:', finalState, { shouldUseCached, mounted });
   return finalState;
 }
