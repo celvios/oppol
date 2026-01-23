@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Terminal } from "lucide-react";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Terminal, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useCreationAccess } from "@/lib/use-creation-access";
@@ -13,6 +13,7 @@ import LogoBrand from "@/components/ui/LogoBrand";
 const navItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "Terminal", href: "/terminal", icon: Terminal },
+    { name: "Explore", href: "/markets", icon: Globe },
     { name: "Portfolio", href: "/terminal/portfolio", icon: PieChart },
     { name: "Deposit", href: "/terminal/deposit", icon: ArrowUpRight },
     { name: "Withdraw", href: "/terminal/withdraw", icon: ArrowDownRight },
