@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 // Storage keys for persistence
 const WALLET_STORAGE_KEY = 'opoll-wallet-state';
@@ -48,22 +48,17 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 export function useWallet() {
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const stableStateRef = useRef({ address: null, isConnected: false });
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   
-  // Initialize with stored state for immediate availability
-  const [cachedState, setCachedState] = useState(() => {
-    const stored = getStoredWalletState();
-    const initialState = stored || { address: null, isConnected: false };
-    stableStateRef.current = initialState;
-    return initialState;
-  });
+  // Get stored state immediately
+  const storedState = getStoredWalletState();
+  const [persistentState, setPersistentState] = useState(storedState || { address: null, isConnected: false });
   
-  // Safe defaults for SSR
+  // Wagmi hooks
   let account = { address: undefined, isConnected: false };
   let connect = { connectAsync: async () => {}, isPending: false };
   let disconnect = { disconnect: () => {} };
   
-  // Only use Wagmi hooks on client side
   try {
     if (typeof window !== 'undefined') {
       account = useAccount();
@@ -78,83 +73,55 @@ export function useWallet() {
   const { connectAsync, isPending } = connect;
   const { disconnect: wagmiDisconnect } = disconnect;
 
-  // Mount effect
   useEffect(() => {
     setMounted(true);
-    console.log('[useWallet] Component mounted, stored state:', cachedState);
-  }, [cachedState]);
+  }, []);
 
-  // Sync Wagmi state with local storage and cached state
+  // Handle Wagmi state changes with debouncing
   useEffect(() => {
     if (!mounted) return;
     
     const currentAddress = address || null;
     const currentConnected = isConnected;
     
-    // Only update if this is a meaningful change (not just a temporary disconnect)
-    const hasStoredConnection = getStoredWalletState()?.isConnected;
+    // Clear any pending reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
     
-    // If we have stored connection but Wagmi shows disconnected, wait for reconnection
-    if (hasStoredConnection && !currentConnected && currentAddress === null) {
-      console.log('[useWallet] Temporary disconnect detected, maintaining cached state');
+    // If we have stored connection but Wagmi shows disconnected, wait before updating
+    if (storedState?.isConnected && !currentConnected) {
+      console.log('[useWallet] Wagmi disconnected but storage shows connected, waiting for reconnect...');
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        // If still disconnected after timeout, update state
+        if (!isConnected) {
+          console.log('[useWallet] Reconnect timeout, updating to disconnected state');
+          const newState = { address: null, isConnected: false };
+          setPersistentState(newState);
+          storeWalletState(null, false);
+        }
+      }, 3000); // 3 second grace period
+      
       return;
     }
     
-    console.log('[useWallet] Wagmi state changed:', { 
-      address: currentAddress, 
-      isConnected: currentConnected,
-      cached: cachedState,
-      hasStored: hasStoredConnection
-    });
-    
-    // Update cached state if this is a real change
-    if (currentAddress !== stableStateRef.current.address || 
-        currentConnected !== stableStateRef.current.isConnected) {
+    // Update state if there's a real change
+    if (currentAddress !== persistentState.address || currentConnected !== persistentState.isConnected) {
+      console.log('[useWallet] State change:', { from: persistentState, to: { address: currentAddress, isConnected: currentConnected } });
       
       const newState = { address: currentAddress, isConnected: currentConnected };
-      stableStateRef.current = newState;
-      setCachedState(newState);
+      setPersistentState(newState);
       storeWalletState(currentAddress, currentConnected);
-      
-      // Dispatch event for backward compatibility
-      window.dispatchEvent(new CustomEvent('wallet-changed', {
-        detail: newState
-      }));
     }
-  }, [address, isConnected, mounted, cachedState]);
-
-  // Ensure Web3Modal instance is available
-  const ensureModal = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    
-    let modal = (window as any).web3modal;
-    if (!modal) {
-      console.warn('[useWallet] Web3Modal not found, triggering initialization');
-      window.dispatchEvent(new CustomEvent('init-web3modal'));
-      modal = (window as any).web3modal;
-    }
-    return modal;
-  }, []);
+  }, [address, isConnected, mounted, persistentState, storedState]);
 
   const connectWallet = async () => {
-    console.log('[useWallet] Connect wallet requested');
     setIsConnecting(true);
-    
     try {
-      const modal = ensureModal();
-      if (modal && modal.open) {
-        console.log('[useWallet] Opening Web3Modal');
-        
-        // Close modal first to clear any pending requests
-        if (modal.close) {
-          modal.close();
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
+      const modal = (window as any).web3modal;
+      if (modal?.open) {
         await modal.open();
-      } else {
-        console.log('[useWallet] Dispatching connect request event');
-        window.dispatchEvent(new CustomEvent('wallet-connect-request'));
       }
     } catch (error) {
       console.error('[useWallet] Connection failed:', error);
@@ -164,33 +131,22 @@ export function useWallet() {
   };
 
   const disconnectWallet = async () => {
-    console.log('[useWallet] Disconnect wallet requested');
     try {
       wagmiDisconnect();
       const newState = { address: null, isConnected: false };
-      stableStateRef.current = newState;
-      setCachedState(newState);
+      setPersistentState(newState);
       storeWalletState(null, false);
-      
-      window.dispatchEvent(new CustomEvent('wallet-changed', {
-        detail: newState
-      }));
     } catch (error) {
       console.error('[useWallet] Disconnect failed:', error);
     }
   };
 
-  // Return stable state - prefer cached state during navigation
-  const shouldUseCached = !mounted || (cachedState.isConnected && !isConnected && !address);
-  
-  const finalState = {
-    isConnected: shouldUseCached ? cachedState.isConnected : isConnected,
-    address: shouldUseCached ? cachedState.address : (address || null),
+  // Return persistent state during mounting/navigation
+  return {
+    isConnected: mounted ? isConnected : persistentState.isConnected,
+    address: mounted ? (address || null) : persistentState.address,
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
     disconnect: disconnectWallet
   };
-  
-  console.log('[useWallet] Returning state:', finalState, { shouldUseCached, mounted });
-  return finalState;
 }
