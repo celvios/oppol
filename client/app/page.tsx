@@ -105,6 +105,30 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Live Markets Preview - Moved Up */}
+      <section className="py-24 relative z-10">
+        <div className="w-full max-w-7xl mx-auto px-6 relative z-10">
+          <ScrollReveal>
+            <div className="flex justify-between items-end mb-12">
+              <div>
+                <h2 className="text-4xl font-heading font-bold mb-4">Trending Markets</h2>
+                <p className="text-text-secondary max-w-xl">See what the world is predicting right now.</p>
+              </div>
+              <Link href="/markets">
+                <NeonButton variant="glass">View All Markets <ArrowRight className="w-4 h-4 ml-2" /></NeonButton>
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.2}>
+            <MobileMarketList />
+            <div className="hidden md:block">
+              <MarketGrid limit={6} showFilters={false} />
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
 
 
       {/* Features Section */}
@@ -151,29 +175,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Live Markets Preview */}
-      <section className="py-24 relative z-10">
-        <div className="w-full max-w-7xl mx-auto px-6 relative z-10">
-          <ScrollReveal>
-            <div className="flex justify-between items-end mb-12">
-              <div>
-                <h2 className="text-4xl font-heading font-bold mb-4">Trending Markets</h2>
-                <p className="text-text-secondary max-w-xl">See what the world is predicting right now.</p>
-              </div>
-              <Link href="/markets">
-                <NeonButton variant="glass">View All Markets <ArrowRight className="w-4 h-4 ml-2" /></NeonButton>
-              </Link>
-            </div>
-          </ScrollReveal>
 
-          <ScrollReveal delay={0.2}>
-            <MobileMarketList />
-            <div className="hidden md:block">
-              <MarketGrid limit={6} showFilters={false} />
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="py-12 relative z-10">
