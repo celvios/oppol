@@ -155,7 +155,7 @@ export default function CreateMarketPage() {
         const usePublicEndpoint = canCreate && !useAdminEndpoint;
 
         if (!useAdminEndpoint && !usePublicEndpoint) {
-            setError("You don't have permission to create markets. You need BFT token or admin access.");
+            setError("Market creation requires BFT token. You need at least 1 BFT token in your wallet to create markets. If you have NFTs, they don't count for market creation - only BFT tokens are accepted.");
             setIsLoading(false);
             return;
         }
@@ -297,9 +297,9 @@ export default function CreateMarketPage() {
             <div className="min-h-screen bg-void flex items-center justify-center p-4">
                 <GlassCard className="max-w-md w-full p-8">
                     <div className="text-center">
-                        <h1 className="text-2xl font-heading font-bold text-white mb-4">Access Denied</h1>
+                        <h1 className="text-2xl font-heading font-bold text-white mb-4">BFT Token Required</h1>
                         <p className="text-text-secondary mb-6">
-                            You need BFT token or admin access to create markets.
+                            You need at least 1 BFT token in your wallet to create markets. NFTs don't count - only BFT tokens are accepted for market creation.
                         </p>
                         <Link href="/">
                             <NeonButton variant="cyan" className="w-full">Go Home</NeonButton>
