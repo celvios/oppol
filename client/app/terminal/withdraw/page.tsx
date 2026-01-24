@@ -7,8 +7,23 @@ import { motion } from 'framer-motion';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
 import { getContracts } from '@/lib/contracts';
-import { Contract, ethers } from 'ethers';
+import { Contract, ethers, BrowserProvider, JsonRpcSigner } from 'ethers';
+import { useConnectorClient } from 'wagmi';
+import type { Account, Chain, Client, Transport } from 'viem';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+
+// Helper to convert Viem Client to Ethers Signer
+function clientToSigner(client: Client<Transport, Chain, Account>) {
+    const { account, chain, transport } = client;
+    const network = {
+        chainId: chain.id,
+        name: chain.name,
+        ensAddress: chain.contracts?.ensRegistry?.address,
+    };
+    const provider = new BrowserProvider(transport, network);
+    const signer = new JsonRpcSigner(provider, account.address);
+    return signer;
+}
 
 const MARKET_ABI = [
     { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -17,6 +32,7 @@ const MARKET_ABI = [
 
 export default function WithdrawPage() {
     const { isConnected, address, connect } = useWallet();
+    const { data: connectorClient } = useConnectorClient();
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'complete' | 'error'>('input');
     const [txHash, setTxHash] = useState('');
@@ -61,13 +77,18 @@ export default function WithdrawPage() {
         if (!address || !withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
         setStep('processing');
         setErrorMessage('');
+
         try {
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask');
+            console.log('[Withdraw] Requesting signer from connector...');
+
+            // Re-fetch client to ensure we have current session
+            const client = (window as any)._lastClient; // Fallback or we use the hook state
+
+            if (!connectorClient) {
+                throw new Error('Wallet connection not ready. Please try again.');
             }
 
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
+            const signer = clientToSigner(connectorClient);
             const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
             const amountInWei = ethers.parseUnits(withdrawAmount, 6); // USDC has 6 decimals
@@ -91,10 +112,10 @@ export default function WithdrawPage() {
             console.error('Withdrawal failed:', error);
             let errorMessage = 'Withdrawal failed';
 
-            if (error.code === 'ACTION_REJECTED') {
-                errorMessage = 'Transaction was rejected by user';
+            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected')) {
+                errorMessage = 'Transaction was rejected in MetaMask';
             } else if (error.message?.includes('insufficient funds')) {
-                errorMessage = 'Insufficient balance for withdrawal';
+                errorMessage = 'Insufficient balance for gas or withdrawal';
             } else if (error.message?.includes('exceeds balance')) {
                 errorMessage = 'Amount exceeds available balance';
             } else if (error.message) {
