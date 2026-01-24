@@ -6,15 +6,14 @@ import { useWallet } from "@/lib/use-wallet";
 import { motion } from 'framer-motion';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
-import { getContracts } from '@/lib/contracts';
-import { Contract, ethers, BrowserProvider, JsonRpcSigner } from 'ethers';
+import { getContracts, NETWORK } from '@/lib/contracts';
+import { Contract, ethers } from 'ethers';
 import { useConnectorClient } from 'wagmi';
-import type { Account, Chain, Client, Transport } from 'viem';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
+import { web3MultiService } from "@/lib/web3-multi";
 
 const MARKET_ABI = [
-    { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
     { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
 ];
 
@@ -42,17 +41,9 @@ export default function WithdrawPage() {
         if (!address) return;
         setIsBalanceLoading(true);
         try {
-            if (!window.ethereum) {
-                setDepositedBalance('0.00');
-                return;
-            }
-
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, provider);
-
-            const balance = await marketContract.userBalances(address);
-            const formattedBalance = ethers.formatUnits(balance, 6); // USDC has 6 decimals
-            setDepositedBalance(parseFloat(formattedBalance).toFixed(2));
+            // Use the centralized service which handles decimals (18) correctly now
+            const balance = await web3MultiService.getDepositedBalance(address);
+            setDepositedBalance(balance);
         } catch (error: any) {
             console.error('Failed to fetch balance:', error);
             setDepositedBalance('0.00');
@@ -69,19 +60,19 @@ export default function WithdrawPage() {
         try {
             console.log('[Withdraw] Requesting signer from connector...');
 
-            // Re-fetch client to ensure we have current session
-            const client = (window as any)._lastClient; // Fallback or we use the hook state
-
             if (!connectorClient) {
-                throw new Error('Wallet connection not ready. Please try again.');
+                // If the hook hasn't returned a client, try to trigger a re-connection or wait
+                // But typically if isConnected is true, this should be available shortly.
+                throw new Error('Wallet not fully ready. Please try again in a moment.');
             }
 
             const signer = clientToSigner(connectorClient);
             const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-            const amountInWei = ethers.parseUnits(withdrawAmount, 6); // USDC has 6 decimals
+            // Use 18 decimals to match BSC USDC and the web3-multi fix
+            const amountInWei = ethers.parseUnits(withdrawAmount, 18);
 
-            console.log('Withdrawing from market contract...');
+            console.log('Withdrawing from market contract...', amountInWei.toString());
             const withdrawTx = await marketContract.withdraw(amountInWei);
 
             console.log('Transaction sent, waiting for confirmation...');
@@ -100,14 +91,15 @@ export default function WithdrawPage() {
             console.error('Withdrawal failed:', error);
             let errorMessage = 'Withdrawal failed';
 
-            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected')) {
-                errorMessage = 'Transaction was rejected in MetaMask';
+            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected') || error.message?.includes('User denied')) {
+                errorMessage = 'Transaction was rejected in wallet';
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient balance for gas or withdrawal';
             } else if (error.message?.includes('exceeds balance')) {
                 errorMessage = 'Amount exceeds available balance';
             } else if (error.message) {
-                errorMessage = error.message;
+                // Try to extract a clean message if possible
+                errorMessage = error.message.length > 50 ? 'Transaction failed. Check console.' : error.message;
             }
 
             setErrorMessage(errorMessage);
@@ -224,7 +216,7 @@ export default function WithdrawPage() {
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-white/50">Network</span>
-                                <span className="text-white">BNB Smart Chain</span>
+                                <span className="text-white">{NETWORK.name}</span>
                             </div>
                         </div>
 
@@ -274,8 +266,8 @@ export default function WithdrawPage() {
                 {step === 'processing' && (
                     <div className="text-center py-8">
                         <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
-                        <p className="text-white">Please sign in wallet...</p>
-                        <p className="text-white/50 text-sm mt-2">Do not close this window</p>
+                        <p className="text-white">Please sign in wallet to withdraw...</p>
+                        <p className="text-white/50 text-sm mt-2">Check your wallet popup</p>
                     </div>
                 )}
 
@@ -287,12 +279,12 @@ export default function WithdrawPage() {
                         <p className="text-white/50 mb-4">${withdrawAmount} USDC has been sent to your wallet</p>
                         {txHash && (
                             <a
-                                href={`https://testnet.bscscan.com/tx/${txHash}`}
+                                href={`${NETWORK.explorer}/tx/${txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary text-sm hover:underline"
                             >
-                                View on BscScan →
+                                View on Explorer →
                             </a>
                         )}
                         <button
