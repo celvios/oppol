@@ -155,7 +155,7 @@ export default function CreateMarketPage() {
         const usePublicEndpoint = canCreate && !useAdminEndpoint;
 
         if (!useAdminEndpoint && !usePublicEndpoint) {
-            setError("Market creation requires BFT token. You need at least 1 BFT token in your wallet to create markets. If you have NFTs, they don't count for market creation - only BFT tokens are accepted.");
+            setError("You don't have permission to create markets. You need BFT token or admin access.");
             setIsLoading(false);
             return;
         }
@@ -276,7 +276,22 @@ export default function CreateMarketPage() {
             }, 2000);
         } catch (e: any) {
             console.error("Create market error:", e);
-            setError(e.message || e.reason || "Failed to create market");
+            // Show the actual error message from the blockchain/contract
+            let errorMessage = "Failed to create market";
+            
+            if (e.reason) {
+                errorMessage = e.reason;
+            } else if (e.message) {
+                if (e.message.includes("insufficient creation token balance")) {
+                    errorMessage = "Insufficient BFT token balance. You need at least 1 BFT token to create markets.";
+                } else if (e.message.includes("Public creation disabled")) {
+                    errorMessage = "Public market creation is disabled. You need BFT tokens or admin access.";
+                } else {
+                    errorMessage = e.message;
+                }
+            }
+            
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
