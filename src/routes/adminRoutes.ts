@@ -226,9 +226,86 @@ router.post('/delete-market', checkAdminAuth, async (req, res) => {
             message: 'Market deleted from database'
         });
 
+        return res.json({
+            success: true,
+            marketId,
+            message: 'Market deleted from database'
+        });
+
     } catch (error: any) {
         console.error('[Admin] Delete Error:', error);
         return res.status(500).json({ success: false, error: error.message || 'Delete failed' });
+    }
+});
+
+// Sync/Repair Markets - Import missing chain markets into DB
+router.post('/sync-markets', checkAdminAuth, async (req, res) => {
+    try {
+        console.log('[Admin] Starting Market Sync...');
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+        const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
+
+        const marketABI = [
+            'function marketCount() view returns (uint256)',
+            'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
+            'function getMarketOutcomes(uint256) view returns (string[])'
+        ];
+
+        const contract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
+        const count = Number(await contract.marketCount());
+        console.log(`[Admin] Chain has ${count} markets.`);
+
+        // Get existing DB IDs
+        const dbRes = await query('SELECT market_id FROM markets');
+        const dbIds = new Set(dbRes.rows.map((r: any) => String(r.market_id)));
+
+        let restoredCount = 0;
+
+        for (let i = 0; i < count; i++) {
+            if (!dbIds.has(String(i))) {
+                console.log(`[Admin] Restoring Market #${i}...`);
+                try {
+                    const basicInfo = await contract.getMarketBasicInfo(i);
+                    const outcomes = await contract.getMarketOutcomes(i);
+
+                    await query(
+                        `INSERT INTO markets (market_id, question, description, image, category, outcome_names, created_at, resolved, end_time, winning_outcome)
+                         VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9)`,
+                        [
+                            i,
+                            basicInfo.question,
+                            basicInfo.description || "Imported from Chain", // Fallback if empty on chain
+                            basicInfo.image || "",
+                            "Uncategorized",
+                            JSON.stringify(outcomes),
+                            basicInfo.resolved,
+                            new Date(Number(basicInfo.endTime) * 1000),
+                            Number(basicInfo.winningOutcome)
+                        ]
+                    );
+                    restoredCount++;
+                } catch (innerErr) {
+                    console.error(`[Admin] Failed to restore #${i}:`, innerErr);
+                }
+            }
+        }
+
+        // Invalidate cache
+        // @ts-ignore
+        if (global.marketsCache) global.marketsCache = null;
+
+        return res.json({
+            success: true,
+            totalChain: count,
+            restored: restoredCount,
+            message: `Sync Complete. Restored ${restoredCount} missing markets.`
+        });
+
+    } catch (error: any) {
+        console.error('[Admin] Sync Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
