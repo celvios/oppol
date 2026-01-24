@@ -181,15 +181,6 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                     </div>
                 </div>
 
-                {/* ADVANCED DEBUGGING */}
-                {dbStats.count > 0 && (
-                    <div className="text-[10px] font-mono text-white/50 space-y-1 overflow-x-auto">
-                        <div><strong className="text-white">Keys:</strong> {(dbStats as any).keys?.join(', ')}</div>
-                        <div><strong className="text-white">IDs:</strong> {JSON.stringify((dbStats as any).ids)}</div>
-                        <div className="whitespace-pre-wrap"><strong className="text-white">Sample:</strong> {JSON.stringify((dbStats as any).firstRow)}</div>
-                    </div>
-                )}
-
                 {dbStats.error && <p className="text-red-400 text-xs">DB Error: {dbStats.error}</p>}
             </div>
 

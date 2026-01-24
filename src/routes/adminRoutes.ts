@@ -93,18 +93,10 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         let metadataMap: Record<string, any> = {};
         let dbCount = 0;
         let dbError: string | null = null;
-        let dbIds: string[] = [];
-        let dbKeys: string[] = [];
-        let dbFirstRow: any = null;
 
         try {
             const metadataResult = await query('SELECT * FROM markets');
             dbCount = metadataResult.rows.length;
-
-            if (dbCount > 0) {
-                dbFirstRow = metadataResult.rows[0];
-                dbKeys = Object.keys(dbFirstRow);
-            }
 
             metadataResult.rows.forEach((row: any) => {
                 // Try multiple casing variants
@@ -115,11 +107,9 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                 if (rawId !== undefined && rawId !== null) {
                     metadataMap[cleanId] = row;
                 }
-
-                dbIds.push(`${cleanId} (${rawId})`); // Debug format
             });
 
-            console.log(`[Admin API] DB IDs found: ${dbIds.join(', ')}`);
+            console.log(`[Admin API] Fetched ${dbCount} DB rows`);
 
         } catch (e: any) {
             console.error('[Admin API] DB metadata fetch failed:', e.message);
@@ -174,9 +164,6 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
             success: true,
             markets,
             dbCount,
-            dbIds,
-            dbKeys,
-            dbFirstRow,
             dbError
         });
 
