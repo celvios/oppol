@@ -45,7 +45,7 @@ const MARKET_ABI = [
 const getMarketContract = () => {
     try {
         const { getContracts } = require('@/lib/contracts');
-        const contracts = getContracts() as any;
+        const contracts = getContracts() as Record<string, string>;
         return (contracts.predictionMarket || '') as `0x${string}`;
     } catch (e) {
         return '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6' as `0x${string}`;
@@ -200,7 +200,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
 
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
         .map(point => {
-            const dataPoint: any = { time: point.time };
+            const dataPoint: Record<string, string | number> = { time: point.time };
             // Handle binary markets (Yes/No) explicitly
             if (market?.outcomes?.length === 2) {
                 dataPoint[market.outcomes[0]] = point.price;
@@ -271,328 +271,330 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                     setSelectedMarketId(allMarkets[0].id);
                 }
             }
-        } catch (error: any) {
-            console.error('[MobileTerminal] Error:', error);
-            setMarketError(error.message || 'Failed to load markets');
-
-            if (retryCount < 2) {
-                setTimeout(() => setRetryCount(prev => prev + 1), 1000);
-            }
-        } finally {
-            setLoading(false);
-            setIsLoadingReal(false);
         }
-    }, [address, retryCount, selectedMarketId, searchParams]);
+        } catch (error: unknown) {
+        console.error('[MobileTerminal] Error:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        setMarketError(message || 'Failed to load markets');
 
-    // Initial fetch on mount
-    useEffect(() => {
+        if (retryCount < 2) {
+            setTimeout(() => setRetryCount(prev => prev + 1), 1000);
+        }
+    } finally {
+        setLoading(false);
+        setIsLoadingReal(false);
+    }
+}, [address, retryCount, selectedMarketId, searchParams]);
+
+// Initial fetch on mount
+useEffect(() => {
+    fetchData();
+}, []);
+
+// Refresh balance when wallet connects/changes
+useEffect(() => {
+    if (address) {
+        web3Service.getDepositedBalance(address).then(setBalance).catch(() => setBalance('0'));
+    }
+}, [address]);
+
+// Polling for live updates (60s to reduce RPC usage)
+useEffect(() => {
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+}, [fetchData]);
+
+// Trigger retry when retryCount changes
+useEffect(() => {
+    if (retryCount > 0) {
         fetchData();
-    }, []);
-
-    // Refresh balance when wallet connects/changes
-    useEffect(() => {
-        if (address) {
-            web3Service.getDepositedBalance(address).then(setBalance).catch(() => setBalance('0'));
-        }
-    }, [address]);
-
-    // Polling for live updates (60s to reduce RPC usage)
-    useEffect(() => {
-        const interval = setInterval(fetchData, 60000);
-        return () => clearInterval(interval);
-    }, [fetchData]);
-
-    // Trigger retry when retryCount changes
-    useEffect(() => {
-        if (retryCount > 0) {
-            fetchData();
-        }
-    }, [retryCount]);
-
-    if (errorInfo) {
-        return (
-            <div className="p-6 text-white">
-                <h2 className="text-xl font-bold mb-4">Error</h2>
-                <p className="text-red-500 font-mono text-sm">{errorInfo}</p>
-            </div>
-        );
     }
+}, [retryCount]);
 
-    if (!mounted) {
-        return <div className="p-6"><SkeletonLoader /></div>;
-    }
-
-    if (loading) return <div className="p-6"><SkeletonLoader /></div>;
-
-    if (marketError && markets.length === 0) {
-        return (
-            <div className="p-6 text-white flex flex-col items-center justify-center h-[80vh]">
-                <div className="text-center max-w-md">
-                    <div className="text-red-400 text-lg font-bold mb-2">Connection Error</div>
-                    <div className="text-white/70 text-sm mb-4">{marketError}</div>
-                    <div className="text-white/50 text-xs mb-6">
-                        {retryCount < 3 ? `Retrying... (${retryCount}/3)` : 'Max retries reached'}
-                    </div>
-                    <button
-                        onClick={() => setRetryCount(prev => prev + 1)}
-                        disabled={retryCount >= 3}
-                        className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg disabled:opacity-50"
-                    >
-                        Retry Now
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (!market) {
-        if (isLoadingReal) {
-            return <div className="p-6"><SkeletonLoader /></div>;
-        }
-        return (
-            <div className="flex flex-col items-center justify-center h-[80vh] text-white/50 p-6 text-center">
-                <Activity size={48} className="mb-4 opacity-50" />
-                <h2 className="text-xl font-bold mb-2 text-white">Market Not Found</h2>
-                <p className="text-sm">This market may not exist or hasn't loaded yet.</p>
-                <button
-                    onClick={() => { setSelectedMarketId(markets[0]?.id || 0); }}
-                    className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-white transition-colors"
-                >
-                    Go to Featured Market
-                </button>
-            </div>
-        );
-    }
-
-    const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
-    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
-
+if (errorInfo) {
     return (
-        <div className="pb-12 relative min-h-screen">
+        <div className="p-6 text-white">
+            <h2 className="text-xl font-bold mb-4">Error</h2>
+            <p className="text-red-500 font-mono text-sm">{errorInfo}</p>
+        </div>
+    );
+}
 
-            {/* 2. Price Hero */}
-            <div className="relative overflow-hidden mb-6">
-                {metadata && (
-                    <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
-                        <img
-                            src={metadata.image}
-                            alt=""
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-void via-void/80 to-transparent" />
-                    </div>
-                )}
+if (!mounted) {
+    return <div className="p-6"><SkeletonLoader /></div>;
+}
 
-                <div className="px-6 py-8 relative z-10">
-                    <div className="flex items-start gap-4 mb-4">
-                        {/* Market Icon */}
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0">
-                            <img
-                                src={metadata?.image || '/markets/bitcoin.png'}
-                                alt=""
-                                className="w-8 h-8 object-contain"
-                                onError={(e) => {
-                                    // Fallback to a simple icon if image fails
-                                    e.currentTarget.style.display = 'none';
-                                }}
-                            />
-                        </div>
+if (loading) return <div className="p-6"><SkeletonLoader /></div>;
 
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
-                                {market.question}
-                                {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
-                            </h1>
-                        </div>
-                    </div>
-
-                    {metadata && (
-                        <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
-                            {metadata.description}
-                        </p>
-                    )}
-
-                    <div className="flex items-end gap-3 mt-4">
-                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
-                            {(market.yesOdds || 50).toFixed(1)}%
-                        </div>
-                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Yes Chance</div>
-                    </div>
+if (marketError && markets.length === 0) {
+    return (
+        <div className="p-6 text-white flex flex-col items-center justify-center h-[80vh]">
+            <div className="text-center max-w-md">
+                <div className="text-red-400 text-lg font-bold mb-2">Connection Error</div>
+                <div className="text-white/70 text-sm mb-4">{marketError}</div>
+                <div className="text-white/50 text-xs mb-6">
+                    {retryCount < 3 ? `Retrying... (${retryCount}/3)` : 'Max retries reached'}
                 </div>
-            </div>
-
-            {/* 3. Chart - Lazy loaded */}
-            <div className="h-[220px] w-full mb-6 relative">
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
-                <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                            <defs>
-                                {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                                    let color;
-                                    const lower = outcome.toLowerCase();
-                                    if (lower === 'yes') color = '#27E8A7'; // Neon Green
-                                    else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
-                                    else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-
-                                    return (
-                                        <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                            <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                        </linearGradient>
-                                    );
-                                })}
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis dataKey="time" hide />
-                            <YAxis domain={[0, 100]} hide />
-                            {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                                let color;
-                                const lower = outcome.toLowerCase();
-                                if (lower === 'yes') color = '#27E8A7';
-                                else if (lower === 'no') color = '#FF2E63';
-                                else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-
-                                return (
-                                    <Area
-                                        key={outcome}
-                                        type="monotone"
-                                        dataKey={outcome}
-                                        name={outcome}
-                                        stroke={color}
-                                        strokeWidth={2}
-                                        fillOpacity={1}
-                                        fill={`url(#gradient-${index})`}
-                                        animationDuration={0}
-                                    />
-                                );
-                            })}
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </Suspense>
-            </div>
-
-            {/* 5. Metrics Cards */}
-            <div className="px-4 grid grid-cols-2 gap-4 mb-10">
-                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
-                    <GlassCard className="p-4 !bg-white/5">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Activity size={14} className="text-neon-cyan" />
-                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
-                        </div>
-                        <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
-                    </GlassCard>
-                </Suspense>
-                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
-                    <GlassCard className="p-4 !bg-white/5">
-                        <div className="flex items-center gap-2 mb-2">
-                            <BarChart2 size={14} className="text-neon-purple" />
-                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
-                        </div>
-                        <div className="font-mono text-lg text-white font-medium">
-                            ${parseFloat(market.liquidityParam || '0').toFixed(0)}
-                        </div>
-                    </GlassCard>
-                </Suspense>
-            </div>
-
-            {/* Market Status or Trade Actions */}
-            {market && (market.resolved || market.assertionPending) ? (
-                <div className="px-6 pb-24">
-                    <ResolutionPanel
-                        marketId={market.id}
-                        question={market.question}
-                        endTime={market.endTime}
-                        resolved={market.resolved}
-                        outcome={market.outcome}
-                        winningOutcomeIndex={market.winningOutcome}
-                        assertionPending={market.assertionPending}
-                        assertedOutcome={market.assertedOutcome}
-                        assertedOutcomeIndex={market.assertedOutcome}
-                        asserter={market.asserter}
-                    />
-                </div>
-            ) : (
-                <>
-                    {/* Action Buttons - Multi-outcome aware */}
-                    {(market.outcomes?.length || 0) > 2 ? (
-                        /* Multi-outcome: Show all outcomes as tappable rows */
-                        <div className="px-6 mb-8 space-y-3">
-                            <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Select Outcome</div>
-                            {market.outcomes?.map((outcome, index) => {
-                                const price = market.prices?.[index] || 0;
-                                const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-                                return (
-                                    <button
-                                        key={index}
-                                        onClick={() => {
-                                            setTradeSide(outcome);
-                                            setSelectedOutcomeIndex(index);
-                                            setIsTradeSheetOpen(true);
-                                        }}
-                                        className="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between active:scale-[0.98] transition-all hover:border-white/30"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: color }}
-                                            />
-                                            <span className="font-medium text-white text-left">{outcome}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-bold text-lg" style={{ color }}>
-                                                {Math.round(price)}%
-                                            </span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        /* Binary: Show YES/NO buttons */
-                        <div className="px-6 mb-8 flex gap-4">
-                            <button
-                                onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
-                                className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                            >
-                                BUY {market.outcomes?.[0] || 'YES'}
-                            </button>
-                            <button
-                                onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
-                                className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                            >
-                                BUY {market.outcomes?.[1] || 'NO'}
-                            </button>
-                        </div>
-                    )}
-                </>
-            )}
-
-
-
-            {/* Bottom Sheet */}
-            <AnimatePresence>
-                {isTradeSheetOpen && (
-                    <TradeBottomSheet
-                        isOpen={isTradeSheetOpen}
-                        onClose={() => setIsTradeSheetOpen(false)}
-                        market={market}
-                        side={tradeSide}
-                        outcomeIndex={selectedOutcomeIndex}
-                        balance={balance}
-                        onTradeSuccess={() => {
-                            if (fetchData) fetchData();
-                        }}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Comments Section (Mobile) */}
-            <div className="px-4 pb-20 mt-8">
-                <CommentsSection marketId={market.id} />
+                <button
+                    onClick={() => setRetryCount(prev => prev + 1)}
+                    disabled={retryCount >= 3}
+                    className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg disabled:opacity-50"
+                >
+                    Retry Now
+                </button>
             </div>
         </div>
     );
+}
+
+if (!market) {
+    if (isLoadingReal) {
+        return <div className="p-6"><SkeletonLoader /></div>;
+    }
+    return (
+        <div className="flex flex-col items-center justify-center h-[80vh] text-white/50 p-6 text-center">
+            <Activity size={48} className="mb-4 opacity-50" />
+            <h2 className="text-xl font-bold mb-2 text-white">Market Not Found</h2>
+            <p className="text-sm">This market may not exist or hasn't loaded yet.</p>
+            <button
+                onClick={() => { setSelectedMarketId(markets[0]?.id || 0); }}
+                className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-white transition-colors"
+            >
+                Go to Featured Market
+            </button>
+        </div>
+    );
+}
+
+const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
+const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
+
+return (
+    <div className="pb-12 relative min-h-screen">
+
+        {/* 2. Price Hero */}
+        <div className="relative overflow-hidden mb-6">
+            {metadata && (
+                <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
+                    <img
+                        src={metadata.image}
+                        alt=""
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-void via-void/80 to-transparent" />
+                </div>
+            )}
+
+            <div className="px-6 py-8 relative z-10">
+                <div className="flex items-start gap-4 mb-4">
+                    {/* Market Icon */}
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0">
+                        <img
+                            src={metadata?.image || '/markets/bitcoin.png'}
+                            alt=""
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => {
+                                // Fallback to a simple icon if image fails
+                                e.currentTarget.style.display = 'none';
+                            }}
+                        />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
+                            {market.question}
+                            {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
+                        </h1>
+                    </div>
+                </div>
+
+                {metadata && (
+                    <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
+                        {metadata.description}
+                    </p>
+                )}
+
+                <div className="flex items-end gap-3 mt-4">
+                    <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
+                        {(market.yesOdds || 50).toFixed(1)}%
+                    </div>
+                    <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Yes Chance</div>
+                </div>
+            </div>
+        </div>
+
+        {/* 3. Chart - Lazy loaded */}
+        <div className="h-[220px] w-full mb-6 relative">
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
+            <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                        <defs>
+                            {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                let color;
+                                const lower = outcome.toLowerCase();
+                                if (lower === 'yes') color = '#27E8A7'; // Neon Green
+                                else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
+                                else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+
+                                return (
+                                    <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                    </linearGradient>
+                                );
+                            })}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="time" hide />
+                        <YAxis domain={[0, 100]} hide />
+                        {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                            let color;
+                            const lower = outcome.toLowerCase();
+                            if (lower === 'yes') color = '#27E8A7';
+                            else if (lower === 'no') color = '#FF2E63';
+                            else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+
+                            return (
+                                <Area
+                                    key={outcome}
+                                    type="monotone"
+                                    dataKey={outcome}
+                                    name={outcome}
+                                    stroke={color}
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    fill={`url(#gradient-${index})`}
+                                    animationDuration={0}
+                                />
+                            );
+                        })}
+                    </AreaChart>
+                </ResponsiveContainer>
+            </Suspense>
+        </div>
+
+        {/* 5. Metrics Cards */}
+        <div className="px-4 grid grid-cols-2 gap-4 mb-10">
+            <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                <GlassCard className="p-4 !bg-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity size={14} className="text-neon-cyan" />
+                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
+                    </div>
+                    <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
+                </GlassCard>
+            </Suspense>
+            <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                <GlassCard className="p-4 !bg-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <BarChart2 size={14} className="text-neon-purple" />
+                        <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
+                    </div>
+                    <div className="font-mono text-lg text-white font-medium">
+                        ${parseFloat(market.liquidityParam || '0').toFixed(0)}
+                    </div>
+                </GlassCard>
+            </Suspense>
+        </div>
+
+        {/* Market Status or Trade Actions */}
+        {market && (market.resolved || market.assertionPending) ? (
+            <div className="px-6 pb-24">
+                <ResolutionPanel
+                    marketId={market.id}
+                    question={market.question}
+                    endTime={market.endTime}
+                    resolved={market.resolved}
+                    outcome={market.outcome}
+                    winningOutcomeIndex={market.winningOutcome}
+                    assertionPending={market.assertionPending}
+                    assertedOutcome={market.assertedOutcome}
+                    assertedOutcomeIndex={market.assertedOutcome}
+                    asserter={market.asserter}
+                />
+            </div>
+        ) : (
+            <>
+                {/* Action Buttons - Multi-outcome aware */}
+                {(market.outcomes?.length || 0) > 2 ? (
+                    /* Multi-outcome: Show all outcomes as tappable rows */
+                    <div className="px-6 mb-8 space-y-3">
+                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Select Outcome</div>
+                        {market.outcomes?.map((outcome, index) => {
+                            const price = market.prices?.[index] || 0;
+                            const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                            return (
+                                <button
+                                    key={index}
+                                    onClick={() => {
+                                        setTradeSide(outcome);
+                                        setSelectedOutcomeIndex(index);
+                                        setIsTradeSheetOpen(true);
+                                    }}
+                                    className="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between active:scale-[0.98] transition-all hover:border-white/30"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className="w-3 h-3 rounded-full"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                        <span className="font-medium text-white text-left">{outcome}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono font-bold text-lg" style={{ color }}>
+                                            {Math.round(price)}%
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    /* Binary: Show YES/NO buttons */
+                    <div className="px-6 mb-8 flex gap-4">
+                        <button
+                            onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
+                            className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            BUY {market.outcomes?.[0] || 'YES'}
+                        </button>
+                        <button
+                            onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
+                            className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            BUY {market.outcomes?.[1] || 'NO'}
+                        </button>
+                    </div>
+                )}
+            </>
+        )}
+
+
+
+        {/* Bottom Sheet */}
+        <AnimatePresence>
+            {isTradeSheetOpen && (
+                <TradeBottomSheet
+                    isOpen={isTradeSheetOpen}
+                    onClose={() => setIsTradeSheetOpen(false)}
+                    market={market}
+                    side={tradeSide}
+                    outcomeIndex={selectedOutcomeIndex}
+                    balance={balance}
+                    onTradeSuccess={() => {
+                        if (fetchData) fetchData();
+                    }}
+                />
+            )}
+        </AnimatePresence>
+
+        {/* Comments Section (Mobile) */}
+        <div className="px-4 pb-20 mt-8">
+            <CommentsSection marketId={market.id} />
+        </div>
+    </div>
+);
 }
 
 // Mobile Trade Sheet
@@ -608,7 +610,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { signer, address, isConnected, connect } = useWallet();
+    const { address, isConnected, connect } = useWallet();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
@@ -658,9 +660,10 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
             } else {
                 setError(data.error || 'Trade failed');
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Trade error:', e);
-            setError(e.message || 'Failed to execute trade');
+            const message = e instanceof Error ? e.message : 'Unknown trade error';
+            setError(message || 'Failed to execute trade');
         } finally {
             setLoading(false);
         }

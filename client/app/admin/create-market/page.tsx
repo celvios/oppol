@@ -15,7 +15,7 @@ import { useConnectorClient } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 
 export default function CreateMarketPage() {
-    const { address, isConnected } = useWallet();
+    const { address, isConnected, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { canCreate, checking } = useCreationAccess();
     const router = useRouter();
@@ -45,7 +45,7 @@ export default function CreateMarketPage() {
         if (adminKey) {
             setHasAdminAccess(true);
         }
-        
+
         // Fetch categories from API
         fetchCategories();
     }, []);
@@ -56,7 +56,7 @@ export default function CreateMarketPage() {
             const response = await fetch(`${apiUrl}/api/categories`);
             const data = await response.json();
             if (data.success && data.categories) {
-                const categoryNames = data.categories.map((cat: any) => cat.name);
+                const categoryNames = data.categories.map((cat: { name: string }) => cat.name);
                 setCategories(categoryNames);
                 // Set first category as default if available
                 if (categoryNames.length > 0) {
@@ -199,8 +199,9 @@ export default function CreateMarketPage() {
             if (selectedFile) {
                 try {
                     finalImageUrl = await uploadImage(selectedFile);
-                } catch (err: any) {
-                    setError(`Image upload failed: ${err.message}`);
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Unknown upload error';
+                    setError(`Image upload failed: ${message}`);
                     setIsLoading(false);
                     return;
                 }
@@ -244,7 +245,8 @@ export default function CreateMarketPage() {
             } else {
                 // Public flow: User calls contract directly
                 if (!connectorClient) {
-                    setError("Wallet not fully connected. Please refresh and try again.");
+                    setError("Wallet session stale. Opening connection modal...");
+                    connect();
                     setIsLoading(false);
                     return;
                 }
@@ -269,11 +271,14 @@ export default function CreateMarketPage() {
                         formData.outcomes,
                         parseFloat(formData.durationDays)
                     );
-                } catch (staticError: any) {
+                } catch (staticError: unknown) {
                     console.error("Static call failed:", staticError);
 
                     // Try to extract reason
-                    let reason = staticError.reason || staticError.message || "Unknown error";
+                    let reason = "Unknown error";
+                    if (staticError instanceof Error) {
+                        reason = (staticError as any).reason || staticError.message || "Unknown error";
+                    }
                     if (reason.includes("Insufficient creation token balance")) {
                         reason = "You do not have enough BFT (Creation Token) to create a market.";
                     } else if (reason.includes("Public creation disabled")) {
@@ -327,15 +332,16 @@ export default function CreateMarketPage() {
             setTimeout(() => {
                 window.location.href = useAdminEndpoint ? "/admin" : "/terminal";
             }, 2000);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Create market error:", e);
             // Show the actual error message from the blockchain/contract
             let errorMessage = "Failed to create market";
-            
-            if (e.reason) {
-                errorMessage = e.reason;
-            } else if (e.message) {
-                if (e.message.includes("insufficient creation token balance")) {
+
+            const err = e as any;
+            if (err.reason) {
+                errorMessage = err.reason;
+            } else if (err.message) {
+                if (err.message.includes("insufficient creation token balance")) {
                     errorMessage = "Insufficient BFT token balance. You need at least 1 BFT token to create markets.";
                 } else if (e.message.includes("Public creation disabled")) {
                     errorMessage = "Public market creation is disabled. You need BFT tokens or admin access.";
@@ -343,7 +349,7 @@ export default function CreateMarketPage() {
                     errorMessage = e.message;
                 }
             }
-            
+
             setError(errorMessage);
         } finally {
             setIsLoading(false);
@@ -383,8 +389,8 @@ export default function CreateMarketPage() {
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => router.back()} 
+                    <button
+                        onClick={() => router.back()}
                         className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                     >
                         <ArrowLeft size={20} />
@@ -586,7 +592,7 @@ export default function CreateMarketPage() {
                         )}
 
                         <NeonButton
-                            variant="primary"
+                            variant="cyan"
                             className="w-full py-4 text-lg"
                             disabled={isLoading}
                             type="submit"
