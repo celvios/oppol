@@ -42,7 +42,9 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
             setDbStats({
                 count: data.dbCount !== undefined ? data.dbCount : -1,
                 error: data.dbError || null,
-                ids: data.dbIds || []
+                ids: data.dbIds || [],
+                keys: data.dbKeys || [],
+                firstRow: data.dbFirstRow || null
             } as any);
 
             if (data.success) {
@@ -140,20 +142,22 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Market Management</h2>
-                <div className="flex flex-col items-end">
-                    <div className="text-xs font-mono text-white/30 flex gap-2">
-                        <span title="Total DB Rows">DB Rows: {dbStats.count}</span>
-                        {dbStats.error && <span className="text-red-400">Error: {dbStats.error}</span>}
-                    </div>
-                    {/* Debug List */}
-                    {dbStats.count > 0 && (
-                        <div className="text-[10px] text-white/20 max-w-[200px] text-right truncate">
-                            IDs: {(dbStats as any).ids?.join(', ')}
-                        </div>
-                    )}
+            <div className="flex flex-col gap-2 mb-4 p-2 bg-black/40 rounded border border-white/10">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-white">Market Management</h2>
+                    <span className="text-xs font-mono">DB Rows: {dbStats.count}</span>
                 </div>
+
+                {/* ADVANCED DEBUGGING */}
+                {dbStats.count > 0 && (
+                    <div className="text-[10px] font-mono text-white/50 space-y-1 overflow-x-auto">
+                        <div><strong className="text-white">Keys:</strong> {(dbStats as any).keys?.join(', ')}</div>
+                        <div><strong className="text-white">IDs:</strong> {JSON.stringify((dbStats as any).ids)}</div>
+                        <div className="whitespace-pre-wrap"><strong className="text-white">Sample:</strong> {JSON.stringify((dbStats as any).firstRow)}</div>
+                    </div>
+                )}
+
+                {dbStats.error && <p className="text-red-400 text-xs">DB Error: {dbStats.error}</p>}
             </div>
 
             {isLoading ? (

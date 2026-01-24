@@ -92,17 +92,38 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         // Get DB metadata for enrichment where possible
         let metadataMap: Record<string, any> = {};
         let dbCount = 0;
+        let dbError: string | null = null;
+        let dbIds: string[] = [];
+        let dbKeys: string[] = [];
+        let dbFirstRow: any = null;
+
         try {
             const metadataResult = await query('SELECT * FROM markets');
             dbCount = metadataResult.rows.length;
-            console.log(`[Admin API] DB returned ${dbCount} rows`);
+
+            if (dbCount > 0) {
+                dbFirstRow = metadataResult.rows[0];
+                dbKeys = Object.keys(dbFirstRow);
+            }
 
             metadataResult.rows.forEach((row: any) => {
-                // Force string key to avoid number/string mismatch
-                metadataMap[String(row.market_id)] = row;
+                // Try multiple casing variants
+                const rawId = row.market_id ?? row.marketId ?? row.id ?? row.ID;
+                const cleanId = String(rawId).trim();
+
+                // Use the found ID for mapping
+                if (rawId !== undefined && rawId !== null) {
+                    metadataMap[cleanId] = row;
+                }
+
+                dbIds.push(`${cleanId} (${rawId})`); // Debug format
             });
+
+            console.log(`[Admin API] DB IDs found: ${dbIds.join(', ')}`);
+
         } catch (e: any) {
             console.error('[Admin API] DB metadata fetch failed:', e.message);
+            dbError = e.message;
             // We continue, but all markets will appear "Deleted" if this fails
         }
 
@@ -153,7 +174,10 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
             success: true,
             markets,
             dbCount,
-            dbError: null
+            dbIds,
+            dbKeys,
+            dbFirstRow,
+            dbError
         });
 
     } catch (error: any) {
