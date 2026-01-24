@@ -23,6 +23,7 @@ export default function CreateMarketPage() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [categories, setCategories] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
@@ -41,7 +42,33 @@ export default function CreateMarketPage() {
         if (adminKey) {
             setHasAdminAccess(true);
         }
+        
+        // Fetch categories from API
+        fetchCategories();
     }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/api/categories`);
+            const data = await response.json();
+            if (data.success && data.categories) {
+                const categoryNames = data.categories.map((cat: any) => cat.name);
+                setCategories(categoryNames);
+                // Set first category as default if available
+                if (categoryNames.length > 0) {
+                    setFormData(prev => ({ ...prev, category: categoryNames[0] }));
+                }
+            } else {
+                // Fallback to hardcoded categories if API fails
+                setCategories(["Crypto", "Tech", "Politics", "Sports", "Entertainment", "Science", "Other"]);
+            }
+        } catch (err) {
+            console.error("Failed to fetch categories:", err);
+            // Fallback to hardcoded categories
+            setCategories(["Crypto", "Tech", "Politics", "Sports", "Entertainment", "Science", "Other"]);
+        }
+    };
 
     // Note: We don't redirect automatically - we show an error message instead
     // This allows users to see why they can't create markets
@@ -444,13 +471,9 @@ export default function CreateMarketPage() {
                                         onChange={handleInputChange}
                                         className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors appearance-none"
                                     >
-                                        <option value="Crypto">Crypto</option>
-                                        <option value="Tech">Tech</option>
-                                        <option value="Politics">Politics</option>
-                                        <option value="Sports">Sports</option>
-                                        <option value="Entertainment">Entertainment</option>
-                                        <option value="Science">Science</option>
-                                        <option value="Other">Other</option>
+                                        {categories.map((category) => (
+                                            <option key={category} value={category}>{category}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
