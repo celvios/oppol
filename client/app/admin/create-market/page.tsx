@@ -11,9 +11,12 @@ import { useCreationAccess } from "@/lib/use-creation-access";
 import { useRouter } from "next/navigation";
 import { getContracts } from "@/lib/contracts";
 import { ethers } from "ethers";
+import { useConnectorClient } from 'wagmi';
+import { clientToSigner } from "@/lib/viem-ethers-adapters";
 
 export default function CreateMarketPage() {
     const { address, isConnected } = useWallet();
+    const { data: connectorClient } = useConnectorClient();
     const { canCreate, checking } = useCreationAccess();
     const router = useRouter();
     const [hasAdminAccess, setHasAdminAccess] = useState(false);
@@ -239,15 +242,14 @@ export default function CreateMarketPage() {
                 marketId = data.marketId;
                 txHash = data.txHash;
             } else {
-                // Public flow: User calls contract directly, then saves metadata
-                if (!window.ethereum) {
-                    setError("Please install MetaMask or connect a wallet");
+                // Public flow: User calls contract directly
+                if (!connectorClient) {
+                    setError("Wallet not fully connected. Please refresh and try again.");
                     setIsLoading(false);
                     return;
                 }
 
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
+                const signer = clientToSigner(connectorClient);
                 const contracts = getContracts();
                 const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
 
@@ -258,8 +260,32 @@ export default function CreateMarketPage() {
 
                 const contract = new ethers.Contract(marketAddress, marketABI, signer);
 
-                // Call contract directly from user's wallet
-                // V2 with image/description: createMarket(question, image, description, outcomes[], durationDays)
+                // DEBUG: Run static call first to catch reverts
+                try {
+                    await contract.createMarket.staticCall(
+                        formData.question,
+                        finalImageUrl || "",
+                        formData.description,
+                        formData.outcomes,
+                        parseFloat(formData.durationDays)
+                    );
+                } catch (staticError: any) {
+                    console.error("Static call failed:", staticError);
+
+                    // Try to extract reason
+                    let reason = staticError.reason || staticError.message || "Unknown error";
+                    if (reason.includes("Insufficient creation token balance")) {
+                        reason = "You do not have enough BFT (Creation Token) to create a market.";
+                    } else if (reason.includes("Public creation disabled")) {
+                        reason = "Public creation is currently disabled.";
+                    }
+
+                    setError(`Validation Failed: ${reason}`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // If static call passes, send real transaction
                 const tx = await contract.createMarket(
                     formData.question,
                     finalImageUrl || "",

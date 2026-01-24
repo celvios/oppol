@@ -11,19 +11,7 @@ import { Contract, ethers, BrowserProvider, JsonRpcSigner } from 'ethers';
 import { useConnectorClient } from 'wagmi';
 import type { Account, Chain, Client, Transport } from 'viem';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
-
-// Helper to convert Viem Client to Ethers Signer
-function clientToSigner(client: Client<Transport, Chain, Account>) {
-    const { account, chain, transport } = client;
-    const network = {
-        chainId: chain.id,
-        name: chain.name,
-        ensAddress: chain.contracts?.ensRegistry?.address,
-    };
-    const provider = new BrowserProvider(transport, network);
-    const signer = new JsonRpcSigner(provider, account.address);
-    return signer;
-}
+import { clientToSigner } from "@/lib/viem-ethers-adapters";
 
 const MARKET_ABI = [
     { name: 'userBalances', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
