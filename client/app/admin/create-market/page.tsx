@@ -357,9 +357,12 @@ export default function CreateMarketPage() {
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <Link href={hasAdminAccess ? "/admin" : "/"} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                    <button 
+                        onClick={() => router.back()} 
+                        className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                    >
                         <ArrowLeft size={20} />
-                    </Link>
+                    </button>
                     <div>
                         <h1 className="text-3xl font-heading font-bold text-white mb-1">Create Market</h1>
                         <p className="text-text-secondary">Launch a new prediction market</p>
