@@ -34,7 +34,6 @@ export default function CreateMarketPage() {
         description: "",
         image: "",
         category: "Crypto",
-        initialLiquidity: "100",
         durationDays: "30",
         outcomes: ["Yes", "No"] // Default to binary, user can add more
     });
@@ -174,6 +173,19 @@ export default function CreateMarketPage() {
         setError("");
         setSuccess("");
 
+        // Basic Valdation
+        if (formData.outcomes.some(o => o.trim() === "")) {
+            setError("All outcomes must have a name.");
+            setIsLoading(false);
+            return;
+        }
+        const outcomeSet = new Set(formData.outcomes.map(o => o.trim().toLowerCase()));
+        if (outcomeSet.size !== formData.outcomes.length) {
+            setError("Outcome names must be unique.");
+            setIsLoading(false);
+            return;
+        }
+
         if (!isConnected || !address) {
             setError("Please connect your wallet first");
             setIsLoading(false);
@@ -253,7 +265,9 @@ export default function CreateMarketPage() {
 
                 const signer = clientToSigner(connectorClient);
                 const contracts = getContracts();
-                const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
+                if (!marketAddress) {
+                    throw new Error("Market contract address missing in config");
+                }
 
                 const marketABI = [
                     'function createMarket(string, string, string, string[], uint256) external returns (uint256)',
@@ -261,6 +275,14 @@ export default function CreateMarketPage() {
                 ];
 
                 const contract = new ethers.Contract(marketAddress, marketABI, signer);
+
+                console.log("Creating market with:", {
+                    q: formData.question,
+                    img: finalImageUrl ? "Present (URL/Data)" : "Empty",
+                    d: formData.description,
+                    o: formData.outcomes,
+                    dur: formData.durationDays
+                });
 
                 // DEBUG: Run static call first to catch reverts
                 try {
@@ -271,18 +293,23 @@ export default function CreateMarketPage() {
                         formData.outcomes,
                         parseFloat(formData.durationDays)
                     );
-                } catch (staticError: unknown) {
+                } catch (staticError: any) {
                     console.error("Static call failed:", staticError);
 
-                    // Try to extract reason
-                    let reason = "Unknown error";
-                    if (staticError instanceof Error) {
-                        reason = (staticError as any).reason || staticError.message || "Unknown error";
+                    // Robust Error Extraction
+                    let reason = staticError.reason || staticError.message || "Unknown error";
+
+                    // Handle nested error objects from Ethers/Viem
+                    if (staticError.info && staticError.info.error && staticError.info.error.message) {
+                        reason = staticError.info.error.message;
                     }
-                    if (reason.includes("Insufficient creation token balance")) {
+
+                    if (reason.toLowerCase().includes("insufficient creation token")) {
                         reason = "You do not have enough BFT (Creation Token) to create a market.";
-                    } else if (reason.includes("Public creation disabled")) {
-                        reason = "Public creation is currently disabled.";
+                    } else if (reason.toLowerCase().includes("public creation disabled")) {
+                        reason = "Public creation is currently disabled by admins.";
+                    } else if (reason.toLowerCase().includes("user rejected")) {
+                        reason = "User rejected the transaction.";
                     }
 
                     setError(`Validation Failed: ${reason}`);
@@ -299,6 +326,7 @@ export default function CreateMarketPage() {
                     parseFloat(formData.durationDays)
                 );
 
+                console.log("Tx sent:", tx.hash);
                 txHash = tx.hash;
                 await tx.wait();
 
@@ -341,12 +369,10 @@ export default function CreateMarketPage() {
             if (err.reason) {
                 errorMessage = err.reason;
             } else if (err.message) {
-                if (err.message.includes("insufficient creation token balance")) {
-                    errorMessage = "Insufficient BFT token balance. You need at least 1 BFT token to create markets.";
-                } else if (e.message.includes("Public creation disabled")) {
-                    errorMessage = "Public market creation is disabled. You need BFT tokens or admin access.";
+                if (err.message.includes("actions")) {
+                    errorMessage = "User rejected the transaction.";
                 } else {
-                    errorMessage = e.message;
+                    errorMessage = err.message.length > 100 ? "Transaction failed check console" : err.message;
                 }
             }
 
