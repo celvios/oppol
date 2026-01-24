@@ -295,7 +295,7 @@ export class Web3MultiService {
                 this.predictionMarket.getAllPrices(marketId),
             ]);
 
-            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 6));
+            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 18));
             const pricesFormatted = prices.map((p: bigint) => Number(p) / 100); // Convert basis points to percentage
 
             const totalVolume = sharesFormatted.reduce((sum: number, s: string) => sum + parseFloat(s), 0);
@@ -358,9 +358,9 @@ export class Web3MultiService {
     async calculateCost(marketId: number, outcomeIndex: number, shares: number): Promise<string> {
         if (!this.predictionMarket) return '0';
         try {
-            const sharesInUnits = ethers.parseUnits(shares.toString(), 6);
+            const sharesInUnits = ethers.parseUnits(shares.toString(), 18);
             const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
-            return ethers.formatUnits(cost, 6);
+            return ethers.formatUnits(cost, 18);
         } catch (error) {
             console.error('Error calculating cost:', error);
             return '0';
@@ -375,7 +375,7 @@ export class Web3MultiService {
         try {
             const position = await this.predictionMarket.getUserPosition(marketId, userAddress);
             return {
-                shares: position.shares.map((s: bigint) => ethers.formatUnits(s, 6)),
+                shares: position.shares.map((s: bigint) => ethers.formatUnits(s, 18)),
                 claimed: position.claimed,
             };
         } catch (error) {
@@ -391,7 +391,7 @@ export class Web3MultiService {
         if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            return ethers.formatUnits(balance, 6);
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching deposited balance:', error);
             return '0';
@@ -405,7 +405,7 @@ export class Web3MultiService {
         if (!this.usdc) return '0';
         try {
             const balance = await this.usdc.balanceOf(address);
-            return ethers.formatUnits(balance, 6);
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
             return '0';
