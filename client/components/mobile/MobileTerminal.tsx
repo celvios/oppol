@@ -449,6 +449,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             <XAxis dataKey="time" hide />
                             <YAxis domain={[0, 100]} hide />
                             {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                let color;
                                 const lower = outcome.toLowerCase();
                                 if (lower === 'yes') color = '#27E8A7';
                                 else if (lower === 'no') color = '#FF2E63';
