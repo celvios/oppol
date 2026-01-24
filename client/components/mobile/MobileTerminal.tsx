@@ -416,9 +416,11 @@ return (
 
                 <div className="flex items-end gap-3 mt-4">
                     <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
-                        {(market.yesOdds || 50).toFixed(1)}%
+                        {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
                     </div>
-                    <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Yes Chance</div>
+                    <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">
+                        {(market.outcomes?.length || 2) > 2 ? 'Top Prediction' : 'Yes Chance'}
+                    </div>
                 </div>
             </div>
         </div>
