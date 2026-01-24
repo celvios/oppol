@@ -199,164 +199,22 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     }, []);
 
     const chartData = (priceHistory.length > 0 ? priceHistory : [{ time: 'Now', price: market?.yesOdds || 50 }])
-        .map(point => ({
-            time: point.time,
-            yesPrice: point.price,
-            noPrice: 100 - point.price
-        }));
-
-    // Data Fetching
-    useEffect(() => {
-        async function fetchPriceHistory() {
-            if (!selectedMarketId) return;
-            try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                if (apiUrl) {
-                    const response = await fetch(`${apiUrl}/api/markets/${selectedMarketId}/price-history?limit=50`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.history?.length > 0) {
-                            setPriceHistory(data.history);
-                        } else {
-                            // Fallback will be handled by animation loop if empty
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to fetch price history", error);
+        .map(point => {
+            const dataPoint: any = { time: point.time };
+            // Handle binary markets (Yes/No) explicitly
+            if (market?.outcomes?.length === 2) {
+                dataPoint[market.outcomes[0]] = point.price;
+                dataPoint[market.outcomes[1]] = 100 - point.price;
+            } else {
+                // For multi-outcome, we currently only track the primary price in history
+                // TODO: Update backend to return full multi-outcome history
+                market?.outcomes?.forEach((outcome, idx) => {
+                    // Distribute remaining % or use placeholder
+                    dataPoint[outcome] = idx === 0 ? point.price : (100 - point.price) / ((market.outcomes?.length || 1) - 1);
+                });
             }
-        }
-
-        fetchPriceHistory();
-        // Removed interval to avoid overwriting animation
-    }, [selectedMarketId]);
-
-    // Single consolidated data fetch - runs once on mount
-    const fetchData = useCallback(async () => {
-        setMarketError(null);
-        setIsLoadingReal(true);
-
-        try {
-            // Parallel requests for faster loading
-            const [allMarkets, depositedBalance] = await Promise.all([
-                web3Service.getMarkets(),
-                address ? web3Service.getDepositedBalance(address).catch(() => '0') : Promise.resolve('0')
-            ]);
-
-            if (allMarkets.length === 0) {
-                throw new Error('No markets available');
-            }
-
-            setMarkets(allMarkets);
-            setBalance(depositedBalance);
-            setRetryCount(0);
-
-            // Set initial market selection
-            if (selectedMarketId === 0 && allMarkets.length > 0) {
-                const urlId = Number(searchParams.get('marketId'));
-                if (urlId && allMarkets.find(m => m.id === urlId)) {
-                    setSelectedMarketId(urlId);
-                } else {
-                    setSelectedMarketId(allMarkets[0].id);
-                }
-            }
-        } catch (error: any) {
-            console.error('[MobileTerminal] Error:', error);
-            setMarketError(error.message || 'Failed to load markets');
-
-            if (retryCount < 2) {
-                setTimeout(() => setRetryCount(prev => prev + 1), 1000);
-            }
-        } finally {
-            setLoading(false);
-            setIsLoadingReal(false);
-        }
-    }, [address, retryCount, selectedMarketId, searchParams]);
-
-    // Initial fetch on mount
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    // Refresh balance when wallet connects/changes
-    useEffect(() => {
-        if (address) {
-            web3Service.getDepositedBalance(address).then(setBalance).catch(() => setBalance('0'));
-        }
-    }, [address]);
-
-    // Polling for live updates (60s to reduce RPC usage)
-    useEffect(() => {
-        const interval = setInterval(fetchData, 60000);
-        return () => clearInterval(interval);
-    }, [fetchData]);
-
-    // Trigger retry when retryCount changes
-    useEffect(() => {
-        if (retryCount > 0) {
-            fetchData();
-        }
-    }, [retryCount]);
-
-    if (errorInfo) {
-        return (
-            <div className="p-6 text-white">
-                <h2 className="text-xl font-bold mb-4">Error</h2>
-                <p className="text-red-500 font-mono text-sm">{errorInfo}</p>
-            </div>
-        );
-    }
-
-    if (!mounted) {
-        return <div className="p-6"><SkeletonLoader /></div>;
-    }
-
-
-
-    if (loading) return <div className="p-6"><SkeletonLoader /></div>;
-
-    if (marketError && markets.length === 0) {
-        return (
-            <div className="p-6 text-white flex flex-col items-center justify-center h-[80vh]">
-                <div className="text-center max-w-md">
-                    <div className="text-red-400 text-lg font-bold mb-2">Connection Error</div>
-                    <div className="text-white/70 text-sm mb-4">{marketError}</div>
-                    <div className="text-white/50 text-xs mb-6">
-                        {retryCount < 3 ? `Retrying... (${retryCount}/3)` : 'Max retries reached'}
-                    </div>
-                    <button
-                        onClick={() => setRetryCount(prev => prev + 1)}
-                        disabled={retryCount >= 3}
-                        className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg disabled:opacity-50"
-                    >
-                        Retry Now
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (!market) {
-        if (isLoadingReal) {
-            return <div className="p-6"><SkeletonLoader /></div>;
-        }
-        return (
-            <div className="flex flex-col items-center justify-center h-[80vh] text-white/50 p-6 text-center">
-                <Activity size={48} className="mb-4 opacity-50" />
-                <h2 className="text-xl font-bold mb-2 text-white">Market Not Found</h2>
-                <p className="text-sm">This market may not exist or hasn't loaded yet.</p>
-                <button
-                    onClick={() => { setSelectedMarketId(markets[0]?.id || 0); }}
-                    className="mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-white transition-colors"
-                >
-                    Go to Featured Market
-                </button>
-            </div>
-        );
-    }
-
-    const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
-    const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
+            return dataPoint;
+        });
 
     return (
         <div className="pb-12 relative min-h-screen">
@@ -404,10 +262,10 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                     )}
 
                     <div className="flex items-end gap-3 mt-4">
-                        <div className={`text-5xl font-mono font-bold tracking-tighter ${chartView === 'YES' ? 'text-neon-green text-shadow-green' : 'text-neon-coral text-shadow-red'}`}>
-                            {currentPrice.toFixed(1)}%
+                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
+                            {(market.yesOdds || 50).toFixed(1)}%
                         </div>
-                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Chance</div>
+                        <div className="text-sm font-mono text-text-secondary mb-2 uppercase tracking-wider">Yes Chance</div>
                     </div>
                 </div>
             </div>
@@ -419,49 +277,48 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                             <defs>
-                                <linearGradient id="mobileColorPrimary" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor={chartView === 'YES' ? "#27E8A7" : "#FF2E63"} stopOpacity={0} />
-                                </linearGradient>
+                                {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                    let color;
+                                    const lower = outcome.toLowerCase();
+                                    if (lower === 'yes') color = '#27E8A7'; // Neon Green
+                                    else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
+                                    else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+
+                                    return (
+                                        <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                        </linearGradient>
+                                    );
+                                })}
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                             <XAxis dataKey="time" hide />
                             <YAxis domain={[0, 100]} hide />
-                            <Area
-                                type="monotone"
-                                dataKey={chartView === 'YES' ? 'yesPrice' : 'noPrice'}
-                                name={chartView === 'YES' ? 'YES' : 'NO'}
-                                stroke={chartView === 'YES' ? "#27E8A7" : "#FF2E63"}
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#mobileColorPrimary)"
-                                animationDuration={0}
-                            />
+                            {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                let color;
+                                const lower = outcome.toLowerCase();
+                                if (lower === 'yes') color = '#27E8A7';
+                                else if (lower === 'no') color = '#FF2E63';
+                                else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+
+                                return (
+                                    <Area
+                                        key={outcome}
+                                        type="monotone"
+                                        dataKey={outcome}
+                                        name={outcome}
+                                        stroke={color}
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill={`url(#gradient-${index})`}
+                                        animationDuration={0}
+                                    />
+                                );
+                            })}
                         </AreaChart>
                     </ResponsiveContainer>
                 </Suspense>
-            </div>
-
-            {/* 4. Outcome selector */}
-            <div className="px-6 mb-6 flex gap-3">
-                <button
-                    onClick={() => { setChartView('YES'); setSelectedOutcomeIndex(0); }}
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'YES'
-                        ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-[0_0_15px_rgba(39,232,167,0.2)]'
-                        : 'bg-white/5 border-white/5 text-white/40'
-                        }`}
-                >
-                    {market.outcomes?.[0] || 'YES'} {(market.yesOdds || 50).toFixed(0)}%
-                </button>
-                <button
-                    onClick={() => { setChartView('NO'); setSelectedOutcomeIndex(1); }}
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold font-mono tracking-wider transition-all border ${chartView === 'NO'
-                        ? 'bg-neon-coral/10 border-neon-coral text-neon-coral shadow-[0_0_15px_rgba(255,46,99,0.2)]'
-                        : 'bg-white/5 border-white/5 text-white/40'
-                        }`}
-                >
-                    {market.outcomes?.[1] || 'NO'} {(market.noOdds || 50).toFixed(0)}%
-                </button>
             </div>
 
             {/* 5. Metrics Cards */}
