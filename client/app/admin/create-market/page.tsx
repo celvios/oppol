@@ -11,9 +11,12 @@ import { useCreationAccess } from "@/lib/use-creation-access";
 import { useRouter } from "next/navigation";
 import { getContracts } from "@/lib/contracts";
 import { ethers } from "ethers";
+import { useConnectorClient } from 'wagmi';
+import { clientToSigner } from "@/lib/viem-ethers-adapters";
 
 export default function CreateMarketPage() {
-    const { address, isConnected } = useWallet();
+    const { address, isConnected, connect } = useWallet();
+    const { data: connectorClient } = useConnectorClient();
     const { canCreate, checking } = useCreationAccess();
     const router = useRouter();
     const [hasAdminAccess, setHasAdminAccess] = useState(false);
@@ -31,7 +34,6 @@ export default function CreateMarketPage() {
         description: "",
         image: "",
         category: "Crypto",
-        initialLiquidity: "100",
         durationDays: "30",
         outcomes: ["Yes", "No"] // Default to binary, user can add more
     });
@@ -42,7 +44,7 @@ export default function CreateMarketPage() {
         if (adminKey) {
             setHasAdminAccess(true);
         }
-        
+
         // Fetch categories from API
         fetchCategories();
     }, []);
@@ -53,7 +55,7 @@ export default function CreateMarketPage() {
             const response = await fetch(`${apiUrl}/api/categories`);
             const data = await response.json();
             if (data.success && data.categories) {
-                const categoryNames = data.categories.map((cat: any) => cat.name);
+                const categoryNames = data.categories.map((cat: { name: string }) => cat.name);
                 setCategories(categoryNames);
                 // Set first category as default if available
                 if (categoryNames.length > 0) {
@@ -171,6 +173,19 @@ export default function CreateMarketPage() {
         setError("");
         setSuccess("");
 
+        // Basic Valdation
+        if (formData.outcomes.some(o => o.trim() === "")) {
+            setError("All outcomes must have a name.");
+            setIsLoading(false);
+            return;
+        }
+        const outcomeSet = new Set(formData.outcomes.map(o => o.trim().toLowerCase()));
+        if (outcomeSet.size !== formData.outcomes.length) {
+            setError("Outcome names must be unique.");
+            setIsLoading(false);
+            return;
+        }
+
         if (!isConnected || !address) {
             setError("Please connect your wallet first");
             setIsLoading(false);
@@ -196,8 +211,9 @@ export default function CreateMarketPage() {
             if (selectedFile) {
                 try {
                     finalImageUrl = await uploadImage(selectedFile);
-                } catch (err: any) {
-                    setError(`Image upload failed: ${err.message}`);
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Unknown upload error';
+                    setError(`Image upload failed: ${message}`);
                     setIsLoading(false);
                     return;
                 }
@@ -239,17 +255,19 @@ export default function CreateMarketPage() {
                 marketId = data.marketId;
                 txHash = data.txHash;
             } else {
-                // Public flow: User calls contract directly, then saves metadata
-                if (!window.ethereum) {
-                    setError("Please install MetaMask or connect a wallet");
+                // Public flow: User calls contract directly
+                if (!connectorClient) {
+                    setError("Wallet session stale. Opening connection modal...");
+                    connect();
                     setIsLoading(false);
                     return;
                 }
 
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
+                const signer = clientToSigner(connectorClient);
                 const contracts = getContracts();
-                const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
+                if (!marketAddress) {
+                    throw new Error("Market contract address missing in config");
+                }
 
                 const marketABI = [
                     'function createMarket(string, string, string, string[], uint256) external returns (uint256)',
@@ -258,8 +276,48 @@ export default function CreateMarketPage() {
 
                 const contract = new ethers.Contract(marketAddress, marketABI, signer);
 
-                // Call contract directly from user's wallet
-                // V2 with image/description: createMarket(question, image, description, outcomes[], durationDays)
+                console.log("Creating market with:", {
+                    q: formData.question,
+                    img: finalImageUrl ? "Present (URL/Data)" : "Empty",
+                    d: formData.description,
+                    o: formData.outcomes,
+                    dur: formData.durationDays
+                });
+
+                // DEBUG: Run static call first to catch reverts
+                try {
+                    await contract.createMarket.staticCall(
+                        formData.question,
+                        finalImageUrl || "",
+                        formData.description,
+                        formData.outcomes,
+                        parseFloat(formData.durationDays)
+                    );
+                } catch (staticError: any) {
+                    console.error("Static call failed:", staticError);
+
+                    // Robust Error Extraction
+                    let reason = staticError.reason || staticError.message || "Unknown error";
+
+                    // Handle nested error objects from Ethers/Viem
+                    if (staticError.info && staticError.info.error && staticError.info.error.message) {
+                        reason = staticError.info.error.message;
+                    }
+
+                    if (reason.toLowerCase().includes("insufficient creation token")) {
+                        reason = "You do not have enough BFT (Creation Token) to create a market.";
+                    } else if (reason.toLowerCase().includes("public creation disabled")) {
+                        reason = "Public creation is currently disabled by admins.";
+                    } else if (reason.toLowerCase().includes("user rejected")) {
+                        reason = "User rejected the transaction.";
+                    }
+
+                    setError(`Validation Failed: ${reason}`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // If static call passes, send real transaction
                 const tx = await contract.createMarket(
                     formData.question,
                     finalImageUrl || "",
@@ -268,6 +326,7 @@ export default function CreateMarketPage() {
                     parseFloat(formData.durationDays)
                 );
 
+                console.log("Tx sent:", tx.hash);
                 txHash = tx.hash;
                 await tx.wait();
 
@@ -301,23 +360,22 @@ export default function CreateMarketPage() {
             setTimeout(() => {
                 window.location.href = useAdminEndpoint ? "/admin" : "/terminal";
             }, 2000);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Create market error:", e);
             // Show the actual error message from the blockchain/contract
             let errorMessage = "Failed to create market";
-            
-            if (e.reason) {
-                errorMessage = e.reason;
-            } else if (e.message) {
-                if (e.message.includes("insufficient creation token balance")) {
-                    errorMessage = "Insufficient BFT token balance. You need at least 1 BFT token to create markets.";
-                } else if (e.message.includes("Public creation disabled")) {
-                    errorMessage = "Public market creation is disabled. You need BFT tokens or admin access.";
+
+            const err = e as any;
+            if (err.reason) {
+                errorMessage = err.reason;
+            } else if (err.message) {
+                if (err.message.includes("actions")) {
+                    errorMessage = "User rejected the transaction.";
                 } else {
-                    errorMessage = e.message;
+                    errorMessage = err.message.length > 100 ? "Transaction failed check console" : err.message;
                 }
             }
-            
+
             setError(errorMessage);
         } finally {
             setIsLoading(false);
@@ -357,8 +415,8 @@ export default function CreateMarketPage() {
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => router.back()} 
+                    <button
+                        onClick={() => router.back()}
                         className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                     >
                         <ArrowLeft size={20} />
@@ -560,7 +618,7 @@ export default function CreateMarketPage() {
                         )}
 
                         <NeonButton
-                            variant="primary"
+                            variant="cyan"
                             className="w-full py-4 text-lg"
                             disabled={isLoading}
                             type="submit"

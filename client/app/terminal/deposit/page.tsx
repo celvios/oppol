@@ -1,16 +1,16 @@
 "use client";
 
-import { Copy, Wallet, CheckCircle, ArrowRight } from "lucide-react";
+import { Copy, Wallet, CheckCircle, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { getContracts } from "@/lib/contracts";
-import { checkAndSwitchNetwork } from "@/lib/web3";
+import { getContracts, NETWORK } from "@/lib/contracts";
 import { Contract, ethers } from 'ethers';
+import { useConnectorClient } from 'wagmi';
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import { AlertModal } from "@/components/ui/AlertModal";
 import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
+import { clientToSigner } from "@/lib/viem-ethers-adapters";
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -50,12 +50,14 @@ const getTokens = () => {
 export default function DepositPage() {
     const tokens = getTokens();
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
+    const { data: connectorClient } = useConnectorClient();
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
 
     // Modal State
     const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -65,45 +67,27 @@ export default function DepositPage() {
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
-    // Remove hardcoded fallback, strict config should handle it or it returns undefined which crashes (good for fail fast)
-    // Actually getContracts() returns string | undefined. We should trust it or default to empty string to avoid crash but fail cleanly.
     const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '';
 
-
-
-
     useEffect(() => {
-        if (address) {
+        if (address && connectorClient) {
             fetchBalance();
         }
-    }, [address, selectedToken]);
+    }, [address, selectedToken, connectorClient]);
 
     async function fetchBalance() {
-        if (!address) return;
+        if (!address || !connectorClient) return;
         try {
-            if (!window.ethereum) return;
-
-            // Check network before trying to fetch
-            // We use a silent check first to avoid spamming switch requests on load if possible, 
-            // but for now let's just use the shared helper which might prompt.
-            // Actually, for fetchBalance (auto-run), let's just check chainId without switching first.
-            const provider = new ethers.BrowserProvider(window.ethereum as any);
-            const network = await provider.getNetwork();
-            // Dynamic Network Check
-            const targetChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 56);
-            if (Number(network.chainId) !== targetChainId) {
-                console.warn("Wrong network detected. Skipping balance fetch.");
-                return;
-            }
-
-            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+            // Using Wagmi read provider via signer for simplicity or just a public provider if we wanted
+            // Here taking a shortcut to use the connected signer for reading which ensures correct chain
+            const signer = clientToSigner(connectorClient);
+            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
 
             const balance = await tokenContract.balanceOf(address);
             const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
             console.error('Failed to fetch balance:', error);
-            // Suppress the alert for balance fetching, it's annoying. Just log it.
             setTokenBalance('0.00');
         }
     }
@@ -112,20 +96,14 @@ export default function DepositPage() {
     async function handleDeposit() {
         if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
+        setStatusMessage('Preparing transaction...');
+
         try {
-            if (!window.ethereum) {
-                throw new Error('Please install MetaMask');
+            if (!connectorClient) {
+                throw new Error('Wallet not ready. Please verify your connection.');
             }
 
-            // Enforce Network Switch
-            const isCorrectNetwork = await checkAndSwitchNetwork(window.ethereum);
-            if (!isCorrectNetwork) {
-                const targetName = process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Chain';
-                throw new Error(`Please switch to ${targetName} to deposit.`);
-            }
-
-            const provider = new ethers.BrowserProvider(window.ethereum as any);
-            const signer = await provider.getSigner();
+            const signer = clientToSigner(connectorClient);
 
             console.log('Using token:', selectedToken.address);
             console.log('Deposit amount:', depositAmount, selectedToken.symbol);
@@ -144,19 +122,25 @@ export default function DepositPage() {
                 if (!MARKET_CONTRACT) {
                     throw new Error("Market contract address is missing in configuration. Please report this issue.");
                 }
-                console.log('Direct USDC deposit to market contract:', MARKET_CONTRACT);
+                setStatusMessage(`Approving ${selectedToken.symbol}...`);
+
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
                 // Check allowance and approve if needed
                 const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
                 if (currentAllowance < amountInWei) {
                     console.log('Approving USDC spend...');
+                    setStatusMessage('Please sign approval in wallet...');
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
+                    setStatusMessage('Waiting for approval confirmation...');
                     await approveTx.wait();
                 }
 
                 // Deposit to market
+                setStatusMessage('Please sign deposit in wallet...');
                 const depositTx = await marketContract.deposit(amountInWei);
+
+                setStatusMessage('Confirming deposit...');
                 await depositTx.wait();
 
             } else {
@@ -164,46 +148,49 @@ export default function DepositPage() {
                 if (!ZAP_CONTRACT || ZAP_CONTRACT === '0x...') {
                     throw new Error("Zap contract address is missing or invalid. Please report this issue.");
                 }
-                console.log('Using Zap contract:', ZAP_CONTRACT);
+
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
 
                 // Approve Zap to spend tokens
                 const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
                 if (currentAllowance < amountInWei) {
-                    console.log('Approving Zap spend...');
+                    setStatusMessage('Please sign approval in wallet...');
                     const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
+                    setStatusMessage('Waiting for approval confirmation...');
                     await approveTx.wait();
                 }
 
                 // Calculate minimum USDC with 5% slippage
-                const estimatedUSDC = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 6);
+                // Use 18 decimals for USDC on BSC!
+                const estimatedUSDC = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
 
                 // Zap in via swap
-                console.log('Zapping token to USDC...');
+                setStatusMessage('Please sign swap transaction...');
                 const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedUSDC);
+
+                setStatusMessage('Processing swap...');
                 await zapTx.wait();
             }
 
             setLastDeposit({
                 amount: depositAmount,
                 symbol: selectedToken.symbol,
-                hash: (selectedToken.direct ? '' : '')
+                hash: '' // We could capture hash but simple success is likely enough
             });
             setSuccessModalOpen(true);
             setDepositAmount('');
             fetchBalance();
 
-            // ... inside catch block ...
         } catch (error: any) {
             console.error('Deposit failed:', error);
             let errorMessage = 'Deposit failed';
             let errorTitle = 'Transaction Failed';
 
-            if (error.code === 'ACTION_REJECTED') {
+            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected') || error.message?.includes('User denied')) {
                 errorMessage = 'Transaction was rejected by user';
                 errorTitle = 'Action Rejected';
             } else if (error.message?.includes('could not decode result data')) {
-                errorMessage = `The ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Contract not deployed on BSC Testnet\n• Wrong network selected\n• Contract address incorrect`;
+                errorMessage = `The ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Wrong network selected\n• Contract address incorrect`;
                 errorTitle = 'Contract Error';
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient funds for transaction cost';
@@ -216,6 +203,7 @@ export default function DepositPage() {
             setErrorModalOpen(true);
         } finally {
             setIsProcessing(false);
+            setStatusMessage('');
         }
     }
 
@@ -316,13 +304,21 @@ export default function DepositPage() {
                             />
                         </div>
 
+                        {/* Status Message */}
+                        {isProcessing && (
+                            <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center justify-center gap-3 animate-pulse">
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                <span className="text-primary text-sm font-bold">{statusMessage || 'Processing...'}</span>
+                            </div>
+                        )}
+
                         <button
                             onClick={handleDeposit}
                             disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing || selectedToken.comingSoon}
                             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
-                            {!selectedToken.comingSoon && <ArrowRight className="w-5 h-5" />}
+                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing Transaction...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
+                            {!selectedToken.comingSoon && !isProcessing && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>
