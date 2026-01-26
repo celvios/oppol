@@ -17,6 +17,7 @@ import { formatDistanceToNow } from "date-fns";
 
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BoostButton from "@/components/market/BoostButton";
+import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 
 // Outcome colors matching the chart component
 const OUTCOME_COLORS = [
@@ -537,6 +538,11 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             </span>
                         </div>
                     </GlassCard>
+
+                    {/* Sidebar Boost Button */}
+                    <div className="px-1">
+                        <SidebarBoostButton />
+                    </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                         {filteredMarkets.map((m) => {
