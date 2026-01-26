@@ -14,6 +14,16 @@ async function main() {
     const PredictionMarketMultiV2 = await ethers.getContractFactory("PredictionMarketMultiV2");
 
     console.log("\n2️⃣ Upgrading proxy to V2...");
+
+    // Attempt to force import if manifest is missing
+    console.log("Attempting to force import (recovery mode)...");
+    try {
+        await upgrades.forceImport(PROXY_ADDRESS, PredictionMarketMultiV2);
+        console.log("✅ Force import successful");
+    } catch (e: any) {
+        console.log("⚠️ Force import failed/skipped:", e.message);
+    }
+
     const upgraded = await upgrades.upgradeProxy(PROXY_ADDRESS, PredictionMarketMultiV2);
     await upgraded.waitForDeployment();
 

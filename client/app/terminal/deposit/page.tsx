@@ -27,16 +27,17 @@ const MARKET_ABI = [
     { name: 'deposit', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
 ];
 
-// Mainnet Token Addresses (BSC)
+// Mainnet Token Addresses (BSC) - Defaults but should come from Env
 const TOKENS = {
-    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-    USDT: '0x55d398326f99059fF775485246999027B3197955',
-    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'
+    // Fallback to known Mainnet addresses if env missing, but ideally strictly env
+    USDC: process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    USDT: '0x55d398326f99059fF775485246999027B3197955', // USDT is constant on BSC usually
+    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // WBNB is constant
 };
 
 const getTokens = () => {
     const c = getContracts() as any;
-    // Use env var or fall back to known Mainnet address
+    // Use contract config if available, else TOKENS default
     const usdcAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDC;
 
     return [

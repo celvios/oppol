@@ -139,7 +139,8 @@ app.post('/api/calculate-cost', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     const marketABI = [
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
     ];
@@ -197,9 +198,8 @@ app.post('/api/bet', async (req, res) => {
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
     // Unified multi-outcome contract address
-    const MARKET_ADDR = ethers.getAddress(
-      process.env.MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
-    );
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log('🔍 [BET DEBUG] Market address:', MARKET_ADDR);
 
     // Multi-outcome contract ABI
@@ -362,9 +362,8 @@ app.post('/api/multi-bet', async (req, res) => {
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
     // Multi-outcome contract address
-    const MULTI_MARKET_ADDR = ethers.getAddress(
-      process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
-    );
+    const MULTI_MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+    if (!MULTI_MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log('🔍 [MULTI-BET DEBUG] Multi-Market address:', MULTI_MARKET_ADDR);
 
     const marketABI = [
@@ -518,7 +517,8 @@ app.post('/api/wallet/link', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log(`[Wallet Link] Using Market Address: ${MARKET_ADDR}`);
     console.log(`[Wallet Link] Using RPC: ${rpcUrl}`);
 
@@ -566,7 +566,8 @@ app.post('/api/faucet', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_CONTRACT;
+    if (!USDC_ADDR) throw new Error("Missing USDC_CONTRACT env var");
     const usdcABI = ['function mint(address to, uint256 amount)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -628,7 +629,8 @@ app.post('/api/withdraw', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_ADDRESS;
+    if (!USDC_ADDR) throw new Error("Missing USDC_ADDRESS env var");
     const usdcABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -670,8 +672,11 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_CONTRACT;
+
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
+    if (!USDC_ADDR) throw new Error("Missing USDC_CONTRACT env var");
 
     const marketABI = ['function userBalances(address) view returns (uint256)'];
     const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
@@ -729,7 +734,8 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 

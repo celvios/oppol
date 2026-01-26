@@ -46,9 +46,9 @@ const getMarketContract = () => {
     try {
         const { getContracts } = require('@/lib/contracts');
         const contracts = getContracts() as Record<string, string>;
-        return (contracts.predictionMarket || '') as `0x${string}`;
+        return (contracts.predictionMarket || process.env.NEXT_PUBLIC_MARKET_ADDRESS || '') as `0x${string}`;
     } catch (e) {
-        return '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6' as `0x${string}`;
+        return (process.env.NEXT_PUBLIC_MARKET_ADDRESS || '') as `0x${string}`;
     }
 };
 
@@ -445,6 +445,37 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                                     );
                                 })}
                             </defs>
+                            const CustomTooltip = ({active, payload, label}: any) => {
+    if (active && payload && payload.length) {
+        return (
+                            <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl min-w-[180px] z-50">
+                                <div className="text-white/50 text-xs mb-2 font-mono pb-2 border-b border-white/5">{label}</div>
+                                <div className="space-y-1.5">
+                                    {payload.map((entry: any, index: number) => (
+                                        <div key={index} className="flex items-center justify-between gap-4 font-mono text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke }} />
+                                                <span style={{ color: entry.stroke }}>{entry.name}</span>
+                                            </div>
+                                            <span className="text-white font-bold">{Number(entry.value).toFixed(6)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            );
+    }
+                            return null;
+};
+
+                            // ... inside AreaChart
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{
+                                    stroke: 'rgba(255,255,255,0.3)',
+                                    strokeWidth: 2,
+                                    strokeDasharray: '4 4'
+                                }}
+                            />
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                             <XAxis dataKey="time" hide />
                             <YAxis domain={[0, 100]} hide />
@@ -466,6 +497,12 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                                         fillOpacity={1}
                                         fill={`url(#gradient-${index})`}
                                         animationDuration={0}
+                                        activeDot={{
+                                            r: 4,
+                                            fill: '#fff',
+                                            stroke: color,
+                                            strokeWidth: 2
+                                        }}
                                     />
                                 );
                             })}
