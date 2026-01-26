@@ -9,6 +9,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { useCreationAccess } from "@/lib/use-creation-access";
 import { PlusCircle } from "lucide-react";
 import LogoBrand from "@/components/ui/LogoBrand";
+import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 
 const navItems = [
     { name: "Home", href: "/", icon: Home },
@@ -100,6 +101,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             <PlusCircle className="w-5 h-5 text-neon-cyan" />
                             {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Market</span>}
                         </Link>
+                    )}
+
+
+
+                    {!collapsed && (
+                        <div className="mt-4 mb-2">
+                            <SidebarBoostButton />
+                        </div>
                     )}
 
                     {isConnected ? (
