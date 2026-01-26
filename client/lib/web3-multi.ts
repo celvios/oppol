@@ -29,6 +29,10 @@ export interface MultiMarket {
     yesPool?: string;
     noPool?: string;
     outcome?: boolean; // true if YES won, false if NO won (for binary)
+    // Boost fields
+    isBoosted?: boolean;
+    boost_expires_at?: number;
+    boost_tier?: number;
 }
 
 export interface MultiPosition {
@@ -249,6 +253,10 @@ export class Web3MultiService {
                 totalVolume: m.totalVolume || '0',
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
+                // Boost fields
+                isBoosted: m.is_boosted || false,
+                boost_tier: m.boost_tier,
+                boost_expires_at: m.boost_expires_at,
                 image: m.image_url || '',
             }));
         } catch (error: any) {

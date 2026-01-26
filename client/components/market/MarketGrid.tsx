@@ -149,6 +149,7 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
                             color="green"
                             image_url={market.image_url || market.image}
                             description={market.description}
+                            isBoosted={market.isBoosted}
                         />
                     </motion.div>
                 ))}
