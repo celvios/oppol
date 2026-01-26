@@ -82,6 +82,28 @@ interface MobileTerminalProps {
     initialMarkets?: Market[];
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl min-w-[180px] z-50">
+                <div className="text-white/50 text-xs mb-2 font-mono pb-2 border-b border-white/5">{label}</div>
+                <div className="space-y-1.5">
+                    {payload.map((entry: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between gap-4 font-mono text-xs">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke }} />
+                                <span style={{ color: entry.stroke }}>{entry.name}</span>
+                            </div>
+                            <span className="text-white font-bold">{Number(entry.value).toFixed(6)}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
 export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -445,29 +467,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                                     );
                                 })}
                             </defs>
-                            const CustomTooltip = ({active, payload, label}: any) => {
-    if (active && payload && payload.length) {
-        return (
-                            <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl min-w-[180px] z-50">
-                                <div className="text-white/50 text-xs mb-2 font-mono pb-2 border-b border-white/5">{label}</div>
-                                <div className="space-y-1.5">
-                                    {payload.map((entry: any, index: number) => (
-                                        <div key={index} className="flex items-center justify-between gap-4 font-mono text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke }} />
-                                                <span style={{ color: entry.stroke }}>{entry.name}</span>
-                                            </div>
-                                            <span className="text-white font-bold">{Number(entry.value).toFixed(6)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            );
-    }
-                            return null;
-};
 
-                            // ... inside AreaChart
                             <Tooltip
                                 content={<CustomTooltip />}
                                 cursor={{
