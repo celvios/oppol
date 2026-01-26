@@ -61,6 +61,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 space-y-2">
+                    {!collapsed && (
+                        <div className="mb-4">
+                            <SidebarBoostButton />
+                        </div>
+                    )}
+
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
