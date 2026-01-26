@@ -5,9 +5,7 @@ export default function TerminalLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return (
-        <ClientShell>
-            {children}
-        </ClientShell>
-    );
+    <ClientShell>
+        {children}
+    </ClientShell>
 }
