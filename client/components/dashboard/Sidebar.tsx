@@ -107,7 +107,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
                     {!collapsed && (
                         <div className="mt-4 mb-2">
-                            <SidebarBoostButton />
+                            {/* <SidebarBoostButton /> */}
                         </div>
                     )}
 
