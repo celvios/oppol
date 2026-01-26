@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { formatDistanceToNow } from "date-fns";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle } from "lucide-react";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
 import { web3MultiService as web3Service, MultiMarket as Market } from '@/lib/web3-multi';
@@ -427,215 +428,216 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             />
                         </div>
 
-                        <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
-                            {market.question}
-                            {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">
-                                Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}
-                            </span>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
+                                {market.question}
+                                {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
+                            </h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">
+                                    Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {metadata && (
-                    <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
-                        {metadata.description}
-                    </p>
-                )}
+                    {metadata && (
+                        <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
+                            {metadata.description}
+                        </p>
+                    )}
 
-                <div className="flex items-end gap-3 mt-4">
-                    <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
-                        {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
+                    <div className="flex items-end gap-3 mt-4">
+                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
+                            {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
+                        </div>
+                        {/* Percentage removed as requested */}
                     </div>
-                    {/* Percentage removed as requested */}
                 </div>
             </div>
-        </div>
 
-            {/* 3. Chart - Lazy loaded */ }
-    <div className="h-[220px] w-full mb-6 relative">
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
-        <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
-            <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                    <defs>
-                        {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                            const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-                            return (
-                                <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                </linearGradient>
-                            );
-                        })}
-                    </defs>
+            {/* 3. Chart - Lazy loaded */}
+            <div className="h-[220px] w-full mb-6 relative">
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
+                <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                    const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                                    return (
+                                        <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                        </linearGradient>
+                                    );
+                                })}
+                            </defs>
 
-                    <Tooltip
-                        content={<CustomTooltip />}
-                        cursor={{
-                            stroke: 'rgba(255,255,255,0.3)',
-                            strokeWidth: 2,
-                            strokeDasharray: '4 4'
-                        }}
-                    />
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="time" hide />
-                    <YAxis domain={[0, 100]} hide />
-                    {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                        let color;
-                        const lower = outcome.toLowerCase();
-                        if (lower === 'yes') color = '#27E8A7';
-                        else if (lower === 'no') color = '#FF2E63';
-                        else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-
-                        return (
-                            <Area
-                                key={outcome}
-                                type="monotone"
-                                dataKey={outcome}
-                                name={outcome}
-                                stroke={color}
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill={`url(#gradient-${index})`}
-                                animationDuration={0}
-                                activeDot={{
-                                    r: 4,
-                                    fill: '#fff',
-                                    stroke: color,
-                                    strokeWidth: 2
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{
+                                    stroke: 'rgba(255,255,255,0.3)',
+                                    strokeWidth: 2,
+                                    strokeDasharray: '4 4'
                                 }}
                             />
-                        );
-                    })}
-                </AreaChart>
-            </ResponsiveContainer>
-        </Suspense>
-    </div>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis dataKey="time" hide />
+                            <YAxis domain={[0, 100]} hide />
+                            {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                let color;
+                                const lower = outcome.toLowerCase();
+                                if (lower === 'yes') color = '#27E8A7';
+                                else if (lower === 'no') color = '#FF2E63';
+                                else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
 
-    {/* 5. Metrics Cards */ }
-    <div className="px-4 grid grid-cols-2 gap-4 mb-10">
-        <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
-            <GlassCard className="p-4 !bg-white/5">
-                <div className="flex items-center gap-2 mb-2">
-                    <Activity size={14} className="text-neon-cyan" />
-                    <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
-                </div>
-                <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
-            </GlassCard>
-        </Suspense>
-        <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
-            <GlassCard className="p-4 !bg-white/5">
-                <div className="flex items-center gap-2 mb-2">
-                    <BarChart2 size={14} className="text-neon-purple" />
-                    <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
-                </div>
-                <div className="font-mono text-lg text-white font-medium">
-                    ${parseFloat(market.liquidityParam || '0').toFixed(0)}
-                </div>
-            </GlassCard>
-        </Suspense>
-    </div>
-
-    {/* Market Status or Trade Actions */ }
-    {
-        market && (market.resolved || market.assertionPending) ? (
-            <div className="px-6 pb-24">
-                <ResolutionPanel
-                    marketId={market.id}
-                    question={market.question}
-                    endTime={market.endTime}
-                    resolved={market.resolved}
-                    outcome={market.outcome}
-                    winningOutcomeIndex={market.winningOutcome}
-                    assertionPending={market.assertionPending}
-                    assertedOutcome={market.assertedOutcome}
-                    assertedOutcomeIndex={market.assertedOutcome}
-                    asserter={market.asserter}
-                />
-            </div>
-        ) : (
-        <>
-            {/* Action Buttons - Multi-outcome aware */}
-            {(market.outcomes?.length || 0) > 2 ? (
-                /* Multi-outcome: Show all outcomes as tappable rows */
-                <div className="px-6 mb-8 space-y-3">
-                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Select Outcome</div>
-                    {market.outcomes?.map((outcome, index) => {
-                        const price = market.prices?.[index] || 0;
-                        const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-                        return (
-                            <button
-                                key={index}
-                                onClick={() => {
-                                    setTradeSide(outcome);
-                                    setSelectedOutcomeIndex(index);
-                                    setIsTradeSheetOpen(true);
-                                }}
-                                className="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between active:scale-[0.98] transition-all hover:border-white/30"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: color }}
+                                return (
+                                    <Area
+                                        key={outcome}
+                                        type="monotone"
+                                        dataKey={outcome}
+                                        name={outcome}
+                                        stroke={color}
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill={`url(#gradient-${index})`}
+                                        animationDuration={0}
+                                        activeDot={{
+                                            r: 4,
+                                            fill: '#fff',
+                                            stroke: color,
+                                            strokeWidth: 2
+                                        }}
                                     />
-                                    <span className="font-medium text-white text-left">{outcome}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-mono font-bold text-lg" style={{ color }}>
-                                        {Math.round(price)}%
-                                    </span>
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : (
-                /* Binary: Show YES/NO buttons */
-                <div className="px-6 mb-8 flex gap-4">
-                    <button
-                        onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
-                        className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        BUY {market.outcomes?.[0] || 'YES'}
-                    </button>
-                    <button
-                        onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
-                        className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        BUY {market.outcomes?.[1] || 'NO'}
-                    </button>
-                </div>
-            )}
-        </>
-    )
-    }
+                                );
+                            })}
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </Suspense>
+            </div>
+
+            {/* 5. Metrics Cards */}
+            <div className="px-4 grid grid-cols-2 gap-4 mb-10">
+                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                    <GlassCard className="p-4 !bg-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Activity size={14} className="text-neon-cyan" />
+                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
+                        </div>
+                        <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
+                    </GlassCard>
+                </Suspense>
+                <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
+                    <GlassCard className="p-4 !bg-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <BarChart2 size={14} className="text-neon-purple" />
+                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
+                        </div>
+                        <div className="font-mono text-lg text-white font-medium">
+                            ${parseFloat(market.liquidityParam || '0').toFixed(0)}
+                        </div>
+                    </GlassCard>
+                </Suspense>
+            </div>
+
+            {/* Market Status or Trade Actions */}
+            {
+                market && (market.resolved || market.assertionPending) ? (
+                    <div className="px-6 pb-24">
+                        <ResolutionPanel
+                            marketId={market.id}
+                            question={market.question}
+                            endTime={market.endTime}
+                            resolved={market.resolved}
+                            outcome={market.outcome}
+                            winningOutcomeIndex={market.winningOutcome}
+                            assertionPending={market.assertionPending}
+                            assertedOutcome={market.assertedOutcome}
+                            assertedOutcomeIndex={market.assertedOutcome}
+                            asserter={market.asserter}
+                        />
+                    </div>
+                ) : (
+                    <>
+                        {/* Action Buttons - Multi-outcome aware */}
+                        {(market.outcomes?.length || 0) > 2 ? (
+                            /* Multi-outcome: Show all outcomes as tappable rows */
+                            <div className="px-6 mb-8 space-y-3">
+                                <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Select Outcome</div>
+                                {market.outcomes?.map((outcome, index) => {
+                                    const price = market.prices?.[index] || 0;
+                                    const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                                    return (
+                                        <button
+                                            key={index}
+                                            onClick={() => {
+                                                setTradeSide(outcome);
+                                                setSelectedOutcomeIndex(index);
+                                                setIsTradeSheetOpen(true);
+                                            }}
+                                            className="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between active:scale-[0.98] transition-all hover:border-white/30"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                                <span className="font-medium text-white text-left">{outcome}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-lg" style={{ color }}>
+                                                    {Math.round(price)}%
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            /* Binary: Show YES/NO buttons */
+                            <div className="px-6 mb-8 flex gap-4">
+                                <button
+                                    onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
+                                    className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    BUY {market.outcomes?.[0] || 'YES'}
+                                </button>
+                                <button
+                                    onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
+                                    className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    BUY {market.outcomes?.[1] || 'NO'}
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )
+            }
 
 
 
-    {/* Bottom Sheet */ }
-    <AnimatePresence>
-        {isTradeSheetOpen && (
-            <TradeBottomSheet
-                isOpen={isTradeSheetOpen}
-                onClose={() => setIsTradeSheetOpen(false)}
-                market={market}
-                side={tradeSide}
-                outcomeIndex={selectedOutcomeIndex}
-                balance={balance}
-                onTradeSuccess={() => {
-                    if (fetchData) fetchData();
-                }}
-            />
-        )}
-    </AnimatePresence>
+            {/* Bottom Sheet */}
+            <AnimatePresence>
+                {isTradeSheetOpen && (
+                    <TradeBottomSheet
+                        isOpen={isTradeSheetOpen}
+                        onClose={() => setIsTradeSheetOpen(false)}
+                        market={market}
+                        side={tradeSide}
+                        outcomeIndex={selectedOutcomeIndex}
+                        balance={balance}
+                        onTradeSuccess={() => {
+                            if (fetchData) fetchData();
+                        }}
+                    />
+                )}
+            </AnimatePresence>
 
-    {/* Comments Section (Mobile) */ }
-    <div className="px-4 pb-20 mt-8">
-        <CommentsSection marketId={market.id} />
-    </div>
+            {/* Comments Section (Mobile) */}
+            <div className="px-4 pb-20 mt-8">
+                <CommentsSection marketId={market.id} />
+            </div>
         </div >
     );
 }
