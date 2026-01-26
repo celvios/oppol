@@ -109,7 +109,7 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
                 if (!decoded) return;
 
                 const to = decoded.args.to.toLowerCase();
-                const amount = ethers.formatUnits(decoded.args.value, 6); // USDC has 6 decimals
+                const amount = ethers.formatUnits(decoded.args.value, 18); // BSC USDC has 18 decimals
 
                 // Check if recipient is a watched address
                 const userInfo = watchedAddresses.get(to);

@@ -13,6 +13,7 @@ import { recordMarketPrice, getPriceHistory, startPriceTracker } from './service
 import { query } from './config/database';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
+import updateBalanceRoutes from './routes/admin';
 import commentsRoutes from './routes/comments';
 import { apiRouter } from './routes/api';
 
@@ -71,6 +72,7 @@ app.use((req, res, next) => {
 
 // Admin Routes
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', updateBalanceRoutes);
 
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
 app.use('/api/comments', commentsRoutes);
