@@ -7,7 +7,7 @@ import { CONFIG } from '../config/contracts';
 const router = Router();
 const RPC_URL = CONFIG.RPC_URL;
 // "Admin Wallet" receiving the boost payments
-const ADMIN_WALLET = process.env.ADMIN_WALLET || "0xYourAdminWalletHere";
+const ADMIN_WALLET = process.env.ADMIN_WALLET || "0xa4B1B886f955b2342bC9bB4f77B80839357378b76";
 
 interface BoostTier {
     id: number;
