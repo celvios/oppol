@@ -45,7 +45,6 @@ export default function MarketCard({
     prices,
     outcomeCount = 2,
     color = "cyan",
-    color = "cyan",
     image_url,
     description,
     isBoosted
