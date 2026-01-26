@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getMarketsServer } from "@/lib/server-fetch";
-import { TerminalClient } from "./terminal/TerminalClient"; // Check this import path relative to page.tsx
+import { TerminalClient } from "./terminal/TerminalClient";
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import ClientShell from "@/components/layout/ClientShell"; // We'll create this to handle client-side state like 'collapsed'
 
 // This is a SERVER COMPONENT - data is fetched on server, HTML arrives with data!
 export default async function TerminalPage() {
@@ -9,8 +11,10 @@ export default async function TerminalPage() {
     const markets = await getMarketsServer();
 
     return (
-        <Suspense fallback={<SkeletonLoader />}>
-            <TerminalClient initialMarkets={markets} />
-        </Suspense>
+        <ClientShell>
+            <Suspense fallback={<SkeletonLoader />}>
+                <TerminalClient initialMarkets={markets} />
+            </Suspense>
+        </ClientShell>
     );
 }
