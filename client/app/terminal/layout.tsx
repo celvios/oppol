@@ -16,6 +16,11 @@ export default function TerminalLayout({
 
     return (
         <div className="min-h-screen bg-background text-white flex flex-col md:flex-row">
+            {/* DEBUG: Remove after confirming layout activity */}
+            <div className="fixed top-20 left-20 z-[9999] bg-red-600 px-4 py-2 font-bold border-2 border-white">
+                TERMINAL LAYOUT ACTIVE
+            </div>
+
             {/* Desktop Sidebar - Hidden on Mobile */}
             <div className="hidden md:block z-50">
                 <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
