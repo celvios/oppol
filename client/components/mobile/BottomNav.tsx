@@ -34,7 +34,6 @@ export default function BottomNav() {
         { name: "Terminal", icon: BarChart2, href: "/terminal" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
         ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
-        { name: "Search", icon: Search, href: "/search" },
         { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
     ];
 
