@@ -16,7 +16,7 @@ import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
-import { BoostButton } from "@/components/market/BoostButton";
+import BoostButton from "@/components/market/BoostButton";
 
 // Outcome colors matching the chart component
 const OUTCOME_COLORS = [

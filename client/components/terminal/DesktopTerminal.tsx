@@ -45,7 +45,7 @@ interface Market {
     isBoosted?: boolean;
 }
 
-import { BoostButton } from "@/components/market/BoostButton";
+import BoostButton from "@/components/market/BoostButton";
 
 interface PricePoint {
     time: string;
