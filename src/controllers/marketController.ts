@@ -27,15 +27,15 @@ function isCacheValid(entry: CacheEntry | undefined): boolean {
 
 export const createMarketMetadata = async (req: Request, res: Response) => {
     try {
-        const { marketId, question, description, imageUrl, categoryId } = req.body;
+        const { marketId, question, description, imageUrl, categoryId, creatorAddress } = req.body;
 
         if (!marketId || !question) {
             return res.status(400).json({ success: false, message: 'Missing marketId or question' });
         }
 
         await query(
-            'insert into markets (market_id, question, description, image, category) values ($1, $2, $3, $4, $5)',
-            [marketId, question, description || '', imageUrl || '', categoryId || '']
+            'insert into markets (market_id, question, description, image, category, creator_address) values ($1, $2, $3, $4, $5, $6)',
+            [marketId, question, description || '', imageUrl || '', categoryId || '', creatorAddress || '']
         );
 
         res.json({ success: true, message: 'Market metadata created' });
@@ -99,6 +99,10 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     description: row.description || '',
                     image_url: row.image || '',
                     category_id: row.category || '',
+                    creator_address: row.creator_address || '',
+                    is_boosted: row.is_boosted || false,
+                    boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
+                    creator_fee: 2, // V3 Constant
                     ...onChainData
                 };
             })
@@ -197,6 +201,10 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             description: row.description || '',
             image_url: row.image || '',
             category_id: row.category || '',
+            creator_address: row.creator_address || '',
+            is_boosted: row.is_boosted || false,
+            boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
+            creator_fee: 2, // V3 Constant
             ...onChainData
         };
 

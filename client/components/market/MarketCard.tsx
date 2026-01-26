@@ -3,6 +3,7 @@
 import GlassCard from "@/components/ui/GlassCard";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import BoostButton from "./BoostButton";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -30,6 +31,7 @@ interface MarketCardProps {
     // API metadata (optional)
     image_url?: string;
     description?: string;
+    isBoosted?: boolean;
 }
 
 export default function MarketCard({
@@ -43,8 +45,10 @@ export default function MarketCard({
     prices,
     outcomeCount = 2,
     color = "cyan",
+    color = "cyan",
     image_url,
-    description
+    description,
+    isBoosted
 }: MarketCardProps) {
     // Use API metadata - no fallback, API is source of truth
     // Base64 images should start with 'data:image/' or be a valid URL
@@ -52,10 +56,10 @@ export default function MarketCard({
         if (!img || !img.trim()) return false;
         const trimmed = img.trim();
         // Check if it's a base64 data URI or a valid URL
-        return trimmed.startsWith('data:image/') || 
-               trimmed.startsWith('http://') || 
-               trimmed.startsWith('https://') ||
-               trimmed.startsWith('/');
+        return trimmed.startsWith('data:image/') ||
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('/');
     };
 
     const metadata = {
@@ -142,6 +146,11 @@ export default function MarketCard({
                             </p>
                         )}
                         <p className="text-xs text-text-secondary mt-1 font-mono">Vol: {volume}</p>
+
+                        {/* Boost Button - Prevent bubbling */}
+                        <div className="mt-2" onClick={(e) => e.preventDefault()}>
+                            <BoostButton marketId={id} isBoosted={isBoosted} />
+                        </div>
                     </div>
 
                     {isMultiOutcome ? (

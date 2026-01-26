@@ -6,6 +6,7 @@ import { TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import BoostButton from "../market/BoostButton";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -198,6 +199,14 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                                         <span className="text-xs font-bold text-neon-cyan flex items-center gap-1 bg-neon-cyan/10 px-3 py-1.5 rounded-full border border-neon-cyan/20">
                                             Join Poll <TrendingUp size={12} />
                                         </span>
+                                    </div>
+
+                                    {/* Boost Button (Stop Propagation to prevent navigation) */}
+                                    <div className="absolute top-3 right-3 z-20" onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}>
+                                        <BoostButton marketId={market.id} isBoosted={market.isBoosted} />
                                     </div>
                                 </GlassCard>
                             </Link>

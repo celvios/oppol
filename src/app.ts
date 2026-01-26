@@ -15,6 +15,7 @@ import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
 import updateBalanceRoutes from './routes/admin';
 import commentsRoutes from './routes/comments';
+import boostRoutes from './routes/boostRoutes';
 import { apiRouter } from './routes/api';
 
 const app = express();
@@ -75,7 +76,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin', updateBalanceRoutes);
 
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
+// API Routes (includes Telegram, WhatsApp, Markets, etc.)
 app.use('/api/comments', commentsRoutes);
+app.use('/api/boost', boostRoutes);
 app.use('/api', apiRouter);
 
 // WHATSAPP USER ENDPOINT - Get or create user wallet
