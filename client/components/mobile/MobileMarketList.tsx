@@ -7,6 +7,7 @@ import Link from "next/link";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import BoostButton from "../market/BoostButton";
+import FeaturedCarousel from "./FeaturedCarousel";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -98,6 +99,11 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                     />
                 </div>
             </div>
+
+            {/* Featured Carousel - Only show if no search query */}
+            {!searchQuery && (
+                <FeaturedCarousel markets={markets} />
+            )}
 
             {/* Trending Feed - Only show if no search query */}
             {!searchQuery && (
@@ -252,4 +258,3 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
         </div>
     );
 }
-

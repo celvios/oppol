@@ -8,9 +8,10 @@ import { BoostModal } from "./BoostModal";
 interface BoostButtonProps {
     marketId: number | string;
     isBoosted?: boolean;
+    compact?: boolean;
 }
 
-export default function BoostButton({ marketId, isBoosted }: BoostButtonProps) {
+export default function BoostButton({ marketId, isBoosted, compact }: BoostButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     if (isBoosted) {
