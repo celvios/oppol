@@ -254,7 +254,7 @@ export class Web3MultiService {
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
                 // Boost fields
-                isBoosted: m.is_boosted || false,
+                isBoosted: m.is_boosted || (m.market_id !== undefined ? m.market_id : m.id) < 3, // TEMP: Auto-boost first 3 markets for demo
                 boost_tier: m.boost_tier,
                 boost_expires_at: m.boost_expires_at,
                 image: m.image_url || '',
