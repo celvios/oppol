@@ -105,7 +105,7 @@ export default function MarketCard({
     }
 
     return (
-        <Link href={`/terminal?marketId=${id}`}>
+        <Link href={`/?marketId=${id}`}>
             <GlassCard
                 className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}

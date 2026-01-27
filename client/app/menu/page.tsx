@@ -75,7 +75,7 @@ export default function MenuPage() {
                     </GlassCard>
                 </Link>
 
-                <Link href="/terminal/portfolio">
+                <Link href="/portfolio">
                     <GlassCard className="p-4 flex items-center justify-between active:scale-[0.98] transition-all">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white">

@@ -765,7 +765,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         <div className="text-2xl font-mono text-white flex items-center gap-2">
                             <span className="text-neon-cyan">$</span>
                             {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                            <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/terminal/deposit'}>DEPOSIT</NeonButton>
+                            <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/deposit'}>DEPOSIT</NeonButton>
                         </div>
                     </GlassCard>
 

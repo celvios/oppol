@@ -42,7 +42,7 @@ export default function PortfolioPage() {
             setTotalPnL(0);
             return;
         }
-        
+
         // Only fetch data if wallet is connected and we have an address
         if (!isConnected || !address) {
             setLoading(false);
@@ -236,7 +236,7 @@ export default function PortfolioPage() {
 
             {/* Fund Management Actions */}
             <div className="grid grid-cols-2 gap-4">
-                <Link href="/terminal/deposit">
+                <Link href="/deposit">
                     <button className="w-full p-4 bg-outcome-a/10 border border-outcome-a/30 rounded-xl hover:bg-outcome-a/20 transition-all group flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-outcome-a/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                             <Plus className="w-5 h-5 text-outcome-a" strokeWidth={3} />
@@ -247,7 +247,7 @@ export default function PortfolioPage() {
                         </div>
                     </button>
                 </Link>
-                <Link href="/terminal/withdraw">
+                <Link href="/withdraw">
                     <button className="w-full p-4 bg-outcome-b/10 border border-outcome-b/30 rounded-xl hover:bg-outcome-b/20 transition-all group flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-outcome-b/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                             <Minus className="w-5 h-5 text-outcome-b" strokeWidth={3} />

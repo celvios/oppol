@@ -26,7 +26,7 @@ export function MarketsClient({ initialMarkets }: MarketsClientProps) {
             <AnimatedBackground />
 
             <div className="relative z-10 p-6">
-                <Link href="/terminal" className="inline-flex items-center text-text-secondary hover:text-white transition-colors mb-8">
+                <Link href="/" className="inline-flex items-center text-text-secondary hover:text-white transition-colors mb-8">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Terminal
                 </Link>
