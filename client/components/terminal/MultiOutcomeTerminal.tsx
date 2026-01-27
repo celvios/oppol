@@ -18,6 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BoostButton from "@/components/market/BoostButton";
 import DesktopFeaturedCarousel from "./DesktopFeaturedCarousel";
+import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 
 // Outcome colors matching the chart component
 const OUTCOME_COLORS = [
@@ -354,6 +355,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         }}
                     />
                 )}
+
+                {/* Featured Carousel (Mobile) */}
+                <FeaturedCarousel markets={markets} />
 
                 {/* Market Header */}
                 <GlassCard className="p-4">
