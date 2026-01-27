@@ -1,5 +1,7 @@
-import { X, ExternalLink, ShieldAlert } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, ExternalLink, ShieldAlert, ArrowDown, Wallet, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePancakeSwap } from "@/lib/use-pancake-swap";
 
 interface BC400PurchaseModalProps {
     isOpen: boolean;
@@ -7,6 +9,40 @@ interface BC400PurchaseModalProps {
 }
 
 export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseModalProps) {
+    const { getEstimatedOutput, swap, isLoading, error: swapError } = usePancakeSwap();
+    const [amountIn, setAmountIn] = useState('');
+    const [estimatedOut, setEstimatedOut] = useState('0');
+    const [isSwapping, setIsSwapping] = useState(false);
+
+    // Default to BNB for simplicity
+    const TOKEN_IN = 'BNB';
+    const TOKEN_OUT = process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+
+    useEffect(() => {
+        const fetchEstimate = async () => {
+            if (!amountIn || parseFloat(amountIn) === 0) {
+                setEstimatedOut('0');
+                return;
+            }
+            // Debounce could be added here
+            const out = await getEstimatedOutput(amountIn, TOKEN_IN, TOKEN_OUT);
+            setEstimatedOut(Number(out).toFixed(2));
+        };
+        fetchEstimate();
+    }, [amountIn, getEstimatedOutput, TOKEN_OUT]);
+
+    const handleSwap = async () => {
+        if (!amountIn) return;
+        setIsSwapping(true);
+        const success = await swap(amountIn, TOKEN_IN, TOKEN_OUT);
+        setIsSwapping(false);
+        if (success) {
+            onClose();
+            // Optional: Trigger a refresh of the balance check here
+            window.location.reload();
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -39,33 +75,75 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                         <X size={20} />
                     </button>
 
-                    <div className="relative z-10 text-center">
-                        <div className="w-16 h-16 rounded-full bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center mx-auto mb-5">
-                            <ShieldAlert className="w-8 h-8 text-neon-purple" />
+                    <div className="relative z-10">
+                        <div className="text-center mb-6">
+                            <div className="w-12 h-12 rounded-full bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center mx-auto mb-3">
+                                <ShieldAlert className="w-6 h-6 text-neon-purple" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-1">Access Restricted</h3>
+                            <p className="text-white/50 text-xs">Buy BC400 tokens to create polls.</p>
                         </div>
 
-                        <h3 className="text-xl font-bold text-white mb-2">Access Restricted</h3>
+                        {/* Swap Input */}
+                        <div className="space-y-4">
+                            {/* You Pay */}
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                <label className="text-xs text-white/40 mb-1 block">You Pay</label>
+                                <div className="flex justify-between items-center">
+                                    <input
+                                        type="number"
+                                        placeholder="0.0"
+                                        value={amountIn}
+                                        onChange={(e) => setAmountIn(e.target.value)}
+                                        className="bg-transparent text-xl font-bold text-white outline-none w-full"
+                                    />
+                                    <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
+                                        <div className="w-5 h-5 rounded-full bg-[#F3BA2F]" />
+                                        <span className="text-sm font-bold">BNB</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <p className="text-white/60 text-sm leading-relaxed mb-6">
-                            You don’t have a <span className="text-neon-cyan font-bold">BC400 NFT</span> on this address to create a Poll/Market. Make sure there is a BC400 NFT in your wallet.
-                        </p>
+                            {/* Arrow */}
+                            <div className="flex justify-center -my-2 relative z-10">
+                                <div className="bg-[#0a0a0a] border border-white/10 p-1.5 rounded-full">
+                                    <ArrowDown size={14} className="text-white/60" />
+                                </div>
+                            </div>
 
-                        <a
-                            href={`https://pancakeswap.finance/swap?outputCurrency=${process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000'}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 bg-[#1FC7D4] hover:bg-[#1FC7D4]/90 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(31,199,212,0.3)] mb-3"
-                        >
-                            <img src="https://pancakeswap.finance/logo.png" alt="PancakeSwap" className="w-5 h-5" onError={(e) => e.currentTarget.style.display = 'none'} />
-                            Buy on PancakeSwap <ExternalLink size={16} />
-                        </a>
+                            {/* You Receive */}
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                <label className="text-xs text-white/40 mb-1 block">You Receive (Estimated)</label>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xl font-bold text-white">{estimatedOut}</span>
+                                    <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
+                                        <div className="w-5 h-5 rounded-full bg-neon-purple" />
+                                        <span className="text-sm font-bold">BC400</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
+                        {/* Error Message */}
+                        {swapError && (
+                            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500 text-center">
+                                {swapError}
+                            </div>
+                        )}
+
+                        {/* Action Button */}
                         <button
-                            onClick={onClose}
-                            className="w-full py-3 text-sm text-white/40 hover:text-white transition-colors"
+                            onClick={handleSwap}
+                            disabled={!amountIn || isLoading || isSwapping}
+                            className="w-full mt-6 flex items-center justify-center gap-2 bg-neon-purple hover:bg-neon-purple/90 disabled:bg-white/5 disabled:text-white/20 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(157,78,221,0.3)]"
                         >
-                            Close
+                            {isLoading || isSwapping ? <Loader2 className="animate-spin w-5 h-5" /> : <Wallet className="w-5 h-5" />}
+                            {isLoading || isSwapping ? 'Processing...' : 'Swap BNB for BC400'}
                         </button>
+
+                        <div className="mt-4 text-center">
+                            <span className="text-[10px] text-white/30">Powered by PancakeSwap V2 Router</span>
+                        </div>
                     </div>
                 </motion.div>
             </div>
