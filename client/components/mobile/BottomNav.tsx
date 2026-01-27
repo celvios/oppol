@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -58,6 +58,21 @@ export default function BottomNav() {
                         )}
                         <Home className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-neon-cyan" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")}>Home</span>
+                    </Link>
+
+                    {/* Markets */}
+                    <Link
+                        href="/markets"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    >
+                        {pathname === "/markets" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/markets" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/markets" ? "text-white" : "text-text-secondary")}>Markets</span>
                     </Link>
 
                     {/* Create Poll (Replaces Markets/Search) */}
