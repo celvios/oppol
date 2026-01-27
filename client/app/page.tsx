@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getMarketsServer } from "@/lib/server-fetch";
-import { TerminalClient } from "./terminal/TerminalClient";
+import { TerminalClient } from "@/components/terminal/TerminalClient";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import ClientShell from "@/components/layout/ClientShell"; // We'll create this to handle client-side state like 'collapsed'
 

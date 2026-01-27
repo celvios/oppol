@@ -33,7 +33,7 @@ export default function BottomNav() {
         { name: "Home", icon: Home, href: "/" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
         ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
-        { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
+        { name: "Portfolio", icon: Wallet, href: "/portfolio" },
     ];
 
     return (

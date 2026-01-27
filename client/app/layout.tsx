@@ -5,7 +5,6 @@ import { ReownProvider } from "@/lib/reown-provider";
 import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
-import BottomNav from "@/components/mobile/BottomNav";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
 import { WalletDebugPanel } from "@/components/ui/WalletDebugPanel";
@@ -56,7 +55,6 @@ export default function RootLayout({
                 <UserRegistrationManager />
                 <Header />
                 {children}
-                <BottomNav />
                 <WalletDebugPanel />
                 <WalletConnectionTest />
               </SettingsProvider>

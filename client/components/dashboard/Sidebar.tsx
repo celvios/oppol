@@ -14,9 +14,9 @@ import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 const navItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "Explore", href: "/markets", icon: Globe },
-    { name: "Portfolio", href: "/terminal/portfolio", icon: PieChart },
-    { name: "Deposit", href: "/terminal/deposit", icon: ArrowUpRight },
-    { name: "Withdraw", href: "/terminal/withdraw", icon: ArrowDownRight },
+    { name: "Portfolio", href: "/portfolio", icon: PieChart },
+    { name: "Deposit", href: "/deposit", icon: ArrowUpRight },
+    { name: "Withdraw", href: "/withdraw", icon: ArrowDownRight },
 ];
 
 interface SidebarProps {
