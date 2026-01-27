@@ -18,6 +18,9 @@ export interface ServerMarket {
     totalVolume: string;
     resolved: boolean;
     winningOutcome: number;
+    isBoosted?: boolean;
+    boost_tier?: number;
+    boost_expires_at?: number;
 }
 
 /**
@@ -26,7 +29,7 @@ export interface ServerMarket {
  */
 export async function getMarketsServer(): Promise<ServerMarket[]> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    
+
     if (!apiUrl) {
         console.error('[Server] NEXT_PUBLIC_API_URL not set');
         return [];
@@ -42,7 +45,7 @@ export async function getMarketsServer(): Promise<ServerMarket[]> {
         }
 
         const data = await response.json();
-        
+
         if (!data.success || !data.markets) {
             return [];
         }
@@ -62,6 +65,10 @@ export async function getMarketsServer(): Promise<ServerMarket[]> {
             totalVolume: m.totalVolume || '0',
             resolved: m.resolved || false,
             winningOutcome: m.winningOutcome || 0,
+            // Boost fields (Sync with web3-multi.ts)
+            isBoosted: m.is_boosted || (m.market_id !== undefined ? m.market_id : m.id) < 3,
+            boost_tier: m.boost_tier,
+            boost_expires_at: m.boost_expires_at,
         }));
     } catch (error) {
         console.error('[Server] Failed to fetch markets:', error);
