@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, BarChart2, Search, Wallet, User, LayoutGrid } from "lucide-react";
+import { Home, BarChart2, Wallet, User, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";

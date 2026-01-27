@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
-import { TrendingUp, Users } from "lucide-react";
+import { TrendingUp, Users, Search } from "lucide-react";
 import Link from "next/link";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -88,7 +88,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
             {/* Search Bar */}
             <div className="px-4 mb-6">
                 <div className="relative">
-                    <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" /> {/* Reused icon until we import Search */}
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" />
                     <input
                         type="text"
                         placeholder="Search markets..."
