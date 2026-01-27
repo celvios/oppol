@@ -96,6 +96,7 @@ export default function BottomNav() {
                 isOpen={showWalletModal}
                 onClose={() => setShowWalletModal(false)}
                 onConnect={connect}
+                context="create"
             />
 
             <BC400PurchaseModal

@@ -9,7 +9,7 @@ interface ConnectWalletModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConnect: () => void;
-    context: 'bet' | 'deposit' | 'withdraw' | 'portfolio' | 'general';
+    context: 'bet' | 'deposit' | 'withdraw' | 'portfolio' | 'general' | 'create';
     contextData?: {
         marketName?: string;
         amount?: string;
@@ -60,6 +60,8 @@ export default function ConnectWalletModal({
                 return 'Connect your wallet to withdraw your funds.';
             case 'portfolio':
                 return 'Connect your wallet to view your positions and trading history.';
+            case 'create':
+                return 'Connect your wallet to create a new poll.';
             default:
                 return 'Connect your wallet to access all features.';
         }

@@ -6,10 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
-import { useCreationAccess } from "@/lib/use-creation-access";
+import { useBC400Check } from "@/lib/use-bc400";
 import { PlusCircle } from "lucide-react";
 import LogoBrand from "@/components/ui/LogoBrand";
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
+import { useState } from "react";
 
 const navItems = [
     { name: "Home", href: "/", icon: Home },
@@ -27,12 +30,30 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isAdmin, isConnected, address, disconnect, connect } = useWallet();
-    const { canCreate } = useCreationAccess();
+    const { isConnected, address, disconnect, connect } = useWallet();
+    const { hasNFT } = useBC400Check();
+
+    const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     const handleLogout = () => {
         disconnect();
         router.push('/');
+    };
+
+    const handleCreateClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        if (!isConnected) {
+            setShowWalletModal(true);
+            return;
+        }
+
+        if (hasNFT) {
+            router.push('/admin/create-market');
+        } else {
+            setShowPurchaseModal(true);
+        }
     };
 
     return (
@@ -91,22 +112,20 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         );
                     })}
 
-                    {canCreate && (
-                        <Link
-                            href="/admin/create-market"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 border border-neon-cyan/20 bg-neon-cyan/5 hover:bg-neon-cyan/10",
-                                pathname === "/admin/create-market"
-                                    ? "text-neon-cyan"
-                                    : "text-neon-cyan/80",
-                                collapsed ? "justify-center" : ""
-                            )}
-                            title={collapsed ? "Create Market" : undefined}
-                        >
-                            <PlusCircle className="w-5 h-5 text-neon-cyan" />
-                            {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Market</span>}
-                        </Link>
-                    )}
+                    <div
+                        onClick={handleCreateClick}
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 border border-neon-cyan/20 bg-neon-cyan/5 hover:bg-neon-cyan/10 cursor-pointer",
+                            pathname === "/admin/create-market"
+                                ? "text-neon-cyan"
+                                : "text-neon-cyan/80",
+                            collapsed ? "justify-center" : ""
+                        )}
+                        title={collapsed ? "Create Poll" : undefined}
+                    >
+                        <PlusCircle className="w-5 h-5 text-neon-cyan" />
+                        {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Poll</span>}
+                    </div>
 
 
 
@@ -166,22 +185,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </button>
                     )}
 
-                    {isConnected && isAdmin && (
-                        <Link
-                            href="/admin"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-4 border",
-                                pathname === "/admin"
-                                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                                    : "text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/10 border-transparent hover:border-amber-500/20",
-                                collapsed ? "justify-center" : ""
-                            )}
-                            title={collapsed ? "Admin Panel" : undefined}
-                        >
-                            <Shield className="w-5 h-5" />
-                            {!collapsed && <span className="font-medium text-sm">Admin Panel</span>}
-                        </Link>
-                    )}
+
                 </nav>
 
                 {!collapsed && (
@@ -190,6 +194,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </div>
                 )}
             </div>
+            <ConnectWalletModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+                onConnect={connect}
+                context="create"
+            />
+
+            <BC400PurchaseModal
+                isOpen={showPurchaseModal}
+                onClose={() => setShowPurchaseModal(false)}
+            />
         </>
     );
 }
