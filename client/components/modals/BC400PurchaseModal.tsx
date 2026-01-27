@@ -9,7 +9,7 @@ interface BC400PurchaseModalProps {
 }
 
 export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseModalProps) {
-    const { getEstimatedOutput, swap, isLoading, error: swapError } = usePancakeSwap();
+    const { getEstimatedOutput, swap, isLoading, error: swapError, estimateError } = usePancakeSwap();
     const [amountIn, setAmountIn] = useState('');
     const [estimatedOut, setEstimatedOut] = useState('0');
     const [isSwapping, setIsSwapping] = useState(false);
@@ -125,9 +125,9 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                         </div>
 
                         {/* Error Message */}
-                        {swapError && (
+                        {(swapError || estimateError) && (
                             <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500 text-center">
-                                {swapError}
+                                {swapError || estimateError}
                             </div>
                         )}
 

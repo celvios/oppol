@@ -27,6 +27,7 @@ export function usePancakeSwap() {
     const { data: connectorClient } = useConnectorClient();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [estimateError, setEstimateError] = useState<string | null>(null);
 
     // Estimate output amount
     const getEstimatedOutput = useCallback(async (
@@ -34,6 +35,7 @@ export function usePancakeSwap() {
         tokenIn: string,
         tokenOut: string
     ) => {
+        setEstimateError(null);
         if (!amountIn || parseFloat(amountIn) === 0) return '0';
 
         try {
@@ -63,8 +65,14 @@ export function usePancakeSwap() {
             const amountOut = amounts[amounts.length - 1];
 
             return ethers.formatUnits(amountOut, 18);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Error estimating swap:", err);
+            // Detect common errors
+            if (err.message && (err.message.includes("INSUFFICIENT_LIQUIDITY") || err.code === 'CALL_EXCEPTION')) {
+                setEstimateError("Insufficient Liquidity: No Pool Found");
+            } else {
+                setEstimateError("Failed to fetch price");
+            }
             return '0';
         }
     }, []);
@@ -139,5 +147,5 @@ export function usePancakeSwap() {
         }
     }, [connectorClient, address]);
 
-    return { getEstimatedOutput, swap, isLoading, error };
+    return { getEstimatedOutput, swap, isLoading, error, estimateError };
 }
