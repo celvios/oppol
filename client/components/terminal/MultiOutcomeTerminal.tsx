@@ -622,6 +622,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 {/* CENTER COLUMN: Chart & Info (6 cols) */}
                 <div className="col-span-12 lg:col-span-6 flex flex-col gap-6 h-full">
 
+                    {/* Featured Carousel (Top of Market) */}
+                    <DesktopFeaturedCarousel markets={markets} />
+
                     {/* Header Info */}
                     <GlassCard className="p-6 relative overflow-hidden group">
                         {metadata && metadata.image && (
