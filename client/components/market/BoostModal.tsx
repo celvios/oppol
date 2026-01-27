@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, Loader2, Rocket } from "lucide-react";
+import { X, Copy, Check, Loader2, Rocket, Zap, Flame, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { BOOST_TIERS, BoostService } from "@/lib/boost-service";
 import NeonButton from "@/components/ui/NeonButton";
@@ -58,6 +58,15 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
         }
     };
 
+    const getTierIcon = (id: number) => {
+        switch (id) {
+            case 1: return <Zap className="w-8 h-8 text-blue-400 fill-blue-400/20" />; // Flash
+            case 2: return <Flame className="w-8 h-8 text-purple-400 fill-purple-400/20" />; // Standard
+            case 3: return <Crown className="w-8 h-8 text-yellow-400 fill-yellow-400/20" />; // Whale
+            default: return <Rocket className="w-8 h-8" />;
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
@@ -93,11 +102,11 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
                                 key={tier.id}
                                 onClick={() => setSelectedTier(tier)}
                                 className={`relative p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${selectedTier.id === tier.id
-                                        ? "bg-white/10 border-neon-cyan text-white shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-                                        : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
+                                    ? "bg-white/10 border-neon-cyan text-white shadow-[0_0_15px_rgba(0,255,255,0.2)]"
+                                    : "bg-white/5 border-white/5 text-white/60 hover:bg-white/10"
                                     }`}
                             >
-                                <span className="text-2xl">{tier.emoji}</span>
+                                <span className="text-2xl pt-2 pb-1">{getTierIcon(tier.id)}</span>
                                 <div className="text-center">
                                     <div className="font-bold text-sm tracking-tight">{tier.name}</div>
                                     <div className="text-xs opacity-70">{tier.hours < 24 ? `${tier.hours}h` : `${tier.hours / 24} Days`}</div>
