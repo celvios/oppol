@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     if (!apiUrl) {
       console.warn('NEXT_PUBLIC_API_URL is not defined, rewrites may fail');
     }
