@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, BarChart2, Wallet, User, LayoutGrid } from "lucide-react";
+import { Home, Wallet, User, LayoutGrid } from "lucide-react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -31,7 +31,6 @@ export default function BottomNav() {
 
     const navItems = [
         { name: "Home", icon: Home, href: "/" },
-        { name: "Terminal", icon: BarChart2, href: "/terminal" },
         { name: "Markets", icon: LayoutGrid, href: "/markets" },
         ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
         { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
