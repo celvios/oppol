@@ -44,7 +44,7 @@ const getTokens = () => {
         { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true, comingSoon: false },
         { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false, comingSoon: false },
         { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
-        { symbol: 'BC400', address: '0x0000000000000000000000000000000000000000', decimals: 18, direct: false, comingSoon: true },
+        { symbol: 'BC400', address: '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
     ];
 };
 

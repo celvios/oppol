@@ -7,7 +7,7 @@ const BC400_ABI = [
 ];
 
 // Placeholder - User can update this in .env later
-const BC400_ADDRESS = process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+const BC400_ADDRESS = process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || "0xB929177331De755d7aCc5665267a247e458bCdeC";
 
 export function useBC400Check() {
     const { address, isConnected } = useWallet();
