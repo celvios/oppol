@@ -237,7 +237,7 @@ export default function WithdrawPage() {
                         <div className="bg-black/40 rounded-xl p-4 space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-white/50">Amount</span>
-                                <span className="text-white font-mono text-lg">${withdrawAmount} USDC</span>
+                                <span className="text-white font-mono text-lg">${withdrawAmount} USDT</span>
                             </div>
                             <div className="border-t border-white/10 pt-3 flex justify-between">
                                 <span className="text-white/50">To Wallet</span>
@@ -276,7 +276,7 @@ export default function WithdrawPage() {
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                         <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
                         <h3 className="text-xl font-bold text-white mb-2">Withdrawal Successful!</h3>
-                        <p className="text-white/50 mb-4">${withdrawAmount} USDC has been sent to your wallet</p>
+                        <p className="text-white/50 mb-4">${withdrawAmount} USDT has been sent to your wallet</p>
                         {txHash && (
                             <a
                                 href={`${NETWORK.explorer}/tx/${txHash}`}

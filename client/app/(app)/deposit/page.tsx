@@ -30,19 +30,19 @@ const MARKET_ABI = [
 // Mainnet Token Addresses (BSC) - Defaults but should come from Env
 const TOKENS = {
     // Fallback to known Mainnet addresses if env missing, but ideally strictly env
-    USDC: process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-    USDT: '0x55d398326f99059fF775485246999027B3197955', // USDT is constant on BSC usually
+    USDT: process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x55d398326f99059fF775485246999027B3197955', // Binance-Peg BSC-USD (USDT)
+    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Native BSC-USD
     WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // WBNB is constant
 };
 
 const getTokens = () => {
     const c = getContracts() as any;
     // Use contract config if available, else TOKENS default
-    const usdcAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDC;
+    const mainTokenAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDT;
 
     return [
-        { symbol: 'USDC', address: usdcAddr, decimals: 18, direct: true, comingSoon: false },
-        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: false, comingSoon: false },
+        { symbol: 'USDT', address: mainTokenAddr, decimals: 18, direct: true, comingSoon: false },
+        { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: false, comingSoon: false },
         { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
         { symbol: 'BC400', address: '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
     ];
@@ -64,7 +64,7 @@ export default function DepositPage() {
     const [successModalOpen, setSuccessModalOpen] = useState(false);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
     const [modalError, setModalError] = useState({ title: '', message: '' });
-    const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDC', hash: '' });
+    const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDT', hash: '' });
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || '0x...';
@@ -119,7 +119,7 @@ export default function DepositPage() {
             }
 
             if (selectedToken.direct) {
-                // Direct USDC deposit
+                // Direct USDT deposit
                 if (!MARKET_CONTRACT) {
                     throw new Error("Market contract address is missing in configuration. Please report this issue.");
                 }
@@ -130,7 +130,7 @@ export default function DepositPage() {
                 // Check allowance and approve if needed
                 const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
                 if (currentAllowance < amountInWei) {
-                    console.log('Approving USDC spend...');
+                    console.log('Approving USDT spend...');
                     setStatusMessage('Please sign approval in wallet...');
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
                     setStatusMessage('Waiting for approval confirmation...');
@@ -161,13 +161,13 @@ export default function DepositPage() {
                     await approveTx.wait();
                 }
 
-                // Calculate minimum USDC with 5% slippage
-                // Use 18 decimals for USDC on BSC!
-                const estimatedUSDC = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
+                // Calculate minimum USDT with 5% slippage
+                // Use 18 decimals for USDT on BSC!
+                const estimatedMain = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
 
                 // Zap in via swap
                 setStatusMessage('Please sign swap transaction...');
-                const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedUSDC);
+                const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedMain);
 
                 setStatusMessage('Processing swap...');
                 await zapTx.wait();
@@ -220,7 +220,7 @@ export default function DepositPage() {
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
             <div className="text-center">
                 <h1 className="text-3xl font-mono font-bold text-white mb-2">DEPOSIT FUNDS</h1>
-                <p className="text-white/50">Add funds to start trading. Auto-converted to USDC.</p>
+                <p className="text-white/50">Add funds to start trading. Auto-converted to USDT.</p>
             </div>
 
             {isConnected ? (
@@ -282,7 +282,7 @@ export default function DepositPage() {
                             </div>
                             <div className="text-xs text-white/40 text-center">
                                 Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
-                                {selectedToken.direct ? ' (Direct)' : ' (Auto-converted to USDC)'}
+                                {selectedToken.direct ? ' (Direct)' : ' (Auto-converted to USDT)'}
                             </div>
                         </div>
 
@@ -318,7 +318,7 @@ export default function DepositPage() {
                             disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing || selectedToken.comingSoon}
                             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing Transaction...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDC'}
+                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing Transaction...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDT'}
                             {!selectedToken.comingSoon && !isProcessing && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
