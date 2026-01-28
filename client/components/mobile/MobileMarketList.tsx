@@ -75,6 +75,8 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
         return () => clearInterval(interval);
     }, []);
 
+    const [searchQuery, setSearchQuery] = useState("");
+
     // Category state
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [categories, setCategories] = useState<string[]>(["All"]);
