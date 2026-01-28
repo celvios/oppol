@@ -16,7 +16,7 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
 
     // Default to BNB for simplicity
     const TOKEN_IN = 'BNB';
-    const TOKEN_OUT = process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || '0xB929177331De755d7aCc5665267a247e458bCdeC';
+    const TOKEN_OUT = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD"; // BC400 Token Address
 
     useEffect(() => {
         const fetchEstimate = async () => {
