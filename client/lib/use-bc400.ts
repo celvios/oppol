@@ -7,7 +7,9 @@ const BC400_ABI = [
 ];
 
 // Placeholder - User can update this in .env later
-const BC400_ADDRESS = process.env.NEXT_PUBLIC_BC400_CONTRACT_ADDRESS || "0xB929177331De755d7aCc5665267a247e458bCdeC";
+const BC400_NFT_ADDRESS = "0xB929177331De755d7aCc5665267a247e458bCdeC";
+const BC400_TOKEN_ADDRESS = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD";
+const MIN_TOKEN_BALANCE = "10000000"; // 10 Million
 
 export function useBC400Check() {
     const { address, isConnected } = useWallet();
@@ -21,23 +23,29 @@ export function useBC400Check() {
                 return;
             }
 
-            // If address is the ZeroAddress placeholder, we can't check
-            // For dev/demo purposes, we might want to default to FALSE to show the modal
-            if (BC400_ADDRESS === ethers.ZeroAddress) {
-                setHasNFT(false);
-                return;
-            }
-
             try {
                 setChecking(true);
-                // Use a public provider or the connected provider
                 const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com');
-                const contract = new ethers.Contract(BC400_ADDRESS, BC400_ABI, provider);
 
-                const balance = await contract.balanceOf(address);
-                setHasNFT(Number(balance) > 0);
+                // Check NFT Balance
+                const nftContract = new ethers.Contract(BC400_NFT_ADDRESS, BC400_ABI, provider);
+                const nftBalance = await nftContract.balanceOf(address).catch(() => BigInt(0));
+
+                // Check Token Balance
+                const tokenContract = new ethers.Contract(BC400_TOKEN_ADDRESS, BC400_ABI, provider);
+                const tokenBalance = await tokenContract.balanceOf(address).catch(() => BigInt(0));
+
+                // Logic: (NFT > 0) OR (Token >= 10M)
+                // Assuming Token has 18 decimals. If 9, adjust accordingly.
+                // Standard ERC20 is 18. 10M = 10_000_000 * 10^18
+                const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, 18);
+
+                const hasEnoughTokens = tokenBalance >= requiredTokens;
+                const hasNft = Number(nftBalance) > 0;
+
+                setHasNFT(hasNft || hasEnoughTokens);
             } catch (error) {
-                console.error("Error checking BC400 balance:", error);
+                console.error("Error checking BC400 access:", error);
                 setHasNFT(false);
             } finally {
                 setChecking(false);
@@ -46,6 +54,5 @@ export function useBC400Check() {
 
         checkBalance();
     }, [address, isConnected]);
-
     return { hasNFT, checking };
 }

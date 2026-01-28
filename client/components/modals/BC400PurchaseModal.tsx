@@ -81,7 +81,9 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                                 <ShieldAlert className="w-6 h-6 text-neon-purple" />
                             </div>
                             <h3 className="text-lg font-bold text-white mb-1">Access Restricted</h3>
-                            <p className="text-white/50 text-xs">Buy BC400 tokens to create polls.</p>
+                            <p className="text-white/50 text-xs px-4">
+                                Must hold <span className="text-neon-cyan">1 BC400 NFT</span> OR <span className="text-neon-purple">10M+ BC400 Tokens</span> to create polls.
+                            </p>
                         </div>
 
                         {/* Swap Input */}
