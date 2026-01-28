@@ -17,6 +17,7 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
 
     // Only show boosted markets
     const boostedMarkets = markets.filter(m => m.isBoosted);
+    console.log('[FeaturedCarousel] Markets:', markets.length, 'Boosted:', boostedMarkets.length);
 
     // Reset when markets change
     useEffect(() => {
@@ -148,8 +149,8 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
                             key={idx}
                             onClick={() => setActiveIndex(idx)}
                             className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeIndex
-                                    ? "w-6 bg-amber-400 shadow-[0_0_5px_#fbbf24]"
-                                    : "w-1.5 bg-white/20 hover:bg-white/40"
+                                ? "w-6 bg-amber-400 shadow-[0_0_5px_#fbbf24]"
+                                : "w-1.5 bg-white/20 hover:bg-white/40"
                                 }`}
                         />
                     ))}

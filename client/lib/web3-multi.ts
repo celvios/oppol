@@ -339,6 +339,8 @@ export class Web3MultiService {
                 yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),
                 noPool: '0',
                 outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
+                // Boost fields - Consistent with API
+                isBoosted: marketId < 3,
             };
         } catch (error) {
             console.error('Error fetching multi-market:', error);
