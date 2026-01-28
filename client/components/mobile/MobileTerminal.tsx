@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -402,6 +403,11 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
 
     return (
         <div className="pb-12 relative min-h-screen">
+            {/* Logo - Static / Non-floating */}
+            <div className="pt-4 px-6 pb-0">
+                <LogoBrand />
+            </div>
+
             {/* Featured Carousel */}
             <div className="pt-4 px-4 pb-2">
                 <FeaturedCarousel markets={markets} />

@@ -26,7 +26,7 @@ export default function LogoBrand({ className = "", size = "md", href, animate =
     const Content = () => (
         <div className={`relative ${className} flex items-center`}>
             <Image
-                src="/opoll-logo.png"
+                src="/Opollll.jpg"
                 alt="OPoll"
                 width={s.width}
                 height={s.height}
