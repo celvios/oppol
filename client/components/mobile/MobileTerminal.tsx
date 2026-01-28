@@ -398,11 +398,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
     const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
-    import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 
-    // ... existing imports ...
-
-    // ... inside component ...
 
     return (
         <div className="pb-12 relative min-h-screen">
