@@ -152,9 +152,9 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
 // Extracted Card Component for reusability
 function MarketCard({ market, className }: { market: MultiMarket, className?: string }) {
     const isMultiOutcome = (market.outcomes?.length || 0) > 2;
+
     const metadata = {
         image: market.image_url || '',
-        description: market.description || '',
         category: market.category_id || 'General'
     };
 
@@ -168,93 +168,89 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
 
     return (
         <div className={className}>
-            <Link href={`/trade?marketId=${market.id}`} className="block h-full">
-                <GlassCard className="p-5 h-full active:scale-[0.98] transition-transform border border-white/5 active:border-outcome-a relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Link href={`/trade?marketId=${market.id}`} className="block w-full">
+                <div className="flex items-center gap-4 p-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 active:scale-[0.99] transition-all relative overflow-hidden group">
 
-                    {/* Header */}
-                    <div className="flex justify-between text-xs text-text-secondary mb-3 font-mono relative z-10">
-                        <span className="px-2 py-0.5 bg-white/10 rounded text-[10px]">{metadata.category}</span>
-                        <span className="flex items-center gap-1.5 text-neon-green font-bold tracking-wider">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
+                    {/* Compact Image Info */}
+                    <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-black/50 border border-white/10">
+                        {metadata.image ? (
+                            <img
+                                src={metadata.image}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
+                                <TrendingUp className="w-6 h-6 text-white/20" />
+                            </div>
+                        )}
+                        {market.isBoosted && (
+                            <div className="absolute top-0 right-0 p-1 bg-amber-500/90 text-black rounded-bl-lg">
+                                <Sparkles className="w-2 h-2" />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-text-secondary bg-white/5 px-1.5 rounded-sm">
+                                {metadata.category}
                             </span>
-                            LIVE
-                        </span>
-                    </div>
+                            <span className="text-[10px] text-text-secondary font-mono">
+                                ${market.totalVolume} Vol
+                            </span>
+                        </div>
 
-                    {/* Market Image */}
-                    <div className="relative z-10 h-24 w-full mb-3 rounded-lg overflow-hidden">
-                        <img
-                            src={metadata.image}
-                            alt={market.question}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-void/80 to-transparent" />
-                    </div>
+                        <h3 className="text-sm font-bold leading-tight line-clamp-2 text-white/90 mb-2">
+                            {market.question}
+                        </h3>
 
-                    {/* Title */}
-                    <h3 className="text-lg font-bold leading-snug mb-4 relative z-10 line-clamp-2 min-h-[3.5rem]">{market.question}</h3>
-
-                    {isMultiOutcome ? (
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs text-white/60">Leading:</span>
-                                <span className="text-sm font-bold text-neon-green">{leadingOutcome} {Math.round(leadingPrice)}%</span>
+                        {/* Minimalist Bar */}
+                        {isMultiOutcome ? (
+                            <div className="w-full flex items-center gap-2">
+                                <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
+                                    {market.prices?.map((price, i) => (
+                                        <div
+                                            key={i}
+                                            style={{ width: `${price}%`, backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
+                                            className="h-full"
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-xs font-mono font-bold text-neon-green shrink-0">
+                                    {Math.round(leadingPrice)}%
+                                </span>
                             </div>
-                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden flex font-mono text-xs">
-                                {market.prices?.map((price, i) => (
+                        ) : (
+                            <div className="w-full flex items-center gap-2">
+                                <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
                                     <div
-                                        key={i}
-                                        style={{ width: `${price}%`, backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                                        className="h-full"
+                                        className="h-full bg-outcome-a"
+                                        style={{ width: `${market.prices?.[0] || 50}%` }}
                                     />
-                                ))}
-                            </div>
-                            <div className="mt-2 text-[10px] text-white/40 font-mono text-center">
-                                {market.outcomes?.length} outcomes
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="relative h-14 w-full bg-white/5 rounded-xl overflow-hidden flex font-mono text-sm font-bold border border-white/5 relative z-10">
-                            <div
-                                style={{ width: `${market.prices?.[0] || 50}%` }}
-                                className="h-full bg-outcome-a text-[#020408] flex items-center pl-4 transition-all duration-1000"
-                            >
-                                <div className="flex flex-col leading-none">
-                                    <span className="text-xs opacity-70">YES</span>
-                                    <span className="text-lg">{(market.prices?.[0] || 50).toFixed(0)}%</span>
+                                    <div
+                                        className="h-full bg-outcome-b"
+                                        style={{ width: `${market.prices?.[1] || 50}%` }}
+                                    />
                                 </div>
+                                <span className="text-xs font-mono font-bold text-outcome-a shrink-0">
+                                    {(market.prices?.[0] || 50).toFixed(0)}%
+                                </span>
                             </div>
-                            <div className="flex-1 h-full bg-outcome-b text-[#020408] flex items-center justify-end pr-4">
-                                <div className="flex flex-col leading-none items-end">
-                                    <span className="text-xs opacity-70">NO</span>
-                                    <span className="text-lg">{(market.prices?.[1] || 50).toFixed(0)}%</span>
-                                </div>
-                            </div>
-                            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-black/20 -translate-x-1/2" />
-                        </div>
-                    )}
-
-                    {/* Volume Footer */}
-                    <div className="mt-4 flex justify-between items-center relative z-10">
-                        <span className="text-xs text-text-secondary bg-white/5 px-2 py-1 rounded-md">Vol: ${market.totalVolume}</span>
-                        <span className="text-xs font-bold text-neon-cyan flex items-center gap-1 bg-neon-cyan/10 px-3 py-1.5 rounded-full border border-neon-cyan/20">
-                            Join Poll <TrendingUp size={12} />
-                        </span>
+                        )}
                     </div>
 
-                    {/* Boost Button */}
-                    <div className="absolute top-3 right-3 z-20" onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }}>
-                        <BoostButton marketId={market.id} isBoosted={market.isBoosted} />
+                    {/* Chevron / Action */}
+                    <div className="shrink-0 text-white/20 group-hover:text-neon-cyan transition-colors">
+                        <TrendingUp className="w-5 h-5" />
                     </div>
-                </GlassCard>
+                </div>
             </Link>
         </div>
     );
 }
+
+// Helper icons
+import { Sparkles } from "lucide-react";
