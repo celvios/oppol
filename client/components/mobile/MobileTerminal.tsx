@@ -12,6 +12,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { AnimatePresence, motion } from "framer-motion";
 import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
+import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -397,8 +398,18 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const currentPrice = chartView === 'YES' ? (market.yesOdds || 50) : (100 - (market.yesOdds || 50));
     const priceColor = chartView === 'YES' ? "#27E8A7" : "#FF2E63";
 
+    import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
+
+    // ... existing imports ...
+
+    // ... inside component ...
+
     return (
         <div className="pb-12 relative min-h-screen">
+            {/* Featured Carousel */}
+            <div className="pt-4 px-4 pb-2">
+                <FeaturedCarousel markets={markets} />
+            </div>
 
             {/* 2. Price Hero */}
             <div className="relative overflow-hidden mb-6">
