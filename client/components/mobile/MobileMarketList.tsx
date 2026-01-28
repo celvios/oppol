@@ -168,7 +168,7 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
 
     return (
         <div className={className}>
-            <Link href={`/?marketId=${market.id}`} className="block h-full">
+            <Link href={`/trade?marketId=${market.id}`} className="block h-full">
                 <GlassCard className="p-5 h-full active:scale-[0.98] transition-transform border border-white/5 active:border-outcome-a relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 

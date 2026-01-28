@@ -77,7 +77,7 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
                                 // Note: Simple fade/scale is safer than sliding for verifying perfect centering first
                             }}
                         >
-                            <Link href={`/?marketId=${market.id}`} className="block h-full w-full">
+                            <Link href={`/trade?marketId=${market.id}`} className="block h-full w-full">
                                 <GlassCard className="h-full w-full relative overflow-hidden group border border-amber-500/30">
                                     {/* Background Image */}
                                     <div className="absolute inset-0">

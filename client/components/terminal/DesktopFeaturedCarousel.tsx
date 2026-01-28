@@ -66,7 +66,7 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
                                 pointerEvents: isActive ? 'auto' : 'none',
                             }}
                         >
-                            <Link href={`/?marketId=${market.id}`} className="block h-full w-full">
+                            <Link href={`/trade?marketId=${market.id}`} className="block h-full w-full">
                                 <div className="h-full w-full relative overflow-hidden group">
                                     {/* Background Image */}
                                     <div className="absolute inset-0">
@@ -132,8 +132,8 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
                             key={idx}
                             onClick={() => setActiveIndex(idx)}
                             className={`h-1 rounded-full transition-all duration-300 ${idx === activeIndex
-                                    ? "w-4 bg-amber-400/80"
-                                    : "w-1 bg-white/10 hover:bg-white/30"
+                                ? "w-4 bg-amber-400/80"
+                                : "w-1 bg-white/10 hover:bg-white/30"
                                 }`}
                         />
                     ))}
