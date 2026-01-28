@@ -54,7 +54,7 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
                 <h2 className="text-sm font-heading font-bold text-amber-400 tracking-wider">FEATURED</h2>
             </div>
 
-            <div className="relative h-48 w-full overflow-hidden rounded-2xl">
+            <div className="relative h-48 w-full overflow-hidden rounded-2xl bg-red-500/20 border-2 border-green-500">
                 {boostedMarkets.map((market, index) => {
                     // Calculate position relative to active index
                     let position = 100; // Default off-screen right
@@ -64,13 +64,14 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
                     // Specific logic for smooth circular transition
                     // Not using complex math, just opacity/translate for now for simplicity & performance
                     const isActive = index === activeIndex;
+                    console.log(`[Carousel] ID ${market.id} Idx ${index} Active ${activeIndex} IsActive ${isActive}`);
 
                     return (
                         <div
                             key={market.id}
                             className={`absolute inset-0 w-full h-full transition-all duration-500 ease-in-out transform`}
                             style={{
-                                opacity: isActive ? 1 : 0,
+                                opacity: 1, // FORCE VISIBLE
                                 zIndex: isActive ? 10 : 0,
                                 transform: `translateX(${(index - activeIndex) * 10}%) scale(${isActive ? 1 : 0.9})`,
                                 pointerEvents: isActive ? 'auto' : 'none',
