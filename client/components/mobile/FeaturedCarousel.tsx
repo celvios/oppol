@@ -72,7 +72,7 @@ export default function FeaturedCarousel({ markets }: FeaturedCarouselProps) {
                             style={{
                                 opacity: isActive ? 1 : 0,
                                 zIndex: isActive ? 10 : 0,
-                                transform: `translateX(${(index - activeIndex) * 10}% scale(${isActive ? 1 : 0.9}))`,
+                                transform: `translateX(${(index - activeIndex) * 10}%) scale(${isActive ? 1 : 0.9})`,
                                 pointerEvents: isActive ? 'auto' : 'none',
                                 // Note: Simple fade/scale is safer than sliding for verifying perfect centering first
                             }}
