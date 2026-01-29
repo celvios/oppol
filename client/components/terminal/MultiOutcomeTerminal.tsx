@@ -497,7 +497,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             </div >
 
             {/* DESKTOP VIEW */}
-            < div className="hidden md:grid h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 max-w-[1800px] mx-auto" >
+            <div className="hidden md:grid h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 max-w-[1800px]">
                 {successData && (
                     <SuccessModal
                         isOpen={isSuccessModalOpen}
