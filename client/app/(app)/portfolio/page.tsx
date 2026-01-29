@@ -211,7 +211,7 @@ export default function PortfolioPage() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                    <div className="absolute -right-4 -top-4 opacity-[0.1] pointer-events-none">
                         <LogoBrand size="xl" />
                     </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Total Balance</p>
@@ -223,7 +223,7 @@ export default function PortfolioPage() {
                 </div>
 
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                    <div className="absolute -right-4 -top-4 opacity-[0.1] pointer-events-none">
                         <LogoBrand size="xl" />
                     </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Active Positions</p>
@@ -232,7 +232,7 @@ export default function PortfolioPage() {
                 </div>
 
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                    <div className="absolute -right-4 -top-4 opacity-[0.1] pointer-events-none">
                         <LogoBrand size="xl" />
                     </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Unrealized PnL</p>
