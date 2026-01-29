@@ -7,6 +7,7 @@ import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
+import { LogoBrand } from "@/components/ui/LogoBrand";
 
 interface Position {
     market: string;
@@ -210,7 +211,9 @@ export default function PortfolioPage() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-
+                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                        <LogoBrand size="xl" />
+                    </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Total Balance</p>
                     <p className="text-4xl font-mono text-white">${parseFloat(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <div className="mt-4 flex items-center gap-2 text-white/40 text-sm">
@@ -219,13 +222,19 @@ export default function PortfolioPage() {
                     </div>
                 </div>
 
-                <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl">
+                <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                        <LogoBrand size="xl" />
+                    </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Active Positions</p>
                     <p className="text-4xl font-mono text-white">{positions.length}</p>
                     <p className="text-white/30 text-xs mt-2">{positions.length > 0 ? `Across ${positions.length} Position${positions.length > 1 ? 's' : ''}` : 'No active positions'}</p>
                 </div>
 
-                <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl">
+                <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none">
+                        <LogoBrand size="xl" />
+                    </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Unrealized PnL</p>
                     <p className={`text-4xl font-mono ${totalPnL >= 0 ? 'text-success' : 'text-danger'}`}>
                         {pnlDisplay}
