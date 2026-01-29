@@ -12,7 +12,8 @@ import {
     Twitter,
     Youtube,
     ChevronRight,
-    ExternalLink
+    ExternalLink,
+    Video
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
