@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle, Globe, Trophy } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe, Trophy, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -45,7 +45,7 @@ export default function BottomNav() {
                 <div className="absolute inset-0 bg-void/80 backdrop-blur-xl border-t border-white/5" suppressHydrationWarning={true} />
 
                 <nav className="relative flex justify-around items-center h-20 pb-2" suppressHydrationWarning={true}>
-                    {/* Home */}
+                    {/* Markets (Replaces Home) */}
                     <Link
                         href="/"
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
@@ -56,26 +56,20 @@ export default function BottomNav() {
                                 className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
                             />
                         )}
-                        <Home className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-neon-cyan" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")}>Home</span>
+                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")}>Markets</span>
                     </Link>
 
-                    {/* Markets */}
-                    <Link
-                        href="/markets"
-                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    {/* Leaderboard */}
+                    <div
+                        onClick={() => alert("Leaderboard Coming Soon!")}
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
                     >
-                        {pathname === "/markets" && (
-                            <motion.div
-                                layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
-                            />
-                        )}
-                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/markets" ? "text-neon-cyan" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/markets" ? "text-white" : "text-text-secondary")}>Markets</span>
-                    </Link>
+                        <Trophy className="w-6 h-6 text-yellow-400 transition-colors" />
+                        <span className="text-text-secondary transition-colors">LeaderBoard</span>
+                    </div>
 
-                    {/* Create Poll (Replaces Markets/Search) */}
+                    {/* Create Poll */}
                     <div
                         onClick={handleCreateClick}
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
@@ -105,14 +99,20 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
 
-                    {/* Leaderboard */}
-                    <div
-                        onClick={() => alert("Leaderboard Coming Soon!")}
-                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                    {/* Menu */}
+                    <Link
+                        href="/menu"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                     >
-                        <Trophy className="w-6 h-6 text-yellow-400 transition-colors" />
-                        <span className="text-text-secondary transition-colors">Rank</span>
-                    </div>
+                        {pathname === "/menu" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")}>Menu</span>
+                    </Link>
                 </nav>
             </div>
 
