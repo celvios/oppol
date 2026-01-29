@@ -83,23 +83,33 @@ export default function DepositPage() {
             let provider;
             let contractUser = address;
 
+            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+            console.log('[Deposit] Fetching balance for:', { address, token: selectedToken.symbol, tokenAddr: selectedToken.address });
+
             if (connectorClient) {
-                // Connected via wallet adapter (Wagmi)
+                console.log('[Deposit] Using Wallet Signer');
                 const signer = clientToSigner(connectorClient);
                 provider = signer;
             } else {
+                console.log('[Deposit] Using Public Provider:', rpcUrl);
                 // Fallback to Read-Only Provider
                 // This handles cases where useWallet has an address (cached) but Wagmi isn't fully active
-                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
                 provider = new ethers.JsonRpcProvider(rpcUrl);
             }
 
             const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+
+            // Debug contract call
+            console.log('[Deposit] Calling balanceOf...');
             const balance = await tokenContract.balanceOf(contractUser);
+            console.log('[Deposit] Raw Balance:', balance.toString());
+
             const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
+            console.log('[Deposit] Formatted Balance:', formattedBalance);
+
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
-            console.error('Failed to fetch balance:', error);
+            console.error('[Deposit] Failed to fetch balance:', error);
             setTokenBalance('0.00');
         }
     }
