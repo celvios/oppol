@@ -7,7 +7,10 @@ import Link from "next/link";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import BoostButton from "../market/BoostButton";
+import BoostButton from "../market/BoostButton";
 import FeaturedCarousel from "./FeaturedCarousel";
+import LogoBrand from "@/components/ui/LogoBrand";
+import { Send, MessageCircle } from "lucide-react";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -111,8 +114,34 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
 
     if (loading) return <div className="p-4"><SkeletonLoader /></div>;
 
+    import LogoBrand from "@/components/ui/LogoBrand";
+    import { Send, MessageCircle, FileText, HelpCircle } from "lucide-react";
+
+    // ... existing imports
+
+    // ... inside component
+
     return (
         <div className="w-full pb-20 md:hidden overflow-x-hidden">
+            {/* Custom Header */}
+            <div className="flex items-center justify-between px-4 pt-6 pb-4">
+                <LogoBrand size="sm" />
+                <div className="flex items-center gap-4">
+                    <a href="https://t.me/yourtelegram" target="_blank" rel="noreferrer" className="text-white hover:text-neon-cyan transition-colors">
+                        <Send className="w-5 h-5 -rotate-12" />
+                    </a>
+                    <a href="https://wa.me/yourwhatsapp" target="_blank" rel="noreferrer" className="text-white hover:text-neon-green transition-colors">
+                        <MessageCircle className="w-5 h-5" />
+                    </a>
+                    <a href="/docs" className="border border-white/20 px-2 py-0.5 rounded text-xs font-bold text-white hover:bg-white/10 transition-colors uppercase tracking-wide">
+                        DOC
+                    </a>
+                    <a href="/faq" className="text-sm font-bold text-white hover:text-primary transition-colors">
+                        FAQ
+                    </a>
+                </div>
+            </div>
+
             {/* Search Bar */}
             <div className="px-4 mb-4">
                 <div className="relative">
@@ -221,13 +250,7 @@ function TrendingMarketCard({ market, className }: { market: MultiMarket, classN
                     {/* Header */}
                     <div className="flex justify-between text-xs text-text-secondary mb-3 font-mono relative z-10">
                         <span className="px-2 py-0.5 bg-white/10 rounded text-[10px]">{metadata.category}</span>
-                        <span className="flex items-center gap-1.5 text-neon-green font-bold tracking-wider">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
-                            </span>
-                            LIVE
-                        </span>
+                        <span />
                     </div>
 
                     {/* Market Image */}
