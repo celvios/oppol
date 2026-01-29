@@ -10,10 +10,8 @@ export default async function TradePage() {
     const markets = await getMarketsServer();
 
     return (
-        <ClientShell>
-            <Suspense fallback={<SkeletonLoader />}>
-                <TerminalClient initialMarkets={markets} />
-            </Suspense>
-        </ClientShell>
+        <Suspense fallback={<SkeletonLoader />}>
+            <TerminalClient initialMarkets={markets} />
+        </Suspense>
     );
 }
