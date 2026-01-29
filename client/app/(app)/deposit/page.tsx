@@ -77,14 +77,25 @@ export default function DepositPage() {
     }, [address, selectedToken, connectorClient]);
 
     async function fetchBalance() {
-        if (!address || !connectorClient) return;
-        try {
-            // Using Wagmi read provider via signer for simplicity or just a public provider if we wanted
-            // Here taking a shortcut to use the connected signer for reading which ensures correct chain
-            const signer = clientToSigner(connectorClient);
-            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+        if (!address) return;
 
-            const balance = await tokenContract.balanceOf(address);
+        try {
+            let provider;
+            let contractUser = address;
+
+            if (connectorClient) {
+                // Connected via wallet adapter (Wagmi)
+                const signer = clientToSigner(connectorClient);
+                provider = signer;
+            } else {
+                // Fallback to Read-Only Provider
+                // This handles cases where useWallet has an address (cached) but Wagmi isn't fully active
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                provider = new ethers.JsonRpcProvider(rpcUrl);
+            }
+
+            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+            const balance = await tokenContract.balanceOf(contractUser);
             const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
             setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
