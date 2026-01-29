@@ -5,6 +5,8 @@ import BottomNav from "@/components/mobile/BottomNav";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import LogoBrand from "@/components/ui/LogoBrand";
+import { Send, MessageCircle } from "lucide-react";
 
 export default function ClientShell({
     children,
@@ -38,6 +40,25 @@ export default function ClientShell({
                     className="relative z-10"
                 >
                     {children}
+
+                    {/* Desktop Footer */}
+                    <div className="hidden md:flex items-center justify-between border-t border-white/5 pt-8 mt-12 pb-4">
+                        <LogoBrand size="sm" />
+                        <div className="flex items-center gap-6">
+                            <a href="https://t.me/opoll_predict_bot" target="_blank" rel="noreferrer" className="text-white/60 hover:text-neon-cyan transition-colors">
+                                <Send className="w-5 h-5 -rotate-12" />
+                            </a>
+                            <a href="https://wa.me/yourwhatsapp" target="_blank" rel="noreferrer" className="text-white/60 hover:text-neon-green transition-colors">
+                                <MessageCircle className="w-5 h-5" />
+                            </a>
+                            <a href="/docs" className="text-sm font-bold text-white/60 hover:text-white transition-colors border border-white/10 px-2 py-0.5 rounded hover:bg-white/5 uppercase tracking-wide">
+                                DOC
+                            </a>
+                            <a href="/faq" className="text-sm font-bold text-white/60 hover:text-white transition-colors">
+                                FAQ
+                            </a>
+                        </div>
+                    </div>
                 </motion.div>
             </main>
 
