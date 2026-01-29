@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle, Globe } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -104,6 +104,15 @@ export default function BottomNav() {
                         <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-neon-cyan" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
+
+                    {/* Leaderboard */}
+                    <div
+                        onClick={() => alert("Leaderboard Coming Soon!")}
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                    >
+                        <Trophy className="w-6 h-6 text-yellow-400 transition-colors" />
+                        <span className="text-text-secondary transition-colors">Rank</span>
+                    </div>
                 </nav>
             </div>
 

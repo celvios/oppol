@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe } from "lucide-react";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useBC400Check } from "@/lib/use-bc400";
@@ -111,6 +111,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             </Link>
                         );
                     })}
+
+                    <div
+                        onClick={() => alert("Leaderboard Coming Soon!")}
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group cursor-pointer text-white/60 hover:text-white hover:bg-white/5",
+                            collapsed ? "justify-center" : ""
+                        )}
+                        title={collapsed ? "Leaderboard" : undefined}
+                    >
+                        <Trophy className="w-5 h-5 transition-transform group-hover:scale-110 text-yellow-400" />
+                        {!collapsed && <span className="font-medium text-sm">Leaderboard</span>}
+                    </div>
 
                     <div
                         onClick={handleCreateClick}
