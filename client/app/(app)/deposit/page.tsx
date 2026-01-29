@@ -29,9 +29,9 @@ const MARKET_ABI = [
 
 // Mainnet Token Addresses (BSC)
 const TOKENS = {
-    USDT: '0x55d398326f99059fF775485246999027B3197955', // Binance-Peg BSC-USD (USDT)
-    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Native BSC-USD
-    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // WBNB
+    USDT: process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955', // Fallback to Binance-Peg BSC-USD
+    USDC: process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Fallback to Native BSC-USD
+    WBNB: process.env.NEXT_PUBLIC_WBNB_CONTRACT || '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // Fallback to WBNB
 };
 
 const getTokens = () => {
