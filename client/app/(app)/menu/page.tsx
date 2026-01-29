@@ -1,6 +1,6 @@
 "use client";
 
-import { LogoBrand } from "@/components/ui/LogoBrand";
+import LogoBrand from "@/components/ui/LogoBrand";
 import { Send, MessageCircle, FileText, HelpCircle, Shield, FileCheck, Lock, Twitter, Video } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";

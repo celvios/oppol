@@ -7,7 +7,7 @@ import { web3Service } from '@/lib/web3';
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
-import { LogoBrand } from "@/components/ui/LogoBrand";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 interface Position {
     market: string;
