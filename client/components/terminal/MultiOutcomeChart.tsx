@@ -1,63 +1,21 @@
-"use strict";
+import LogoBrand from "@/components/ui/LogoBrand";
 
-import { useMemo } from 'react';
-import {
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    ResponsiveContainer,
-    CartesianGrid,
-    Tooltip,
-    Legend
-} from 'recharts';
-
-interface MultiOutcomeChartProps {
-    data: any[]; // Array of history points
-    outcomes: string[]; // List of outcome names
-    height?: number | string;
-}
-
-// Neon color palette matching the theme
-const COLORS = [
-    "#27E8A7", // Neon Green
-    "#00F0FF", // Neon Cyan
-    "#FF2E63", // Neon Coral
-    "#9D4EDD", // Neon Purple
-    "#FFD700", // Gold
-    "#FF8C00", // Orange
-    "#0077B6", // Ocean Blue
-    "#F72585", // Pink
-];
+// ... existing imports
 
 export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutcomeChartProps) {
 
-    // Create gradients definition
-    const gradients = useMemo(() => (
-        <defs>
-            {outcomes.map((outcome, index) => {
-                let color;
-                const lower = outcome.toLowerCase();
-                if (lower === 'yes') color = '#27E8A7'; // Neon Green
-                else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
-                else color = COLORS[index % COLORS.length];
-
-                return (
-                    <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                        <stop offset="95%" stopColor={color} stopOpacity={0} />
-                    </linearGradient>
-                );
-            })}
-        </defs>
-    ), [outcomes]);
-
-    if (!outcomes || outcomes.length === 0) return null;
+    // ... existing setup
 
     return (
-        <div style={{ width: "100%", height }}>
+        <div style={{ width: "100%", height }} className="relative">
+            {/* Watermark Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.03]">
+                <LogoBrand size="xl" />
+            </div>
+
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    {/* ... existing chart code */}
                     {gradients}
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis
