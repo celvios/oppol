@@ -119,7 +119,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
             <div className="flex items-center justify-between px-4 pt-6 pb-4 mb-4">
                 <LogoBrand size="sm" />
                 <div className="flex items-center gap-4">
-                    <a href="https://t.me/opoll_predict_bot" target="_blank" rel="noreferrer" className="text-white hover:text-neon-cyan transition-colors">
+                    <a href="https://t.me/yourtelegram" target="_blank" rel="noreferrer" className="text-white hover:text-neon-cyan transition-colors">
                         <Send className="w-5 h-5 -rotate-12" />
                     </a>
                     <a href="https://wa.me/yourwhatsapp" target="_blank" rel="noreferrer" className="text-white hover:text-neon-green transition-colors">

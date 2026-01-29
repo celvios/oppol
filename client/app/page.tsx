@@ -6,6 +6,8 @@ import { TerminalClient } from "@/components/terminal/TerminalClient";
 import ClientShell from "@/components/layout/ClientShell";
 import { headers } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 // Homepage:
 // - Desktop: Show Trading Terminal
 // - Mobile: Show Markets List
