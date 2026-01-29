@@ -210,7 +210,7 @@ export default function PortfolioPage() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10"><PieChart size={100} /></div>
+
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Total Balance</p>
                     <p className="text-4xl font-mono text-white">${parseFloat(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <div className="mt-4 flex items-center gap-2 text-white/40 text-sm">
