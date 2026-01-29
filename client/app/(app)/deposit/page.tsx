@@ -27,22 +27,25 @@ const MARKET_ABI = [
     { name: 'deposit', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
 ];
 
-// Mainnet Token Addresses (BSC) - Defaults but should come from Env
+// Mainnet Token Addresses (BSC)
 const TOKENS = {
-    // Fallback to known Mainnet addresses if env missing, but ideally strictly env
-    USDT: process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x55d398326f99059fF775485246999027B3197955', // Binance-Peg BSC-USD (USDT)
+    USDT: '0x55d398326f99059fF775485246999027B3197955', // Binance-Peg BSC-USD (USDT)
     USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Native BSC-USD
-    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // WBNB is constant
+    WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'  // WBNB
 };
 
 const getTokens = () => {
     const c = getContracts() as any;
-    // Use contract config if available, else TOKENS default
-    const mainTokenAddr = (c.mockUSDC && c.mockUSDC !== '') ? c.mockUSDC : TOKENS.USDT;
+    // The market's base token (collateral)
+    const marketToken = (c.mockUSDC || c.usdc || '').toLowerCase();
+
+    // Determine which token is "Direct" (must match market collat)
+    const isUSDTDirect = marketToken === TOKENS.USDT.toLowerCase();
+    const isUSDCDirect = marketToken === TOKENS.USDC.toLowerCase();
 
     return [
-        { symbol: 'USDT', address: mainTokenAddr, decimals: 18, direct: true, comingSoon: false },
-        { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: false, comingSoon: false },
+        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: isUSDTDirect, comingSoon: false },
+        { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: isUSDCDirect, comingSoon: false },
         { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
         { symbol: 'BC400', address: '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
     ];
