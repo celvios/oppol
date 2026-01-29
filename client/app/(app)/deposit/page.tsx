@@ -47,7 +47,7 @@ const getTokens = () => {
         { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: isUSDTDirect, comingSoon: false },
         { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: isUSDCDirect, comingSoon: false },
         { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
-        { symbol: 'BC400', address: '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
+        { symbol: 'BC400', address: process.env.NEXT_PUBLIC_BC400_CONTRACT || '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
     ];
 };
 
@@ -129,32 +129,43 @@ export default function DepositPage() {
             }
 
             const signer = clientToSigner(connectorClient);
-
-            console.log('Using token:', selectedToken.address);
-            console.log('Deposit amount:', depositAmount, selectedToken.symbol);
-
-            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
             const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
 
-            // Check token balance
-            const tokenBalance = await tokenContract.balanceOf(address);
-            if (tokenBalance < amountInWei) {
-                throw new Error(`Insufficient ${selectedToken.symbol} balance. You have ${ethers.formatUnits(tokenBalance, selectedToken.decimals)} ${selectedToken.symbol}`);
+            console.log('Using token:', selectedToken.symbol, selectedToken.address);
+            console.log('Is Native?', selectedToken.isNative);
+
+            // Check balance first
+            let currentBalance;
+            if (selectedToken.isNative) {
+                currentBalance = await signer.provider.getBalance(address);
+                // Leave some gas buffer for BNB transactions (0.005 BNB)
+                const gasBuffer = ethers.parseEther("0.005");
+                if (currentBalance < (amountInWei + gasBuffer)) {
+                    throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
+                }
+            } else {
+                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                currentBalance = await tokenContract.balanceOf(address);
+                if (currentBalance < amountInWei) {
+                    throw new Error(`Insufficient ${selectedToken.symbol} balance.`);
+                }
             }
 
+
             if (selectedToken.direct) {
-                // Direct USDT deposit
+                // Direct USDT/USDC deposit
                 if (!MARKET_CONTRACT) {
                     throw new Error("Market contract address is missing in configuration. Please report this issue.");
                 }
                 setStatusMessage(`Approving ${selectedToken.symbol}...`);
 
+                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
                 // Check allowance and approve if needed
                 const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
                 if (currentAllowance < amountInWei) {
-                    console.log('Approving USDT spend...');
+                    console.log('Approving token spend...');
                     setStatusMessage('Please sign approval in wallet...');
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
                     setStatusMessage('Waiting for approval confirmation...');
@@ -171,15 +182,32 @@ export default function DepositPage() {
             } else {
                 // Zap contract integration
                 if (!ZAP_CONTRACT || ZAP_CONTRACT === '0x...') {
-                    throw new Error("Zap contract address is missing or invalid. Please report this issue.");
+                    throw new Error("Zap contract address is missing or invalid.");
                 }
 
+                // 1. If Native BNB -> Wrap to WBNB first
+                if (selectedToken.isNative) {
+                    setStatusMessage('Wrapping BNB to WBNB...');
+                    // Use WETH ABI with the WBNB address
+                    const wbnbContract = new Contract(selectedToken.address, WETH_ABI, signer);
+
+                    // Wrap BNB (Deposit ETH to get WETH/WBNB)
+                    console.log('Wrapping BNB...', amountInWei.toString());
+                    const wrapTx = await wbnbContract.deposit({ value: amountInWei });
+                    setStatusMessage('Confirming wrap...');
+                    await wrapTx.wait();
+                }
+
+                // 2. ZapInToken (Now using WBNB or original ERC20)
+                // Note: For BNB, selectedToken.address IS ALREADY the WBNB address
+                const tokenToZap = selectedToken.address;
+                const tokenContract = new Contract(tokenToZap, selectedToken.isNative ? WETH_ABI : ERC20_ABI, signer);
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
 
-                // Approve Zap to spend tokens
+                // Approve Zap to spend tokens (WBNB or ERC20)
                 const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
                 if (currentAllowance < amountInWei) {
-                    setStatusMessage('Please sign approval in wallet...');
+                    setStatusMessage(`Approving ${selectedToken.symbol} for Zap...`);
                     const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
                     setStatusMessage('Waiting for approval confirmation...');
                     await approveTx.wait();
@@ -190,8 +218,8 @@ export default function DepositPage() {
                 const estimatedMain = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
 
                 // Zap in via swap
-                setStatusMessage('Please sign swap transaction...');
-                const zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, estimatedMain);
+                setStatusMessage('Please sign Zap transaction...');
+                const zapTx = await zapContract.zapInToken(tokenToZap, amountInWei, estimatedMain);
 
                 setStatusMessage('Processing swap...');
                 await zapTx.wait();
@@ -211,11 +239,12 @@ export default function DepositPage() {
             let errorMessage = 'Deposit failed';
             let errorTitle = 'Transaction Failed';
 
+            // Basic error parsing
             if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected') || error.message?.includes('User denied')) {
                 errorMessage = 'Transaction was rejected by user';
                 errorTitle = 'Action Rejected';
             } else if (error.message?.includes('could not decode result data')) {
-                errorMessage = `The ${selectedToken.symbol} token contract is not responding.\n\nPossible issues:\n• Wrong network selected\n• Contract address incorrect`;
+                errorMessage = `The ${selectedToken.symbol} contract is not responding.\n\nCheck network.`;
                 errorTitle = 'Contract Error';
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient funds for transaction cost';
