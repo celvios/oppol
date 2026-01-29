@@ -472,7 +472,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             {/* 3. Chart - Lazy loaded */}
             <div className="h-[220px] w-full mb-6 relative">
                 {/* Watermark Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.03]">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
                     <LogoBrand size="xl" />
                 </div>
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />

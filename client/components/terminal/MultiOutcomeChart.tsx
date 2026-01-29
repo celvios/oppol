@@ -58,7 +58,7 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
     return (
         <div style={{ width: "100%", height }} className="relative">
             {/* Watermark Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.03]">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
                 <LogoBrand size="xl" />
             </div>
 

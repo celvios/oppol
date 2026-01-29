@@ -27,7 +27,7 @@ export default function ProbabilityChart({ outcome = "YES" }: { outcome?: "YES" 
     return (
         <div className="w-full h-[400px] relative">
             {/* Watermark Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.03]">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
                 <LogoBrand size="xl" />
             </div>
 
