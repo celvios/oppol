@@ -7,7 +7,6 @@ import Link from "next/link";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import BoostButton from "../market/BoostButton";
-import BoostButton from "../market/BoostButton";
 import FeaturedCarousel from "./FeaturedCarousel";
 import LogoBrand from "@/components/ui/LogoBrand";
 import { Send, MessageCircle } from "lucide-react";
@@ -113,13 +112,6 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
     });
 
     if (loading) return <div className="p-4"><SkeletonLoader /></div>;
-
-    import LogoBrand from "@/components/ui/LogoBrand";
-    import { Send, MessageCircle, FileText, HelpCircle } from "lucide-react";
-
-    // ... existing imports
-
-    // ... inside component
 
     return (
         <div className="w-full pb-20 md:hidden overflow-x-hidden">
