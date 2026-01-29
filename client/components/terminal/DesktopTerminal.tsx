@@ -282,7 +282,7 @@ export function DesktopTerminal() {
 
 
     return (
-        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
+        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px]">
             <SuccessModal
                 isOpen={isSuccessModalOpen}
                 onClose={() => {
