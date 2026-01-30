@@ -168,11 +168,16 @@ export default function DepositPage() {
                 }
                 setStatusMessage(`Approving ${selectedToken.symbol}...`);
 
+                // Use public provider for reading allowance (more reliable)
+                const readProvider = new ethers.JsonRpcProvider(rpcUrl);
+                const tokenContractRead = new Contract(selectedToken.address, ERC20_ABI, readProvider);
+
+                // Use signer for write operations (approve, deposit)
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-                // Check allowance and approve if needed
-                const currentAllowance = await tokenContract.allowance(address, MARKET_CONTRACT);
+                // Check allowance with read provider
+                const currentAllowance = await tokenContractRead.allowance(address, MARKET_CONTRACT);
                 if (currentAllowance < amountInWei) {
                     console.log('Approving token spend...');
                     setStatusMessage('Please sign approval in wallet...');
