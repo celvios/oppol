@@ -5,6 +5,7 @@ import BottomNav from "@/components/mobile/BottomNav";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import DesktopFooter from "./DesktopFooter";
 
 export default function ClientShell({
     children,
@@ -39,6 +40,11 @@ export default function ClientShell({
                 >
                     {children}
                 </motion.div>
+
+                {/* Desktop Footer - Hidden on Mobile */}
+                <div className="hidden md:block">
+                    <DesktopFooter />
+                </div>
             </main>
 
             {/* Mobile Bottom Navigation - Visible only on Mobile */}
