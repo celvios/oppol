@@ -119,7 +119,7 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                                 <div className="flex justify-between items-center">
                                     <span className="text-xl font-bold text-white">{estimatedOut}</span>
                                     <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
-                                        <img src="/oppol-logo-new.png" alt="BC400" className="w-5 h-5 rounded-full object-contain" />
+                                        <img src="/bc400-logo.jpg" alt="BC400" className="w-5 h-5 rounded-full object-contain" />
                                         <span className="text-sm font-bold">BC400</span>
                                     </div>
                                 </div>
