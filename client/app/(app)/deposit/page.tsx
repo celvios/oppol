@@ -221,7 +221,8 @@ export default function DepositPage() {
                     // Approve Zap to spend tokens
                     const tokenContract = new Contract(tokenToZap, ERC20_ABI, signer);
 
-                    // Check allowance with read provider (more reliable)
+                    // Use public RPC for reading allowance (more reliable)
+                    const readProvider = new ethers.JsonRpcProvider(rpcUrl);
                     const tokenContractRead = new Contract(tokenToZap, ERC20_ABI, readProvider);
                     const currentAllowance = await tokenContractRead.allowance(address, ZAP_CONTRACT);
 
