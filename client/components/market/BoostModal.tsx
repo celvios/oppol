@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Copy, Check, Loader2, Rocket, Zap, Flame, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { BOOST_TIERS, BoostService } from "@/lib/boost-service";
@@ -67,8 +68,11 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    // Use Portal to breakout of stacking contexts (z-index fixes for iOS/Mobile)
+    if (typeof document === 'undefined') return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -81,7 +85,7 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                className="relative w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-10"
             >
                 {/* Header */}
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-purple-900/20 to-blue-900/20">
@@ -175,6 +179,7 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
                     </NeonButton>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 }
