@@ -119,7 +119,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         )}
                         title={collapsed ? "Leaderboard" : undefined}
                     >
-                        <Trophy className="w-5 h-5 transition-transform group-hover:scale-110 text-yellow-400" />
+                        <Trophy className="w-5 h-5 transition-transform group-hover:scale-110" />
                         {!collapsed && <span className="font-medium text-sm">Leaderboard</span>}
                     </div>
 

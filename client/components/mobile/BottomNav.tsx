@@ -65,7 +65,7 @@ export default function BottomNav() {
                         onClick={() => alert("Leaderboard Coming Soon!")}
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
                     >
-                        <Trophy className="w-6 h-6 text-yellow-400 transition-colors" />
+                        <Trophy className="w-6 h-6 text-text-secondary transition-colors" />
                         <span className="text-text-secondary transition-colors">LeaderBoard</span>
                     </div>
 
