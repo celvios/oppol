@@ -38,8 +38,8 @@ const TOKENS = {
 const getTokens = () => {
     const c = getContracts() as any;
     // STABLE CONFIGURATION:
-    // User confirmed USDT is the intended Direct token.
-    const baseCollateral = TOKENS.USDT.toLowerCase();
+    // Market contract was deployed with USDC as collateral
+    const baseCollateral = TOKENS.USDC.toLowerCase();
     const tokenUSDT = TOKENS.USDT.toLowerCase();
     const tokenUSDC = TOKENS.USDC.toLowerCase();
 
