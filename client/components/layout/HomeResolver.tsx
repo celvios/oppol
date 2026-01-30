@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import { TerminalClient } from "@/components/terminal/TerminalClient";
 // @ts-ignore - Import from app directory is valid but might flag TS
 import { MarketsClient } from "@/app/(app)/markets/MarketsClient";
 import { ServerMarket } from "@/lib/server-fetch";
@@ -32,9 +31,6 @@ export default function HomeResolver({ initialMarkets }: HomeResolverProps) {
         return <SkeletonLoader />;
     }
 
-    return isMobile ? (
-        <MarketsClient initialMarkets={initialMarkets} />
-    ) : (
-        <TerminalClient initialMarkets={initialMarkets} />
-    );
+    // Unified Home Page: Mobile & Desktop both show Markets List
+    return <MarketsClient initialMarkets={initialMarkets} />;
 }

@@ -15,8 +15,7 @@ import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 import { useState } from "react";
 
 const navItems = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Markets", href: "/markets", icon: Globe },
+    { name: "Markets", href: "/", icon: Globe },
     { name: "Portfolio", href: "/portfolio", icon: PieChart },
     { name: "Deposit", href: "/deposit", icon: ArrowUpRight },
     { name: "Withdraw", href: "/withdraw", icon: ArrowDownRight },
