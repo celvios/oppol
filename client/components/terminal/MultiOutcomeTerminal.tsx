@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
@@ -54,7 +54,6 @@ interface MultiOutcomeTerminalProps {
 
 export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTerminalProps) {
     const searchParams = useSearchParams();
-    const router = useRouter();
 
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
@@ -565,7 +564,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     key={m.id}
                                     onClick={() => {
                                         setSelectedMarketId(m.id);
-                                        router.push(`?marketId=${m.id}`);
+                                        const newUrl = new URL(window.location.href);
+                                        newUrl.searchParams.set('marketId', String(m.id));
+                                        window.history.pushState({}, '', newUrl.toString());
                                     }}
                                     className={`w-full text-left group relative p-4 rounded-xl border transition-all duration-300 ${selectedMarketId === m.id
                                         ? "bg-white/10 border-neon-green/50 shadow-[0_0_20px_rgba(39,232,167,0.1)]"
