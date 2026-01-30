@@ -220,7 +220,11 @@ export default function DepositPage() {
 
                     // Approve Zap to spend tokens
                     const tokenContract = new Contract(tokenToZap, ERC20_ABI, signer);
-                    const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
+
+                    // Check allowance with read provider (more reliable)
+                    const tokenContractRead = new Contract(tokenToZap, ERC20_ABI, readProvider);
+                    const currentAllowance = await tokenContractRead.allowance(address, ZAP_CONTRACT);
+
                     if (currentAllowance < amountInWei) {
                         setStatusMessage(`Approving ${selectedToken.symbol} for Zap...`);
                         const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
