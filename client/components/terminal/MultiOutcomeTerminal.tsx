@@ -502,7 +502,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             </div >
 
             {/* DESKTOP VIEW */}
-            <div className="hidden md:grid h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 w-full">
+            <div className="hidden md:grid min-h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 w-full">
                 {successData && (
                     <SuccessModal
                         isOpen={isSuccessModalOpen}
@@ -520,11 +520,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             hash: successData.hash
                         }}
                     />
-                )
-                }
+                )}
 
                 {/* LEFT COLUMN: Market List (3 cols) */}
-                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
+                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
 
                     {/* Featured Carousel (Desktop) */}
                     <DesktopFeaturedCarousel markets={markets} />
@@ -553,7 +552,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     </GlassCard>
 
 
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                    <div className="flex-1 space-y-3 pr-2">
                         {filteredMarkets.map((m) => {
                             if (!m.outcomes || !m.prices || m.outcomes.length === 0 || m.prices.length === 0) return null;
                             const maxPrice = Math.max(...m.prices);
@@ -629,7 +628,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </div>
 
                 {/* CENTER COLUMN: Chart & Info (6 cols) */}
-                <div className="col-span-12 lg:col-span-6 flex flex-col gap-6 h-full">
+                <div className="col-span-12 lg:col-span-6 flex flex-col gap-6">
 
                     {/* Featured Carousel (Top of Market) */}
                     <DesktopFeaturedCarousel markets={markets} />
@@ -718,7 +717,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             <span className="text-xs text-white/50 font-mono">Click to select</span>
                         </div>
 
-                        <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2">
+                        <div className="flex-1 flex flex-col gap-3 pr-2">
                             {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
                                 const color = getOutcomeColor(outcome, i);
                                 return (
@@ -776,7 +775,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </div>
 
                 {/* RIGHT COLUMN: Trading Panel (3 cols) */}
-                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full">
+                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
                     <GlassCard className="flex-none p-4 bg-gradient-to-br from-white/5 to-transparent border-neon-cyan/20">
                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Available Balance</div>
                         <div className="text-2xl font-mono text-white flex items-center gap-2">
