@@ -69,7 +69,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                 if (scrollLeft + clientWidth >= scrollWidth - 10) {
                     scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
                 } else {
-                    scrollRef.current.scrollBy({ left: clientWidth * 0.85, behavior: 'smooth' });
+                    scrollRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' });
                 }
             }
         }, 4000);
@@ -187,7 +187,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                         className="flex overflow-x-auto snap-x snap-mandatory px-4 gap-4 pb-4 no-scrollbar scroll-smooth mb-8"
                     >
                         {markets.slice(0, 6).map((market) => (
-                            <TrendingMarketCard key={market.id} market={market} className="min-w-[85vw] snap-center h-full" />
+                            <TrendingMarketCard key={market.id} market={market} className="min-w-[calc(100vw-32px)] snap-center h-full" />
                         ))}
                     </div>
                 </>
