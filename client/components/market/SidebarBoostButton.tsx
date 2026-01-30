@@ -9,55 +9,26 @@ import NeonButton from "@/components/ui/NeonButton";
 interface SidebarBoostButtonProps {
     className?: string;
     compact?: boolean;
+    variant?: 'default' | 'yellow';
 }
 
-export default function SidebarBoostButton({ className = "", compact = false }: SidebarBoostButtonProps) {
+export default function SidebarBoostButton({ className = "", compact = false, variant = 'default' }: SidebarBoostButtonProps) {
     const [isInputOpen, setIsInputOpen] = useState(false);
-    const [inputValue, setInputValue] = useState("");
-    const [error, setError] = useState("");
-    const [targetMarketId, setTargetMarketId] = useState<string | null>(null);
+    // ... (state)
 
-    const handleOpenInput = () => {
-        setIsInputOpen(true);
-        setInputValue("");
-        setError("");
-    };
-
-    const handleVisualize = () => {
-        setError("");
-        const input = inputValue.trim();
-
-        if (!input) {
-            setError("Please enter a link or ID");
-            return;
-        }
-
-        let marketId = null;
-
-        // 1. Direct Number
-        if (/^\d+$/.test(input)) {
-            marketId = input;
-        }
-        // 2. URL Parameter (?marketId=123)
-        else if (input.includes("marketId=")) {
-            const match = input.match(/[?&]marketId=(\d+)/);
-            if (match) marketId = match[1];
-        }
-        // 3. General Link - Try to find the last number in URL
-        else {
-            // Fallback: try to find any sequence of digits at the end or in path
-            const match = input.match(/\/(\d+)\/?$/) || input.match(/(\d+)/);
-            // Caution: simple regex, strictly looking for digits
-            if (match) marketId = match[1];
-        }
-
-        if (marketId) {
-            setTargetMarketId(marketId);
-            setIsInputOpen(false); // Close input, open BoostModal
-        } else {
-            setError("Could not extract Market ID from link");
+    // Style configuration
+    const styles = {
+        default: {
+            container: "bg-gradient-to-r from-purple-900/40 to-blue-900/40 border-white/10 hover:border-neon-cyan/50 hover:from-purple-900/60 hover:to-blue-900/60",
+            icon: "text-neon-cyan fill-neon-cyan/20"
+        },
+        yellow: {
+            container: "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/30 hover:border-amber-500/80 hover:from-amber-500/30 hover:to-yellow-500/30",
+            icon: "text-amber-500 fill-amber-500/20"
         }
     };
+
+    const currentStyle = styles[variant];
 
     return (
         <>
@@ -65,9 +36,9 @@ export default function SidebarBoostButton({ className = "", compact = false }: 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleOpenInput}
-                className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 hover:border-neon-cyan/50 hover:from-purple-900/60 hover:to-blue-900/60 transition-all font-bold text-white group ${compact ? 'p-2 aspect-square' : 'w-full p-3 text-xs'} ${className}`}
+                className={`flex items-center justify-center gap-2 rounded-xl border transition-all font-bold text-white group ${currentStyle.container} ${compact ? 'p-2 aspect-square' : 'w-full p-3 text-xs'} ${className}`}
             >
-                <Zap className={`${compact ? 'w-5 h-5' : 'w-4 h-4'} text-neon-cyan group-hover:text-white transition-colors fill-neon-cyan/20`} />
+                <Zap className={`${compact ? 'w-5 h-5' : 'w-4 h-4'} ${currentStyle.icon} group-hover:text-white transition-colors`} />
                 {!compact && <span>BOOST MARKET</span>}
             </motion.button>
 

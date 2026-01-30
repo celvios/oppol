@@ -407,7 +407,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             {/* Logo - Static / Non-floating */}
             <div className="pt-4 px-6 pb-0 flex justify-between items-center">
                 <LogoBrand />
-                <SidebarBoostButton compact />
+                <SidebarBoostButton compact variant="yellow" />
             </div>
 
             {/* Featured Carousel */}
