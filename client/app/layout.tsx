@@ -9,6 +9,7 @@ import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
 import { WalletDebugPanel } from "@/components/ui/WalletDebugPanel";
 import { WalletConnectionTest } from "@/components/ui/WalletConnectionTest";
+import { NetworkChecker } from "@/components/NetworkChecker";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -51,6 +52,7 @@ export default function RootLayout({
           <Web3Provider>
             <ReownProvider>
               <SettingsProvider>
+                <NetworkChecker />
                 <AnimatedBackground />
                 <UserRegistrationManager />
                 <Header />
