@@ -184,10 +184,14 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
 
                     <div
                         ref={scrollRef}
-                        className="flex overflow-x-auto snap-x snap-mandatory px-4 gap-4 pb-4 no-scrollbar scroll-smooth mb-8"
+                        className="flex overflow-x-auto snap-x snap-mandatory pl-4 pb-4 no-scrollbar scroll-smooth mb-8"
                     >
-                        {markets.slice(0, 6).map((market) => (
-                            <TrendingMarketCard key={market.id} market={market} className="min-w-[calc(100vw-32px)] snap-center h-full" />
+                        {markets.slice(0, 6).map((market, index) => (
+                            <TrendingMarketCard
+                                key={market.id}
+                                market={market}
+                                className={`flex-shrink-0 w-[calc(100vw-32px)] snap-start ${index < markets.slice(0, 6).length - 1 ? 'mr-4' : 'mr-4'}`}
+                            />
                         ))}
                     </div>
                 </>
