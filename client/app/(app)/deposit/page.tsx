@@ -98,7 +98,7 @@ export default function DepositPage() {
             if (connectorClient) {
                 console.log('[Deposit] Using Wallet Signer');
                 const signer = clientToSigner(connectorClient);
-                provider = signer;
+                provider = signer.provider as any;
             } else {
                 console.log('[Deposit] Using Public Provider:', rpcUrl);
                 // Fallback to Read-Only Provider
