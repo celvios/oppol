@@ -21,6 +21,7 @@ const ERC20_ABI = [
 
 const ZAP_ABI = [
     { name: 'zapInToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenIn', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'minUSDC', type: 'uint256' }], outputs: [] },
+    { name: 'zapInBNB', type: 'function', stateMutability: 'payable', inputs: [{ name: 'minUSDC', type: 'uint256' }], outputs: [] },
 ];
 
 const MARKET_ABI = [
@@ -44,10 +45,10 @@ const getTokens = () => {
     const isUSDCDirect = marketToken === TOKENS.USDC.toLowerCase();
 
     return [
-        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: isUSDTDirect, comingSoon: false },
-        { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: isUSDCDirect, comingSoon: false },
-        { symbol: 'WBNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false },
-        { symbol: 'BC400', address: process.env.NEXT_PUBLIC_BC400_CONTRACT || '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true },
+        { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: isUSDTDirect, comingSoon: false, isNative: false },
+        { symbol: 'USDC', address: TOKENS.USDC, decimals: 18, direct: isUSDCDirect, comingSoon: false, isNative: false },
+        { symbol: 'BNB', address: TOKENS.WBNB, decimals: 18, direct: false, comingSoon: false, isNative: true }, // Native BNB
+        { symbol: 'BC400', address: process.env.NEXT_PUBLIC_BC400_CONTRACT || '0xB929177331De755d7aCc5665267a247e458bCdeC', decimals: 18, direct: false, comingSoon: true, isNative: false },
     ];
 };
 
@@ -185,44 +186,42 @@ export default function DepositPage() {
                     throw new Error("Zap contract address is missing or invalid.");
                 }
 
-                // 1. If Native BNB -> Wrap to WBNB first
-                if (selectedToken.isNative) {
-                    setStatusMessage('Wrapping BNB to WBNB...');
-                    // Use WETH ABI with the WBNB address
-                    const wbnbContract = new Contract(selectedToken.address, WETH_ABI, signer);
-
-                    // Wrap BNB (Deposit ETH to get WETH/WBNB)
-                    console.log('Wrapping BNB...', amountInWei.toString());
-                    const wrapTx = await wbnbContract.deposit({ value: amountInWei });
-                    setStatusMessage('Confirming wrap...');
-                    await wrapTx.wait();
-                }
-
-                // 2. ZapInToken (Now using WBNB or original ERC20)
-                // Note: For BNB, selectedToken.address IS ALREADY the WBNB address
-                const tokenToZap = selectedToken.address;
-                const tokenContract = new Contract(tokenToZap, selectedToken.isNative ? WETH_ABI : ERC20_ABI, signer);
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
-
-                // Approve Zap to spend tokens (WBNB or ERC20)
-                const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
-                if (currentAllowance < amountInWei) {
-                    setStatusMessage(`Approving ${selectedToken.symbol} for Zap...`);
-                    const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
-                    setStatusMessage('Waiting for approval confirmation...');
-                    await approveTx.wait();
-                }
 
                 // Calculate minimum USDT with 5% slippage
                 // Use 18 decimals for USDT on BSC!
                 const estimatedMain = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
 
-                // Zap in via swap
-                setStatusMessage('Please sign Zap transaction...');
-                const zapTx = await zapContract.zapInToken(tokenToZap, amountInWei, estimatedMain);
+                // 1. Native BNB -> zapInBNB (Single Transaction!)
+                if (selectedToken.isNative) {
+                    setStatusMessage('Zapping BNB...');
+                    // zapInBNB(minUSDC) { value: amount }
+                    console.log('Zapping BNB...', amountInWei.toString());
+                    const zapTx = await zapContract.zapInBNB(estimatedMain, { value: amountInWei });
+                    setStatusMessage('Processing Zap...');
+                    await zapTx.wait();
+                }
+                else {
+                    // 2. ERC20 -> ZapInToken
+                    const tokenToZap = selectedToken.address;
 
-                setStatusMessage('Processing swap...');
-                await zapTx.wait();
+                    // Approve Zap to spend tokens
+                    const tokenContract = new Contract(tokenToZap, ERC20_ABI, signer);
+                    const currentAllowance = await tokenContract.allowance(address, ZAP_CONTRACT);
+                    if (currentAllowance < amountInWei) {
+                        setStatusMessage(`Approving ${selectedToken.symbol} for Zap...`);
+                        const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
+                        setStatusMessage('Waiting for approval confirmation...');
+                        await approveTx.wait();
+                    }
+
+                    // Zap in via swap
+                    setStatusMessage('Please sign Zap transaction...');
+                    const zapTx = await zapContract.zapInToken(tokenToZap, amountInWei, estimatedMain);
+
+                    setStatusMessage('Processing swap...');
+                    await zapTx.wait();
+                }
             }
 
             setLastDeposit({
