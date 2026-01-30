@@ -116,7 +116,7 @@ export default function MenuPage() {
                         <MenuButton
                             icon={<Twitter size={20} />}
                             label="Follow on X"
-                            href="https://twitter.com/oppol"
+                            href="https://x.com/opollmarket?s=11"
                             external
                             color="text-white"
                         />

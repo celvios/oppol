@@ -85,7 +85,7 @@ export default function DesktopFooter() {
                         />
                         <FooterLink
                             label="Follow on X"
-                            href="https://twitter.com/oppol"
+                            href="https://x.com/opollmarket?s=11"
                             external
                             icon={<Twitter size={16} />}
                         />
