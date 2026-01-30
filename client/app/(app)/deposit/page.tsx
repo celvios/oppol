@@ -76,8 +76,8 @@ export default function DepositPage() {
     const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDT', hash: '' });
 
     const contracts = getContracts() as any;
-    const ZAP_CONTRACT = contracts.zap || '0x...';
-    const MARKET_CONTRACT = contracts.predictionMarketLMSR || contracts.predictionMarket || '';
+    const ZAP_CONTRACT = contracts.zap || process.env.NEXT_PUBLIC_ZAP_ADDRESS || '';
+    const MARKET_CONTRACT = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
 
     useEffect(() => {
         if (address && connectorClient) {
