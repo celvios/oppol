@@ -14,7 +14,51 @@ interface SidebarBoostButtonProps {
 
 export default function SidebarBoostButton({ className = "", compact = false, variant = 'default' }: SidebarBoostButtonProps) {
     const [isInputOpen, setIsInputOpen] = useState(false);
-    // ... (state)
+    const [inputValue, setInputValue] = useState("");
+    const [error, setError] = useState("");
+    const [targetMarketId, setTargetMarketId] = useState<string | null>(null);
+
+    const handleOpenInput = () => {
+        setIsInputOpen(true);
+        setInputValue("");
+        setError("");
+    };
+
+    const handleVisualize = () => {
+        setError("");
+        const input = inputValue.trim();
+
+        if (!input) {
+            setError("Please enter a link or ID");
+            return;
+        }
+
+        let marketId = null;
+
+        // 1. Direct Number
+        if (/^\d+$/.test(input)) {
+            marketId = input;
+        }
+        // 2. URL Parameter (?marketId=123)
+        else if (input.includes("marketId=")) {
+            const match = input.match(/[?&]marketId=(\d+)/);
+            if (match) marketId = match[1];
+        }
+        // 3. General Link - Try to find the last number in URL
+        else {
+            // Fallback: try to find any sequence of digits at the end or in path
+            const match = input.match(/\/(\d+)\/?$/) || input.match(/(\d+)/);
+            // Caution: simple regex, strictly looking for digits
+            if (match) marketId = match[1];
+        }
+
+        if (marketId) {
+            setTargetMarketId(marketId);
+            setIsInputOpen(false); // Close input, open BoostModal
+        } else {
+            setError("Could not extract Market ID from link");
+        }
+    };
 
     // Style configuration
     const styles = {
