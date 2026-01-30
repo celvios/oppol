@@ -14,6 +14,7 @@ import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 import LogoBrand from "@/components/ui/LogoBrand";
+import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -404,8 +405,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     return (
         <div className="pb-12 relative min-h-screen">
             {/* Logo - Static / Non-floating */}
-            <div className="pt-4 px-6 pb-0">
+            <div className="pt-4 px-6 pb-0 flex justify-between items-center">
                 <LogoBrand />
+                <SidebarBoostButton compact />
             </div>
 
             {/* Featured Carousel */}
@@ -461,8 +463,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                     )}
 
                     <div className="flex items-end gap-3 mt-4">
-                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white`}>
+                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-2`}>
                             {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
+                            <span className="text-sm font-heading font-medium text-white/50 tracking-normal">CHANCE</span>
                         </div>
                         {/* Percentage removed as requested */}
                     </div>

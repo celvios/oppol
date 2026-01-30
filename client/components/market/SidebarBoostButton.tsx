@@ -6,7 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BoostModal } from "./BoostModal";
 import NeonButton from "@/components/ui/NeonButton";
 
-export default function SidebarBoostButton() {
+interface SidebarBoostButtonProps {
+    className?: string;
+    compact?: boolean;
+}
+
+export default function SidebarBoostButton({ className = "", compact = false }: SidebarBoostButtonProps) {
     const [isInputOpen, setIsInputOpen] = useState(false);
     const [inputValue, setInputValue] = useState("");
     const [error, setError] = useState("");
@@ -60,10 +65,10 @@ export default function SidebarBoostButton() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleOpenInput}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 hover:border-neon-cyan/50 hover:from-purple-900/60 hover:to-blue-900/60 transition-all text-xs font-bold text-white group"
+                className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 hover:border-neon-cyan/50 hover:from-purple-900/60 hover:to-blue-900/60 transition-all font-bold text-white group ${compact ? 'p-2 aspect-square' : 'w-full p-3 text-xs'} ${className}`}
             >
-                <Zap className="w-4 h-4 text-neon-cyan group-hover:text-white transition-colors fill-neon-cyan/20" />
-                <span>BOOST MARKET</span>
+                <Zap className={`${compact ? 'w-5 h-5' : 'w-4 h-4'} text-neon-cyan group-hover:text-white transition-colors fill-neon-cyan/20`} />
+                {!compact && <span>BOOST MARKET</span>}
             </motion.button>
 
             <AnimatePresence>

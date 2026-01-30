@@ -681,8 +681,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     <div className="text-3xl font-mono font-bold text-neon-green">
                                         {market.outcomes[market.prices.indexOf(Math.max(...market.prices))]}
                                     </div>
-                                    <div className="text-lg font-mono text-neon-green/70">
-                                        {Math.max(...market.prices).toFixed(1)}%
+                                    <div className="text-lg font-mono text-neon-green/70 flex items-baseline gap-2">
+                                        {Math.max(...market.prices).toFixed(1)}% <span className="text-xs text-white/50 font-sans">CHANCE</span>
                                     </div>
                                 </div>
 
