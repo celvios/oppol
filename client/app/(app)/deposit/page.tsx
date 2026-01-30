@@ -38,9 +38,8 @@ const TOKENS = {
 const getTokens = () => {
     const c = getContracts() as any;
     // STABLE CONFIGURATION:
-    // The market is deployed with the token defined in NEXT_PUBLIC_USDC_CONTRACT as collateral.
-    // Therefore, that token (TOKENS.USDC) is the ONLY direct token.
-    const baseCollateral = TOKENS.USDC.toLowerCase();
+    // User confirmed USDT is the intended Direct token.
+    const baseCollateral = TOKENS.USDT.toLowerCase();
     const tokenUSDT = TOKENS.USDT.toLowerCase();
     const tokenUSDC = TOKENS.USDC.toLowerCase();
 
@@ -61,6 +60,9 @@ export default function DepositPage() {
     const { data: connectorClient } = useConnectorClient();
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
+    // Helper to check if USDT is the direct base
+    // We can infer this from the tokens list where USDT is index 0 usually, or by checking the direct prop of the USDT entry
+    const isUSDTDirect = tokens.find(t => t.symbol === 'USDT')?.direct || false;
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -337,7 +339,7 @@ export default function DepositPage() {
                             </div>
                             <div className="text-xs text-white/40 text-center">
                                 Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
-                                {selectedToken.direct ? ' (Direct)' : ' (Auto-converted to USDT)'}
+                                {selectedToken.direct ? ' (Direct)' : ` (Auto-converted to ${isUSDTDirect ? 'USDT' : 'USDC'})`}
                             </div>
                         </div>
 
@@ -373,7 +375,7 @@ export default function DepositPage() {
                             disabled={!depositAmount || parseFloat(depositAmount) <= 0 || isProcessing || selectedToken.comingSoon}
                             className="w-full py-4 bg-green-500 hover:bg-green-400 disabled:bg-white/5 disabled:text-white/20 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing Transaction...' : selectedToken.direct ? 'Approve & Deposit' : 'Approve & Swap to USDT'}
+                            {selectedToken.comingSoon ? '🚀 Coming Soon' : isProcessing ? 'Processing Transaction...' : selectedToken.direct ? 'Approve & Deposit' : `Approve & Swap to ${isUSDTDirect ? 'USDT' : 'USDC'}`}
                             {!selectedToken.comingSoon && !isProcessing && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
