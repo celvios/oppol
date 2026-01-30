@@ -140,17 +140,20 @@ export default function DepositPage() {
             console.log('Using token:', selectedToken.symbol, selectedToken.address);
             console.log('Is Native?', selectedToken.isNative);
 
-            // Check balance first
+            // Check balance first using public RPC (more reliable than wallet provider)
+            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+            const publicProvider = new ethers.JsonRpcProvider(rpcUrl);
+
             let currentBalance;
             if (selectedToken.isNative) {
-                currentBalance = await signer.provider.getBalance(address);
+                currentBalance = await publicProvider.getBalance(address);
                 // Leave some gas buffer for BNB transactions (0.005 BNB)
                 const gasBuffer = ethers.parseEther("0.005");
                 if (currentBalance < (amountInWei + gasBuffer)) {
                     throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
                 }
             } else {
-                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
                 currentBalance = await tokenContract.balanceOf(address);
                 if (currentBalance < amountInWei) {
                     throw new Error(`Insufficient ${selectedToken.symbol} balance.`);
