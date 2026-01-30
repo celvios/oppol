@@ -23,8 +23,8 @@ export function MarketsClient({ initialMarkets }: MarketsClientProps) {
     }, [initialMarkets]);
 
     return (
-        <div className="min-h-screen relative bg-void text-white">
-            <AnimatedBackground />
+        <div className="relative text-white">
+            {/* AnimatedBackground handled by RootLayout/ClientShell */}
 
             <div className="relative z-10 p-6">
 
