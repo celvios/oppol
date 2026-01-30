@@ -463,9 +463,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                     )}
 
                     <div className="flex items-end gap-3 mt-4">
-                        <div className={`text-5xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-2`}>
+                        <div className={`text-3xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-2`}>
                             {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
-                            <span className="text-sm font-heading font-medium text-white/50 tracking-normal">CHANCE</span>
+                            <span className="text-sm font-heading font-medium text-white/50 tracking-normal">Chance</span>
                         </div>
                         {/* Percentage removed as requested */}
                     </div>
