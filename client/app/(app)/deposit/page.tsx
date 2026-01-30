@@ -37,12 +37,15 @@ const TOKENS = {
 
 const getTokens = () => {
     const c = getContracts() as any;
-    // The market's base token (collateral)
-    const marketToken = (c.mockUSDC || c.usdc || '').toLowerCase();
+    // STABLE CONFIGURATION:
+    // The market is deployed with the token defined in NEXT_PUBLIC_USDC_CONTRACT as collateral.
+    // Therefore, that token (TOKENS.USDC) is the ONLY direct token.
+    const baseCollateral = TOKENS.USDC.toLowerCase();
+    const tokenUSDT = TOKENS.USDT.toLowerCase();
+    const tokenUSDC = TOKENS.USDC.toLowerCase();
 
-    // Determine which token is "Direct" (must match market collat)
-    const isUSDTDirect = marketToken === TOKENS.USDT.toLowerCase();
-    const isUSDCDirect = marketToken === TOKENS.USDC.toLowerCase();
+    const isUSDTDirect = tokenUSDT === baseCollateral;
+    const isUSDCDirect = tokenUSDC === baseCollateral;
 
     return [
         { symbol: 'USDT', address: TOKENS.USDT, decimals: 18, direct: isUSDTDirect, comingSoon: false, isNative: false },
