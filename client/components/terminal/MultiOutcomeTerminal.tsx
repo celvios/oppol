@@ -108,18 +108,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     }, []);
 
     // Handle marketId from URL query parameter
-    useEffect(() => {
-        const marketIdParam = searchParams.get('marketId');
-        if (marketIdParam && markets.length > 0) {
-            const marketId = parseInt(marketIdParam, 10);
-            if (!isNaN(marketId)) {
-                const marketExists = markets.find(m => m.id === marketId);
-                if (marketExists) {
-                    setSelectedMarketId(marketId);
-                }
-            }
-        }
-    }, [searchParams, markets]);
+    // Moved logic to unified effect below to prevent race conditions
 
     // --- Data Fetching ---
 
@@ -236,11 +225,27 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         return () => clearInterval(interval);
     }, [fetchData]);
 
+    // Handle market selection (URL param > Default)
     useEffect(() => {
-        if (markets.length > 0 && selectedMarketId === 0) {
+        if (markets.length === 0) return;
+
+        const marketIdParam = searchParams.get('marketId');
+        if (marketIdParam) {
+            const marketId = parseInt(marketIdParam, 10);
+            if (!isNaN(marketId)) {
+                const marketExists = markets.find(m => m.id === marketId);
+                if (marketExists) {
+                    setSelectedMarketId(marketId);
+                    return; // URL match found, stop here
+                }
+            }
+        }
+
+        // Fallback: If no URL param or invalid/not found, and no market selected yet, default to first
+        if (selectedMarketId === 0) {
             setSelectedMarketId(markets[0].id);
         }
-    }, [markets, selectedMarketId]);
+    }, [searchParams, markets, selectedMarketId]);
 
     // Reset selected outcome when market changes
     useEffect(() => {
