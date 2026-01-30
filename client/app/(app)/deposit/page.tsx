@@ -89,34 +89,34 @@ export default function DepositPage() {
         if (!address) return;
 
         try {
-            let provider;
-            let contractUser = address;
-
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             console.log('[Deposit] Fetching balance for:', { address, token: selectedToken.symbol, tokenAddr: selectedToken.address });
 
-            if (connectorClient) {
-                console.log('[Deposit] Using Wallet Signer');
-                const signer = clientToSigner(connectorClient);
-                provider = signer.provider as any;
+            // ALWAYS use public RPC for reading balances - more reliable than wallet provider
+            console.log('[Deposit] Using Public RPC Provider:', rpcUrl);
+            const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+            if (selectedToken.isNative) {
+                // For BNB, get native balance
+                const balance = await provider.getBalance(address);
+                console.log('[Deposit] BNB Raw Balance:', balance.toString());
+                const formattedBalance = ethers.formatEther(balance);
+                console.log('[Deposit] BNB Formatted Balance:', formattedBalance);
+                setTokenBalance(parseFloat(formattedBalance).toFixed(2));
             } else {
-                console.log('[Deposit] Using Public Provider:', rpcUrl);
-                // Fallback to Read-Only Provider
-                // This handles cases where useWallet has an address (cached) but Wagmi isn't fully active
-                provider = new ethers.JsonRpcProvider(rpcUrl);
+                // For ERC20 tokens
+                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+
+                // Debug contract call
+                console.log('[Deposit] Calling balanceOf...');
+                const balance = await tokenContract.balanceOf(address);
+                console.log('[Deposit] Raw Balance:', balance.toString());
+
+                const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
+                console.log('[Deposit] Formatted Balance:', formattedBalance);
+
+                setTokenBalance(parseFloat(formattedBalance).toFixed(2));
             }
-
-            const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-
-            // Debug contract call
-            console.log('[Deposit] Calling balanceOf...');
-            const balance = await tokenContract.balanceOf(contractUser);
-            console.log('[Deposit] Raw Balance:', balance.toString());
-
-            const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
-            console.log('[Deposit] Formatted Balance:', formattedBalance);
-
-            setTokenBalance(parseFloat(formattedBalance).toFixed(2));
         } catch (error: any) {
             console.error('[Deposit] Failed to fetch balance:', error);
             setTokenBalance('0.00');
