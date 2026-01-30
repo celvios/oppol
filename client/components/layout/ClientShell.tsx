@@ -23,7 +23,7 @@ export default function ClientShell({
 
             <main
                 className={cn(
-                    "flex-1 relative overflow-y-auto overflow-x-hidden transition-all duration-300",
+                    "flex-1 relative overflow-y-auto overflow-x-hidden transition-all duration-300 flex flex-col",
                     "p-0 md:p-8",
                     // Margin logic for desktop sidebar
                     collapsed ? "md:ml-20" : "md:ml-64"
@@ -42,7 +42,7 @@ export default function ClientShell({
                 </motion.div>
 
                 {/* Desktop Footer - Hidden on Mobile */}
-                <div className="hidden md:block">
+                <div className="hidden md:block mt-auto">
                     <DesktopFooter />
                 </div>
             </main>
