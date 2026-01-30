@@ -100,7 +100,7 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                                         className="bg-transparent text-xl font-bold text-white outline-none w-full"
                                     />
                                     <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
-                                        <div className="w-5 h-5 rounded-full bg-[#F3BA2F]" />
+                                        <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" alt="BNB" className="w-5 h-5 rounded-full" />
                                         <span className="text-sm font-bold">BNB</span>
                                     </div>
                                 </div>
@@ -119,7 +119,7 @@ export default function BC400PurchaseModal({ isOpen, onClose }: BC400PurchaseMod
                                 <div className="flex justify-between items-center">
                                     <span className="text-xl font-bold text-white">{estimatedOut}</span>
                                     <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
-                                        <div className="w-5 h-5 rounded-full bg-neon-purple" />
+                                        <img src="/oppol-logo-new.png" alt="BC400" className="w-5 h-5 rounded-full object-contain" />
                                         <span className="text-sm font-bold">BC400</span>
                                     </div>
                                 </div>
