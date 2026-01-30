@@ -102,7 +102,7 @@ export default function DepositPage() {
                 console.log('[Deposit] BNB Raw Balance:', balance.toString());
                 const formattedBalance = ethers.formatEther(balance);
                 console.log('[Deposit] BNB Formatted Balance:', formattedBalance);
-                setTokenBalance(parseFloat(formattedBalance).toFixed(2));
+                setTokenBalance(parseFloat(formattedBalance).toFixed(4));
             } else {
                 // For ERC20 tokens
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
@@ -115,7 +115,7 @@ export default function DepositPage() {
                 const formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
                 console.log('[Deposit] Formatted Balance:', formattedBalance);
 
-                setTokenBalance(parseFloat(formattedBalance).toFixed(2));
+                setTokenBalance(parseFloat(formattedBalance).toFixed(4));
             }
         } catch (error: any) {
             console.error('[Deposit] Failed to fetch balance:', error);
