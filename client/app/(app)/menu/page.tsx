@@ -102,16 +102,15 @@ export default function MenuPage() {
                     <div className="space-y-3">
                         <MenuButton
                             icon={<Send size={20} className="-rotate-12 ml-[-2px]" />}
-                            label="Telegram Community"
-                            href="https://t.me/oppol"
+                            label="Predict via Telegram"
+                            href="https://t.me/opoll_predict_bot"
                             external
                             color="text-[#229ED9]"
                         />
                         <MenuButton
                             icon={<MessageCircle size={20} />}
-                            label="WhatsApp Group"
-                            href="https://wa.me/yourwhatsapp"
-                            external
+                            label="Predict via Whatsapp"
+                            onClick={() => alert("Coming Soon")}
                             color="text-[#25D366]"
                         />
                         <MenuButton
