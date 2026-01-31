@@ -29,7 +29,9 @@ export default function WithdrawPage() {
     const [showConnectModal, setShowConnectModal] = useState(false);
 
     const contracts = getContracts() as any;
-    const MARKET_CONTRACT = contracts.predictionMarket as `0x${string}`;
+    const MARKET_CONTRACT = (contracts.predictionMarket
+        || contracts.predictionMarketMulti
+        || process.env.NEXT_PUBLIC_MARKET_ADDRESS) as `0x${string}`;
 
     useEffect(() => {
         if (address) {
