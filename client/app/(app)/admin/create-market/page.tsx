@@ -265,6 +265,9 @@ export default function CreateMarketPage() {
 
                 const signer = clientToSigner(connectorClient);
                 const contracts = getContracts();
+                // Fix: Extract marketAddress from contracts object with fallbacks
+                const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
+
                 if (!marketAddress) {
                     throw new Error("Market contract address missing in config");
                 }
