@@ -394,21 +394,15 @@ export default function CreateMarketPage() {
         );
     }
 
+    import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
+
+    // ... inside component ...
+
     // Show error if no access (only if connected - allow viewing form if not connected)
     if (isConnected && !canCreate && !hasAdminAccess) {
         return (
             <div className="min-h-screen bg-void flex items-center justify-center p-4">
-                <GlassCard className="max-w-md w-full p-8">
-                    <div className="text-center">
-                        <h1 className="text-2xl font-heading font-bold text-white mb-4">BFT Token Required</h1>
-                        <p className="text-text-secondary mb-6">
-                            You need at least 1 BFT token in your wallet to create markets. NFTs don't count - only BFT tokens are accepted for market creation.
-                        </p>
-                        <Link href="/">
-                            <NeonButton variant="cyan" className="w-full">Go Home</NeonButton>
-                        </Link>
-                    </div>
-                </GlassCard>
+                <BC400PurchaseModal isOpen={true} onClose={() => router.push('/')} />
             </div>
         );
     }
