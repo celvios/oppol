@@ -274,48 +274,51 @@ export default function PortfolioPage() {
                 <div className="p-6 border-b border-white/5">
                     <h2 className="text-lg font-bold">Active Positions</h2>
                 </div>
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-white/5 text-white/40 text-xs uppercase tracking-wider">
-                            <th className="p-4 font-medium">Market</th>
-                            <th className="p-4 font-medium">Side</th>
-                            <th className="p-4 font-medium">Shares</th>
-                            <th className="p-4 font-medium">Avg Price</th>
-                            <th className="p-4 font-medium">Current Price</th>
-                            <th className="p-4 font-medium">Value</th>
-                            <th className="p-4 font-medium">PnL</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {positions.length === 0 ? (
-                            <tr>
-                                <td colSpan={7} className="p-12 text-center">
-                                    <div className="text-white/40 text-lg">
-                                        No active positions. Place a bet to get started!
-                                    </div>
-                                </td>
+                {/* Horizontal scroll container */}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[800px]">
+                        <thead>
+                            <tr className="bg-white/5 text-white/40 text-xs uppercase tracking-wider">
+                                <th className="p-4 font-medium">Market</th>
+                                <th className="p-4 font-medium">Side</th>
+                                <th className="p-4 font-medium">Shares</th>
+                                <th className="p-4 font-medium">Avg Price</th>
+                                <th className="p-4 font-medium">Current Price</th>
+                                <th className="p-4 font-medium">Value</th>
+                                <th className="p-4 font-medium">PnL</th>
                             </tr>
-                        ) : (
-                            positions.map((pos, i) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors">
-                                    <td className="p-4 font-medium text-white max-w-xs truncate">{pos.market}</td>
-                                    <td className="p-4">
-                                        <span className={pos.side === "YES" ? "text-success bg-success/10 px-2 py-1 rounded text-xs font-bold" : "text-danger bg-danger/10 px-2 py-1 rounded text-xs font-bold"}>
-                                            {pos.side}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 font-mono text-white/80">{pos.shares}</td>
-                                    <td className="p-4 font-mono text-white/60">${pos.avgPrice}</td>
-                                    <td className="p-4 font-mono text-white/80">${pos.currentPrice.toFixed(2)}</td>
-                                    <td className="p-4 font-mono text-white">${pos.currentValue}</td>
-                                    <td className={`p-4 font-mono font-bold ${pos.pnlRaw >= 0 ? 'text-success' : 'text-danger'}`}>
-                                        {pos.pnl}
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {positions.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="p-12 text-center">
+                                        <div className="text-white/40 text-lg">
+                                            No active positions. Place a bet to get started!
+                                        </div>
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : (
+                                positions.map((pos, i) => (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors">
+                                        <td className="p-4 font-medium text-white max-w-xs truncate">{pos.market}</td>
+                                        <td className="p-4">
+                                            <span className={pos.side === "YES" ? "text-success bg-success/10 px-2 py-1 rounded text-xs font-bold" : "text-danger bg-danger/10 px-2 py-1 rounded text-xs font-bold"}>
+                                                {pos.side}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 font-mono text-white/80">{pos.shares}</td>
+                                        <td className="p-4 font-mono text-white/60">${pos.avgPrice}</td>
+                                        <td className="p-4 font-mono text-white/80">${pos.currentPrice.toFixed(2)}</td>
+                                        <td className="p-4 font-mono text-white">${pos.currentValue}</td>
+                                        <td className={`p-4 font-mono font-bold ${pos.pnlRaw >= 0 ? 'text-success' : 'text-danger'}`}>
+                                            {pos.pnl}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Disclaimer */}
