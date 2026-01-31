@@ -270,7 +270,9 @@ export class Web3Service {
     async getDepositedBalance(address: string): Promise<string> {
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            return ethers.formatUnits(balance, 6);
+            // IMPORTANT: Using 18 decimals because users deposited USDT (18 decimals)
+            // Even though contract expects USDC (6 decimals), the actual deposits are USDT
+            return ethers.formatUnits(balance, 18);
         } catch (error: any) {
             console.error('Error fetching deposited balance:', error);
             return '0';
