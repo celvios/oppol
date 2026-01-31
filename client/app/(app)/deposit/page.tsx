@@ -147,8 +147,8 @@ export default function DepositPage() {
             let currentBalance;
             if (selectedToken.isNative) {
                 currentBalance = await publicProvider.getBalance(address);
-                // Leave some gas buffer for BNB transactions (0.005 BNB)
-                const gasBuffer = ethers.parseEther("0.005");
+                // Leave some gas buffer for BNB transactions (0.001 BNB ~ $0.96)
+                const gasBuffer = ethers.parseEther("0.001");
                 if (currentBalance < (amountInWei + gasBuffer)) {
                     throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
                 }
