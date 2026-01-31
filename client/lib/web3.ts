@@ -65,9 +65,13 @@ export class Web3Service {
 
         const contracts = getContracts() as any;
 
-        // Use the unified multi-outcome contract
-        // Use the unified multi-outcome contract
-        const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
+        // Use the unified multi-outcome contract with fallback to env var
+        const marketAddress = contracts.predictionMarketMulti
+            || contracts.predictionMarket
+            || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
+
+        console.log('[Web3Service] Initializing with market address:', marketAddress);
+
         if (marketAddress && marketAddress !== "") {
             try {
                 this.predictionMarket = new ethers.Contract(
@@ -75,11 +79,12 @@ export class Web3Service {
                     PREDICTION_MARKET_MULTI_ABI,
                     this.provider
                 );
+                console.log('[Web3Service] Market contract initialized successfully');
             } catch (e) {
                 console.error('[Web3Service] Failed to instantiate Market Contract:', e);
             }
         } else {
-            console.warn('[Web3Service] Missing Market Contract Address');
+            console.error('[Web3Service] Missing Market Contract Address - balance queries will fail!');
         }
 
         const usdcAddress = contracts.mockUSDC || contracts.usdc;
