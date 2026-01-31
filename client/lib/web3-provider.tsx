@@ -36,7 +36,7 @@ let modalInitialized = false;
 function initializeModal() {
     if (!modalInitialized && typeof window !== 'undefined') {
         console.log('[Web3Provider] Initializing Web3Modal');
-        
+
         try {
             modalInstance = createWeb3Modal({
                 wagmiConfig: config,
@@ -47,11 +47,11 @@ function initializeModal() {
                     '--w3m-accent': '#00FF94',
                 },
             });
-            
+
             // Store modal instance on window for global access
             (window as any).web3modal = modalInstance;
             modalInitialized = true;
-            
+
             console.log('[Web3Provider] Web3Modal initialized successfully');
         } catch (error) {
             console.error('[Web3Provider] Failed to initialize Web3Modal:', error);
@@ -65,27 +65,63 @@ function WagmiBridge() {
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
     const lastStateRef = useRef({ address: null, isConnected: false });
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Sync Wagmi state -> Custom Events (for useWallet)
+    // Sync Wagmi state -> Custom Events (for useWallet) with debounce
     useEffect(() => {
         const currentAddress = address || null;
         const currentConnected = isConnected;
-        
-        // Only dispatch if state actually changed
-        if (currentAddress !== lastStateRef.current.address || 
-            currentConnected !== lastStateRef.current.isConnected) {
-            
-            console.log('[WagmiBridge] State changed:', { 
-                from: lastStateRef.current, 
-                to: { address: currentAddress, isConnected: currentConnected } 
-            });
-            
+
+        // Clear any pending debounce
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        // If connecting, dispatch immediately (good UX)
+        if (currentConnected && !lastStateRef.current.isConnected) {
+            console.log('[WagmiBridge] Connection detected, dispatching immediately');
             lastStateRef.current = { address: currentAddress, isConnected: currentConnected };
-            
+            window.dispatchEvent(new CustomEvent('wallet-changed', {
+                detail: { address: currentAddress, isConnected: currentConnected }
+            }));
+            return;
+        }
+
+        // If disconnecting, debounce to avoid flashes during navigation
+        if (!currentConnected && lastStateRef.current.isConnected) {
+            console.log('[WagmiBridge] Temporary disconnect detected, debouncing...');
+            debounceTimerRef.current = setTimeout(() => {
+                // Only dispatch if still disconnected after 500ms
+                if (!isConnected) {
+                    console.log('[WagmiBridge] Still disconnected after debounce, dispatching disconnect');
+                    lastStateRef.current = { address: null, isConnected: false };
+                    window.dispatchEvent(new CustomEvent('wallet-changed', {
+                        detail: { address: null, isConnected: false }
+                    }));
+                } else {
+                    console.log('[WagmiBridge] Reconnected during debounce, ignoring disconnect');
+                }
+            }, 500);
+            return;
+        }
+
+        // For address changes while connected, update immediately
+        if (currentAddress !== lastStateRef.current.address && currentConnected) {
+            console.log('[WagmiBridge] Address changed:', {
+                from: lastStateRef.current.address,
+                to: currentAddress
+            });
+            lastStateRef.current = { address: currentAddress, isConnected: currentConnected };
             window.dispatchEvent(new CustomEvent('wallet-changed', {
                 detail: { address: currentAddress, isConnected: currentConnected }
             }));
         }
+
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
     }, [address, isConnected]);
 
     // Listen for connection and initialization requests
@@ -105,7 +141,7 @@ function WagmiBridge() {
             console.log('[WagmiBridge] Disconnect request received');
             disconnect();
         };
-        
+
         const handleInitModal = () => {
             console.log('[WagmiBridge] Modal initialization request received');
             initializeModal();
@@ -114,7 +150,7 @@ function WagmiBridge() {
         window.addEventListener('wallet-connect-request', handleConnectRequest);
         window.addEventListener('wallet-disconnect-request', handleDisconnectRequest);
         window.addEventListener('init-web3modal', handleInitModal);
-        
+
         return () => {
             window.removeEventListener('wallet-connect-request', handleConnectRequest);
             window.removeEventListener('wallet-disconnect-request', handleDisconnectRequest);
