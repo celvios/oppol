@@ -7,6 +7,9 @@ import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { cookieStorage, createStorage } from 'wagmi';
+import { PrivyProvider } from '@privy-io/react-auth';
+// Note: @privy-io/wagmi doesn't export WagmiProvider, we use wagmi's provider 
+// but configured with Privy's connector ideally. For now we wrap.
 
 const projectId = '70415295a4738286445072f5c2392457';
 
@@ -188,15 +191,33 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         }
     }, []);
 
+    // Placeholder App ID - User must update this in .env
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cli-placeholder-id';
+
     // Always render with Wagmi context to ensure proper hydration
     // The useWallet hook will handle the mounted state internally
     return (
-        <WagmiProvider config={config} reconnectOnMount={true}>
-            <QueryClientProvider client={queryClient}>
-                <WagmiBridge />
-                {children}
-            </QueryClientProvider>
-        </WagmiProvider>
+        <PrivyProvider
+            appId={appId}
+            config={{
+                loginMethods: ['google', 'email', 'wallet'],
+                appearance: {
+                    theme: 'dark',
+                    accentColor: '#00FF94',
+                    logo: 'https://oppollbnb.vercel.app/icon.png',
+                },
+                embeddedWallets: {
+                    createOnLogin: 'users-without-wallets',
+                },
+            }}
+        >
+            <WagmiProvider config={config} reconnectOnMount={true}>
+                <QueryClientProvider client={queryClient}>
+                    <WagmiBridge />
+                    {children}
+                </QueryClientProvider>
+            </WagmiProvider>
+        </PrivyProvider>
     );
 }
 

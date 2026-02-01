@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Wallet, X } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface ConnectWalletModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ export default function ConnectWalletModal({
     context,
     contextData
 }: ConnectWalletModalProps) {
+    const { login: privyLogin } = usePrivy();
     // Handle ESC key
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
@@ -107,13 +109,28 @@ export default function ConnectWalletModal({
                         {getContextMessage()}
                     </p>
 
-                    {/* Connect Button */}
+                    {/* Login Buttons */}
+                    <NeonButton
+                        variant="purple"
+                        onClick={() => privyLogin()}
+                        className="w-full mb-3 flex items-center justify-center gap-2"
+                    >
+                        <img src="https://authjs.dev/img/providers/google.svg" alt="G" className="w-5 h-5 bg-white rounded-full p-0.5" />
+                        Sign in with Google
+                    </NeonButton>
+
+                    <div className="flex items-center gap-4 mb-3">
+                        <div className="h-px bg-white/10 flex-1" />
+                        <span className="text-xs text-white/30 uppercase">or</span>
+                        <div className="h-px bg-white/10 flex-1" />
+                    </div>
+
                     <NeonButton
                         variant="cyan"
                         onClick={handleConnect}
                         className="w-full mb-4"
                     >
-                        Connect Wallet
+                        Connect Existing Wallet
                     </NeonButton>
 
                     {/* Dismiss */}
