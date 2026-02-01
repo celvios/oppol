@@ -27,6 +27,18 @@ let onDepositDetected: DepositCallback | null = null;
 
 let provider: ethers.WebSocketProvider | null = null;
 let isRunning = false;
+let isConnecting = false;
+let reconnectTimer: NodeJS.Timeout | null = null;
+
+function scheduleReconnect(wssUrl: string) {
+    if (reconnectTimer) return; // Already scheduled
+
+    console.log('🔄 Reconnect scheduled in 5s...');
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        startDepositWatcher(wssUrl);
+    }, 5000);
+}
 
 /**
  * Add an address to watch for deposits
@@ -54,39 +66,45 @@ export function setDepositCallback(callback: DepositCallback) {
  * Start the deposit watcher
  */
 export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
-    if (isRunning) {
-        console.log('⚠️ Deposit watcher already running');
+    if (isRunning || isConnecting) {
+        console.log('⚠️ Deposit watcher already running or connecting');
         return;
     }
 
-    console.log('🚀 Starting deposit watcher...');
-    console.log(`📡 Connecting to: ${wssUrl}`);
-
     try {
-        provider = new ethers.WebSocketProvider(wssUrl);
+        isConnecting = true;
+
+        // Clean up existing provider if any
+        if (provider) {
+            try { await provider.destroy(); } catch (e) { }
+            provider = null;
+        }
+
+        console.log('🚀 Starting deposit watcher...');
+        console.log(`📡 Connecting to: ${wssUrl}`);
+
+        const newProvider = new ethers.WebSocketProvider(wssUrl);
 
         // Wait for connection with timeout
         try {
             await Promise.race([
-                provider.getNetwork(),
+                newProvider.getNetwork(),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
             ]);
             console.log('✅ Connected to blockchain');
         } catch (networkError: any) {
-            // Check if it's an RPC limit error
-            if (networkError?.error?.message?.includes('daily request limit') || 
-                networkError?.error?.message?.includes('upgrade your account')) {
+            if (networkError?.error?.message?.includes('daily request limit')) {
                 console.error('❌ RPC provider limit reached. Deposit watcher disabled.');
-                console.error('   Consider upgrading your RPC plan or using a fallback provider.');
-                isRunning = false;
-                if (provider) {
-                    provider.destroy();
-                    provider = null;
-                }
+                isConnecting = false;
                 return;
             }
             throw networkError;
         }
+
+        // Assign global provider only after success
+        provider = newProvider;
+        isRunning = true;
+        isConnecting = false;
 
         // Create filter for USDC Transfer events
         const filter = {
@@ -135,54 +153,44 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
             }
         });
 
-        isRunning = true;
         console.log('✅ Deposit watcher running');
         console.log(`👁️ Watching USDC at: ${USDC_ADDRESS}`);
 
-        // Handle disconnection using provider error event
-        provider.on('error', (error) => {
-            console.log('⚠️ WebSocket error, reconnecting...', error);
+        // Handle disconnection using persistent handlers
+        const handleDisconnect = () => {
+            if (!isRunning) return; // Prevent duplicate handling
+
+            console.log('⚠️ WebSocket disconnected/error, reconnecting...');
             isRunning = false;
-            setTimeout(() => startDepositWatcher(wssUrl), 5000);
+            if (provider) {
+                // Remove listeners to prevent memory leaks
+                provider.removeAllListeners();
+                provider = null;
+            }
+            scheduleReconnect(wssUrl);
+        };
+
+        provider.on('error', (err) => {
+            console.error('WebSocket Error:', err);
+            handleDisconnect();
         });
 
-        // Alternative: check websocket and add listener with type assertion
-        const ws = provider.websocket as any;
+        // Ethers v6 specific websocket access
+        const ws = (provider as any).websocket;
         if (ws && typeof ws.addEventListener === 'function') {
-            ws.addEventListener('close', () => {
-                console.log('⚠️ WebSocket disconnected, reconnecting...');
-                isRunning = false;
-                setTimeout(() => startDepositWatcher(wssUrl), 5000);
-            });
+            ws.addEventListener('close', handleDisconnect);
         }
 
     } catch (error: any) {
         console.error('❌ Failed to start deposit watcher:', error);
-        
-        // Check if it's an RPC limit error
-        if (error?.error?.message?.includes('daily request limit') || 
-            error?.error?.message?.includes('upgrade your account') ||
-            error?.message?.includes('daily request limit')) {
-            console.error('⚠️ RPC provider limit reached. Deposit watcher will remain disabled.');
-            console.error('   The application will continue to function, but deposit watching is unavailable.');
-        } else {
-            console.error('   Will retry in 30 seconds...');
-            // Retry after 30 seconds for non-limit errors
-            setTimeout(() => {
-                if (!isRunning) {
-                    startDepositWatcher(wssUrl);
-                }
-            }, 30000);
-        }
-        
+
+        isConnecting = false;
         isRunning = false;
-        if (provider) {
-            try {
-                provider.destroy();
-            } catch (e) {
-                // Ignore destroy errors
-            }
-            provider = null;
+
+        if (error?.message?.includes('daily request limit')) {
+            console.error('⚠️ RPC Limit reached, stopping.');
+        } else {
+            scheduleReconnect(wssUrl);
         }
     }
 }
