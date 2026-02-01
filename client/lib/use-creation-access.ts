@@ -14,8 +14,9 @@ const ERC20_ABI = [
 ];
 
 // Use environment variable or default to BSC Testnet
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com';
-const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '97');
+// Use environment variable or default to BSC Mainnet
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || process.env.CHAIN_ID || '56');
 
 export function useCreationAccess() {
     const { address, isConnected } = useWallet();
