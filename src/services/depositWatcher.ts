@@ -4,11 +4,11 @@
  */
 
 import { ethers } from 'ethers';
+import { CONFIG } from '../config/contracts';
 
 // Configuration
 const BNB_WSS_URL = process.env.BNB_WSS_URL || 'wss://bsc-mainnet.blastapi.io/ws'; // For mainnet
 const BNB_TESTNET_WSS = 'wss://bsc-testnet.publicnode.com'; // For testnet
-import { CONFIG } from '../config/contracts';
 
 const LOCAL_WSS = 'ws://127.0.0.1:8545'; // For local hardhat
 
@@ -85,6 +85,43 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
 
         const newProvider = new ethers.WebSocketProvider(wssUrl);
 
+        // Handle disconnection using persistent handlers EARLY
+        const handleDisconnect = () => {
+            if (isConnecting) {
+                // If we disconnect while still connecting, it's a connection failure
+                console.log('⚠️ Connection failed during handshake.');
+                isConnecting = false;
+                // Provider might not be assigned yet
+                scheduleReconnect(wssUrl);
+                return;
+            }
+
+            if (!isRunning) return; // Prevent duplicate handling
+
+            console.log('⚠️ WebSocket disconnected/error, reconnecting...');
+            isRunning = false;
+            // Clean up
+            if (provider) {
+                provider.removeAllListeners();
+                provider = null;
+            }
+            if (newProvider) {
+                newProvider.removeAllListeners();
+            }
+            scheduleReconnect(wssUrl);
+        };
+
+        newProvider.on('error', (err) => {
+            console.error('WebSocket Error:', err);
+            handleDisconnect();
+        });
+
+        // Ethers v6 specific websocket access
+        const ws = (newProvider as any).websocket;
+        if (ws && typeof ws.addEventListener === 'function') {
+            ws.addEventListener('close', handleDisconnect);
+        }
+
         // Wait for connection with timeout
         try {
             await Promise.race([
@@ -156,30 +193,6 @@ export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
         console.log('✅ Deposit watcher running');
         console.log(`👁️ Watching USDC at: ${USDC_ADDRESS}`);
 
-        // Handle disconnection using persistent handlers
-        const handleDisconnect = () => {
-            if (!isRunning) return; // Prevent duplicate handling
-
-            console.log('⚠️ WebSocket disconnected/error, reconnecting...');
-            isRunning = false;
-            if (provider) {
-                // Remove listeners to prevent memory leaks
-                provider.removeAllListeners();
-                provider = null;
-            }
-            scheduleReconnect(wssUrl);
-        };
-
-        provider.on('error', (err) => {
-            console.error('WebSocket Error:', err);
-            handleDisconnect();
-        });
-
-        // Ethers v6 specific websocket access
-        const ws = (provider as any).websocket;
-        if (ws && typeof ws.addEventListener === 'function') {
-            ws.addEventListener('close', handleDisconnect);
-        }
 
     } catch (error: any) {
         console.error('❌ Failed to start deposit watcher:', error);
