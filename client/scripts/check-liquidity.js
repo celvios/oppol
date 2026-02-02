@@ -10,7 +10,7 @@ const BUSD = "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56";
 const BC400 = "0xB929177331De755d7aCc5665267a247e458bCdeC";
 
 // RPC
-const RPC_URL = "https://delicate-greatest-energy.bsc.quiknode.pro/97d400e0de1e7c8b3969827d8452f896270454d0/";
+const RPC_URL = "https://bsc-rpc.publicnode.com";
 
 const V2_FACTORY_ABI = ["function getPair(address tokenA, address tokenB) external view returns (address pair)"];
 const V2_PAIR_ABI = ["function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)", "function token0() view returns (address)"];
