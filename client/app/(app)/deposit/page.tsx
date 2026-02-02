@@ -339,10 +339,10 @@ export default function DepositPage() {
                                     {isEmbeddedWallet ? 'Smart Balance' : 'Direct Deposit'}
                                 </h2>
                                 <button
-                                    onClick={() => address && copyToClipboard(address)}
+                                    onClick={() => effectiveAddress && copyToClipboard(effectiveAddress)}
                                     className="text-sm text-white/50 hover:text-white transition-colors flex items-center gap-2 group"
                                 >
-                                    {address?.slice(0, 8)}...{address?.slice(-6)}
+                                    {effectiveAddress?.slice(0, 8)}...{effectiveAddress?.slice(-6)}
                                     {copied ? (
                                         <span className="text-neon-green text-xs font-bold animate-pulse">COPIED!</span>
                                     ) : (
@@ -406,8 +406,8 @@ export default function DepositPage() {
                                     <p className="text-white/40 text-sm mb-6">to your personal address below (BNB Chain)</p>
 
                                     <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 flex items-center justify-between gap-2 overflow-hidden">
-                                        <code className="text-sm font-mono text-white truncate">{address}</code>
-                                        <button onClick={() => address && copyToClipboard(address)} className="p-2 hover:bg-white/10 rounded-lg text-green-500">
+                                        <code className="text-sm font-mono text-white truncate">{effectiveAddress}</code>
+                                        <button onClick={() => effectiveAddress && copyToClipboard(effectiveAddress)} className="p-2 hover:bg-white/10 rounded-lg text-green-500">
                                             <Copy className="w-4 h-4" />
                                         </button>
                                     </div>
