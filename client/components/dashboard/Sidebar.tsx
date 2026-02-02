@@ -19,7 +19,7 @@ const navItems = [
     { name: "Portfolio", href: "/portfolio", icon: PieChart },
     { name: "Deposit", href: "/deposit", icon: ArrowUpRight },
     { name: "Withdraw", href: "/withdraw", icon: ArrowDownRight },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Profile", href: "/profile", icon: Settings },
 ];
 
 interface SidebarProps {
