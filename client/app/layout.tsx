@@ -27,12 +27,15 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "OPoll | Decentralized Prediction Market",
   description: "Predict the future. Own the outcome.",
-  themeColor: "#05050A",
   icons: {
     icon: '/brand-logo.png',
     shortcut: '/brand-logo.png',
     apple: '/brand-logo.png',
   },
+};
+
+export const viewport = {
+  themeColor: "#05050A",
 };
 
 export default function RootLayout({

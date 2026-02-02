@@ -203,7 +203,8 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     }, []);
 
     // Placeholder App ID - User must update this in .env
-    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cli-placeholder-id';
+    // We use a valid-format UUID to prevent build crashes if the env var is missing during static generation
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '00000000-0000-0000-0000-000000000000';
 
     // Always render with Wagmi context to ensure proper hydration
     // The useWallet hook will handle the mounted state internally
