@@ -39,6 +39,7 @@ export default function ConnectWalletModal({
     const [isConnectingWallet, setIsConnectingWallet] = useState(false);
     const [showIdentityModal, setShowIdentityModal] = useState(false);
     const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
+    const [connectionError, setConnectionError] = useState("");
 
     // Reset state on close
     useEffect(() => {
@@ -231,8 +232,15 @@ export default function ConnectWalletModal({
 
         } catch (e: any) {
             console.error('[ConnectWalletModal] Direct Connect failed:', e);
-            // Don't close, let user retry or choose another option
-            // Maybe show error toast?
+
+            // Handle common MetaMask errors
+            if (e.code === -32002 || e.message?.includes('already pending')) {
+                setConnectionError("⚠️ Request pending! Please check your MetaMask extension icon to approve.");
+            } else if (e.code === 4001) {
+                setConnectionError("❌ Connection rejected. Please try again.");
+            } else {
+                setConnectionError(`❌ Error: ${e.message || 'Connection failed'}`);
+            }
         } finally {
             setIsConnectingWallet(false);
         }
@@ -380,6 +388,13 @@ export default function ConnectWalletModal({
                             >
                                 <ArrowLeft className="w-3 h-3" /> Back
                             </button>
+
+                            {/* Error Feedback */}
+                            {connectionError && (
+                                <div className="p-3 mt-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-xs text-center animate-shake">
+                                    {connectionError}
+                                </div>
+                            )}
                         </div>
                     ) : view === 'socials' ? (
                         <div className="space-y-3 animate-fadeIn">
