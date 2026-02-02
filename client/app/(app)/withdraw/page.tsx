@@ -22,13 +22,23 @@ const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] }
 ];
 
+import { usePrivy } from "@privy-io/react-auth";
+
 export default function WithdrawPage() {
     const { isConnected, address, connect } = useWallet();
     const { message: connectorMessage, connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
+    const { user, authenticated } = usePrivy();
 
-    // Detect Embedded Wallet (Privy)
-    const isEmbeddedWallet = connector?.id === 'privy' || connector?.name?.toLowerCase().includes('privy') || connector?.name?.toLowerCase().includes('embedded');
+    // Effective connection state
+    const isEffectivelyConnected = isConnected || authenticated;
+
+    // Detect Embedded Wallet (Privy) - Robust Check
+    const isEmbeddedWallet =
+        user?.wallet?.walletClientType === 'privy' ||
+        connector?.id === 'privy' ||
+        connector?.name?.toLowerCase().includes('privy') ||
+        connector?.name?.toLowerCase().includes('embedded');
 
     // Tab State (Only for Standard Wallets)
     const [activeTab, setActiveTab] = useState<'withdraw' | 'transfer'>('withdraw');
@@ -53,25 +63,27 @@ export default function WithdrawPage() {
     const USDC_ADDRESS = contracts.usdc;
     const MARKET_CONTRACT = (contracts.predictionMarket || contracts.predictionMarketMulti || process.env.NEXT_PUBLIC_MARKET_ADDRESS) as `0x${string}`;
 
+    const effectiveAddress = address || user?.wallet?.address;
+
     useEffect(() => {
-        if (address) {
+        if (effectiveAddress) {
             fetchAllBalances();
         }
-    }, [address]);
+    }, [effectiveAddress]);
 
     async function fetchAllBalances() {
-        if (!address) return;
+        if (!effectiveAddress) return;
         setIsLoading(true);
         try {
             // 1. Get Game Balance
-            const deposited = await web3MultiService.getDepositedBalance(address);
+            const deposited = await web3MultiService.getDepositedBalance(effectiveAddress);
             setContractBalance(deposited);
 
             // 2. Get Wallet Balance
             if (connectorClient) {
                 const signer = clientToSigner(connectorClient);
                 const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-                const balWei = await usdcContract.balanceOf(address);
+                const balWei = await usdcContract.balanceOf(effectiveAddress);
                 setWalletBalance(ethers.formatUnits(balWei, 18));
             }
         } catch (error: any) {
@@ -82,7 +94,7 @@ export default function WithdrawPage() {
     }
 
     async function handleAction() {
-        if (!address || !amount || parseFloat(amount) <= 0) return;
+        if (!effectiveAddress || !amount || parseFloat(amount) <= 0) return;
 
         setStep('processing');
         setErrorMessage('');
@@ -185,7 +197,7 @@ export default function WithdrawPage() {
 
     if (isLoading && !contractBalance && !walletBalance) return <SkeletonLoader />;
 
-    if (!isConnected) {
+    if (!isEffectivelyConnected) {
         return (
             <div className="max-w-2xl mx-auto pt-12 pb-24 text-center">
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
