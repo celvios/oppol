@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { Wallet, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Wallet, X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import { usePrivy } from "@privy-io/react-auth";
-import { useState } from "react";
+import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
 
 interface ConnectWalletModalProps {
     isOpen: boolean;
@@ -26,7 +25,64 @@ export default function ConnectWalletModal({
     contextData
 }: ConnectWalletModalProps) {
     const { login: privyLogin, ready, authenticated } = usePrivy();
-    const [view, setView] = useState<'main' | 'socials'>('main');
+    const { initOAuth } = useLoginWithOAuth();
+    const { sendCode, loginWithCode } = useLoginWithEmail();
+
+    const [view, setView] = useState<'main' | 'socials' | 'email-input' | 'email-otp'>('main');
+    const [email, setEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    // Reset state on close
+    useEffect(() => {
+        if (!isOpen) {
+            setView('main');
+            setEmail("");
+            setOtp("");
+            setLoading(false);
+        }
+    }, [isOpen]);
+
+    const handleGoogleLogin = async () => {
+        try {
+            setLoading(true);
+            await initOAuth({ provider: 'google' });
+            // OAuth redirects, so loading state persists until unload
+        } catch (e) {
+            console.error('Google Login Error:', e);
+            setLoading(false);
+        }
+    };
+
+    const handleEmailSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email) return;
+
+        try {
+            setLoading(true);
+            await sendCode({ email });
+            setView('email-otp');
+        } catch (err) {
+            console.error('Email Send Code Error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOtpSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!otp) return;
+
+        try {
+            setLoading(true);
+            await loginWithCode({ code: otp, email });
+            onClose();
+        } catch (err) {
+            console.error('OTP Verification Error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Debug logging
     useEffect(() => {
@@ -147,33 +203,90 @@ export default function ConnectWalletModal({
                                 {!ready ? 'Initializing...' : 'Log In with Email / Socials'}
                             </NeonButton>
                         </>
-                    ) : (
+                    ) : view === 'socials' ? (
                         <div className="space-y-3 animate-fadeIn">
                             <button
-                                onClick={() => privyLogin({ loginMethods: ['google'] })}
-                                className="w-full flex items-center justify-center gap-3 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                                onClick={handleGoogleLogin}
+                                disabled={loading}
+                                className="w-full flex items-center justify-center gap-3 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-colors disabled:opacity-70 disabled:cursor-wait"
                             >
-                                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />}
                                 Continue with Google
                             </button>
 
                             <button
-                                onClick={() => privyLogin({ loginMethods: ['email'] })}
+                                onClick={() => setView('email-input')}
                                 className="w-full flex items-center justify-center gap-3 py-3 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20 transition-colors border border-white/10"
                             >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
+                                <Mail className="w-5 h-5" />
                                 Continue with Email
                             </button>
 
                             <button
                                 onClick={() => setView('main')}
+                                className="w-full py-2 text-white/40 hover:text-white text-sm flex items-center justify-center gap-2"
+                            >
+                                <ArrowLeft className="w-3 h-3" /> Back
+                            </button>
+                        </div>
+                    ) : view === 'email-input' ? (
+                        <form onSubmit={handleEmailSubmit} className="space-y-4 animate-fadeIn">
+                            <input
+                                type="email"
+                                placeholder="name@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-neon-cyan/50 transition-colors"
+                                autoFocus
+                            />
+                            <NeonButton
+                                variant="cyan"
+                                type="submit"
+                                isLoading={loading}
+                                disabled={!email || loading}
+                                className="w-full"
+                            >
+                                Send Code
+                            </NeonButton>
+                            <button
+                                type="button"
+                                onClick={() => setView('socials')}
                                 className="w-full py-2 text-white/40 hover:text-white text-sm"
                             >
                                 Back
                             </button>
-                        </div>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleOtpSubmit} className="space-y-4 animate-fadeIn">
+                            <p className="text-sm text-white/60 mb-2">
+                                Enter the code sent to <span className="text-white">{email}</span>
+                            </p>
+                            <input
+                                type="text"
+                                placeholder="123456"
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-neon-cyan/50 transition-colors text-center tracking-widest text-lg font-mono"
+                                autoFocus
+                                maxLength={6}
+                            />
+                            <NeonButton
+                                variant="cyan"
+                                type="submit"
+                                isLoading={loading}
+                                disabled={otp.length < 6 || loading}
+                                className="w-full"
+                            >
+                                Verify & Login
+                            </NeonButton>
+                            <button
+                                type="button"
+                                onClick={() => setView('email-input')}
+                                className="w-full py-2 text-white/40 hover:text-white text-sm"
+                            >
+                                Change Email
+                            </button>
+                        </form>
                     )}
 
                     <p className="text-white/30 text-xs mt-4">
