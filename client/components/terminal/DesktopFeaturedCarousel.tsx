@@ -15,8 +15,15 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [isPaused, setIsPaused] = useState(false);
 
-    // Only show boosted markets
-    const boostedMarkets = markets.filter(m => m.isBoosted);
+    // Only show boosted markets - Fallback to top 3 by volume if none boosted
+    let boostedMarkets = markets.filter(m => m.isBoosted);
+
+    // Fallback: If no boosted markets, pick top 3 by highest odds or volume
+    if (boostedMarkets.length === 0 && markets.length > 0) {
+        boostedMarkets = [...markets]
+            .sort((a, b) => Number(b.totalVolume) - Number(a.totalVolume))
+            .slice(0, 3);
+    }
 
     // Reset when markets change
     useEffect(() => {
