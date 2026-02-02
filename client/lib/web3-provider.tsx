@@ -35,6 +35,10 @@ const config = defaultWagmiConfig({
         [bsc.id]: http(),
         [bscTestnet.id]: http(),
     },
+    enableInjected: true,
+    enableEIP6963: true,
+    enableCoinbase: false,
+    enableEmail: true,
 });
 
 // Initialize modal immediately at module level to ensure hooks work

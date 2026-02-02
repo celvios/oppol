@@ -200,10 +200,30 @@ export default function ConnectWalletModal({
                 const result = await connectAsync({ connector: injectedConnector });
                 connectedAddress = result.accounts[0];
                 console.log('[ConnectWalletModal] Direct connect successful', connectedAddress);
+            } else if (typeof window !== 'undefined' && (window as any).ethereum) {
+                // FORCE FALLBACK: If wagmi didn't give us the connector but window.ethereum exists
+                console.warn('[ConnectWalletModal] No matching connector found in Wagmi, but window.ethereum exists. Forcing direct request...');
+
+                // We can try to find ANY connector that is 'injected' type even if name doesn't match
+                const anyInjected = connectors?.find(c => c.type === 'injected');
+
+                if (anyInjected) {
+                    const result = await connectAsync({ connector: anyInjected });
+                    connectedAddress = result.accounts[0];
+                    console.log('[ConnectWalletModal] Forced generic injected connect successful', connectedAddress);
+                } else {
+                    // Last resort: we open Web3Modal because we can't easily construct a Wagmi Connector from thin air 
+                    // without using 'wagmi/connectors' imports which aren't here.
+                    // BUT, we can try to connectAsync with the FIRST available connector if it looks safe?
+                    // No, let's just fall back to Web3Modal but log VERY clearly.
+                    console.error('[ConnectWalletModal] Fatal: Window.ethereum exists but no Wagmi connector available. Falling back to Web3Modal.');
+                    await onConnect();
+                }
             } else {
                 // Fallback to Web3Modal (e.g. for mobile or no extension)
                 console.log('[ConnectWalletModal] No injection found, opening Web3Modal...');
                 await onConnect();
+
                 // We can't easily get the address immediately from onConnect void return
                 // We rely on useWallet/useAccount which updates asynchronously
                 // But for conflict flow, we need the address.
