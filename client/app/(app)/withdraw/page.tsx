@@ -34,14 +34,14 @@ export default function WithdrawPage() {
     const isEffectivelyConnected = isConnected || authenticated;
 
     // Detect Embedded Wallet (Privy) - Robust Check
-    // If authenticated via Privy and we have a wallet, we treat it as embedded flow
-    // unless explicitly overridden or user is using a strictly external connector that isn't connected to Privy.
-    const isEmbeddedWallet =
-        authenticated || // Trust Privy authentication primarily
-        user?.wallet?.walletClientType === 'privy' ||
-        connector?.id === 'privy' ||
+    // explicitly check if the connector is Privy or if we are authenticated WITHOUT a specific wagmi connector (fallback)
+    // If user is connected via MetaMask (connector.id = 'metaMask'), we should NOT treat as embedded even if privy is 'authenticated' (background session)
+    const isPrivyConnector = 
+        connector?.id === 'privy' || 
         connector?.name?.toLowerCase().includes('privy') ||
-        connector?.name?.toLowerCase().includes('embedded');
+        user?.wallet?.walletClientType === 'privy';
+        
+    const isEmbeddedWallet = isPrivyConnector || (authenticated && !connector);
 
     // Tab State (Only for Standard Wallets)
     const [activeTab, setActiveTab] = useState<'withdraw' | 'transfer'>('withdraw');
