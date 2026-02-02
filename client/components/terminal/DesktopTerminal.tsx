@@ -96,6 +96,19 @@ export function DesktopTerminal() {
         setMounted(true);
     }, []);
 
+    useEffect(() => {
+        if (market) {
+            console.log('[DesktopTerminal] Debug Market:', {
+                id: market.id,
+                endTime: market.endTime,
+                endTimeDate: new Date(market.endTime * 1000).toLocaleString(),
+                now: Date.now() / 1000,
+                isEnded: Date.now() / 1000 > market.endTime,
+                resolved: market.resolved
+            });
+        }
+    }, [market]);
+
     // --- Data Fetching ---
 
     const fetchHistory = useCallback(async (id: number) => {
@@ -400,8 +413,8 @@ export function DesktopTerminal() {
                         <div className="flex gap-2 mb-2">
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
-                                    ? 'bg-orange-500/20 text-orange-400'
-                                    : 'bg-white/10 text-white/50'
+                                ? 'bg-orange-500/20 text-orange-400'
+                                : 'bg-white/10 text-white/50'
                                 }`}>
                                 {Date.now() > market.endTime * 1000
                                     ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
