@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle, Globe, Trophy, Menu } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe, Trophy, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -99,19 +99,19 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
 
-                    {/* Menu */}
+                    {/* Settings */}
                     <Link
-                        href="/menu"
+                        href="/settings"
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                     >
-                        {pathname === "/menu" && (
+                        {pathname === "/settings" && (
                             <motion.div
                                 layoutId="nav-active"
                                 className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
                             />
                         )}
-                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-neon-cyan" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")}>Menu</span>
+                        <Settings className={twMerge("w-6 h-6 transition-colors", pathname === "/settings" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/settings" ? "text-white" : "text-text-secondary")}>Settings</span>
                     </Link>
                 </nav>
             </div>

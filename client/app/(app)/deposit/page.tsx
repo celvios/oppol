@@ -65,7 +65,19 @@ export default function DepositPage() {
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected || authenticated;
+    const isEffectivelyConnected = isConnected || authenticated;
     const effectiveAddress = address || user?.wallet?.address;
+
+    useEffect(() => {
+        console.log('[DepositPage Debug] State:', {
+            isConnected,
+            authenticated,
+            isEffectivelyConnected,
+            address,
+            privyWallet: user?.wallet,
+            effectiveAddress
+        });
+    }, [isConnected, authenticated, address, user, effectiveAddress]);
 
     // Detect Embedded Wallet (Privy) - Robust Check
     // We treat the user as "Embedded/Smart Wallet" if:

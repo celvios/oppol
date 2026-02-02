@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe, Trophy } from "lucide-react";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe, Trophy, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
 import { useBC400Check } from "@/lib/use-bc400";
@@ -19,6 +19,7 @@ const navItems = [
     { name: "Portfolio", href: "/portfolio", icon: PieChart },
     { name: "Deposit", href: "/deposit", icon: ArrowUpRight },
     { name: "Withdraw", href: "/withdraw", icon: ArrowDownRight },
+    { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 interface SidebarProps {
