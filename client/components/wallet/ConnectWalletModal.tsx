@@ -133,13 +133,27 @@ export default function ConnectWalletModal({
         }
     };
 
+    const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+
     const handleConnect = async () => {
+        if (isConnectingWallet) return;
+        setIsConnectingWallet(true);
         try {
             console.log('[ConnectWalletModal] connect triggered');
             await onConnect();
+            // We do NOT close the modal here automatically anymore, 
+            // because onConnect (open()) just opens the selection modal.
+            // The user needs to interact with that.
+            // Closing this modal might hide the Web3Modal if z-index issues exist, 
+            // OR we want this to close so Web3Modal takes over?
+            // Usually Web3Modal is an overlay. If we close this, we lose context.
+            // But if we keep it open, it might be behind?
+            // Let's close it ONLY if successful open.
             onClose();
         } catch (e) {
             console.error('[ConnectWalletModal] Connect failed:', e);
+        } finally {
+            setIsConnectingWallet(false);
         }
     };
 
@@ -184,10 +198,11 @@ export default function ConnectWalletModal({
                             <NeonButton
                                 variant="cyan"
                                 onClick={handleConnect}
-                                className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold"
+                                disabled={isConnectingWallet}
+                                className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold disabled:opacity-70 disabled:cursor-wait"
                             >
-                                <Wallet className="w-5 h-5" />
-                                Connect External Wallet
+                                {isConnectingWallet ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
+                                {isConnectingWallet ? 'Connecting...' : 'Connect External Wallet'}
                             </NeonButton>
 
                             <div className="relative mb-3">
