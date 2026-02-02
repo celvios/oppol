@@ -5,8 +5,23 @@ import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
 import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@/lib/use-wallet";
+import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
+import LogoBrand from "@/components/ui/LogoBrand";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
-// ... existing imports
+interface Position {
+    market: string;
+    marketId: number;
+    side: 'YES' | 'NO';
+    shares: number;
+    avgPrice: string;
+    currentPrice: number;
+    currentValue: string;
+    pnl: string;
+    pnlRaw: number;
+}
 
 export default function PortfolioPage() {
     const [showWalletModal, setShowWalletModal] = useState(false);
