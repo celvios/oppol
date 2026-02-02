@@ -61,7 +61,7 @@ export default function DepositPage() {
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
-    const { user, authenticated } = usePrivy();
+    const { user, authenticated, createWallet } = usePrivy();
     const { wallets } = useWallets();
 
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
@@ -77,9 +77,20 @@ export default function DepositPage() {
             isEffectivelyConnected,
             address,
             privyWallet: user?.wallet,
+            embeddedWallet,
+            walletsLength: wallets.length,
+            wallets: wallets.map(w => ({ type: w.walletClientType, address: w.address })),
             effectiveAddress
         });
-    }, [isConnected, authenticated, address, user, effectiveAddress]);
+    }, [isConnected, authenticated, address, user, effectiveAddress, wallets, embeddedWallet]);
+
+    // Auto-create wallet if authenticated but missing
+    useEffect(() => {
+        if (authenticated && !user?.wallet && !embeddedWallet && !address) {
+            console.log('[DepositPage] No wallet found for authenticated user. Attempting to create...');
+            createWallet().catch(err => console.error('[DepositPage] Failed to create wallet:', err));
+        }
+    }, [authenticated, user, embeddedWallet, address, createWallet]);
 
     // Detect Embedded Wallet (Privy) - Robust Check
     // We treat the user as "Embedded/Smart Wallet" if:
