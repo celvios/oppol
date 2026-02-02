@@ -150,7 +150,7 @@ export default function ConnectWalletModal({
             // Usually Web3Modal is an overlay. If we close this, we lose context.
             // But if we keep it open, it might be behind?
             // Let's close it ONLY if successful open.
-            onClose();
+            // onClose(); // DEBUG: Keep open to see if Web3Modal appears behind or fails
         } catch (e) {
             console.error('[ConnectWalletModal] Connect failed:', e);
         } finally {
