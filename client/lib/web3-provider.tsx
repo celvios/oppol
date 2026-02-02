@@ -203,14 +203,21 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     }, []);
 
     // Placeholder App ID - User must update this in .env
-    // We use a valid-format UUID to prevent build crashes if the env var is missing during static generation
-    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '00000000-0000-0000-0000-000000000000';
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+
+    if (!appId) {
+        // In production/build, we fail if the ID is missing to prevent runtime errors
+        // ensures the user configures Vercel correctly
+        if (typeof window === 'undefined') {
+            console.error("FATAL: NEXT_PUBLIC_PRIVY_APP_ID is not defined.");
+        }
+    }
 
     // Always render with Wagmi context to ensure proper hydration
     // The useWallet hook will handle the mounted state internally
     return (
         <PrivyProvider
-            appId={appId}
+            appId={appId || ''}
             config={{
                 loginMethods: ['google', 'email', 'wallet'],
                 appearance: {
