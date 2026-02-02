@@ -405,64 +405,63 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
                                 <span className="text-[8px] font-bold text-orange-400 uppercase text-center px-1">Awaiting<br />Resolution</span>
                             </div>
                         ) : null}
+                    </div>
 
+                    {/* Main Content */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-text-secondary bg-white/5 px-1.5 rounded-sm">
+                                {metadata.category}
+                            </span>
+                            <span className="text-[10px] text-text-secondary font-mono">
+                                ${market.totalVolume} Vol
+                            </span>
+                        </div>
 
+                        <h3 className="text-sm font-bold leading-tight line-clamp-2 text-white/90 mb-2">
+                            {market.question}
+                        </h3>
 
-                        {/* Main Content */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] uppercase tracking-wider text-text-secondary bg-white/5 px-1.5 rounded-sm">
-                                    {metadata.category}
-                                </span>
-                                <span className="text-[10px] text-text-secondary font-mono">
-                                    ${market.totalVolume} Vol
+                        {/* Minimalist Bar */}
+                        {isMultiOutcome ? (
+                            <div className="w-full flex items-center gap-2">
+                                <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
+                                    {market.prices?.map((price, i) => (
+                                        <div
+                                            key={i}
+                                            style={{ width: `${price}%`, backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
+                                            className="h-full"
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-xs font-mono font-bold text-neon-green shrink-0">
+                                    {Math.round(leadingPrice)}%
                                 </span>
                             </div>
-
-                            <h3 className="text-sm font-bold leading-tight line-clamp-2 text-white/90 mb-2">
-                                {market.question}
-                            </h3>
-
-                            {/* Minimalist Bar */}
-                            {isMultiOutcome ? (
-                                <div className="w-full flex items-center gap-2">
-                                    <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
-                                        {market.prices?.map((price, i) => (
-                                            <div
-                                                key={i}
-                                                style={{ width: `${price}%`, backgroundColor: OUTCOME_COLORS[i % OUTCOME_COLORS.length] }}
-                                                className="h-full"
-                                            />
-                                        ))}
-                                    </div>
-                                    <span className="text-xs font-mono font-bold text-neon-green shrink-0">
-                                        {Math.round(leadingPrice)}%
-                                    </span>
+                        ) : (
+                            <div className="w-full flex items-center gap-2">
+                                <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
+                                    <div
+                                        className="h-full bg-outcome-a"
+                                        style={{ width: `${market.prices?.[0] || 50}%` }}
+                                    />
+                                    <div
+                                        className="h-full bg-outcome-b"
+                                        style={{ width: `${market.prices?.[1] || 50}%` }}
+                                    />
                                 </div>
-                            ) : (
-                                <div className="w-full flex items-center gap-2">
-                                    <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden flex">
-                                        <div
-                                            className="h-full bg-outcome-a"
-                                            style={{ width: `${market.prices?.[0] || 50}%` }}
-                                        />
-                                        <div
-                                            className="h-full bg-outcome-b"
-                                            style={{ width: `${market.prices?.[1] || 50}%` }}
-                                        />
-                                    </div>
-                                    <span className="text-xs font-mono font-bold text-outcome-a shrink-0">
-                                        {(market.prices?.[0] || 50).toFixed(0)}%
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Chevron / Action */}
-                        <div className="shrink-0 text-white/20 group-hover:text-neon-cyan transition-colors">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
+                                <span className="text-xs font-mono font-bold text-outcome-a shrink-0">
+                                    {(market.prices?.[0] || 50).toFixed(0)}%
+                                </span>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Chevron / Action */}
+                    <div className="shrink-0 text-white/20 group-hover:text-neon-cyan transition-colors">
+                        <TrendingUp className="w-5 h-5" />
+                    </div>
+                </div>
             </Link >
         </div >
     );
