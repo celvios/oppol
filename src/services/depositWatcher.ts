@@ -7,10 +7,8 @@ import { ethers } from 'ethers';
 import { CONFIG } from '../config/contracts';
 
 // Configuration
-const BNB_WSS_URL = process.env.BNB_WSS_URL || 'wss://bsc-mainnet.blastapi.io/ws'; // For mainnet
-const BNB_TESTNET_WSS = 'wss://bsc-testnet.publicnode.com'; // For testnet
-
-const LOCAL_WSS = 'ws://127.0.0.1:8545'; // For local hardhat
+const BNB_WSS_URL = CONFIG.WSS_URL;
+if (!BNB_WSS_URL) console.warn('⚠️ BNB_WSS_URL not set. Watcher may fail.');
 
 // USDC Contract
 const USDC_ADDRESS = CONFIG.USDC_CONTRACT;
@@ -65,7 +63,7 @@ export function setDepositCallback(callback: DepositCallback) {
 /**
  * Start the deposit watcher
  */
-export async function startDepositWatcher(wssUrl: string = LOCAL_WSS) {
+export async function startDepositWatcher(wssUrl: string = BNB_WSS_URL) {
     if (isRunning || isConnecting) {
         console.log('⚠️ Deposit watcher already running or connecting');
         return;

@@ -20,6 +20,8 @@ export const CONFIG = {
     USDC_CONTRACT: getEnv('NEXT_PUBLIC_USDC_CONTRACT') || getEnv('USDC_CONTRACT') || getEnv('USDC_ADDRESS', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
     // RPC URL
     RPC_URL: getEnv('NEXT_PUBLIC_RPC_URL') || getEnv('BNB_RPC_URL'),
+    // WebSocket URL
+    WSS_URL: getEnv('BNB_WSS_URL'),
     // Chain ID
     CHAIN_ID: parseInt(getEnv('NEXT_PUBLIC_CHAIN_ID') || getEnv('CHAIN_ID', '56')),
     // Alias for backwards compatibility
