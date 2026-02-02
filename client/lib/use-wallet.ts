@@ -106,6 +106,8 @@ export function useWallet() {
     address: displayState.address,
     isConnecting: isConnecting || isPending,
     connect: connectWallet,
-    disconnect: disconnectWallet
+    disconnect: disconnectWallet,
+    connectAsync, // Expose Wagmi direct connect
+    connectors: useConnect().connectors // Expose connectors to find injected one
   };
 }

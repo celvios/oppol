@@ -5,6 +5,7 @@ import { Wallet, X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
+import { useWallet } from "@/lib/use-wallet";
 import WalletDebugger from "../debug/WalletDebugger";
 
 interface ConnectWalletModalProps {
@@ -136,23 +137,31 @@ export default function ConnectWalletModal({
     };
 
 
+    const { connectAsync, connectors } = useWallet();
+
     const handleConnect = async () => {
         if (isConnectingWallet) return;
         setIsConnectingWallet(true);
         try {
             console.log('[ConnectWalletModal] connect triggered');
-            await onConnect();
-            // We do NOT close the modal here automatically anymore, 
-            // because onConnect (open()) just opens the selection modal.
-            // The user needs to interact with that.
-            // Closing this modal might hide the Web3Modal if z-index issues exist, 
-            // OR we want this to close so Web3Modal takes over?
-            // Usually Web3Modal is an overlay. If we close this, we lose context.
-            // But if we keep it open, it might be behind?
-            // Let's close it ONLY if successful open.
-            // onClose(); // DEBUG: Keep open to see if Web3Modal appears behind or fails
+
+            // Try direct injected connection first if available (mimics the successful "Direct Connect" test)
+            const injectedConnector = connectors?.find(c => c.id === 'injected' || c.name.toLowerCase() === 'metamask');
+
+            if (injectedConnector && typeof window !== 'undefined' && (window as any).ethereum) {
+                console.log('[ConnectWalletModal] Attempting direct injection connect...');
+                await connectAsync({ connector: injectedConnector });
+                console.log('[ConnectWalletModal] Direct connect successful');
+            } else {
+                // Fallback to Web3Modal (e.g. for mobile or no extension)
+                console.log('[ConnectWalletModal] No injection found, opening Web3Modal...');
+                await onConnect();
+            }
+
+            onClose();
         } catch (e) {
             console.error('[ConnectWalletModal] Connect failed:', e);
+            // If direct connect failed, maybe user rejected? Don't force open Web3Modal immediately to avoid spam.
         } finally {
             setIsConnectingWallet(false);
         }
