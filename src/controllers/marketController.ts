@@ -59,7 +59,8 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         const { CONFIG } = require('../config/contracts');
         const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
         const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
-        console.log('📄 Using contract address:', MARKET_ADDRESS);
+        console.log('📄 [CLIENT API] Using contract address:', MARKET_ADDRESS);
+        console.log('📄 [CLIENT API] RPC:', CONFIG.RPC_URL);
 
         const abi = [
             'function getMarketOutcomes(uint256) view returns (string[])',

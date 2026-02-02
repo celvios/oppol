@@ -75,6 +75,8 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
 
         // USE CORRECT CONTRACT FROM ENV
         const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+        console.log('👮 [ADMIN API] Using contract address:', MARKET_ADDR);
+
         if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
