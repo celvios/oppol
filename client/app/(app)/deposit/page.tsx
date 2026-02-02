@@ -54,14 +54,21 @@ const getTokens = () => {
     ];
 };
 
+import { usePrivy } from "@privy-io/react-auth";
+
 export default function DepositPage() {
     const tokens = getTokens();
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
+    const { user } = usePrivy();
 
-    // Detect Embedded Wallet (Privy)
-    const isEmbeddedWallet = connector?.id === 'privy' || connector?.name?.toLowerCase().includes('privy') || connector?.name?.toLowerCase().includes('embedded');
+    // Detect Embedded Wallet (Privy) - Robust Check
+    const isEmbeddedWallet =
+        user?.wallet?.walletClientType === 'privy' ||
+        connector?.id === 'privy' ||
+        connector?.name?.toLowerCase().includes('privy') ||
+        connector?.name?.toLowerCase().includes('embedded');
 
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
