@@ -84,10 +84,20 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
                                     <div className="absolute inset-0 p-4 flex flex-col justify-end z-10">
                                         {/* Top Badge */}
                                         <div className="absolute top-3 right-3">
-                                            <span className="px-1.5 py-0.5 bg-amber-500 text-black text-[9px] font-bold rounded flex items-center gap-1 shadow-[0_0_8px_rgba(245,158,11,0.4)]">
-                                                <TrendingUp size={9} />
-                                                HOT
-                                            </span>
+                                            {market.resolved ? (
+                                                <span className="px-1.5 py-0.5 bg-neon-cyan text-black text-[9px] font-bold rounded flex items-center gap-1 shadow-[0_0_8px_rgba(0,240,255,0.4)]">
+                                                    RESOLVED
+                                                </span>
+                                            ) : (Date.now() / 1000) > (market.endTime || 0) ? (
+                                                <span className="px-1.5 py-0.5 bg-orange-500 text-black text-[9px] font-bold rounded flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.4)]">
+                                                    ENDED
+                                                </span>
+                                            ) : (
+                                                <span className="px-1.5 py-0.5 bg-amber-500 text-black text-[9px] font-bold rounded flex items-center gap-1 shadow-[0_0_8px_rgba(245,158,11,0.4)]">
+                                                    <TrendingUp size={9} />
+                                                    HOT
+                                                </span>
+                                            )}
                                         </div>
 
                                         <h3 className="text-sm font-bold text-white mb-2 leading-tight line-clamp-2 text-shadow-sm">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { TrendingUp, Users, Search } from "lucide-react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import BoostButton from "../market/BoostButton";
@@ -258,7 +259,19 @@ function TrendingMarketCard({ market, className }: { market: MultiMarket, classN
 
                     {/* Header */}
                     <div className="flex justify-between text-xs text-text-secondary mb-3 font-mono relative z-10">
-                        <span className="px-2 py-0.5 bg-white/10 rounded text-[10px]">{metadata.category}</span>
+                        <div className="flex gap-2">
+                            <span className="px-2 py-0.5 bg-white/10 rounded text-[10px]">{metadata.category}</span>
+                            {/* Status Badge */}
+                            {market.resolved ? (
+                                <span className="px-2 py-0.5 bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/20 rounded text-[10px] font-bold">
+                                    RESOLVED
+                                </span>
+                            ) : (Date.now() / 1000) > (market.endTime || 0) ? (
+                                <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-[10px] font-bold">
+                                    ENDED
+                                </span>
+                            ) : null}
+                        </div>
                         <span />
                     </div>
 
@@ -377,11 +390,23 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
                             </div>
                         )}
                         {market.isBoosted && (
-                            <div className="absolute top-0 right-0 p-1 bg-amber-500/90 text-black rounded-bl-lg">
+                            <div className="absolute top-0 right-0 p-1 bg-amber-500/90 text-black rounded-bl-lg z-10">
                                 <Sparkles className="w-2 h-2" />
                             </div>
                         )}
+
+                        {/* Status Overlay for Compact Card */}
+                        {market.resolved ? (
+                            <div className="absolute inset-0 bg-neon-cyan/80 flex items-center justify-center z-20 backdrop-blur-[1px]">
+                                <span className="text-[8px] font-bold text-black uppercase">Resolved</span>
+                            </div>
+                        ) : (Date.now() / 1000) > (market.endTime || 0) ? (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px] border border-orange-500/30">
+                                <span className="text-[8px] font-bold text-orange-400 uppercase text-center px-1">Awaiting<br />Resolution</span>
+                            </div>
+                        ) : null}
                     </div>
+
 
                     {/* Main Content */}
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -438,8 +463,8 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
                         <TrendingUp className="w-5 h-5" />
                     </div>
                 </div>
-            </Link>
-        </div>
+            </Link >
+        </div >
     );
 }
 
