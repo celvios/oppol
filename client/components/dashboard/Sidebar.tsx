@@ -13,6 +13,7 @@ import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 import { useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 
 const navItems = [
     { name: "Markets", href: "/", icon: Globe },
@@ -31,13 +32,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { isConnected, address, disconnect, connect } = useWallet();
+    const { authenticated, user, logout } = usePrivy();
     const { hasNFT } = useBC400Check();
+
+    const isEffectivelyConnected = isConnected || authenticated;
+    const effectiveAddress = address || user?.wallet?.address;
 
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         disconnect();
+        await logout();
         router.push('/');
     };
 
@@ -147,7 +153,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     )}
 
-                    {isConnected ? (
+                    {isEffectivelyConnected ? (
                         <div
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary",
@@ -162,7 +168,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 <>
                                     <div className="flex-1">
                                         <span className="font-mono text-xs">
-                                            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Logged In'}
+                                            {effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : 'Logged In'}
                                         </span>
                                     </div>
                                     <button
