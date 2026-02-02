@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateMagicLink, verifyMagicToken } from '../controllers/authController';
+import { generateMagicLink, registerUser } from '../controllers/authController';
 import { getWallet, linkWallet } from '../controllers/walletController';
 import { WhatsAppController } from '../controllers/whatsappController';
 import { TelegramController } from '../controllers/telegramController';
@@ -10,7 +10,7 @@ const router = Router();
 
 // Auth Routes (Deprecated/Removed)
 // router.post('/auth/magic-link', generateMagicLink);
-// router.post('/auth/verify', verifyMagicToken);
+router.post('/register', registerUser);
 
 // Wallet Routes
 router.get('/wallet/:userId', getWallet);

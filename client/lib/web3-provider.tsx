@@ -2,14 +2,14 @@
 
 import { createWeb3Modal } from '@web3modal/wagmi/react';
 import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
-import { WagmiProvider, useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, http } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
+import { injected, walletConnect } from 'wagmi/connectors';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { cookieStorage, createStorage } from 'wagmi';
 import { PrivyProvider } from '@privy-io/react-auth';
-// Note: @privy-io/wagmi doesn't export WagmiProvider, we use wagmi's provider 
-// but configured with Privy's connector ideally. For now we wrap.
+import { WagmiProvider } from '@privy-io/wagmi'; // Use Privy's provider, but standard config generation
 
 const projectId = '70415295a4738286445072f5c2392457';
 
@@ -22,6 +22,7 @@ const metadata = {
 
 const chains = [bsc, bscTestnet] as const;
 
+// Use defaultWagmiConfig to ensure Web3Modal works correctly
 const config = defaultWagmiConfig({
     chains,
     projectId,
@@ -30,6 +31,10 @@ const config = defaultWagmiConfig({
     storage: createStorage({
         storage: cookieStorage,
     }),
+    transports: {
+        [bsc.id]: http(),
+        [bscTestnet.id]: http(),
+    },
 });
 
 // Global modal instance tracker
@@ -41,6 +46,12 @@ function initializeModal() {
         console.log('[Web3Provider] Initializing Web3Modal');
 
         try {
+            // Note: createWeb3Modal might ideally want the config returned by defaultWagmiConfig
+            // BUT since we are using Privy for auth, we might not strictly need defaultWagmiConfig 
+            // for the wallet connection part if Privy handles it. 
+            // However, we want 'Connect Wallet' to potentially support others too? 
+            // If we use Privy, we usually disable default connectors in wagmi.
+
             modalInstance = createWeb3Modal({
                 wagmiConfig: config,
                 projectId,
@@ -211,12 +222,12 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 },
             }}
         >
-            <WagmiProvider config={config} reconnectOnMount={true}>
-                <QueryClientProvider client={queryClient}>
+            <QueryClientProvider client={queryClient}>
+                <WagmiProvider config={config} reconnectOnMount={true}>
                     <WagmiBridge />
                     {children}
-                </QueryClientProvider>
-            </WagmiProvider>
+                </WagmiProvider>
+            </QueryClientProvider>
         </PrivyProvider>
     );
 }

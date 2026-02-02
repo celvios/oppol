@@ -13,6 +13,7 @@ import { getContracts } from "@/lib/contracts";
 import { ethers } from "ethers";
 import { useConnectorClient } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
+import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 
 export default function CreateMarketPage() {
     const { address, isConnected, connect } = useWallet();
@@ -394,9 +395,7 @@ export default function CreateMarketPage() {
         );
     }
 
-    import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 
-    // ... inside component ...
 
     // Show error if no access (only if connected - allow viewing form if not connected)
     if (isConnected && !canCreate && !hasAdminAccess) {

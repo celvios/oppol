@@ -183,16 +183,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => connect()}
+                            onClick={() => setShowWalletModal(true)}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
+                                "hover:bg-primary/10 hover:text-primary hover:border-primary/20 hover:border",
                                 collapsed ? "justify-center" : ""
                             )}
-                            title={collapsed ? "Connect Wallet" : undefined}
+                            title={collapsed ? "Log In" : undefined}
                         >
                             <Wallet className="w-5 h-5 transition-transform group-hover:scale-110" />
-                            {!collapsed && <span className="font-medium text-sm">Connect Wallet</span>}
+                            {!collapsed && <span className="font-medium text-sm">Log In</span>}
                         </button>
                     )}
 

@@ -24,7 +24,13 @@ export default function ConnectWalletModal({
     context,
     contextData
 }: ConnectWalletModalProps) {
-    const { login: privyLogin } = usePrivy();
+    const { login: privyLogin, ready, authenticated } = usePrivy();
+
+    // Debug logging
+    useEffect(() => {
+        console.log('[ConnectWalletModal] Privy State:', { ready, authenticated, hasLogin: !!privyLogin });
+    }, [ready, authenticated, privyLogin]);
+
     // Handle ESC key
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
@@ -101,7 +107,7 @@ export default function ConnectWalletModal({
 
                     {/* Title */}
                     <h2 className="text-2xl font-bold text-white mb-3">
-                        Connect Your Wallet
+                        Log In
                     </h2>
 
                     {/* Context Message */}
@@ -111,27 +117,28 @@ export default function ConnectWalletModal({
 
                     {/* Login Buttons */}
                     <NeonButton
-                        variant="purple"
-                        onClick={() => privyLogin()}
-                        className="w-full mb-3 flex items-center justify-center gap-2"
-                    >
-                        <img src="https://authjs.dev/img/providers/google.svg" alt="G" className="w-5 h-5 bg-white rounded-full p-0.5" />
-                        Sign in with Google
-                    </NeonButton>
-
-                    <div className="flex items-center gap-4 mb-3">
-                        <div className="h-px bg-white/10 flex-1" />
-                        <span className="text-xs text-white/30 uppercase">or</span>
-                        <div className="h-px bg-white/10 flex-1" />
-                    </div>
-
-                    <NeonButton
                         variant="cyan"
-                        onClick={handleConnect}
-                        className="w-full mb-4"
+                        onClick={() => {
+                            console.log('[ConnectWalletModal] Google Login Clicked');
+                            if (!ready) {
+                                console.error('[ConnectWalletModal] Privy NOT READY');
+                                return;
+                            }
+                            try {
+                                privyLogin({ onComplete: onClose });
+                            } catch (e) {
+                                console.error('[ConnectWalletModal] Login Failed:', e);
+                            }
+                        }}
+                        className="w-full mb-3 flex items-center justify-center gap-2 py-4"
                     >
-                        Connect Existing Wallet
+                        <Wallet className="w-5 h-5" />
+                        Log In / Connect Wallet
                     </NeonButton>
+
+                    <p className="text-white/30 text-xs mt-4">
+                        Powered by Privy & WalletConnect
+                    </p>
 
                     {/* Dismiss */}
                     <button

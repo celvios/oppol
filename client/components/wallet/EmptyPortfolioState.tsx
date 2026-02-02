@@ -25,7 +25,7 @@ export default function EmptyPortfolioState({ onConnect }: EmptyPortfolioStatePr
 
             {/* CTA */}
             <NeonButton variant="cyan" onClick={onConnect} className="px-8">
-                Connect Wallet
+                Log In
             </NeonButton>
         </div>
     );

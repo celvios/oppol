@@ -8,6 +8,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
 import LogoBrand from "@/components/ui/LogoBrand";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
 interface Position {
     market: string;
@@ -22,6 +23,7 @@ interface Position {
 }
 
 export default function PortfolioPage() {
+    const [showWalletModal, setShowWalletModal] = useState(false);
     const [balance, setBalance] = useState<string>('0');
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
@@ -171,7 +173,17 @@ export default function PortfolioPage() {
     }
 
     if (!isConnected) {
-        return <EmptyPortfolioState onConnect={connect} />;
+        return (
+            <>
+                <EmptyPortfolioState onConnect={() => setShowWalletModal(true)} />
+                <ConnectWalletModal
+                    isOpen={showWalletModal}
+                    onClose={() => setShowWalletModal(false)}
+                    onConnect={connect}
+                    context="portfolio"
+                />
+            </>
+        );
     }
 
     if (loading) {

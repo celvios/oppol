@@ -40,7 +40,8 @@ const corsOptions = {
       'https://www.opoll.org',
       'https://opoll.org',
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'http://localhost:3002'
     ];
 
     // Check if origin is in allowed list or matches vercel.app pattern
@@ -1854,6 +1855,7 @@ initDatabase().then(async () => {
   }
 
 }).catch(err => {
-  console.error("Failed to initialize database:", err);
-  process.exit(1);
+  console.error("⚠️ Database Initialization Failed:", err.message);
+  console.log("⚠️ STARTING IN OFFLINE MODE: Database features will check for connectivity or return mock data.");
+  // Do not exit, allow server to run for API endpoints that don't need DB or have fallbacks
 });

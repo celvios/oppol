@@ -7,8 +7,6 @@ import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
-import { WalletDebugPanel } from "@/components/ui/WalletDebugPanel";
-import { WalletConnectionTest } from "@/components/ui/WalletConnectionTest";
 import { NetworkChecker } from "@/components/NetworkChecker";
 
 const inter = Inter({
@@ -57,8 +55,6 @@ export default function RootLayout({
                 <UserRegistrationManager />
                 <Header />
                 {children}
-                <WalletDebugPanel />
-                <WalletConnectionTest />
               </SettingsProvider>
             </ReownProvider>
           </Web3Provider>
