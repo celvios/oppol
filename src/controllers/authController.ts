@@ -14,6 +14,9 @@ export const generateMagicLink = async (req: Request, res: Response) => {
 
 // Step 2: User clicks link on Frontend -> Frontend calls this API
 // Magic Link verification removed
+export const verifyMagicToken = async (req: Request, res: Response) => {
+    res.status(410).json({ error: 'Magic Link verification is deprecated.' });
+};
 // Step 3: Register User (Privy/Wallet)
 export const registerUser = async (req: Request, res: Response) => {
     try {
