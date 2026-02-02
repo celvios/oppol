@@ -148,9 +148,10 @@ export default function ConnectWalletModal({
                                 console.error('[ConnectWalletModal] Login Failed:', e);
                             }
                         }}
-                        className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10"
+                        disabled={!ready}
+                        className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:cursor-wait"
                     >
-                        Log In with Email / Socials
+                        {!ready ? 'Initializing Login...' : 'Log In with Email / Socials'}
                     </NeonButton>
 
                     <p className="text-white/30 text-xs mt-4">
