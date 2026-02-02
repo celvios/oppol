@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../config/database';
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.BNB_RPC_URL || 'https://delicate-greatest-energy.bsc.quiknode.pro/97d400e0de1e7c8b3969827d8452f896270454d0/';
+const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
 const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
 const USDC_ADDRESS = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'; // BSC mainnet USDC
 
@@ -23,7 +23,7 @@ const ERC20_ABI = [
 export const getBalance = async (req: Request, res: Response) => {
     try {
         const { walletAddress } = req.params;
-        
+
         if (!walletAddress) {
             return res.status(400).json({ error: 'Wallet address required' });
         }
@@ -54,7 +54,7 @@ export const getBalance = async (req: Request, res: Response) => {
 
         // Connect to blockchain
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        
+
         // Get balances from blockchain
         const marketContract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, provider);
         const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, provider);

@@ -192,7 +192,7 @@ app.post('/api/bet', async (req, res) => {
     const outcomeIndex = explicitOutcome !== undefined ? explicitOutcome : (side?.toUpperCase() === 'YES' ? 0 : 1);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -356,7 +356,7 @@ app.post('/api/multi-bet', async (req, res) => {
     const maxCost = parseFloat(amount);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -796,7 +796,7 @@ app.post('/api/admin/create-market', async (req, res) => {
     console.log(`[Admin] Creating market: "${question}" with outcomes: ${outcomes.join(', ')}`);
 
     // Setup Provider & Signer (Owner)
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org'; // Default to public RPC if main failed
+    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com'; // Default to public RPC if main failed
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 

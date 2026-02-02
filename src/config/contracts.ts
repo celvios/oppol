@@ -19,7 +19,7 @@ export const CONFIG = {
     // USDC contract
     USDC_CONTRACT: getEnv('NEXT_PUBLIC_USDC_CONTRACT') || getEnv('USDC_CONTRACT') || getEnv('USDC_ADDRESS', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
     // RPC URL
-    RPC_URL: getEnv('NEXT_PUBLIC_RPC_URL') || getEnv('BNB_RPC_URL', 'https://delicate-greatest-energy.bsc.quiknode.pro/97d400e0de1e7c8b3969827d8452f896270454d0/'),
+    RPC_URL: getEnv('NEXT_PUBLIC_RPC_URL') || getEnv('BNB_RPC_URL', 'https://bsc-rpc.publicnode.com'),
     // Chain ID
     CHAIN_ID: parseInt(getEnv('NEXT_PUBLIC_CHAIN_ID') || getEnv('CHAIN_ID', '56')),
     // Alias for backwards compatibility
