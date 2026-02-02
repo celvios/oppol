@@ -65,7 +65,6 @@ export default function DepositPage() {
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected || authenticated;
-    const isEffectivelyConnected = isConnected || authenticated;
     const effectiveAddress = address || user?.wallet?.address;
 
     useEffect(() => {
