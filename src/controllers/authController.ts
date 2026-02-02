@@ -29,7 +29,7 @@ export const registerUser = async (req: Request, res: Response) => {
         console.log(`[Auth] Registering user: ${walletAddress}`);
 
         try {
-            // Check if user exists
+            // Check if user exists (Wallet Address)
             const existingUser = await query(
                 'SELECT * FROM users WHERE LOWER(wallet_address) = $1',
                 [walletAddress.toLowerCase()]
@@ -40,8 +40,34 @@ export const registerUser = async (req: Request, res: Response) => {
                 return res.json({ success: true, user: existingUser.rows[0], isNew: false });
             }
 
-            // Create new user
-            const displayName = email ? email.split('@')[0] : `User ${walletAddress.slice(0, 6)}`;
+            // --- Username Uniqueness Logic ---
+            const { customUsername } = req.body;
+            let displayName = customUsername;
+
+            if (!displayName) {
+                // Generate default if not provided
+                displayName = email ? email.split('@')[0] : `User ${walletAddress.slice(0, 6)}`;
+            }
+
+            // Check if display_name exists (Case-insensitive)
+            const nameCheck = await query(
+                'SELECT id FROM users WHERE LOWER(display_name) = LOWER($1)',
+                [displayName]
+            );
+
+            if (nameCheck.rows.length > 0) {
+                // Name is taken!
+                // If the user explicitly provided this name, or if it was auto-generated and conflict occurred
+                console.log(`[Auth] Username conflict for: ${displayName}`);
+                return res.status(409).json({
+                    success: false,
+                    error: 'Username taken',
+                    usernameTaken: true,
+                    suggestion: `${displayName}${Math.floor(Math.random() * 1000)}`
+                });
+            }
+
+            // Create new user with verified unique name
             const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${walletAddress}`;
 
             const newUser = await query(
@@ -51,6 +77,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
             console.log(`[Auth] Created new user: ${newUser.rows[0].id}`);
             return res.json({ success: true, user: newUser.rows[0], isNew: true });
+
         } catch (dbError: any) {
             // FALLBACK FOR OFFLINE DEVELOPMENT
             if (dbError.code === 'ECONNREFUSED' || dbError.message.includes('connect')) {

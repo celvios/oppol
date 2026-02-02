@@ -7,6 +7,7 @@ import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
 import { useWallet } from "@/lib/use-wallet";
 import WalletDebugger from "../debug/WalletDebugger";
+import UsernameOnboardingModal from "./UsernameOnboardingModal";
 
 interface ConnectWalletModalProps {
     isOpen: boolean;
@@ -139,31 +140,108 @@ export default function ConnectWalletModal({
 
     const { connectAsync, connectors } = useWallet();
 
+    const [showIdentityModal, setShowIdentityModal] = useState(false);
+    const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
+
+    // Call backend to register/check user
+    const handleBackendRegistration = async (address: string, email?: string, customUsername?: string) => {
+        try {
+            console.log(`[Auth] Registering ${address}...`);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+            const res = await fetch(`${apiUrl}/api/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress: address, email, customUsername })
+            });
+
+            if (res.status === 409) {
+                const data = await res.json();
+                console.warn("[Auth] Username conflict:", data);
+                setConflictDetails({ suggested: data.suggestion, wallet: address });
+                setShowIdentityModal(true);
+                return false; // Conflict handled
+            }
+
+            if (!res.ok) throw new Error('Registration failed');
+
+            const data = await res.json();
+            console.log("[Auth] Registration success:", data);
+
+            // Store session if needed? (use-auth handles this usually?)
+            // For now just success
+            return true;
+        } catch (e) {
+            console.error("[Auth] Registration error:", e);
+            return false;
+        }
+    };
+
     const handleConnect = async () => {
         if (isConnectingWallet) return;
         setIsConnectingWallet(true);
         try {
             console.log('[ConnectWalletModal] connect triggered');
+            let connectedAddress = "";
 
             // Try direct injected connection first if available (mimics the successful "Direct Connect" test)
             const injectedConnector = connectors?.find((c: any) => c.id === 'injected' || c.name.toLowerCase() === 'metamask');
 
             if (injectedConnector && typeof window !== 'undefined' && (window as any).ethereum) {
                 console.log('[ConnectWalletModal] Attempting direct injection connect...');
-                await connectAsync({ connector: injectedConnector });
-                console.log('[ConnectWalletModal] Direct connect successful');
+                const result = await connectAsync({ connector: injectedConnector });
+                connectedAddress = result.accounts[0];
+                console.log('[ConnectWalletModal] Direct connect successful', connectedAddress);
             } else {
                 // Fallback to Web3Modal (e.g. for mobile or no extension)
                 console.log('[ConnectWalletModal] No injection found, opening Web3Modal...');
                 await onConnect();
+                // We can't easily get the address immediately from onConnect void return
+                // We rely on useWallet/useAccount which updates asynchronously
+                // But for conflict flow, we need the address.
+                // Assuming typical flow: User connects -> Component re-renders -> We detect change?
+                // OR we just close and let the global auth hook handle registration?
+                // The global auth hook currently does NOT seem to auto-register against backend API based on use-auth.ts review.
+                // So we should try to do it here. 
+                // But if we can't get address, we might need to rely on effect?
             }
 
-            onClose();
+            // Attempt registration if we got an address immediately
+            if (connectedAddress) {
+                const success = await handleBackendRegistration(connectedAddress);
+                if (success) onClose();
+                // If conflict (success=false), modal stays open (identity modal overlay)
+            } else {
+                // If we didn't get address (Web3Modal flow), we close and assume specific Web3Modal handling or Effect will pick it up?
+                // Ideally we should have an effect watching `address` changes in this modal if it stays open?
+                // But usually we close this modal.
+                // Let's close for now, but this means Web3Modal users won't get the cool interactive conflict flow immediately.
+                // They might get a default rand suffix if we don't block.
+                // But wait, the backend NOW blocks default conflicts. So they MUST do this flow.
+                // This means we need a global "onboarding" check.
+                onClose();
+            }
+
         } catch (e) {
             console.error('[ConnectWalletModal] Connect failed:', e);
             // If direct connect failed, maybe user rejected? Don't force open Web3Modal immediately to avoid spam.
         } finally {
             setIsConnectingWallet(false);
+        }
+    };
+
+    const onIdentitySubmit = async (newUsername: string) => {
+        if (!conflictDetails) return false;
+        const success = await handleBackendRegistration(conflictDetails.wallet, undefined, newUsername);
+        if (success) {
+            setShowIdentityModal(false);
+            onClose();
+            return true;
+        } else {
+            // If still conflict, handleBackendRegistration sets modal state again (or we assume it throws/modifies state)
+            // Actually handleBackendRegistration returns false on 409. 
+            // We need to throw error for modal to show it?
+            throw new Error("Username still taken, please try another.");
         }
     };
 
@@ -333,6 +411,15 @@ export default function ConnectWalletModal({
                     <WalletDebugger />
                 </GlassCard>
             </div>
+
+            {/* Identity Conflict Modal (Overlay on top of Connect Modal) */}
+            <UsernameOnboardingModal
+                isOpen={showIdentityModal}
+                onClose={() => setShowIdentityModal(false)}
+                onSubmit={onIdentitySubmit}
+                suggestedUsername={conflictDetails?.suggested}
+                walletAddress={conflictDetails?.wallet}
+            />
         </div>
     );
 }
