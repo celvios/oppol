@@ -13,11 +13,11 @@ function getStoredWalletState() {
   try {
     const stored = localStorage.getItem(WALLET_STORAGE_KEY);
     const timestamp = localStorage.getItem(CONNECTION_TIMESTAMP_KEY);
-    
+
     if (stored && timestamp) {
       const state = JSON.parse(stored);
       const connectionTime = parseInt(timestamp);
-      
+
       // Consider connection valid for 24 hours
       if (Date.now() - connectionTime < 24 * 60 * 60 * 1000) {
         return state;
@@ -45,14 +45,17 @@ function storeWalletState(address: string | null, isConnected: boolean) {
   }
 }
 
+import { useWeb3Modal } from '@web3modal/wagmi/react';
+
 export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
-  
+  const { open } = useWeb3Modal();
+
   // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connectAsync, isPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
-  
+
   // Get stored state and use it as the source of truth
   const storedState = getStoredWalletState();
   const [displayState, setDisplayState] = useState(() => {
@@ -74,10 +77,7 @@ export function useWallet() {
   const connectWallet = async () => {
     setIsConnecting(true);
     try {
-      const modal = (window as any).web3modal;
-      if (modal?.open) {
-        await modal.open();
-      }
+      await open();
     } catch (error) {
       console.error('[useWallet] Connection failed:', error);
     } finally {
