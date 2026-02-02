@@ -61,8 +61,8 @@ export default function DepositPage() {
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
-    const { user, authenticated, createWallet } = usePrivy();
-    const { wallets } = useWallets();
+    const { user, authenticated, createWallet, ready } = usePrivy();
+    const { wallets, ready: walletsReady } = useWallets();
 
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
 
@@ -337,7 +337,9 @@ export default function DepositPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    if (isConnecting) return <SkeletonLoader />;
+    const isAuthLoading = !ready || (authenticated && !walletsReady);
+
+    if (isConnecting || isAuthLoading) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">

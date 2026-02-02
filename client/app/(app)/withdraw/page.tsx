@@ -28,7 +28,7 @@ export default function WithdrawPage() {
     const { isConnected, address, connect } = useWallet();
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
-    const { user, authenticated } = usePrivy();
+    const { user, authenticated, ready } = usePrivy();
 
     // Effective connection state
     const isEffectivelyConnected = isConnected || authenticated;
@@ -198,7 +198,7 @@ export default function WithdrawPage() {
 
     const canProceed = availableBalance > 0;
 
-    if (isLoading && !contractBalance && !walletBalance) return <SkeletonLoader />;
+    if (!ready || (isLoading && !contractBalance && !walletBalance)) return <SkeletonLoader />;
 
     if (!isEffectivelyConnected) {
         return (
