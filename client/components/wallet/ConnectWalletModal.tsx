@@ -30,6 +30,7 @@ export default function ConnectWalletModal({
     const { login: privyLogin, ready, authenticated } = usePrivy();
     const { initOAuth } = useLoginWithOAuth();
     const { sendCode, loginWithCode } = useLoginWithEmail();
+    const { connectAsync, connectors } = useWallet();
 
     const [view, setView] = useState<'main' | 'socials' | 'email-input' | 'email-otp'>('main');
     const [email, setEmail] = useState("");
@@ -140,7 +141,7 @@ export default function ConnectWalletModal({
     };
 
 
-    const { connectAsync, connectors } = useWallet();
+
 
 
 
