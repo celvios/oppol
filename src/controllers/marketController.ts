@@ -89,8 +89,19 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                         winningOutcome: Number(basicInfo[7])
                     };
                 } catch (err) {
-                    console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
-                    onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+                } catch (err: any) {
+                    if (err.code !== 'CALL_EXCEPTION') {
+                        console.warn(`[Market ${row.market_id}] On-chain fetch failed:`, err.message);
+                    }
+                    onChainData = {
+                        outcomes: ['Yes', 'No'],
+                        prices: [0.5, 0.5],
+                        outcomeCount: 2,
+                        endTime: Math.floor(Date.now() / 1000) + 86400,
+                        liquidityParam: '0',
+                        resolved: false,
+                        winningOutcome: 0
+                    };
                 }
 
                 return {
@@ -190,9 +201,21 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
             console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
         } catch (err) {
-            console.error(`Failed to fetch on-chain data for ${marketId}:`, err);
+        } catch (err: any) {
+            // Suppress "missing revert data" noise for mismatched markets
+            if (err.code !== 'CALL_EXCEPTION') {
+                console.warn(`[Market ${marketId}] On-chain fetch failed:`, err.message);
+            }
             // Fallback for outcomes if on-chain fails (default Yes/No)
-            onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+            onChainData = {
+                outcomes: ['Yes', 'No'],
+                prices: [0.5, 0.5],
+                outcomeCount: 2,
+                endTime: Math.floor(Date.now() / 1000) + 86400, // +24h
+                liquidityParam: '0',
+                resolved: false,
+                winningOutcome: 0
+            };
         }
 
         const market = {
