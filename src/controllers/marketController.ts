@@ -118,11 +118,24 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
             })
         );
 
-        // Store in cache
-        marketCache.all = { data: markets, timestamp: Date.now() };
-        console.log('✅ Markets cached for 30 seconds');
+        // Filter out markets that are Resolved AND older than 48 hours (after endTime)
+        const VISIBLE_WINDOW = 48 * 60 * 60; // 48 Hours in seconds
+        const nowSec = Math.floor(Date.now() / 1000);
 
-        res.json({ success: true, markets });
+        const visibleMarkets = resolveMarkets.filter((m: any) => {
+            // Always show active markets (not resolved)
+            if (!m.resolved) return true;
+
+            // For resolved markets, check if they are within the retention window
+            // We use endTime as the anchor since we don't track exact resolution time
+            return (nowSec < (m.endTime + VISIBLE_WINDOW));
+        });
+
+        // Store in cache
+        marketCache.all = { data: visibleMarkets, timestamp: Date.now() };
+        console.log(`✅ Cached ${visibleMarkets.length} markets (${markets.length - visibleMarkets.length} hidden)`);
+
+        res.json({ success: true, markets: visibleMarkets });
     } catch (error) {
         console.error('Get All Metadata Error:', error);
         res.json({ success: true, markets: [] });
