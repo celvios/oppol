@@ -66,6 +66,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [mounted, setMounted] = useState(false);
     const [selectedOutcome, setSelectedOutcome] = useState<number>(0);
     const chartRef = useRef<HTMLDivElement>(null);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareImageSrc, setShareImageSrc] = useState<string>("");
 
     const handleShareChart = async () => {
         console.log("handleShareChart called");
