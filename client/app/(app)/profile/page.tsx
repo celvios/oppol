@@ -124,33 +124,7 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {/* General Settings */}
-            <div className="space-y-2">
-                <h3 className="text-sm font-bold text-white/50 uppercase tracking-wider px-2">Account Settings</h3>
-                {[
-                    { icon: Bell, title: "Notifications", desc: "Manage alerts" },
-                    { icon: Shield, title: "Security", desc: "2FA & Keys" },
-                    { icon: Wallet, title: "Connected Wallets", desc: "Manage connections" },
-                    { icon: Monitor, title: "Appearance", desc: "Theme settings" },
-                ].map((item, i) => (
-                    <motion.div
-                        key={i}
-                        whileHover={{ scale: 1.01 }}
-                        className="bg-surface/30 border border-white/5 p-4 rounded-xl flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/5 rounded-lg text-white/60 group-hover:bg-primary group-hover:text-black transition-colors">
-                                <item.icon size={20} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-sm text-white">{item.title}</h3>
-                                <p className="text-white/40 text-xs">{item.desc}</p>
-                            </div>
-                        </div>
-                        <div className="w-2 h-2 rounded-full bg-white/10 group-hover:bg-primary transition-colors" />
-                    </motion.div>
-                ))}
-            </div>
+
 
             <div className="pt-8 text-center">
                 <p className="text-white/20 text-xs uppercase tracking-widest">
