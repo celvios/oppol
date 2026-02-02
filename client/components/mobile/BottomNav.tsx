@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle, Globe, Trophy, Settings } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe, Trophy, Settings, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -112,6 +112,21 @@ export default function BottomNav() {
                         )}
                         <Settings className={twMerge("w-6 h-6 transition-colors", pathname === "/settings" ? "text-neon-cyan" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/settings" ? "text-white" : "text-text-secondary")}>Settings</span>
+                    </Link>
+
+                    {/* Menu */}
+                    <Link
+                        href="/menu"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    >
+                        {pathname === "/menu" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")}>Menu</span>
                     </Link>
                 </nav>
             </div>
