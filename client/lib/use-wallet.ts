@@ -76,10 +76,13 @@ export function useWallet() {
 
   const connectWallet = async () => {
     setIsConnecting(true);
+    console.log('[useWallet] Opening Web3Modal...');
     try {
       await open();
+      console.log('[useWallet] Web3Modal opened successfully');
     } catch (error) {
       console.error('[useWallet] Connection failed:', error);
+      throw error; // Rethrow so caller knows it failed
     } finally {
       setTimeout(() => setIsConnecting(false), 2000);
     }

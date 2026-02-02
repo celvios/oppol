@@ -9,7 +9,7 @@ import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-
 interface ConnectWalletModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConnect: () => void;
+    onConnect: () => Promise<void> | void;
     context: 'bet' | 'deposit' | 'withdraw' | 'portfolio' | 'general' | 'create';
     contextData?: {
         marketName?: string;
@@ -133,9 +133,14 @@ export default function ConnectWalletModal({
         }
     };
 
-    const handleConnect = () => {
-        onConnect();
-        onClose();
+    const handleConnect = async () => {
+        try {
+            console.log('[ConnectWalletModal] connect triggered');
+            await onConnect();
+            onClose();
+        } catch (e) {
+            console.error('[ConnectWalletModal] Connect failed:', e);
+        }
     };
 
     return (
