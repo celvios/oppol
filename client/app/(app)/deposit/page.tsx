@@ -64,6 +64,13 @@ export default function DepositPage() {
     const { user } = usePrivy();
 
     // Detect Embedded Wallet (Privy) - Robust Check
+    console.log('[DepositPage] Debug:', {
+        connectorId: connector?.id,
+        connectorName: connector?.name,
+        privyWalletType: user?.wallet?.walletClientType,
+        authenticated: !!user
+    });
+
     const isEmbeddedWallet =
         user?.wallet?.walletClientType === 'privy' ||
         connector?.id === 'privy' ||
