@@ -190,6 +190,13 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                 </div>
             ) : (
                 <div className="grid gap-4">
+                    {/* Debug Info */}
+                    {!process.env.NEXT_PUBLIC_MARKET_ADDRESS && (
+                        <div className="p-4 bg-red-500/20 border border-red-500 rounded text-red-200 mb-4">
+                            CRITICAL: NEXT_PUBLIC_MARKET_ADDRESS is missing in client env!
+                        </div>
+                    )}
+
                     {markets.map(m => (
                         <GlassCard key={m.id} className={`p-4 flex flex-col md:flex-row justify-between items-center gap-4 ${m.isHidden ? 'opacity-50 grayscale' : ''}`}>
                             <div className="flex-1">
