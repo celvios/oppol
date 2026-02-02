@@ -662,8 +662,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
                                 <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green">{market.outcomeCount} Outcomes</span>
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
-                                        ? 'bg-orange-500/20 text-orange-400'
-                                        : 'bg-white/10 text-white/50'
+                                    ? 'bg-orange-500/20 text-orange-400'
+                                    : 'bg-white/10 text-white/50'
                                     }`}>
                                     {Date.now() > market.endTime * 1000
                                         ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
@@ -801,95 +801,115 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
 
-                        <div>
-                            <h3 className="text-lg font-heading font-bold text-white mb-4">Place Trade</h3>
-
-                            {/* Selected Outcome Display */}
-                            <div className="p-4 rounded-xl border border-white/10 bg-white/5 mb-4">
-                                <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Selected Outcome</div>
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="w-4 h-4 rounded-full"
-                                        style={{ backgroundColor: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
-                                    />
-                                    <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
-                                    <span
-                                        className="ml-auto font-mono text-xl font-bold"
-                                        style={{ color: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
-                                    >
-                                        {(market.prices[selectedOutcome] || 0).toFixed(1)}%
-                                    </span>
-                                </div>
+                        {/* Market Resolution or Trade Form */}
+                        {((Date.now() / 1000) > (market.endTime || 0) || market.resolved || market.assertionPending) ? (
+                            <div className="flex-none p-6 bg-white/5 border-t border-white/5">
+                                <ResolutionPanel
+                                    marketId={market.id}
+                                    question={market.question}
+                                    endTime={market.endTime}
+                                    resolved={market.resolved}
+                                    outcome={market.outcome}
+                                    winningOutcomeIndex={market.winningOutcome}
+                                    assertionPending={market.assertionPending}
+                                    assertedOutcome={market.assertedOutcome}
+                                    assertedOutcomeIndex={market.assertedOutcome}
+                                    asserter={market.asserter}
+                                />
                             </div>
-
-                            <div className="space-y-4">
+                        ) : (
+                            <>
                                 <div>
-                                    <label className="text-xs text-text-secondary uppercase tracking-widest mb-2 block">Amount (USDC)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            value={amount}
-                                            onChange={(e) => setAmount(e.target.value)}
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white font-mono text-lg focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
-                                            placeholder="0.00"
-                                        />
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
-                                            {['10', '50', '100'].map(val => (
-                                                <button
-                                                    key={val}
-                                                    onClick={() => setAmount(val)}
-                                                    className="px-2 py-1 bg-white/10 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white"
-                                                >
-                                                    ${val}
-                                                </button>
-                                            ))}
+                                    <h3 className="text-lg font-heading font-bold text-white mb-4">Place Trade</h3>
+
+                                    {/* Selected Outcome Display */}
+                                    <div className="p-4 rounded-xl border border-white/10 bg-white/5 mb-4">
+                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Selected Outcome</div>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-4 h-4 rounded-full"
+                                                style={{ backgroundColor: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
+                                            />
+                                            <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
+                                            <span
+                                                className="ml-auto font-mono text-xl font-bold"
+                                                style={{ color: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
+                                            >
+                                                {(market.prices[selectedOutcome] || 0).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs text-text-secondary uppercase tracking-widest mb-2 block">Amount (USDC)</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={amount}
+                                                    onChange={(e) => setAmount(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white font-mono text-lg focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
+                                                    placeholder="0.00"
+                                                />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                                                    {['10', '50', '100'].map(val => (
+                                                        <button
+                                                            key={val}
+                                                            onClick={() => setAmount(val)}
+                                                            className="px-2 py-1 bg-white/10 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white"
+                                                        >
+                                                            ${val}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-white/5 rounded-xl space-y-2 border border-white/5">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-text-secondary">Price</span>
+                                                <span className="font-mono text-white">{(market.prices[selectedOutcome] || 0).toFixed(1)}¢</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-text-secondary">Est. Shares</span>
+                                                <span className="font-mono text-neon-cyan">
+                                                    {(() => {
+                                                        const amt = parseFloat(amount || '0');
+                                                        const price = (market.prices[selectedOutcome] || 0) / 100;
+                                                        if (amt === 0 || price === 0) return '0';
+                                                        return `~${(amt / price).toFixed(0)}`;
+                                                    })()}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
+                                                <span className="text-text-secondary">Max Spend</span>
+                                                <span className="font-mono text-white">${parseFloat(amount || '0').toFixed(2)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="p-4 bg-white/5 rounded-xl space-y-2 border border-white/5">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-text-secondary">Price</span>
-                                        <span className="font-mono text-white">{(market.prices[selectedOutcome] || 0).toFixed(1)}¢</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-text-secondary">Est. Shares</span>
-                                        <span className="font-mono text-neon-cyan">
-                                            {(() => {
-                                                const amt = parseFloat(amount || '0');
-                                                const price = (market.prices[selectedOutcome] || 0) / 100;
-                                                if (amt === 0 || price === 0) return '0';
-                                                return `~${(amt / price).toFixed(0)}`;
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
-                                        <span className="text-text-secondary">Max Spend</span>
-                                        <span className="font-mono text-white">${parseFloat(amount || '0').toFixed(2)}</span>
-                                    </div>
+                                <div className="mt-auto">
+                                    {!isConnected ? (
+                                        <NeonButton
+                                            onClick={() => setShowConnectModal(true)}
+                                            variant="cyan"
+                                            className="w-full py-4"
+                                        >
+                                            CONNECT WALLET TO TRADE
+                                        </NeonButton>
+                                    ) : (
+                                        <NeonSlider
+                                            onConfirm={handleTrade}
+                                            isLoading={isTradeLoading}
+                                            side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
+                                            color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
+                                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
+                                        />
+                                    )}
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-auto">
-                            {!isConnected ? (
-                                <NeonButton
-                                    onClick={() => setShowConnectModal(true)}
-                                    variant="cyan"
-                                    className="w-full py-4"
-                                >
-                                    CONNECT WALLET TO TRADE
-                                </NeonButton>
-                            ) : (
-                                <NeonSlider
-                                    onConfirm={handleTrade}
-                                    isLoading={isTradeLoading}
-                                    side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
-                                    color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
-                                    disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
-                                />
-                            )}
-                        </div>
+                            </>
+                        )}
                     </GlassCard>
 
                     {/* Outcome Distribution Mini-Vis */}
