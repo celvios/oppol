@@ -230,9 +230,6 @@ export default function PortfolioPage() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute -right-4 top-0 opacity-[0.1] pointer-events-none">
-                        <LogoBrand size="xl" />
-                    </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Total Balance</p>
                     <p className="text-4xl font-mono text-white">${parseFloat(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <div className="mt-4 flex items-center gap-2 text-white/40 text-sm">
@@ -251,9 +248,6 @@ export default function PortfolioPage() {
                 </div>
 
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <div className="absolute -right-4 top-0 opacity-[0.1] pointer-events-none">
-                        <LogoBrand size="xl" />
-                    </div>
                     <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Unrealized PnL</p>
                     <p className={`text-4xl font-mono ${totalPnL >= 0 ? 'text-success' : 'text-danger'}`}>
                         {pnlDisplay}
