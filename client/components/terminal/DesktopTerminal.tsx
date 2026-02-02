@@ -564,7 +564,7 @@ export function DesktopTerminal() {
                     </div>
 
                     {/* Market Resolution or Trade Form */}
-                    {(Date.now() / 1000 > market.endTime || market.resolved || market.assertionPending) ? (
+                    {((Date.now() / 1000) > (market.endTime || 0) || market.resolved || market.assertionPending) ? (
                         <div className="flex-none p-6 bg-white/5 border-t border-white/5">
                             <ResolutionPanel
                                 marketId={market.id}
