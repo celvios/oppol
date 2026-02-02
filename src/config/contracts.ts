@@ -25,13 +25,8 @@ export const CONFIG = {
     // Chain ID
     CHAIN_ID: chainId,
 
-    // RPC URL - Use FREE public endpoints for backend to avoid quota issues
-    // Automatically selects Mainnet or Testnet based on CHAIN_ID
-    RPC_URL: getEnv('BNB_RPC_URL') ||
-        getEnv('NEXT_PUBLIC_RPC_URL') ||
-        (chainId === 97
-            ? 'https://data-seed-prebsc-1-s1.binance.org:8545'  // Testnet
-            : 'https://bsc-dataseed.bnbchain.org'),             // Mainnet
+    // RPC URL - Strictly use environment variables
+    RPC_URL: getEnv('BNB_RPC_URL') || getEnv('NEXT_PUBLIC_RPC_URL'),
 
     // WebSocket URL
     WSS_URL: getEnv('BNB_WSS_URL'),
