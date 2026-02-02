@@ -1438,22 +1438,31 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
     // Get weighted average entry price for each market and side
     // Formula: Sum(Cost) / Sum(Shares)
     // We filter by user address (case insensitive)
+    // Get weighted average entry price for each market and side
+    // Also calculating total volume and accuracy
     const result = await query(
       `SELECT 
-            market_id, 
-            side, 
-            SUM(total_cost) as total_cost, 
-            SUM(shares) as total_shares,
-            SUM(total_cost) / NULLIF(SUM(shares), 0) as avg_price
-         FROM trades 
-         WHERE LOWER(user_address) = LOWER($1) OR LOWER(user_address) = 'external_wallet'
-         GROUP BY market_id, side`,
+            t.market_id, 
+            t.side, 
+            SUM(t.total_cost) as total_cost, 
+            SUM(t.shares) as total_shares,
+            SUM(t.total_cost) / NULLIF(SUM(t.shares), 0) as avg_price,
+            m.resolved,
+            m.winning_outcome
+         FROM trades t
+         LEFT JOIN markets m ON t.market_id = m.market_id
+         WHERE LOWER(t.user_address) = LOWER($1) OR LOWER(t.user_address) = 'external_wallet'
+         GROUP BY t.market_id, t.side, m.resolved, m.winning_outcome`,
       [address]
     );
 
     const stats: Record<string, any> = {};
+    let totalVolume = 0;
+    let totalResolvedSubmissions = 0;
+    let totalWins = 0;
 
     result.rows.forEach((row: any) => {
+      // Portfolio Stats Key
       const key = `${row.market_id}-${row.side}`;
       stats[key] = {
         marketId: row.market_id,
@@ -1462,9 +1471,48 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
         totalCost: parseFloat(row.total_cost),
         totalShares: parseFloat(row.total_shares)
       };
+
+      // Aggregate Volume
+      totalVolume += parseFloat(row.total_cost);
+
+      // Calculate Accuracy (Win Rate)
+      // Only count markets that have resolved
+      if (row.resolved) {
+        // Simple heuristic: A "trade" row represents a position. 
+        // If the user BET on the winning outcome, it's a "win". 
+        // Note: This counts unique (Market, Side) pairs as one "submission/prediction". 
+        // E.g. Betting on YES multiple times counts as 1 "prediction" for YES.
+
+        totalResolvedSubmissions++;
+
+        const winningOutcomeIndex = Number(row.winning_outcome);
+        let isWin = false;
+
+        // Convention: NO = 0, YES = 1 (Binary) or Outcome Index matching
+        if (row.side === 'YES' && winningOutcomeIndex === 1) isWin = true;
+        else if (row.side === 'NO' && winningOutcomeIndex === 0) isWin = true;
+        // Handle multi-outcome (side might be '1', '2' etc if stored that way, or just binary logic for now)
+        // Adjust based on your schema. Assuming 'YES'/'NO' text for now from previous context.
+
+        if (isWin) {
+          totalWins++;
+        }
+      }
     });
 
-    return res.json({ success: true, stats });
+    // Accuracy Calculation
+    const accuracyRate = totalResolvedSubmissions > 0
+      ? Math.round((totalWins / totalResolvedSubmissions) * 100)
+      : 0; // Default to 0 or null? 0 is fine.
+
+    return res.json({
+      success: true,
+      stats,
+      userStats: {
+        totalVolume,
+        accuracyRate
+      }
+    });
   } catch (error: any) {
     console.error('Portfolio stats error:', error);
     return res.json({ success: false, stats: {} }); // Fallback to empty on error

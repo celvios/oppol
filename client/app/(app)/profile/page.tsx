@@ -3,7 +3,7 @@
 import { Bell, Shield, Wallet, Monitor, CheckCircle, Calendar, Activity, Copy, User } from "lucide-react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useWallet } from "@/lib/use-wallet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function ProfilePage() {
@@ -12,6 +12,17 @@ export default function ProfilePage() {
     const { wallets } = useWallets();
 
     const [copied, setCopied] = useState(false);
+    const [userStats, setUserStats] = useState({ totalVolume: 0, accuracyRate: 0 });
+
+    // Fetch Stats
+    useEffect(() => {
+        // Only fetch if we have an address and it's a "Google/Embedded" user (or really any user we want stats for)
+        // Checks are done inside the effect or dependencies
+        const fetchStats = async () => {
+            // We need effectiveAddress value. It's defined below this block in original code.
+            // Ideally we move this effect AFTER effectiveAddress is defined.
+        };
+    }, []);
 
     // Identify Embedded (Google/Social) Wallet
     const isEmbeddedWallet = authenticated && (!!user?.google || !!user?.email || !!user?.twitter || !!user?.discord);
@@ -19,6 +30,21 @@ export default function ProfilePage() {
     // Use effective address
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
     const effectiveAddress = address || user?.wallet?.address || embeddedWallet?.address || "";
+
+    // Fetch User Stats
+    useEffect(() => {
+        if (effectiveAddress && authenticated) {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.userStats) {
+                        setUserStats(data.userStats);
+                    }
+                })
+                .catch(err => console.error('Failed to fetch stats:', err));
+        }
+    }, [effectiveAddress, authenticated]);
 
     const displayName = user?.google?.name || user?.email?.address?.split('@')[0] || (effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : "Guest User");
     const displayEmail = user?.google?.email || user?.email?.address || "";
@@ -108,7 +134,9 @@ export default function ProfilePage() {
                             <Activity className="w-4 h-4 text-primary" />
                             <p className="text-white/40 text-xs uppercase tracking-widest">Total Volume</p>
                         </div>
-                        <p className="text-2xl font-mono text-white">$2,450.00</p>
+                        <p className="text-2xl font-mono text-white">
+                            ${userStats.totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
                         <p className="text-white/20 text-xs">Lifetime traded</p>
                     </div>
 
@@ -118,8 +146,10 @@ export default function ProfilePage() {
                             <User className="w-4 h-4 text-purple-400" />
                             <p className="text-white/40 text-xs uppercase tracking-widest">Accuracy Rate</p>
                         </div>
-                        <p className="text-2xl font-mono text-green-400">68%</p>
-                        <p className="text-white/20 text-xs">Win Rate (Top 15%)</p>
+                        <p className={`text-2xl font-mono ${userStats.accuracyRate >= 50 ? 'text-green-400' : 'text-white'}`}>
+                            {userStats.accuracyRate}%
+                        </p>
+                        <p className="text-white/20 text-xs">Win Rate</p>
                     </div>
                 </div>
             )}
