@@ -126,7 +126,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     <div
                         onClick={handleCreateClick}
                         className={cn(
-                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 border border-neon-cyan/20 bg-neon-cyan/5 hover:bg-neon-cyan/10 cursor-pointer",
+                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 bg-neon-cyan/5 hover:bg-neon-cyan/10 cursor-pointer",
                             pathname === "/admin/create-market"
                                 ? "text-neon-cyan"
                                 : "text-neon-cyan/80",
@@ -149,7 +149,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     {isConnected ? (
                         <div
                             className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary border border-primary/20",
+                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary",
                                 collapsed ? "justify-center" : ""
                             )}
                         >
