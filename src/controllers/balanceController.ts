@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { query } from '../config/database';
+import { CONFIG } from '../config/contracts';
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+const RPC_URL = CONFIG.RPC_URL;
 const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
 const USDC_ADDRESS = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'; // BSC mainnet USDC
 

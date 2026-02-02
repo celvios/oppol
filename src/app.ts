@@ -11,6 +11,7 @@ import { startDepositWatcher, watchAddress, setDepositCallback } from './service
 import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 import { query } from './config/database';
+import { CONFIG } from './config/contracts';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
 import updateBalanceRoutes from './routes/admin';
@@ -142,7 +143,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     const sharesAmount = Math.floor(shares);
     const isYes = side.toUpperCase() === 'YES';
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS;
@@ -192,7 +193,7 @@ app.post('/api/bet', async (req, res) => {
     const outcomeIndex = explicitOutcome !== undefined ? explicitOutcome : (side?.toUpperCase() === 'YES' ? 0 : 1);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -356,7 +357,7 @@ app.post('/api/multi-bet', async (req, res) => {
     const maxCost = parseFloat(amount);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -520,7 +521,7 @@ app.post('/api/wallet/link', async (req, res) => {
     const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
 
     // Fetch balance from contract directly using connected wallet address
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
@@ -562,7 +563,7 @@ app.post('/api/faucet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid address required' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -625,7 +626,7 @@ app.post('/api/withdraw', async (req, res) => {
     // const userWallet = await getUserWallet(userId);
 
     // Use environment variables for production
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -675,7 +676,7 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
       return res.status(400).json({ error: 'Invalid wallet address' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
@@ -737,7 +738,7 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     }
 
     // Read deposited balance from market contract
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
     const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
@@ -796,7 +797,7 @@ app.post('/api/admin/create-market', async (req, res) => {
     console.log(`[Admin] Creating market: "${question}" with outcomes: ${outcomes.join(', ')}`);
 
     // Setup Provider & Signer (Owner)
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com'; // Default to public RPC if main failed
+    const rpcUrl = CONFIG.RPC_URL; // Default to public RPC if main failed
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 

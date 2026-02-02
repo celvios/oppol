@@ -56,8 +56,8 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         console.log('🔄 Cache miss - fetching fresh market data from blockchain');
         const result = await query('select * from markets', []);
 
-        const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
         const { CONFIG } = require('../config/contracts');
+        const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
         const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
         console.log('📄 Using contract address:', MARKET_ADDRESS);
 
@@ -133,8 +133,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
         // FETCH ON-CHAIN DATA
         let onChainData: any = {};
         try {
-            const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
             const { CONFIG } = require('../config/contracts');
+            const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
             const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
             console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);
             console.log(`[Market ${marketId}] RPC URL: ${process.env.BNB_RPC_URL}`);
