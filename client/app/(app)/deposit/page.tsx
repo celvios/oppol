@@ -61,7 +61,10 @@ export default function DepositPage() {
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
-    const { user } = usePrivy();
+    const { user, authenticated } = usePrivy();
+
+    // Effective connection state (Standard OR Embedded)
+    const isEffectivelyConnected = isConnected || authenticated;
 
     // Detect Embedded Wallet (Privy) - Robust Check
     const isEmbeddedWallet =
@@ -317,7 +320,7 @@ export default function DepositPage() {
                 </p>
             </div>
 
-            {isConnected ? (
+            {isEffectivelyConnected ? (
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
 
                     {/* Header / Wallet Info */}
