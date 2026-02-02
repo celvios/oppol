@@ -118,8 +118,26 @@ export default function ConnectWalletModal({
                     {/* Login Buttons */}
                     <NeonButton
                         variant="cyan"
+                        onClick={handleConnect}
+                        className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold"
+                    >
+                        <Wallet className="w-5 h-5" />
+                        Connect External Wallet
+                    </NeonButton>
+
+                    <div className="relative mb-3">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-white/10" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-[#0A0A12] px-2 text-white/30">Or</span>
+                        </div>
+                    </div>
+
+                    <NeonButton
+                        variant="purple"
                         onClick={() => {
-                            console.log('[ConnectWalletModal] Google Login Clicked');
+                            console.log('[ConnectWalletModal] Privy Login Clicked');
                             if (!ready) {
                                 console.error('[ConnectWalletModal] Privy NOT READY');
                                 return;
@@ -130,14 +148,13 @@ export default function ConnectWalletModal({
                                 console.error('[ConnectWalletModal] Login Failed:', e);
                             }
                         }}
-                        className="w-full mb-3 flex items-center justify-center gap-2 py-4"
+                        className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10"
                     >
-                        <Wallet className="w-5 h-5" />
-                        Log In / Connect Wallet
+                        Log In with Email / Socials
                     </NeonButton>
 
                     <p className="text-white/30 text-xs mt-4">
-                        Powered by Privy & WalletConnect
+                        Powered by WalletConnect & Privy
                     </p>
 
                     {/* Dismiss */}
