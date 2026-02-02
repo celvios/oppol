@@ -37,40 +37,26 @@ const config = defaultWagmiConfig({
     },
 });
 
-// Global modal instance tracker
+// Initialize modal immediately at module level to ensure hooks work
+createWeb3Modal({
+    wagmiConfig: config,
+    projectId,
+    enableAnalytics: false,
+    themeMode: 'dark',
+    themeVariables: {
+        '--w3m-accent': '#00FF94',
+    },
+});
+
+/* 
+ * Legacy modal instance tracker (kept for compatibility with window.web3modal if needed)
+ * But the createWeb3Modal call above acts as the singleton for hooks.
+ */
 let modalInstance: any = null;
-let modalInitialized = false;
+let modalInitialized = true;
 
 function initializeModal() {
-    if (!modalInitialized && typeof window !== 'undefined') {
-        console.log('[Web3Provider] Initializing Web3Modal');
-
-        try {
-            // Note: createWeb3Modal might ideally want the config returned by defaultWagmiConfig
-            // BUT since we are using Privy for auth, we might not strictly need defaultWagmiConfig 
-            // for the wallet connection part if Privy handles it. 
-            // However, we want 'Connect Wallet' to potentially support others too? 
-            // If we use Privy, we usually disable default connectors in wagmi.
-
-            modalInstance = createWeb3Modal({
-                wagmiConfig: config,
-                projectId,
-                enableAnalytics: false,
-                themeMode: 'dark',
-                themeVariables: {
-                    '--w3m-accent': '#00FF94',
-                },
-            });
-
-            // Store modal instance on window for global access
-            (window as any).web3modal = modalInstance;
-            modalInitialized = true;
-
-            console.log('[Web3Provider] Web3Modal initialized successfully');
-        } catch (error) {
-            console.error('[Web3Provider] Failed to initialize Web3Modal:', error);
-        }
-    }
+    // No-op - already initialized at module level
     return modalInstance;
 }
 
