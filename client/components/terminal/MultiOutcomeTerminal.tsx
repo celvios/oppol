@@ -1027,5 +1027,5 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             />
         </>
     );
-}
+    );
 }
