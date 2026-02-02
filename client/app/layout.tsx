@@ -8,7 +8,7 @@ import { SettingsProvider } from "@/lib/settings-context";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
 import { NetworkChecker } from "@/components/NetworkChecker";
-import "@/lib/rpc-monitor"; // Track RPC usage
+import { RPCMonitorInit } from "@/components/RPCMonitorInit";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -50,6 +50,7 @@ export default function RootLayout({
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-void text-text-primary`}
         suppressHydrationWarning={true}
       >
+        <RPCMonitorInit />
         <div className="min-h-screen" suppressHydrationWarning={true}>
           <Web3Provider>
             <ReownProvider>
