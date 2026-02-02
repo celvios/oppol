@@ -9,6 +9,7 @@ import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import CommentsSection from "@/components/market/CommentsSection";
