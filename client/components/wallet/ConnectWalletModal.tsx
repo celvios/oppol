@@ -5,6 +5,7 @@ import { Wallet, X } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy } from "@privy-io/react-auth";
+import { useState } from "react";
 
 interface ConnectWalletModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ export default function ConnectWalletModal({
     contextData
 }: ConnectWalletModalProps) {
     const { login: privyLogin, ready, authenticated } = usePrivy();
+    const [view, setView] = useState<'main' | 'socials'>('main');
 
     // Debug logging
     useEffect(() => {
@@ -116,43 +118,63 @@ export default function ConnectWalletModal({
                     </p>
 
                     {/* Login Buttons */}
-                    <NeonButton
-                        variant="cyan"
-                        onClick={handleConnect}
-                        className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold"
-                    >
-                        <Wallet className="w-5 h-5" />
-                        Connect External Wallet
-                    </NeonButton>
+                    {view === 'main' ? (
+                        <>
+                            <NeonButton
+                                variant="cyan"
+                                onClick={handleConnect}
+                                className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold"
+                            >
+                                <Wallet className="w-5 h-5" />
+                                Connect External Wallet
+                            </NeonButton>
 
-                    <div className="relative mb-3">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-white/10" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-[#0A0A12] px-2 text-white/30">Or</span>
-                        </div>
-                    </div>
+                            <div className="relative mb-3">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t border-white/10" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-[#0A0A12] px-2 text-white/30">Or</span>
+                                </div>
+                            </div>
 
-                    <NeonButton
-                        variant="purple"
-                        onClick={() => {
-                            console.log('[ConnectWalletModal] Privy Login Clicked');
-                            if (!ready) {
-                                console.error('[ConnectWalletModal] Privy NOT READY');
-                                return;
-                            }
-                            try {
-                                privyLogin({ onComplete: onClose });
-                            } catch (e) {
-                                console.error('[ConnectWalletModal] Login Failed:', e);
-                            }
-                        }}
-                        disabled={!ready}
-                        className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:cursor-wait"
-                    >
-                        {!ready ? 'Initializing Login...' : 'Log In with Email / Socials'}
-                    </NeonButton>
+                            <NeonButton
+                                variant="glass"
+                                onClick={() => setView('socials')}
+                                disabled={!ready}
+                                className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:cursor-wait"
+                            >
+                                {!ready ? 'Initializing...' : 'Log In with Email / Socials'}
+                            </NeonButton>
+                        </>
+                    ) : (
+                        <div className="space-y-3 animate-fadeIn">
+                            <button
+                                onClick={() => privyLogin({ loginMethods: ['google'] })}
+                                className="w-full flex items-center justify-center gap-3 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                            >
+                                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                                Continue with Google
+                            </button>
+
+                            <button
+                                onClick={() => privyLogin({ loginMethods: ['email'] })}
+                                className="w-full flex items-center justify-center gap-3 py-3 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20 transition-colors border border-white/10"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                Continue with Email
+                            </button>
+
+                            <button
+                                onClick={() => setView('main')}
+                                className="w-full py-2 text-white/40 hover:text-white text-sm"
+                            >
+                                Back
+                            </button>
+                        </div>
+                    )}
 
                     <p className="text-white/30 text-xs mt-4">
                         Powered by WalletConnect & Privy
