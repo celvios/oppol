@@ -36,6 +36,8 @@ export default function ConnectWalletModal({
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
     const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+    const [showIdentityModal, setShowIdentityModal] = useState(false);
+    const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
 
     // Reset state on close
     useEffect(() => {
@@ -140,8 +142,7 @@ export default function ConnectWalletModal({
 
     const { connectAsync, connectors } = useWallet();
 
-    const [showIdentityModal, setShowIdentityModal] = useState(false);
-    const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
+
 
     // Call backend to register/check user
     const handleBackendRegistration = async (address: string, email?: string, customUsername?: string) => {
