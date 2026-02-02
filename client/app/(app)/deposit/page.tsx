@@ -54,7 +54,7 @@ const getTokens = () => {
     ];
 };
 
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 export default function DepositPage() {
     const tokens = getTokens();
@@ -62,10 +62,13 @@ export default function DepositPage() {
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
     const { user, authenticated } = usePrivy();
+    const { wallets } = useWallets();
+
+    const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected || authenticated;
-    const effectiveAddress = address || user?.wallet?.address;
+    const effectiveAddress = address || user?.wallet?.address || embeddedWallet?.address;
 
     useEffect(() => {
         console.log('[DepositPage Debug] State:', {
