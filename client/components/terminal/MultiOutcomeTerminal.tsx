@@ -63,6 +63,27 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [loading, setLoading] = useState(initialMarkets.length === 0); // No loading if we have initial data!
     const [mounted, setMounted] = useState(false);
     const [selectedOutcome, setSelectedOutcome] = useState<number>(0);
+    const chartRef = useRef<HTMLDivElement>(null);
+
+    const handleShareChart = async () => {
+        if (!chartRef.current) return;
+        try {
+            const canvas = await html2canvas(chartRef.current, {
+                backgroundColor: '#020408', // Match background
+                scale: 2, // Reting quality
+                logging: false,
+                useCORS: true // Handle images if any
+            });
+
+            // Create download link
+            const link = document.createElement('a');
+            link.download = `OPoll-Chart-${market.id}-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error("Failed to capture chart:", err);
+        }
+    };
     const [amount, setAmount] = useState('100');
     const [isTradeLoading, setIsTradeLoading] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
@@ -713,9 +734,16 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     </GlassCard>
 
                     {/* Outcome Chance Chart & Bars */}
-                    <GlassCard className="flex-1 min-h-[500px] p-6 flex flex-col relative overflow-hidden">
+                    <GlassCard ref={chartRef} className="flex-1 min-h-[500px] p-6 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-center mb-4 z-10 relative">
                             <h2 className="text-lg font-heading text-white">Chance Wave</h2>
+                            <button
+                                onClick={handleShareChart}
+                                className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
+                                title="Share Chart"
+                            >
+                                <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                            </button>
                         </div>
 
                         {/* Chart Section */}
