@@ -179,83 +179,78 @@ export default function ConnectWalletModal({
         }
     };
 
-    const handleConnect = async () => {
+    const handleDirectConnect = async () => {
         if (isConnectingWallet) return;
         setIsConnectingWallet(true);
         try {
-            console.log('[ConnectWalletModal] connect triggered');
+            console.log('[ConnectWalletModal] Direct connect triggered');
             let connectedAddress = "";
 
-            // Try direct injected connection first if available (mimics the successful "Direct Connect" test)
-            console.log('[ConnectWalletModal] Available connectors:', connectors?.map(c => ({ id: c.id, name: c.name })));
-            const injectedConnector = connectors?.find((c: any) =>
-                c.id === 'injected' ||
-                c.id === 'io.metamask' ||
-                c.name.toLowerCase() === 'metamask' ||
-                c.name.toLowerCase() === 'browser wallet'
-            );
+            // Force fallback check for window.ethereum
+            if (typeof window !== 'undefined' && (window as any).ethereum) {
+                console.log('[ConnectWalletModal] Found window.ethereum, attempting connection...');
 
-            if (injectedConnector && typeof window !== 'undefined' && (window as any).ethereum) {
-                console.log('[ConnectWalletModal] Attempting direct injection connect...');
-                const result = await connectAsync({ connector: injectedConnector });
-                connectedAddress = result.accounts[0];
-                console.log('[ConnectWalletModal] Direct connect successful', connectedAddress);
-            } else if (typeof window !== 'undefined' && (window as any).ethereum) {
-                // FORCE FALLBACK: If wagmi didn't give us the connector but window.ethereum exists
-                console.warn('[ConnectWalletModal] No matching connector found in Wagmi, but window.ethereum exists. Forcing direct request...');
+                // Try to find a precise connector first
+                const preciseConnector = connectors?.find(c =>
+                    c.id === 'injected' ||
+                    c.id === 'io.metamask' ||
+                    c.name.toLowerCase() === 'metamask'
+                );
 
-                // We can try to find ANY connector that is 'injected' type even if name doesn't match
-                const anyInjected = connectors?.find(c => c.type === 'injected');
+                // Use found connector OR any injected one as fallback
+                const targetConnector = preciseConnector || connectors?.find(c => c.type === 'injected');
 
-                if (anyInjected) {
-                    const result = await connectAsync({ connector: anyInjected });
+                if (targetConnector) {
+                    const result = await connectAsync({ connector: targetConnector });
                     connectedAddress = result.accounts[0];
-                    console.log('[ConnectWalletModal] Forced generic injected connect successful', connectedAddress);
                 } else {
-                    // Last resort: we open Web3Modal because we can't easily construct a Wagmi Connector from thin air 
-                    // without using 'wagmi/connectors' imports which aren't here.
-                    // BUT, we can try to connectAsync with the FIRST available connector if it looks safe?
-                    // No, let's just fall back to Web3Modal but log VERY clearly.
-                    console.error('[ConnectWalletModal] Fatal: Window.ethereum exists but no Wagmi connector available. Falling back to Web3Modal.');
-                    await onConnect();
+                    // If purely forcing without a Wagmi connector object is impossible via connectAsync safely,
+                    // we might need to rely on the user having *some* injected connector in the list.
+                    // The previous "Force Fallback" block used connectAsync with `anyInjected`.
+                    console.warn('[ConnectWalletModal] No specific connector found, checking generic injected...');
+                    const anyInjected = connectors?.find(c => c.type === 'injected');
+                    if (anyInjected) {
+                        const result = await connectAsync({ connector: anyInjected });
+                        connectedAddress = result.accounts[0];
+                    } else {
+                        throw new Error("No browser wallet detected by Wagmi.");
+                    }
                 }
-            } else {
-                // Fallback to Web3Modal (e.g. for mobile or no extension)
-                console.log('[ConnectWalletModal] No injection found, opening Web3Modal...');
-                await onConnect();
 
-                // We can't easily get the address immediately from onConnect void return
-                // We rely on useWallet/useAccount which updates asynchronously
-                // But for conflict flow, we need the address.
-                // Assuming typical flow: User connects -> Component re-renders -> We detect change?
-                // OR we just close and let the global auth hook handle registration?
-                // The global auth hook currently does NOT seem to auto-register against backend API based on use-auth.ts review.
-                // So we should try to do it here. 
-                // But if we can't get address, we might need to rely on effect?
+                console.log('[ConnectWalletModal] Direct connect successful', connectedAddress);
+            } else {
+                throw new Error("No browser wallet found (window.ethereum missing).");
             }
 
-            // Attempt registration if we got an address immediately
             if (connectedAddress) {
                 const success = await handleBackendRegistration(connectedAddress);
                 if (success) onClose();
-                // If conflict (success=false), modal stays open (identity modal overlay)
             } else {
-                // If we didn't get address (Web3Modal flow), we close and assume specific Web3Modal handling or Effect will pick it up?
-                // Ideally we should have an effect watching `address` changes in this modal if it stays open?
-                // But usually we close this modal.
-                // Let's close for now, but this means Web3Modal users won't get the cool interactive conflict flow immediately.
-                // They might get a default rand suffix if we don't block.
-                // But wait, the backend NOW blocks default conflicts. So they MUST do this flow.
-                // This means we need a global "onboarding" check.
-                onClose();
+                onClose(); // Should not happen if successful
             }
 
-        } catch (e) {
-            console.error('[ConnectWalletModal] Connect failed:', e);
-            // If direct connect failed, maybe user rejected? Don't force open Web3Modal immediately to avoid spam.
+        } catch (e: any) {
+            console.error('[ConnectWalletModal] Direct Connect failed:', e);
+            // Don't close, let user retry or choose another option
+            // Maybe show error toast?
         } finally {
             setIsConnectingWallet(false);
         }
+    };
+
+    const handleWeb3ModalConnect = async () => {
+        try {
+            console.log('[ConnectWalletModal] Opening Web3Modal...');
+            onClose(); // Web3Modal is an overlay, so we often close our modal to avoid z-index fights.
+            await onConnect();
+        } catch (e) {
+            console.error('[ConnectWalletModal] Web3Modal failed:', e);
+        }
+    };
+
+    // Main button just opens the selection view
+    const handleConnectClick = () => {
+        setView('wallet-selection');
     };
 
     const onIdentitySubmit = async (newUsername: string) => {
