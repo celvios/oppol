@@ -67,7 +67,11 @@ export default function DepositPage() {
     const isEffectivelyConnected = isConnected || authenticated;
 
     // Detect Embedded Wallet (Privy) - Robust Check
+    // We treat the user as "Embedded/Smart Wallet" if:
+    // 1. They are authenticated via Privy AND have Google/Email/Twitter linked (Social Login)
+    // 2. Their connected wallet is explicitly 'privy'
     const isEmbeddedWallet =
+        (authenticated && (!!user?.google || !!user?.email || !!user?.twitter || !!user?.discord)) ||
         user?.wallet?.walletClientType === 'privy' ||
         connector?.id === 'privy' ||
         connector?.name?.toLowerCase().includes('privy') ||
