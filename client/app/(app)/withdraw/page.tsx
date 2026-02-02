@@ -26,7 +26,7 @@ import { usePrivy } from "@privy-io/react-auth";
 
 export default function WithdrawPage() {
     const { isConnected, address, connect } = useWallet();
-    const { message: connectorMessage, connector } = useAccount();
+    const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
     const { user, authenticated } = usePrivy();
 
@@ -34,7 +34,10 @@ export default function WithdrawPage() {
     const isEffectivelyConnected = isConnected || authenticated;
 
     // Detect Embedded Wallet (Privy) - Robust Check
+    // If authenticated via Privy and we have a wallet, we treat it as embedded flow
+    // unless explicitly overridden or user is using a strictly external connector that isn't connected to Privy.
     const isEmbeddedWallet =
+        authenticated || // Trust Privy authentication primarily
         user?.wallet?.walletClientType === 'privy' ||
         connector?.id === 'privy' ||
         connector?.name?.toLowerCase().includes('privy') ||
