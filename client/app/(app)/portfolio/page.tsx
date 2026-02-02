@@ -4,23 +4,9 @@ import { PieChart, TrendingUp, Wallet, Plus, Minus, LogOut } from "lucide-react"
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
-import { useWallet } from "@/lib/use-wallet";
-import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
-import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
-import LogoBrand from "@/components/ui/LogoBrand";
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+import { usePrivy } from "@privy-io/react-auth";
 
-interface Position {
-    market: string;
-    marketId: number;
-    side: 'YES' | 'NO';
-    shares: number;
-    avgPrice: string;
-    currentPrice: number;
-    currentValue: string;
-    pnl: string;
-    pnlRaw: number;
-}
+// ... existing imports
 
 export default function PortfolioPage() {
     const [showWalletModal, setShowWalletModal] = useState(false);
@@ -30,15 +16,19 @@ export default function PortfolioPage() {
     const [loading, setLoading] = useState(true);
 
     const { isConnected, isConnecting, address, connect, disconnect } = useWallet();
+    const { authenticated, user } = usePrivy();
+
+    // Effective connection state (Standard OR Embedded)
+    const isEffectivelyConnected = isConnected || authenticated;
 
     // Debug logging
     useEffect(() => {
-        console.log('[Portfolio] Wallet State:', { isConnected, isConnecting, address });
-    }, [isConnected, isConnecting, address]);
+        console.log('[Portfolio] Wallet State:', { isConnected, authenticated, address: address || user?.wallet?.address });
+    }, [isConnected, authenticated, address, user]);
 
     useEffect(() => {
         // Reset loading state when wallet connection changes
-        if (!isConnected && !isConnecting) {
+        if (!isEffectivelyConnected && !isConnecting) {
             setLoading(false);
             setPositions([]);
             setBalance('0');
@@ -46,8 +36,10 @@ export default function PortfolioPage() {
             return;
         }
 
+        const effectiveAddress = address || user?.wallet?.address;
+
         // Only fetch data if wallet is connected and we have an address
-        if (!isConnected || !address) {
+        if (!isEffectivelyConnected || !effectiveAddress) {
             setLoading(false);
             return;
         }
@@ -55,7 +47,7 @@ export default function PortfolioPage() {
         async function fetchData() {
             try {
                 // Fetch user DEPOSITED balance (Polymarket-style)
-                const userBalance = await web3Service.getDepositedBalance(address!);
+                const userBalance = await web3Service.getDepositedBalance(effectiveAddress!);
                 setBalance(userBalance);
 
                 // Fetch all markets and user positions
@@ -66,7 +58,7 @@ export default function PortfolioPage() {
                 try {
                     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
                     if (apiUrl) {
-                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${address}/stats`);
+                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`);
                         const statsData = await statsRes.json();
                         if (statsData.success) {
                             portfolioStats = statsData.stats;
@@ -80,7 +72,7 @@ export default function PortfolioPage() {
                 let aggregatePnL = 0;
 
                 const positionPromises = markets.map(async (market) => {
-                    const position = await web3Service.getUserPosition(market.id, address!);
+                    const position = await web3Service.getUserPosition(market.id, effectiveAddress!);
                     return { market, position };
                 });
 
@@ -162,7 +154,7 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [address]);
+    }, [address, authenticated, user]);
 
     if (isConnecting) {
         return (
@@ -172,7 +164,7 @@ export default function PortfolioPage() {
         );
     }
 
-    if (!isConnected) {
+    if (!isEffectivelyConnected) {
         return (
             <>
                 <EmptyPortfolioState onConnect={() => setShowWalletModal(true)} />
@@ -205,7 +197,7 @@ export default function PortfolioPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
                 <div className="flex items-center gap-3">
-                    {address && (
+                    {(address || authenticated) && (
                         <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
                             🔗 Wallet Connected
                         </div>
