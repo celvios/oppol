@@ -171,6 +171,9 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
                             image_url={market.image_url || market.image}
                             description={market.description}
                             isBoosted={market.isBoosted}
+                            endTime={market.endTime}
+                            resolved={market.resolved}
+                            winningOutcome={market.winningOutcome}
                         />
                     </motion.div>
                 ))}
