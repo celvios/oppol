@@ -88,7 +88,6 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                         resolved: basicInfo[6],
                         winningOutcome: Number(basicInfo[7])
                     };
-                } catch (err) {
                 } catch (err: any) {
                     if (err.code !== 'CALL_EXCEPTION') {
                         console.warn(`[Market ${row.market_id}] On-chain fetch failed:`, err.message);
@@ -200,7 +199,6 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             };
 
             console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
-        } catch (err) {
         } catch (err: any) {
             // Suppress "missing revert data" noise for mismatched markets
             if (err.code !== 'CALL_EXCEPTION') {
