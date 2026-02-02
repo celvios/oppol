@@ -450,7 +450,13 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             </h1>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">
-                                    Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}
+                                    {market.resolved ? (
+                                        <span className="text-neon-cyan">Resolved</span>
+                                    ) : (Date.now() / 1000) > (market.endTime || 0) ? (
+                                        <span className="text-orange-400">Ended {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : ''}</span>
+                                    ) : (
+                                        <span>Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}</span>
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -563,7 +569,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
 
             {/* Market Status or Trade Actions */}
             {
-                market && (market.resolved || market.assertionPending) ? (
+                market && (market.resolved || market.assertionPending || (Date.now() / 1000) > (market.endTime || 0)) ? (
                     <div className="px-6 pb-24">
                         <ResolutionPanel
                             marketId={market.id}
