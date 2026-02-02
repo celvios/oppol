@@ -391,7 +391,7 @@ export default function DepositPage() {
                                             if (parseFloat(depositAmount) > 0) setFundingStep('payment');
                                         }}
                                         disabled={!depositAmount || parseFloat(depositAmount) <= 0}
-                                        className="w-full py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        className="w-full py-4 bg-green-500 text-black font-bold rounded-xl hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                     >
                                         Continue
                                     </button>
@@ -401,12 +401,12 @@ export default function DepositPage() {
                             {fundingStep === 'payment' && (
                                 <div className="bg-black/40 border border-white/10 rounded-xl p-6 text-center animate-fadeIn">
                                     <p className="text-white/70 mb-2">Send exactly</p>
-                                    <h3 className="text-3xl font-mono font-bold text-primary mb-1">{depositAmount} <span className="text-sm text-white/60">USDC or USDT</span></h3>
+                                    <h3 className="text-3xl font-mono font-bold text-green-500 mb-1">{depositAmount} <span className="text-sm text-white/60">USDC or USDT</span></h3>
                                     <p className="text-white/40 text-sm mb-6">to your personal address below (BNB Chain)</p>
 
                                     <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 flex items-center justify-between gap-2 overflow-hidden">
                                         <code className="text-sm font-mono text-white truncate">{address}</code>
-                                        <button onClick={() => address && copyToClipboard(address)} className="p-2 hover:bg-white/10 rounded-lg text-primary">
+                                        <button onClick={() => address && copyToClipboard(address)} className="p-2 hover:bg-white/10 rounded-lg text-green-500">
                                             <Copy className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -419,7 +419,7 @@ export default function DepositPage() {
                                         <button onClick={() => setFundingStep('input')} className="flex-1 py-3 bg-white/5 text-white/50 hover:text-white rounded-xl">Back</button>
                                         <button
                                             onClick={() => setFundingStep('verifying')}
-                                            className="flex-[2] py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary/90"
+                                            className="flex-[2] py-3 bg-green-500 text-black font-bold rounded-xl hover:bg-green-400"
                                         >
                                             I Have Sent It
                                         </button>
