@@ -32,7 +32,7 @@ export default function ConnectWalletModal({
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { connectAsync, connectors } = useWallet();
 
-    const [view, setView] = useState<'main' | 'socials' | 'email-input' | 'email-otp'>('main');
+    const [view, setView] = useState<'main' | 'socials' | 'email-input' | 'email-otp' | 'wallet-selection'>('main');
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
@@ -313,7 +313,7 @@ export default function ConnectWalletModal({
                         <>
                             <NeonButton
                                 variant="cyan"
-                                onClick={handleConnect}
+                                onClick={handleConnectClick}
                                 disabled={isConnectingWallet}
                                 className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold disabled:opacity-70 disabled:cursor-wait"
                             >
@@ -339,6 +339,53 @@ export default function ConnectWalletModal({
                                 {!ready ? 'Initializing...' : 'Log In with Email / Socials'}
                             </NeonButton>
                         </>
+                    ) : view === 'wallet-selection' ? (
+                        <div className="space-y-3 animate-fadeIn">
+                            <h3 className="text-white font-bold mb-2">Choose Connection Method</h3>
+
+                            {/* Option 1: Direct Browser Injection (MetaMask, Rabby, etc.) */}
+                            <button
+                                onClick={handleDirectConnect}
+                                disabled={isConnectingWallet}
+                                className="w-full flex items-center justify-between px-4 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg group transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400 group-hover:text-orange-300">
+                                        <Wallet className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-white font-bold">Browser Wallet</div>
+                                        <div className="text-white/40 text-xs">MetaMask, Rabby, Trust, etc.</div>
+                                    </div>
+                                </div>
+                                {isConnectingWallet ? <Loader2 className="w-4 h-4 animate-spin text-white/40" /> : <div className="text-neon-cyan text-sm">Connect</div>}
+                            </button>
+
+                            {/* Option 2: WalletConnect (Mobile / QR) */}
+                            <button
+                                onClick={handleWeb3ModalConnect}
+                                disabled={isConnectingWallet}
+                                className="w-full flex items-center justify-between px-4 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg group transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400 group-hover:text-blue-300">
+                                        <img src="https://walletconnect.com/favicon.ico" alt="WC" className="w-5 h-5 opacity-80" />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-white font-bold">WalletConnect</div>
+                                        <div className="text-white/40 text-xs">Mobile, QR Code, Others</div>
+                                    </div>
+                                </div>
+                                <div className="text-white/40 text-sm group-hover:text-white">Select</div>
+                            </button>
+
+                            <button
+                                onClick={() => setView('main')}
+                                className="w-full py-2 text-white/40 hover:text-white text-sm flex items-center justify-center gap-2 mt-2"
+                            >
+                                <ArrowLeft className="w-3 h-3" /> Back
+                            </button>
+                        </div>
                     ) : view === 'socials' ? (
                         <div className="space-y-3 animate-fadeIn">
                             <button
