@@ -32,6 +32,7 @@ export default function ConnectWalletModal({
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
+    const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
     // Reset state on close
     useEffect(() => {
@@ -133,7 +134,6 @@ export default function ConnectWalletModal({
         }
     };
 
-    const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
     const handleConnect = async () => {
         if (isConnectingWallet) return;
