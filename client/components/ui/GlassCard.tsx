@@ -1,5 +1,4 @@
-"use client";
-
+import { forwardRef } from "react";
 import { motion, MotionProps } from "framer-motion";
 import { ReactNode } from "react";
 import clsx from "clsx";
@@ -11,9 +10,10 @@ interface GlassCardProps extends MotionProps {
     hoverEffect?: boolean;
 }
 
-export default function GlassCard({ children, className, hoverEffect = true, ...props }: GlassCardProps) {
+const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(({ children, className, hoverEffect = true, ...props }, ref) => {
     return (
         <motion.div
+            ref={ref}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
@@ -30,4 +30,8 @@ export default function GlassCard({ children, className, hoverEffect = true, ...
             {children}
         </motion.div>
     );
-}
+});
+
+GlassCard.displayName = "GlassCard";
+
+export default GlassCard;

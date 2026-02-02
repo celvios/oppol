@@ -13,6 +13,7 @@ import { SuccessModal } from "@/components/ui/SuccessModal";
 import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
+import { ShareChartModal } from "@/components/ui/ShareChartModal";
 import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -67,7 +68,12 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const chartRef = useRef<HTMLDivElement>(null);
 
     const handleShareChart = async () => {
-        if (!chartRef.current) return;
+        console.log("handleShareChart called");
+        if (!chartRef.current) {
+            console.error("chartRef is null");
+            return;
+        }
+        console.log("chartRef found, capturing...");
         try {
             const canvas = await html2canvas(chartRef.current, {
                 backgroundColor: '#020408', // Match background
@@ -1010,6 +1016,16 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 context="bet"
                 contextData={{ marketName: market?.question || '' }}
             />
+
+            {/* Share Modal */}
+            <ShareChartModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                imageSrc={shareImageSrc}
+                marketQuestion={market.question}
+                marketId={market.id}
+            />
         </>
     );
+}
 }
