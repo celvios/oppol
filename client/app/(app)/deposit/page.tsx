@@ -101,38 +101,38 @@ export default function DepositPage() {
     const MARKET_CONTRACT = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
 
     useEffect(() => {
-        if (address && connectorClient) {
+        if (effectiveAddress && connectorClient) {
             fetchBalance();
         }
-    }, [address, selectedToken, connectorClient]);
+    }, [effectiveAddress, selectedToken, connectorClient]);
 
     // Polling for "Verifying" step
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (fundingStep === 'verifying' && address) {
+        if (fundingStep === 'verifying' && effectiveAddress) {
             interval = setInterval(async () => {
                 await checkAndAutoDeposit();
             }, 3000); // Poll every 3s
         }
         return () => clearInterval(interval);
-    }, [fundingStep, address, initialBalance, depositAmount]);
+    }, [fundingStep, effectiveAddress, initialBalance, depositAmount]);
 
     async function fetchBalance() {
-        if (!address) return;
+        if (!effectiveAddress) return;
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-            // console.log('[Deposit] Fetching balance for:', { address, token: selectedToken.symbol });
+            // console.log('[Deposit] Fetching balance for:', { address: effectiveAddress, token: selectedToken.symbol });
 
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
             let formattedBalance = '0.00';
             if (selectedToken.isNative) {
-                const balance = await provider.getBalance(address);
+                const balance = await provider.getBalance(effectiveAddress);
                 formattedBalance = ethers.formatEther(balance);
             } else {
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-                const balance = await tokenContract.balanceOf(address);
+                const balance = await tokenContract.balanceOf(effectiveAddress);
                 formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
             }
 
@@ -150,7 +150,7 @@ export default function DepositPage() {
     }
 
     async function checkAndAutoDeposit() {
-        if (!address || !depositAmount) return;
+        if (!effectiveAddress || !depositAmount) return;
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
@@ -159,11 +159,11 @@ export default function DepositPage() {
             // Check current balance
             let currentBal = 0;
             if (selectedToken.isNative) {
-                const bal = await provider.getBalance(address);
+                const bal = await provider.getBalance(effectiveAddress);
                 currentBal = parseFloat(ethers.formatEther(bal));
             } else {
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-                const bal = await tokenContract.balanceOf(address);
+                const bal = await tokenContract.balanceOf(effectiveAddress);
                 currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
             }
 
@@ -182,7 +182,7 @@ export default function DepositPage() {
     }
 
     async function handleDeposit() {
-        if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
+        if (!effectiveAddress || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         setStatusMessage('Preparing transaction...');
 
@@ -203,7 +203,7 @@ export default function DepositPage() {
             // ... (reusing existing checks)
             let currentBalance;
             if (selectedToken.isNative) {
-                currentBalance = await publicProvider.getBalance(address);
+                currentBalance = await publicProvider.getBalance(effectiveAddress);
                 // Leave some gas buffer for BNB transactions (0.001 BNB ~ $0.96)
                 const gasBuffer = ethers.parseEther("0.001");
                 if (currentBalance < (amountInWei + gasBuffer)) {
