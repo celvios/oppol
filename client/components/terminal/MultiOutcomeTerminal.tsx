@@ -102,11 +102,12 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     }
                 }
 
-                // Fallback to Download
-                const link = document.createElement('a');
-                link.download = `OPoll-Chart-${market.id}-${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                // Fallback: Show Modal
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    setShareImageSrc(url);
+                    setIsShareModalOpen(true);
+                }
             }, 'image/png');
 
         } catch (err) {
