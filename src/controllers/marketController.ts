@@ -122,7 +122,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         const VISIBLE_WINDOW = 48 * 60 * 60; // 48 Hours in seconds
         const nowSec = Math.floor(Date.now() / 1000);
 
-        const visibleMarkets = resolveMarkets.filter((m: any) => {
+        const visibleMarkets = markets.filter((m: any) => {
             // Always show active markets (not resolved)
             if (!m.resolved) return true;
 
