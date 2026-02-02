@@ -5,6 +5,7 @@ import { Wallet, X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
+import WalletDebugger from "../debug/WalletDebugger";
 
 interface ConnectWalletModalProps {
     isOpen: boolean;
@@ -320,6 +321,7 @@ export default function ConnectWalletModal({
                     >
                         Maybe later
                     </button>
+                    <WalletDebugger />
                 </GlassCard>
             </div>
         </div>
