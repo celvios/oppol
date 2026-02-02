@@ -661,7 +661,15 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             <div className="flex gap-2 mb-2 flex-wrap">
                                 <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
                                 <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green">{market.outcomeCount} Outcomes</span>
-                                <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
+                                        ? 'bg-orange-500/20 text-orange-400'
+                                        : 'bg-white/10 text-white/50'
+                                    }`}>
+                                    {Date.now() > market.endTime * 1000
+                                        ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
+                                        : `Ends in ${formatDistanceToNow(market.endTime * 1000)}`
+                                    }
+                                </span>
                                 <div className="ml-auto">
                                     <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
                                 </div>
