@@ -187,7 +187,13 @@ export default function ConnectWalletModal({
             let connectedAddress = "";
 
             // Try direct injected connection first if available (mimics the successful "Direct Connect" test)
-            const injectedConnector = connectors?.find((c: any) => c.id === 'injected' || c.name.toLowerCase() === 'metamask');
+            console.log('[ConnectWalletModal] Available connectors:', connectors?.map(c => ({ id: c.id, name: c.name })));
+            const injectedConnector = connectors?.find((c: any) =>
+                c.id === 'injected' ||
+                c.id === 'io.metamask' ||
+                c.name.toLowerCase() === 'metamask' ||
+                c.name.toLowerCase() === 'browser wallet'
+            );
 
             if (injectedConnector && typeof window !== 'undefined' && (window as any).ethereum) {
                 console.log('[ConnectWalletModal] Attempting direct injection connect...');
