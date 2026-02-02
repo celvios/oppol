@@ -3,7 +3,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
-import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X } from "lucide-react";
+import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Camera } from "lucide-react";
+import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -70,16 +71,36 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             const canvas = await html2canvas(chartRef.current, {
                 backgroundColor: '#020408', // Match background
-                scale: 2, // Reting quality
+                scale: 2, // Retina quality
                 logging: false,
                 useCORS: true // Handle images if any
             });
 
-            // Create download link
-            const link = document.createElement('a');
-            link.download = `OPoll-Chart-${market.id}-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                // Native Share API (Mobile/Socials)
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'chart.png', { type: 'image/png' })] })) {
+                    try {
+                        const file = new File([blob], `OPoll-Chart-${market.id}.png`, { type: 'image/png' });
+                        await navigator.share({
+                            title: 'OPoll Market Chart',
+                            text: `Check out the odds for: ${market.question}`,
+                            files: [file]
+                        });
+                        return;
+                    } catch (shareError) {
+                        console.log("Share failed or cancelled, falling back to download", shareError);
+                    }
+                }
+
+                // Fallback to Download
+                const link = document.createElement('a');
+                link.download = `OPoll-Chart-${market.id}-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }, 'image/png');
+
         } catch (err) {
             console.error("Failed to capture chart:", err);
         }
