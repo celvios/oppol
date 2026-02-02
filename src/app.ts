@@ -146,7 +146,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS;
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
     if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     const marketABI = [
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',

@@ -74,7 +74,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
 
         // USE CORRECT CONTRACT FROM ENV
-        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS;
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
         if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
@@ -233,7 +233,7 @@ router.post('/sync-markets', checkAdminAuth, async (req, res) => {
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
         const chainId = Number(process.env.CHAIN_ID) || 56;
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
-        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS;
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
         if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
