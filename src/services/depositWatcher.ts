@@ -24,6 +24,10 @@ type DepositCallback = (userId: string, phoneNumber: string, amount: string, txH
 let onDepositDetected: DepositCallback | null = null;
 
 let provider: ethers.WebSocketProvider | null = null;
+let isRunning = false;
+let isConnecting = false;
+let reconnectTimer: NodeJS.Timeout | null = null;
+
 // Basic Exponential Backoff State
 let backoffDelay = 5000;
 const MAX_BACKOFF = 60000;
@@ -50,6 +54,28 @@ function scheduleReconnect(wssUrl: string) {
 }
 
 /**
+ * Add an address to watch for deposits
+ */
+export function watchAddress(address: string, userId: string, phoneNumber: string) {
+    watchedAddresses.set(address.toLowerCase(), { userId, phoneNumber });
+    console.log(`👁️ Now watching: ${address} for user ${userId}`);
+}
+
+/**
+ * Remove an address from watch list
+ */
+export function unwatchAddress(address: string) {
+    watchedAddresses.delete(address.toLowerCase());
+}
+
+/**
+ * Set callback for deposit detection
+ */
+export function setDepositCallback(callback: DepositCallback) {
+    onDepositDetected = callback;
+}
+
+/**
  * Start the deposit watcher with Robust Connection Handling
  */
 export async function startDepositWatcher(wssUrl: string = BNB_WSS_URL) {
@@ -72,12 +98,6 @@ export async function startDepositWatcher(wssUrl: string = BNB_WSS_URL) {
         console.log(`🚀 connection attempt to ${wssUrl}...`);
 
         // 1. Monitor Socket Level Errors First (Prevents CRASH)
-        // We create a fresh socket to test connection before giving it to ethers
-        // logic: Ethers v6 WebSocketProvider can take a url, but it creates its own socket effectively.
-        // To catch the 429 "Unexpected server response" which emits 'error' synchronously/fast,
-        // we essentially need to let Ethers create it but IMMEDIATELY attach hooks.
-        // OR better: Create raw socket -> wait for open -> pass to Ethers (if supported) or just rely on Ethers with faster hooks.
-
         // Strategy: Use Ethers but attach error listener to underlying socket immediately
         const newProvider = new ethers.WebSocketProvider(wssUrl);
 
@@ -184,7 +204,7 @@ export async function startDepositWatcher(wssUrl: string = BNB_WSS_URL) {
 
         console.log(`👁️ Watching ${watchedAddresses.size} addresses for deposits`);
 
-    } catch (fatalError) {
+    } catch (fatalError: any) {
         console.error('❌ Fatal error in startDepositWatcher:', fatalError);
         isConnecting = false;
         scheduleReconnect(wssUrl);
