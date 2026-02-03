@@ -99,20 +99,7 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
 
-                    {/* Profile */}
-                    <Link
-                        href="/profile"
-                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
-                    >
-                        {pathname === "/profile" && (
-                            <motion.div
-                                layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
-                            />
-                        )}
-                        <User className={twMerge("w-6 h-6 transition-colors", pathname === "/profile" ? "text-neon-cyan" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/profile" ? "text-white" : "text-text-secondary")}>Profile</span>
-                    </Link>
+
 
                     {/* Menu */}
                     <Link
