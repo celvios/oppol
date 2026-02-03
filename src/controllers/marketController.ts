@@ -16,7 +16,7 @@ const marketCache: { all?: CacheEntry; single: Map<string, CacheEntry> } = {
     single: new Map()
 };
 
-const CACHE_TTL_MS = 30000; // 30 seconds cache TTL
+const CACHE_TTL_MS = 300000; // 5 minutes cache TTL
 
 function isCacheValid(entry: CacheEntry | undefined): boolean {
     if (!entry) return false;

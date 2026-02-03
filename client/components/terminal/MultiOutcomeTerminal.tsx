@@ -271,8 +271,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         // Initial fetch
         fetchData();
 
-        // Poll every 60s to reduce RPC usage (markets don't change that fast)
-        const interval = setInterval(fetchData, 60000);
+        // Poll every 5 minutes (300000ms) to reduce RPC usage
+        const interval = setInterval(fetchData, 300000);
 
         return () => clearInterval(interval);
     }, [fetchData]);
