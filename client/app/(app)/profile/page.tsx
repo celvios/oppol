@@ -7,22 +7,12 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function ProfilePage() {
-    const { user, authenticated } = usePrivy();
+    const { user, authenticated, ready } = usePrivy();
     const { address, disconnect } = useWallet();
     const { wallets } = useWallets();
 
     const [copied, setCopied] = useState(false);
     const [userStats, setUserStats] = useState({ totalVolume: 0, accuracyRate: 0 });
-
-    // Fetch Stats
-    useEffect(() => {
-        // Only fetch if we have an address and it's a "Google/Embedded" user (or really any user we want stats for)
-        // Checks are done inside the effect or dependencies
-        const fetchStats = async () => {
-            // We need effectiveAddress value. It's defined below this block in original code.
-            // Ideally we move this effect AFTER effectiveAddress is defined.
-        };
-    }, []);
 
     // Identify Embedded (Google/Social) Wallet
     const isEmbeddedWallet = authenticated && (!!user?.google || !!user?.email || !!user?.twitter || !!user?.discord);
@@ -31,9 +21,9 @@ export default function ProfilePage() {
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
     const effectiveAddress = address || user?.wallet?.address || embeddedWallet?.address || "";
 
-    // Fetch User Stats
+    // Fetch Stats
     useEffect(() => {
-        if (effectiveAddress && authenticated) {
+        if (ready && effectiveAddress && authenticated) {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`)
                 .then(res => res.json())
@@ -44,7 +34,7 @@ export default function ProfilePage() {
                 })
                 .catch(err => console.error('Failed to fetch stats:', err));
         }
-    }, [effectiveAddress, authenticated]);
+    }, [ready, effectiveAddress, authenticated]);
 
     const displayName = user?.google?.name || user?.email?.address?.split('@')[0] || (effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : "Guest User");
     const displayEmail = user?.google?.email || user?.email?.address || "";
@@ -59,6 +49,15 @@ export default function ProfilePage() {
             setTimeout(() => setCopied(false), 2000);
         }
     };
+
+    if (!ready) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <div className="w-12 h-12 border-4 border-neon-cyan/30 border-t-neon-cyan rounded-full animate-spin" />
+                <p className="text-white/40 text-sm font-mono animate-pulse">Loading Profile...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto space-y-8 pb-20">
