@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Wallet, PlusCircle, Globe, Trophy, Settings, Menu } from "lucide-react";
+import { Home, Wallet, PlusCircle, Globe, Trophy, User, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
@@ -110,7 +110,7 @@ export default function BottomNav() {
                                 className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
                             />
                         )}
-                        <Settings className={twMerge("w-6 h-6 transition-colors", pathname === "/profile" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <User className={twMerge("w-6 h-6 transition-colors", pathname === "/profile" ? "text-neon-cyan" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/profile" ? "text-white" : "text-text-secondary")}>Profile</span>
                     </Link>
 

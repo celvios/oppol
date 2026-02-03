@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
-import { TrendingUp, Users, Search } from "lucide-react";
+import { TrendingUp, Users, Search, User } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
@@ -132,9 +132,9 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                     <a href="/docs" className="border border-white/20 px-2 py-0.5 rounded text-xs font-bold text-white hover:bg-white/10 transition-colors uppercase tracking-wide">
                         DOC
                     </a>
-                    <a href="/faq" className="text-sm font-bold text-white hover:text-primary transition-colors">
-                        FAQ
-                    </a>
+                    <Link href="/profile" className="text-white hover:text-neon-cyan transition-colors">
+                        <User className="w-5 h-5" />
+                    </Link>
                 </div>
             </div>
 
