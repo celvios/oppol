@@ -24,185 +24,170 @@ type DepositCallback = (userId: string, phoneNumber: string, amount: string, txH
 let onDepositDetected: DepositCallback | null = null;
 
 let provider: ethers.WebSocketProvider | null = null;
-let isRunning = false;
-let isConnecting = false;
-let reconnectTimer: NodeJS.Timeout | null = null;
+// Basic Exponential Backoff State
+let backoffDelay = 5000;
+const MAX_BACKOFF = 60000;
+
+function resetBackoff() {
+    backoffDelay = 5000;
+}
+
+function getNextBackoff() {
+    const current = backoffDelay;
+    backoffDelay = Math.min(backoffDelay * 2, MAX_BACKOFF);
+    return current;
+}
 
 function scheduleReconnect(wssUrl: string) {
     if (reconnectTimer) return; // Already scheduled
 
-    console.log('🔄 Reconnect scheduled in 5s...');
+    const delay = getNextBackoff();
+    console.log(`🔄 Reconnect scheduled in ${delay / 1000}s...`);
     reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         startDepositWatcher(wssUrl);
-    }, 5000);
+    }, delay);
 }
 
 /**
- * Add an address to watch for deposits
- */
-export function watchAddress(address: string, userId: string, phoneNumber: string) {
-    watchedAddresses.set(address.toLowerCase(), { userId, phoneNumber });
-    console.log(`👁️ Now watching: ${address} for user ${userId}`);
-}
-
-/**
- * Remove an address from watch list
- */
-export function unwatchAddress(address: string) {
-    watchedAddresses.delete(address.toLowerCase());
-}
-
-/**
- * Set callback for deposit detection
- */
-export function setDepositCallback(callback: DepositCallback) {
-    onDepositDetected = callback;
-}
-
-/**
- * Start the deposit watcher
+ * Start the deposit watcher with Robust Connection Handling
  */
 export async function startDepositWatcher(wssUrl: string = BNB_WSS_URL) {
     if (isRunning || isConnecting) {
-        console.log('⚠️ Deposit watcher already running or connecting');
         return;
     }
+
+    // Required to prevent Node process crash on unhandled WS errors
+    const WebSocket = require('ws');
 
     try {
         isConnecting = true;
 
-        // Clean up existing provider if any
+        // Clean up previous provider
         if (provider) {
             try { await provider.destroy(); } catch (e) { }
             provider = null;
         }
 
-        console.log('🚀 Starting deposit watcher...');
-        console.log(`📡 Connecting to: ${wssUrl}`);
+        console.log(`🚀 connection attempt to ${wssUrl}...`);
 
+        // 1. Monitor Socket Level Errors First (Prevents CRASH)
+        // We create a fresh socket to test connection before giving it to ethers
+        // logic: Ethers v6 WebSocketProvider can take a url, but it creates its own socket effectively.
+        // To catch the 429 "Unexpected server response" which emits 'error' synchronously/fast,
+        // we essentially need to let Ethers create it but IMMEDIATELY attach hooks.
+        // OR better: Create raw socket -> wait for open -> pass to Ethers (if supported) or just rely on Ethers with faster hooks.
+
+        // Strategy: Use Ethers but attach error listener to underlying socket immediately
         const newProvider = new ethers.WebSocketProvider(wssUrl);
 
-        // Handle disconnection using persistent handlers EARLY
+        // SAFETY: Node 'ws' objects emit 'error'. If no listener, node crashes.
+        const internalWs = (newProvider as any).websocket;
+
+        // Explicitly attach error handler to the underlying socket to prevent unhandled exception
+        if (internalWs) {
+            internalWs.on('error', (err: any) => {
+                console.error('⚠️ [WS-Internal] Connected Socket Error:', err.message);
+                // The provider specific error handler will also fire, but this prevents the crash
+                handleDisconnect();
+            });
+
+            internalWs.on('close', (code: number, reason: string) => {
+                console.log(`⚠️ [WS-Internal] Closed: ${code} ${reason}`);
+                handleDisconnect();
+            });
+        }
+
+        // Connection Handling Logic
         const handleDisconnect = () => {
             if (isConnecting) {
-                // If we disconnect while still connecting, it's a connection failure
-                console.log('⚠️ Connection failed during handshake.');
                 isConnecting = false;
-                // Provider might not be assigned yet
+                console.log('⚠️ Connection failed.');
                 scheduleReconnect(wssUrl);
                 return;
             }
 
-            if (!isRunning) return; // Prevent duplicate handling
+            if (!isRunning) return;
 
-            console.log('⚠️ WebSocket disconnected/error, reconnecting...');
+            console.log('⚠️ WebSocket disconnected, triggering reconnect...');
             isRunning = false;
-            // Clean up
+
+            // Clear listeners
             if (provider) {
                 provider.removeAllListeners();
+                try { (provider as any).websocket?.terminate(); } catch { } // Force kill
                 provider = null;
             }
-            if (newProvider) {
-                newProvider.removeAllListeners();
-            }
+
             scheduleReconnect(wssUrl);
         };
 
+        // Ethers Provider Error Handler
         newProvider.on('error', (err) => {
-            console.error('WebSocket Error:', err);
-            handleDisconnect();
+            console.error('❌ Ethers Provider Error:', err);
+            // handleDisconnect is called by internalWs 'error' usually, but safe to call here if needed
         });
 
-        // Ethers v6 specific websocket access
-        const ws = (newProvider as any).websocket;
-        if (ws && typeof ws.addEventListener === 'function') {
-            ws.addEventListener('close', handleDisconnect);
-        }
-
-        // Wait for connection with timeout
+        // Wait for network detection to confirm connection is "alive"
+        // If 429 happens, internalWs 'error' fires first, handleDisconnect runs, backoff triggers.
         try {
             await Promise.race([
                 newProvider.getNetwork(),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
             ]);
-            console.log('✅ Connected to blockchain');
-        } catch (networkError: any) {
-            if (networkError?.error?.message?.includes('daily request limit')) {
-                console.error('❌ RPC provider limit reached. Deposit watcher disabled.');
-                isConnecting = false;
-                return;
-            }
-            throw networkError;
+
+            console.log('✅ Connected to BNB Chain (Deposit Watcher)');
+            // Success - reset backoff
+            resetBackoff();
+
+        } catch (err: any) {
+            console.error(`❌ Connection Handshake Failed: ${err.message}`);
+            // This catch block handles timeout or network fetch errors
+            // The 429 crash is handled by internalWs.on('error')
+            internalWs?.terminate(); // Ensure dead
+            handleDisconnect();
+            return;
         }
 
-        // Assign global provider only after success
+        // --- SUCCESSFUL CONNECTION ---
         provider = newProvider;
         isRunning = true;
         isConnecting = false;
 
-        // Create filter for USDC Transfer events
+        // Subscribe to events
         const filter = {
             address: USDC_ADDRESS,
             topics: [TRANSFER_TOPIC]
         };
 
-        // Subscribe to Transfer events
         provider.on(filter, async (log) => {
             try {
-                // Decode the transfer event
-                const iface = new ethers.Interface([
-                    'event Transfer(address indexed from, address indexed to, uint256 value)'
-                ]);
-                const decoded = iface.parseLog({
-                    topics: log.topics as string[],
-                    data: log.data
-                });
+                const iface = new ethers.Interface(['event Transfer(address indexed from, address indexed to, uint256 value)']);
+                const decoded = iface.parseLog({ topics: log.topics as string[], data: log.data });
 
                 if (!decoded) return;
 
                 const to = decoded.args.to.toLowerCase();
-                const amount = ethers.formatUnits(decoded.args.value, 18); // BSC USDC has 18 decimals
+                const amount = ethers.formatUnits(decoded.args.value, 18);
 
-                // Check if recipient is a watched address
                 const userInfo = watchedAddresses.get(to);
                 if (userInfo) {
-                    console.log(`💰 Deposit detected!`);
-                    console.log(`   Amount: $${amount} USDC`);
-                    console.log(`   To: ${to}`);
-                    console.log(`   User: ${userInfo.userId}`);
-                    console.log(`   TX: ${log.transactionHash}`);
-
-                    // Trigger callback
+                    console.log(`💰 Deposit Detected: $${amount} for ${userInfo.userId}`);
                     if (onDepositDetected) {
-                        await onDepositDetected(
-                            userInfo.userId,
-                            userInfo.phoneNumber,
-                            amount,
-                            log.transactionHash
-                        );
+                        await onDepositDetected(userInfo.userId, userInfo.phoneNumber, amount, log.transactionHash);
                     }
                 }
-            } catch (error) {
-                console.error('Error processing transfer event:', error);
+            } catch (e) {
+                console.error('Error processing log:', e);
             }
         });
 
-        console.log('✅ Deposit watcher running');
-        console.log(`👁️ Watching USDC at: ${USDC_ADDRESS}`);
+        console.log(`👁️ Watching ${watchedAddresses.size} addresses for deposits`);
 
-
-    } catch (error: any) {
-        console.error('❌ Failed to start deposit watcher:', error);
-
+    } catch (fatalError) {
+        console.error('❌ Fatal error in startDepositWatcher:', fatalError);
         isConnecting = false;
-        isRunning = false;
-
-        if (error?.message?.includes('daily request limit')) {
-            console.error('⚠️ RPC Limit reached, stopping.');
-        } else {
-            scheduleReconnect(wssUrl);
-        }
+        scheduleReconnect(wssUrl);
     }
 }
 
