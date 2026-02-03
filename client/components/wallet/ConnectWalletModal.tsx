@@ -6,7 +6,6 @@ import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
 import { useWallet } from "@/lib/use-wallet";
-import WalletDebugger from "../debug/WalletDebugger";
 import UsernameOnboardingModal from "./UsernameOnboardingModal";
 
 interface ConnectWalletModalProps {
@@ -493,7 +492,6 @@ export default function ConnectWalletModal({
                     >
                         Maybe later
                     </button>
-                    <WalletDebugger />
                 </GlassCard>
             </div>
 

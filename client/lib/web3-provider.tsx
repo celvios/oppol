@@ -209,7 +209,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         <PrivyProvider
             appId={appId || ''}
             config={{
-                loginMethods: ['google', 'email', 'wallet'],
+                loginMethods: ['google', 'email'],
                 appearance: {
                     theme: 'dark',
                     accentColor: '#00FF94',
