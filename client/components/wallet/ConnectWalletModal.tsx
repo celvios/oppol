@@ -248,10 +248,13 @@ export default function ConnectWalletModal({
     const handleWeb3ModalConnect = async () => {
         try {
             console.log('[ConnectWalletModal] Opening Web3Modal...');
-            onClose(); // Web3Modal is an overlay, so we often close our modal to avoid z-index fights.
+            // onClose(); // Don't close immediately, wait for open() to succeed
             await onConnect();
+            // Now close, as Web3Modal should be visible (z-index should be handled by Web3Modal being highest)
+            onClose();
         } catch (e) {
             console.error('[ConnectWalletModal] Web3Modal failed:', e);
+            // If it failed, don't close the modal so user can try again
         }
     };
 
