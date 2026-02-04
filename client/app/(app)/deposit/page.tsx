@@ -7,7 +7,6 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getContracts, NETWORK } from "@/lib/contracts";
 import { Contract, ethers } from 'ethers';
 import { useConnectorClient, useAccount } from 'wagmi';
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import { AlertModal } from "@/components/ui/AlertModal";
 import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
@@ -109,7 +108,7 @@ export default function DepositPage() {
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [showConnectModal, setShowConnectModal] = useState(false);
+    // const [showConnectModal, setShowConnectModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
 
     // Seamless Flow State
@@ -562,19 +561,12 @@ export default function DepositPage() {
                         <h2 className="text-xl font-bold text-white mb-2">Deposit Funds</h2>
                         <p className="text-white/50 mb-6">Connect your wallet to deposit and start trading</p>
                         <button
-                            onClick={() => setShowConnectModal(true)}
+                            onClick={connect}
                             className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
                         >
                             Log In
                         </button>
                     </div>
-
-                    <ConnectWalletModal
-                        isOpen={showConnectModal}
-                        onClose={() => setShowConnectModal(false)}
-                        onConnect={connect}
-                        context="deposit"
-                    />
                 </>
             )
             }

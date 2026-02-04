@@ -33,7 +33,8 @@ export function useWallet() {
     isConnecting: !ready,
 
     // Actions
-    connect: login, // Privy's login handles everything
+    // Actions
+    connect: () => login({ loginMethods: ['email', 'wallet', 'google'] }), // Enforce specific login methods
     disconnect: handleDisconnect, // Disconnects BOTH systems
 
     // Compatibility
