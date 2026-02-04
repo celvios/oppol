@@ -29,7 +29,7 @@ export default function ConnectWalletModal({
     context,
     contextData
 }: ConnectWalletModalProps) {
-    const { ready, authenticated } = usePrivy();
+    const { ready, authenticated, login } = usePrivy();
 
     // Headless Hooks (Privy)
     const { sendCode, loginWithCode } = useLoginWithEmail();
@@ -118,83 +118,19 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- TRUE HEADLESS WALLET LOGIC ---
-    const handleWalletConnect = async (strategy: 'metamask' | 'coinbase' | 'walletconnect' | string) => {
-        console.log("Connect Strategy:", strategy);
-        console.log("Available Connectors:", connectors.map(c => c.name));
+    // --- STANDARD PRIVY LOGIC (Styled) ---
+    // User requested to use "Privy own" logic but kept within this UI.
+    const handleWalletConnect = async (strategy: string) => {
+        console.log("Triggering Privy Standard Flow for:", strategy);
+        onClose(); // Close our modal
 
-        let connector;
-
-        // Strategy Checking
-        if (strategy === 'metamask') {
-            connector = connectors.find(c =>
-                c.id.toLowerCase().includes('metamask') ||
-                c.name.toLowerCase().includes('metamask') ||
-                c.id === 'injected' // Generic fallback
-            );
-        } else if (strategy === 'coinbase') {
-            connector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name.toLowerCase().includes('coinbase'));
-        } else if (strategy === 'walletconnect') {
-            connector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
-        } else {
-            // Direct ID match
-            connector = connectors.find(c => c.id === strategy);
-        }
-
-        if (!connector) {
-            console.warn(`Connector for ${strategy} not found. Falling back to Privy.`);
-            // Fallback to Privy Modal
-            await handleMoreWallets();
-            return;
-        }
-
-        setLoadingMethod(strategy === 'metamask' ? 'MetaMask' : strategy === 'coinbase' ? 'Coinbase Wallet' : connector.name);
-        setError(null);
-
-        try {
-            if (isWagmiConnected) await disconnectAsync();
-
-            console.log("Connecting via Wagmi:", connector.name);
-            const result = await connectAsync({ connector });
-            const address = result.accounts[0];
-            const chainId = result.chainId;
-
-            const message = await generateSiweMessage({
-                address,
-                chainId: chainId.toString()
-            });
-
-            const signature = await signMessageAsync({ message });
-
-            await loginWithSiwe({
-                signature,
-                message,
-                chainId: chainId.toString(),
-                walletClientType: connector.name.toLowerCase(),
-                connectorType: connector.type,
-            });
-
-            onClose();
-
-        } catch (err: any) {
-            console.error("Connection failed:", err);
-            if (err.code === 4001 || err.message?.includes('rejected')) {
-                setError(null);
-            } else {
-                setError("Connection failed. retrying with standard method...");
-                // Ultimate fallback if Headless fails mid-way
-                await handleMoreWallets();
-            }
-            await disconnectAsync();
-        } finally {
-            setLoadingMethod(null);
-        }
+        // Open Privy's standard modal which handles all wallet detection/connection perfectly
+        // We keep our custom buttons as entry points.
+        await login({ loginMethods: ['wallet'] });
     };
 
     const handleMoreWallets = async () => {
-        onClose();
-        // Fallback to standard Privy modal for other wallets
-        await login({ loginMethods: ['wallet'] });
+        await handleWalletConnect('more');
     };
 
     const getContextInfo = () => {
