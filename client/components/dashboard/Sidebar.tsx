@@ -238,13 +238,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </div>
                 )}
             </div>
-        </div >
-            {/* ConnectWalletModal removed - usage replaced with direct connect() */ }
+            {/* ConnectWalletModal removed - usage replaced with direct connect() */}
 
             < BC400PurchaseModal
-    isOpen = { showPurchaseModal }
-    onClose = {() => setShowPurchaseModal(false)
-}
+                isOpen={showPurchaseModal}
+                onClose={() => setShowPurchaseModal(false)
+                }
             />
         </>
     );
