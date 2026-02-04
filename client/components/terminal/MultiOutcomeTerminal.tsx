@@ -18,7 +18,7 @@ import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 
-
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BoostButton from "@/components/market/BoostButton";
 import DesktopFeaturedCarousel from "./DesktopFeaturedCarousel";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
@@ -118,7 +118,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [isTradeLoading, setIsTradeLoading] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
-    // const [showConnectModal, setShowConnectModal] = useState(false);
+    const [showConnectModal, setShowConnectModal] = useState(false);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -307,7 +307,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     // --- Trading Logic ---
     const handleTrade = async () => {
         if (!isConnected) {
-            connect();
+            setShowConnectModal(true);
             return;
         }
 
@@ -519,7 +519,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     </div>
                                 </div>
                                 {!isConnected ? (
-                                    <NeonButton onClick={connect} variant="cyan" className="w-full py-3">
+                                    <NeonButton onClick={() => setShowConnectModal(true)} variant="cyan" className="w-full py-3">
                                         CONNECT WALLET
                                     </NeonButton>
                                 ) : (
@@ -951,7 +951,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 <div className="mt-auto">
                                     {!isConnected ? (
                                         <NeonButton
-                                            onClick={connect}
+                                            onClick={() => setShowConnectModal(true)}
                                             variant="cyan"
                                             className="w-full py-4"
                                         >
@@ -1012,7 +1012,13 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </div>
             </div >
 
-
+            <ConnectWalletModal
+                isOpen={showConnectModal}
+                onClose={() => setShowConnectModal(false)}
+                onConnect={connect}
+                context="bet"
+                contextData={{ marketName: market?.question || '' }}
+            />
 
             {/* Share Modal */}
             <ShareChartModal

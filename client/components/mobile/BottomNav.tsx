@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
 import { useBC400Check } from "@/lib/use-bc400";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 
 export default function BottomNav() {
@@ -18,7 +19,7 @@ export default function BottomNav() {
     const { isConnected, connect } = useWallet();
     const { hasNFT } = useBC400Check();
 
-    // const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     if (isTradeModalOpen || isInputFocused || isCommentsOpen) return null;
@@ -27,7 +28,7 @@ export default function BottomNav() {
         e.preventDefault();
 
         if (!isConnected) {
-            connect();
+            setShowWalletModal(true);
             return;
         }
 
@@ -116,6 +117,13 @@ export default function BottomNav() {
                     </Link>
                 </nav>
             </div>
+
+            <ConnectWalletModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+                onConnect={connect}
+                context="create"
+            />
 
             <BC400PurchaseModal
                 isOpen={showPurchaseModal}
