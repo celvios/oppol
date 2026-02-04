@@ -43,10 +43,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     const handleLogout = async () => {
         try {
-            // First disconnect wallet
-            disconnect();
-
-            // IMPORTANT: Let Privy fully complete its cleanup first
+            // Only call Privy logout ONCE
             await logout();
 
             // Wait a moment for Privy's cleanup to complete
