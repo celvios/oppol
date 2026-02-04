@@ -45,24 +45,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         try {
             // Only call Privy logout ONCE
             await logout();
-
-            // Wait a moment for Privy's cleanup to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // THEN clear any remaining cache (optional cleanup)
+        } catch (error) {
+            console.error('[Sidebar] Logout error:', error);
+        } finally {
+            // ALWAYS force clear everything in finally block
+            // This ensures we clean up even if logout API fails
             if (typeof window !== 'undefined') {
-                // Clear Wagmi cache only (leave Privy alone now)
+                // Clear ALL Privy session data
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('privy:')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                // Clear Wagmi cache
                 localStorage.removeItem('wagmi.wallet');
                 localStorage.removeItem('wagmi.store');
                 localStorage.removeItem('wagmi.cache');
+                localStorage.removeItem('wagmi.connected');
             }
 
-            // Navigate to home
+            // Navigate to home and FORCE reload to clear in-memory state
             router.push('/');
-        } catch (error) {
-            console.error('[Sidebar] Logout error:', error);
-            // Still navigate even if logout fails
-            router.push('/');
+            router.refresh();
         }
     };
 
