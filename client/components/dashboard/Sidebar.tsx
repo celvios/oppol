@@ -235,16 +235,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 {!collapsed && (
                     <div className="pt-4 border-t border-white/10 text-center">
                         <span className="text-[10px] text-white/20">Powered by BNB Chain</span>
-                        {/* Revert verified */}
-        
-                )}
                     </div>
-        </div>
-            {/* ConnectWalletModal removed - usage replaced with direct connect() */}
+                )}
+            </div>
+        </div >
+            {/* ConnectWalletModal removed - usage replaced with direct connect() */ }
 
-            <BC400PurchaseModal
-                isOpen={showPurchaseModal}
-                onClose={() => setShowPurchaseModal(false)}
+            < BC400PurchaseModal
+    isOpen = { showPurchaseModal }
+    onClose = {() => setShowPurchaseModal(false)
+}
             />
         </>
     );
