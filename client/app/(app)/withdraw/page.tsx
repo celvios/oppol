@@ -361,7 +361,7 @@ export default function WithdrawPage() {
                         <button
                             onClick={() => setStep('confirm')}
                             disabled={!canProceed || !amount || parseFloat(amount) <= 0 || (isEmbeddedWallet && !isAddress(destinationAddress))}
-                            className="w-full py-4 bg-primary text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-all shadow-lg"
+                            className="w-full py-4 bg-primary disabled:bg-white/10 text-black disabled:text-white/40 font-bold rounded-xl disabled:cursor-not-allowed hover:bg-primary/90 transition-all shadow-lg"
                         >
                             {isEmbeddedWallet ? 'Review Cash Out' : 'Review Withdrawal'}
                         </button>
