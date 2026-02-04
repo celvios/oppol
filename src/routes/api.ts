@@ -22,6 +22,10 @@ router.use('/balance', balanceRoutes);
 // WhatsApp Bot Routes
 router.post('/whatsapp/user', WhatsAppController.getOrCreateUser);
 router.get('/whatsapp/user', WhatsAppController.getUserByPhone);
+router.post('/whatsapp/bet', WhatsAppController.placeBet);
+router.post('/whatsapp/withdraw', WhatsAppController.withdraw);
+router.get('/whatsapp/positions/:phone', WhatsAppController.getPositions);
+router.get('/whatsapp/balance/:phone', WhatsAppController.getBalance);
 
 // Telegram Bot Routes
 router.post('/telegram/user', TelegramController.getOrCreateUser);

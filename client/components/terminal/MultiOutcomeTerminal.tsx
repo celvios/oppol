@@ -84,30 +84,11 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 useCORS: true // Handle images if any
             });
 
-            canvas.toBlob(async (blob) => {
+            canvas.toBlob((blob) => {
                 if (!blob) return;
-
-                // Native Share API (Mobile/Socials)
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'chart.png', { type: 'image/png' })] })) {
-                    try {
-                        const file = new File([blob], `OPoll-Chart-${market.id}.png`, { type: 'image/png' });
-                        await navigator.share({
-                            title: 'OPoll Market Chart',
-                            text: `Check out the odds for: ${market.question}`,
-                            files: [file]
-                        });
-                        return;
-                    } catch (shareError) {
-                        console.log("Share failed or cancelled, falling back to download", shareError);
-                    }
-                }
-
-                // Fallback: Show Modal
-                if (blob) {
-                    const url = URL.createObjectURL(blob);
-                    setShareImageSrc(url);
-                    setIsShareModalOpen(true);
-                }
+                const url = URL.createObjectURL(blob);
+                setShareImageSrc(url);
+                setIsShareModalOpen(true);
             }, 'image/png');
 
         } catch (err) {

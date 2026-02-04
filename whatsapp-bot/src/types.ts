@@ -1,0 +1,15 @@
+export enum UserState {
+    IDLE = 'IDLE',
+    BROWSING_MARKETS = 'BROWSING_MARKETS',
+    VIEWING_MARKET = 'VIEWING_MARKET',
+    ENTERING_AMOUNT = 'ENTERING_AMOUNT',
+    ENTERING_WITHDRAW_ADDRESS = 'ENTERING_WITHDRAW_ADDRESS',
+    ENTERING_WITHDRAW_AMOUNT = 'ENTERING_WITHDRAW_AMOUNT',
+    SEARCHING_MARKETS = 'SEARCHING_MARKETS'
+}
+
+export interface SessionData {
+    state: UserState;
+    data: any;
+    updatedAt: number;
+}
