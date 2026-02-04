@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+// Vercel Build Trigger: 2026-02-03 (Force Refresh)
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,

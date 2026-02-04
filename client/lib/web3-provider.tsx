@@ -10,6 +10,7 @@ import { ReactNode, useState, useEffect, useRef } from 'react';
 import { cookieStorage, createStorage } from 'wagmi';
 import { PrivyProvider } from '@privy-io/react-auth';
 import { WagmiProvider } from '@privy-io/wagmi'; // Use Privy's provider, but standard config generation
+import { setModalState, isModalOpen } from './connection-utils';
 
 const projectId = '70415295a4738286445072f5c2392457';
 
@@ -132,9 +133,17 @@ function WagmiBridge() {
     useEffect(() => {
         const handleConnectRequest = () => {
             console.log('[WagmiBridge] Connect request received');
+
+            // Check if modal is already open
+            if (isModalOpen()) {
+                console.warn('[WagmiBridge] Modal already open, ignoring duplicate request');
+                return;
+            }
+
             const modal = (window as any).web3modal || modalInstance;
             if (modal && modal.open) {
                 console.log('[WagmiBridge] Opening modal');
+                setModalState(true); // Track modal state
                 modal.open();
             } else {
                 console.error('[WagmiBridge] Modal not available for connection');
@@ -151,14 +160,31 @@ function WagmiBridge() {
             initializeModal();
         };
 
+        // Track modal open/close events from Web3Modal
+        const handleModalOpen = () => {
+            console.log('[WagmiBridge] Web3Modal opened');
+            setModalState(true);
+        };
+
+        const handleModalClose = () => {
+            console.log('[WagmiBridge] Web3Modal closed');
+            setModalState(false);
+        };
+
         window.addEventListener('wallet-connect-request', handleConnectRequest);
         window.addEventListener('wallet-disconnect-request', handleDisconnectRequest);
         window.addEventListener('init-web3modal', handleInitModal);
+
+        // Listen to Web3Modal state changes
+        window.addEventListener('w3m-modal-open', handleModalOpen);
+        window.addEventListener('w3m-modal-close', handleModalClose);
 
         return () => {
             window.removeEventListener('wallet-connect-request', handleConnectRequest);
             window.removeEventListener('wallet-disconnect-request', handleDisconnectRequest);
             window.removeEventListener('init-web3modal', handleInitModal);
+            window.removeEventListener('w3m-modal-open', handleModalOpen);
+            window.removeEventListener('w3m-modal-close', handleModalClose);
         };
     }, [disconnect]);
 

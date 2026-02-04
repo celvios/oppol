@@ -46,6 +46,7 @@ function storeWalletState(address: string | null, isConnected: boolean) {
 }
 
 import { useWeb3Modal } from '@web3modal/wagmi/react';
+import { debounceConnection, clearStuckState } from './connection-utils';
 
 export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -75,15 +76,33 @@ export function useWallet() {
   }, [address, isConnected]);
 
   const connectWallet = async () => {
-    setIsConnecting(true);
-    console.log('[useWallet] Opening Web3Modal...');
     try {
-      await open();
-      console.log('[useWallet] Web3Modal opened successfully');
-    } catch (error) {
+      console.log('[useWallet] Connection attempt starting...');
+
+      // Use debounced connection to prevent rapid successive attempts
+      await debounceConnection(async () => {
+        setIsConnecting(true);
+
+        // Clear any stuck state before attempting connection
+        clearStuckState();
+
+        console.log('[useWallet] Opening Web3Modal...');
+        await open();
+        console.log('[useWallet] Web3Modal opened successfully');
+      });
+
+    } catch (error: any) {
       console.error('[useWallet] Connection failed:', error);
+
+      // Only show user-friendly errors for debounce/state issues
+      if (error.message?.includes('already in progress') || error.message?.includes('wait')) {
+        // Debounce error - user tried too fast
+        console.warn('[useWallet] Connection debounced:', error.message);
+      }
+
       throw error; // Rethrow so caller knows it failed
     } finally {
+      // Clear connecting state after a delay
       setTimeout(() => setIsConnecting(false), 2000);
     }
   };
