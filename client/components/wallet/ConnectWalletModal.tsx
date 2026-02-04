@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, X, Loader2, Sparkles, Zap, ShieldCheck } from "lucide-react";
+import { Wallet, X, Loader2, Sparkles, Zap, ShieldCheck, Mail, Globe } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { usePrivy } from "@privy-io/react-auth";
@@ -27,7 +27,7 @@ export default function ConnectWalletModal({
     contextData
 }: ConnectWalletModalProps) {
     const { login, ready, authenticated } = usePrivy();
-    const [loading, setLoading] = useState(false);
+    const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
     const [showIdentityModal, setShowIdentityModal] = useState(false);
     const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
 
@@ -45,15 +45,20 @@ export default function ConnectWalletModal({
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
-    const handleConnect = async () => {
+    const handleLogin = async (method: 'wallet' | 'email' | 'google') => {
         try {
-            setLoading(true);
+            setLoadingMethod(method);
+            // We do NOT close the modal immediately here, 
+            // because for some methods (like wallet) we might want to keep our UI visible 
+            // until the external provider takes over. 
+            // However, Privy's modal or popup will appear on top.
             onClose();
-            await login();
+
+            await login({ loginMethods: [method] });
         } catch (error) {
             console.error('[ConnectWalletModal] Connection error:', error);
         } finally {
-            setLoading(false);
+            setLoadingMethod(null);
         }
     };
 
@@ -130,14 +135,11 @@ export default function ConnectWalletModal({
                                 initial={{ scale: 0, rotate: -180 }}
                                 animate={{ scale: 1, rotate: 0 }}
                                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                                className="w-24 h-24 mx-auto mb-6 relative group"
+                                className="w-20 h-20 mx-auto mb-6 relative group"
                             >
                                 <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
                                 <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)] group-hover:scale-105 transition-transform duration-300">
-                                    <Icon className="w-10 h-10 text-neon-cyan drop-shadow-[0_0_10px_rgba(0,224,255,0.8)]" />
-                                </div>
-                                <div className="absolute -bottom-2 right-0 bg-black border border-neon-cyan/30 rounded-full p-1.5 shadow-lg">
-                                    <ShieldCheck className="w-4 h-4 text-neon-green" />
+                                    <Icon className="w-8 h-8 text-neon-cyan drop-shadow-[0_0_10px_rgba(0,224,255,0.8)]" />
                                 </div>
                             </motion.div>
 
@@ -155,52 +157,87 @@ export default function ConnectWalletModal({
                                 </p>
                             </motion.div>
 
-                            {/* Action Button */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <NeonButton
-                                    variant="cyan"
-                                    onClick={handleConnect}
-                                    disabled={loading || !ready}
-                                    className="w-full py-5 text-lg font-bold shadow-[0_0_30px_rgba(0,224,255,0.3)] hover:shadow-[0_0_50px_rgba(0,224,255,0.5)] group relative overflow-hidden"
+                            {/* Action Buttons Stack */}
+                            <div className="space-y-3">
+                                {/* Email Button */}
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.15 }}
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
-                                    {loading ? (
-                                        <div className="flex items-center justify-center gap-2">
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            <span>Initiating...</span>
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleLogin('email')}
+                                        disabled={!!loadingMethod || !ready}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
+                                    >
+                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
+                                            <Mail className="w-5 h-5 text-white group-hover:text-neon-cyan" />
                                         </div>
-                                    ) : (
-                                        <span className="flex items-center justify-center gap-2">
-                                            <Zap className="w-5 h-5 fill-current" />
-                                            Start Playing
-                                        </span>
-                                    )}
-                                </NeonButton>
-                            </motion.div>
+                                        <span className="font-medium">Continue with Email</span>
+                                        {loadingMethod === 'email' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+                                </motion.div>
+
+                                {/* Google Button */}
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.2 }}
+                                >
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleLogin('google')}
+                                        disabled={!!loadingMethod || !ready}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
+                                    >
+                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" className="w-5 h-5" alt="Google" />
+                                        </div>
+                                        <span className="font-medium">Continue with Google</span>
+                                        {loadingMethod === 'google' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+                                </motion.div>
+
+                                {/* Wallet Button - Primary Emphasis */}
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.25 }}
+                                >
+                                    <NeonButton
+                                        variant="cyan"
+                                        onClick={() => handleLogin('wallet')}
+                                        disabled={!!loadingMethod || !ready}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 shadow-[0_0_20px_rgba(0,224,255,0.2)] hover:shadow-[0_0_30px_rgba(0,224,255,0.4)] group"
+                                    >
+                                        <div className="p-2 bg-black/20 rounded-full">
+                                            <Wallet className="w-5 h-5 text-black" />
+                                        </div>
+                                        <span className="font-bold text-black">Connect Wallet</span>
+                                        {loadingMethod === 'wallet' ? (
+                                            <Loader2 className="w-4 h-4 animate-spin ml-auto text-black" />
+                                        ) : (
+                                            <div className="ml-auto flex -space-x-2">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10" alt="MetaMask" />
+                                                <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10" alt="WC" />
+                                            </div>
+                                        )}
+                                    </NeonButton>
+                                </motion.div>
+                            </div>
 
                             {/* Footer */}
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="mt-6 flex flex-col gap-2"
+                                transition={{ delay: 0.35 }}
+                                className="mt-8 flex flex-col gap-2"
                             >
                                 <p className="text-[10px] text-white/30 uppercase tracking-widest font-mono flex items-center justify-center gap-2">
                                     <span>Powered by</span>
                                     <span className="text-neon-cyan font-bold glow-sm">OPoll</span>
                                 </p>
-                                <div className="flex justify-center gap-3 opacity-30 grayscale hover:grayscale-0 transition-all duration-500">
-                                    {/* Small icons for supported wallets as visual proof */}
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-4 h-4" alt="MetaMask" />
-                                    <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-4 h-4" alt="WalletConnect" />
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" className="w-4 h-4" alt="Google" />
-                                </div>
                             </motion.div>
                         </div>
                     </GlassCard>
@@ -213,8 +250,7 @@ export default function ConnectWalletModal({
                         onClose={() => setShowIdentityModal(false)}
                         suggestedUsername={conflictDetails.suggested}
                         onSubmit={(username) => {
-                            // Logic for identity submit
-                            console.log(username);
+                            console.log(username); // Implement actual logic
                         }}
                     />
                 )}
