@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 
 export default function ProfilePage() {
     const { user, authenticated, ready } = usePrivy();
-    const { address, disconnect } = useWallet();
+    const { address, disconnect, isConnected } = useWallet();
     const { wallets } = useWallets();
 
     const [copied, setCopied] = useState(false);
@@ -63,7 +63,7 @@ export default function ProfilePage() {
         <div className="max-w-3xl mx-auto space-y-8 pb-20">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PROFILE</h1>
-                {authenticated && (
+                {isConnected && (
                     <button onClick={() => disconnect()} className="text-white/40 hover:text-white text-sm transition-colors">
                         Sign Out
                     </button>
@@ -80,7 +80,7 @@ export default function ProfilePage() {
                         {/* Avatar */}
                         <div className="w-24 h-24 rounded-full bg-black border-4 border-black shadow-xl flex items-center justify-center relative">
                             {(user?.google as any)?.picture ? (
-                                <img src={(user.google as any).picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                                <img src={(user?.google as any).picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
                             ) : (
                                 <div className="w-full h-full rounded-full bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-3xl font-bold text-white uppercase">
                                     {displayName.charAt(0)}

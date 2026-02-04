@@ -42,8 +42,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     const handleLogout = async () => {
         try {
-            // Only call Privy logout ONCE
-            await logout();
+            // Call unified disconnect (Wagmi + Privy)
+            await disconnect();
         } catch (error) {
             console.error('[Sidebar] Logout error:', error);
         } finally {
