@@ -119,77 +119,73 @@ export default function ConnectWalletModal({
     };
 
     // --- TRUE HEADLESS WALLET LOGIC ---
-    const handleWalletConnect = async (walletId: string) => {
-        console.log("Attempting to connect to:", walletId);
-        console.log("Available connectors:", connectors.map(c => ({ id: c.id, name: c.name, type: c.type })));
+    const handleWalletConnect = async (strategy: 'metamask' | 'coinbase' | 'walletconnect' | string) => {
+        console.log("Connect Strategy:", strategy);
+        console.log("Available Connectors:", connectors.map(c => c.name));
 
-        // Robust matching logic
-        let connector = connectors.find(c => c.id === walletId);
+        let connector;
 
-        // Fallback for MetaMask: check for 'metaMask' id or name
-        if (!connector && walletId === 'injected') {
+        // Strategy Checking
+        if (strategy === 'metamask') {
             connector = connectors.find(c =>
                 c.id.toLowerCase().includes('metamask') ||
                 c.name.toLowerCase().includes('metamask') ||
-                c.id === 'injected'
+                c.id === 'injected' // Generic fallback
             );
-        }
-
-        // Fallback for Coinbase
-        if (!connector && walletId === 'coinbaseWalletSDK') {
+        } else if (strategy === 'coinbase') {
             connector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name.toLowerCase().includes('coinbase'));
+        } else if (strategy === 'walletconnect') {
+            connector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
+        } else {
+            // Direct ID match
+            connector = connectors.find(c => c.id === strategy);
         }
 
         if (!connector) {
-            console.error(`Connector for ${walletId} not found.`);
-            setError(`Wallet not detected. Is it installed?`);
+            console.warn(`Connector for ${strategy} not found. Falling back to Privy.`);
+            // Fallback to Privy Modal
+            await handleMoreWallets();
             return;
         }
 
-        setLoadingMethod(connector.name);
+        setLoadingMethod(strategy === 'metamask' ? 'MetaMask' : strategy === 'coinbase' ? 'Coinbase Wallet' : connector.name);
         setError(null);
 
         try {
-            // 1. Ensure clean slate
             if (isWagmiConnected) await disconnectAsync();
 
-            // 2. Connect via Wagmi
-            console.log("Connecting to wagmi connector:", connector.name);
+            console.log("Connecting via Wagmi:", connector.name);
             const result = await connectAsync({ connector });
             const address = result.accounts[0];
             const chainId = result.chainId;
-            console.log("Connected:", address, chainId);
 
-            // 3. Generate SIWE Message (Privy)
             const message = await generateSiweMessage({
                 address,
                 chainId: chainId.toString()
             });
 
-            // 4. Sign Message (Wagmi)
             const signature = await signMessageAsync({ message });
 
-            // 5. Login to Privy (SIWE)
             await loginWithSiwe({
                 signature,
                 message,
                 chainId: chainId.toString(),
-                walletClientType: connector.name.toLowerCase(), // helps Privy telemetry
+                walletClientType: connector.name.toLowerCase(),
                 connectorType: connector.type,
             });
 
-            // Success!
             onClose();
 
         } catch (err: any) {
-            console.error("Wallet connection failed:", err);
-            // Handle user rejection specifically
+            console.error("Connection failed:", err);
             if (err.code === 4001 || err.message?.includes('rejected')) {
-                setError(null); // No error for user cancellation
+                setError(null);
             } else {
-                setError(err.message || "Connection failed. Please try again.");
+                setError("Connection failed. retrying with standard method...");
+                // Ultimate fallback if Headless fails mid-way
+                await handleMoreWallets();
             }
-            await disconnectAsync(); // Cleanup
+            await disconnectAsync();
         } finally {
             setLoadingMethod(null);
         }
@@ -347,58 +343,54 @@ export default function ConnectWalletModal({
                             {/* WALLET SELECTION VIEW */}
                             {view === 'wallet-selection' && (
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
-                                    {connectors.length > 0 ? (
-                                        connectors
-                                            .filter(c => c.id !== 'injected' || c.name.toLowerCase() !== 'injected') // Filter out generic 'injected' if named poorly, or keep it.
-                                            // Actually, keep all but prioritize visual naming
-                                            .filter((c, index, self) =>
-                                                index === self.findIndex((t) => (
-                                                    t.id === c.id
-                                                ))
-                                            )
-                                            .map((connector) => {
-                                                const isMetaMask = connector.name.toLowerCase().includes('metamask');
-                                                const isCoinbase = connector.name.toLowerCase().includes('coinbase');
-                                                const isWalletConnect = connector.name.toLowerCase().includes('walletconnect');
-
-                                                let iconSrc = ""; // Generic
-                                                if (isMetaMask) iconSrc = "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg";
-                                                else if (isCoinbase) iconSrc = "https://avatars.githubusercontent.com/u/18060234?s=200&v=4";
-                                                else if (isWalletConnect) iconSrc = "https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg";
-
-                                                return (
-                                                    <NeonButton
-                                                        key={connector.id}
-                                                        variant="glass"
-                                                        onClick={() => handleWalletConnect(connector.id)}
-                                                        disabled={!!loadingMethod}
-                                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
-                                                    >
-                                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                                            {iconSrc ? (
-                                                                <img src={iconSrc} className="w-6 h-6" alt={connector.name} />
-                                                            ) : (
-                                                                <Wallet className="w-5 h-5 text-white/70" />
-                                                            )}
-                                                        </div>
-                                                        <span className="font-medium">{connector.name}</span>
-                                                        {loadingMethod === connector.name && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                                    </NeonButton>
-                                                );
-                                            })
-                                    ) : (
-                                        <div className="text-center py-4 text-white/50">
-                                            <p>No wallets detected.</p>
-                                            <p className="text-xs mt-2">Try "More Wallets" below.</p>
+                                    {/* MetaMask */}
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('metamask')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-orange-500/50 transition-all group"
+                                    >
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6" alt="MetaMask" />
                                         </div>
-                                    )}
+                                        <span className="font-medium">MetaMask</span>
+                                        {loadingMethod === 'MetaMask' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+
+                                    {/* Coinbase */}
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('coinbase')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all group"
+                                    >
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://avatars.githubusercontent.com/u/18060234?s=200&v=4" className="w-6 h-6 rounded-full" alt="Coinbase" />
+                                        </div>
+                                        <span className="font-medium">Coinbase Wallet</span>
+                                        {loadingMethod === 'Coinbase Wallet' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+
+                                    {/* WalletConnect */}
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('walletconnect')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-400/50 transition-all group"
+                                    >
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6" alt="WC" />
+                                        </div>
+                                        <span className="font-medium">WalletConnect</span>
+                                        {loadingMethod === 'WalletConnect' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
 
                                     {/* More Wallets */}
                                     <button
                                         onClick={handleMoreWallets}
                                         className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors"
                                     >
-                                        More Wallets... (Standard)
+                                        More Wallets...
                                     </button>
 
                                     {error && (
