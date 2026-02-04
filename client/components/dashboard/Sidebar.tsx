@@ -46,18 +46,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             // First disconnect wallet
             disconnect();
 
-            // Then logout from Privy
+            // IMPORTANT: Let Privy fully complete its cleanup first
             await logout();
 
-            // CRITICAL: Clear all localStorage to prevent auto-reconnect
+            // Wait a moment for Privy's cleanup to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // THEN clear any remaining cache (optional cleanup)
             if (typeof window !== 'undefined') {
-                // Clear Privy session data
-                Object.keys(localStorage).forEach(key => {
-                    if (key.startsWith('privy:')) {
-                        localStorage.removeItem(key);
-                    }
-                });
-                // Clear any other wallet connections
+                // Clear Wagmi cache only (leave Privy alone now)
                 localStorage.removeItem('wagmi.wallet');
                 localStorage.removeItem('wagmi.store');
                 localStorage.removeItem('wagmi.cache');
@@ -67,6 +64,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             router.push('/');
         } catch (error) {
             console.error('[Sidebar] Logout error:', error);
+            // Still navigate even if logout fails
+            router.push('/');
         }
     };
 
