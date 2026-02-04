@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, X, Loader2, Sparkles, Zap, ShieldCheck, Mail, Globe } from "lucide-react";
+import { Wallet, X, Loader2, Sparkles, Zap, ShieldCheck, Mail, Globe, ArrowRight, ChevronLeft } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import { usePrivy } from "@privy-io/react-auth";
+import Input from "@/components/ui/Input";
+import { usePrivy, useLoginWithEmail, useLoginWithOAuth } from "@privy-io/react-auth";
 import UsernameOnboardingModal from "./UsernameOnboardingModal";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,6 +20,8 @@ interface ConnectWalletModalProps {
     };
 }
 
+type ViewState = 'selection' | 'email-input' | 'otp-input';
+
 export default function ConnectWalletModal({
     isOpen,
     onClose,
@@ -27,9 +30,30 @@ export default function ConnectWalletModal({
     contextData
 }: ConnectWalletModalProps) {
     const { login, ready, authenticated } = usePrivy();
+
+    // Headless Hooks
+    const { sendCode, loginWithCode } = useLoginWithEmail();
+    const { initOAuth } = useLoginWithOAuth();
+
+    const [view, setViewState] = useState<ViewState>('selection');
     const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
+    const [email, setEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [error, setError] = useState<string | null>(null);
+
     const [showIdentityModal, setShowIdentityModal] = useState(false);
     const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
+
+    // Reset state on close
+    useEffect(() => {
+        if (!isOpen) {
+            setViewState('selection');
+            setEmail("");
+            setOtp("");
+            setError(null);
+            setLoadingMethod(null);
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (authenticated && isOpen) {
@@ -45,21 +69,58 @@ export default function ConnectWalletModal({
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
-    const handleLogin = async (method: 'wallet' | 'email' | 'google') => {
+    // Handlers
+    const handleGoogleLogin = async () => {
         try {
-            setLoadingMethod(method);
-            // We do NOT close the modal immediately here, 
-            // because for some methods (like wallet) we might want to keep our UI visible 
-            // until the external provider takes over. 
-            // However, Privy's modal or popup will appear on top.
-            onClose();
+            setLoadingMethod('google');
+            await initOAuth({ provider: 'google' });
+            // Redirect happens automatically
+        } catch (err) {
+            console.error("Google login failed", err);
+            setLoadingMethod(null);
+        }
+    };
 
-            await login({ loginMethods: [method] });
-        } catch (error) {
-            console.error('[ConnectWalletModal] Connection error:', error);
+    const handleEmailSubmit = async () => {
+        if (!email.includes('@')) {
+            setError("Please enter a valid email");
+            return;
+        }
+        setError(null);
+        setLoadingMethod('email');
+        try {
+            await sendCode({ email });
+            setViewState('otp-input');
+        } catch (err) {
+            console.error("Failed to send code", err);
+            setError("Failed to send code. Please try again.");
         } finally {
             setLoadingMethod(null);
         }
+    };
+
+    const handleOtpSubmit = async () => {
+        if (otp.length < 6) return;
+        setLoadingMethod('otp');
+        setError(null);
+        try {
+            await loginWithCode({ code: otp, email });
+            onClose();
+        } catch (err) {
+            console.error("Invalid code", err);
+            setError("Invalid code. Please try again.");
+            setOtp(""); // Clear invalid code for UX
+        } finally {
+            setLoadingMethod(null);
+        }
+    };
+
+    const handleWalletLogin = async () => {
+        // For standard wallet connection (MetaMask etc), we still use the main login flow
+        // but restrict it to 'wallet' only. This usually pops up the wallet extension directly
+        // or a very minimal Privy QR for specific wallets.
+        onClose();
+        await login({ loginMethods: ['wallet'] });
     };
 
     const getContextInfo = () => {
@@ -121,74 +182,74 @@ export default function ConnectWalletModal({
                     <div className="absolute -inset-[1px] bg-gradient-to-r from-neon-cyan via-purple-500 to-neon-cyan rounded-2xl opacity-75 blur-sm animate-gradient-xy" />
 
                     <GlassCard className="relative w-full overflow-hidden border-none shadow-[0_0_50px_-10px_rgba(0,224,255,0.3)]">
+                        {/* Back button (for email flow) */}
+                        {view !== 'selection' && (
+                            <button
+                                onClick={() => setViewState('selection')}
+                                className="absolute top-4 left-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                        )}
+
                         {/* Close button */}
                         <button
                             onClick={onClose}
-                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-10 group"
+                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20 group"
                         >
                             <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                         </button>
 
-                        <div className="p-8 text-center relative z-10">
-                            {/* Animated Icon Container */}
-                            <motion.div
-                                initial={{ scale: 0, rotate: -180 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                                className="w-20 h-20 mx-auto mb-6 relative group"
-                            >
-                                <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
-                                <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)] group-hover:scale-105 transition-transform duration-300">
-                                    <Icon className="w-8 h-8 text-neon-cyan drop-shadow-[0_0_10px_rgba(0,224,255,0.8)]" />
-                                </div>
-                            </motion.div>
+                        <div className="p-8 text-center relative z-10 min-h-[400px] flex flex-col justify-center">
 
-                            {/* Text Content */}
+                            {/* Header Section */}
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 }}
+                                className="mb-8"
                             >
-                                <h2 className="text-3xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                                <motion.div
+                                    className="w-16 h-16 mx-auto mb-4 relative group"
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 200 }}
+                                >
+                                    <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl" />
+                                    <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)]">
+                                        <Icon className="w-6 h-6 text-neon-cyan" />
+                                    </div>
+                                </motion.div>
+                                <h2 className="text-2xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
                                     {content.title}
                                 </h2>
-                                <p className="text-white/60 text-sm mb-8 leading-relaxed max-w-[80%] mx-auto font-medium">
+                                <p className="text-white/60 text-sm max-w-[80%] mx-auto">
                                     {content.subtitle}
                                 </p>
                             </motion.div>
 
-                            {/* Action Buttons Stack */}
-                            <div className="space-y-3">
-                                {/* Email Button */}
+                            {/* VIEW: MAIN SELECTION */}
+                            {view === 'selection' && (
                                 <motion.div
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.15 }}
+                                    className="space-y-3"
                                 >
                                     <NeonButton
                                         variant="glass"
-                                        onClick={() => handleLogin('email')}
-                                        disabled={!!loadingMethod || !ready}
+                                        onClick={() => setViewState('email-input')}
+                                        disabled={!ready}
                                         className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
                                     >
                                         <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
                                             <Mail className="w-5 h-5 text-white group-hover:text-neon-cyan" />
                                         </div>
                                         <span className="font-medium">Continue with Email</span>
-                                        {loadingMethod === 'email' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
-                                </motion.div>
 
-                                {/* Google Button */}
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.2 }}
-                                >
                                     <NeonButton
                                         variant="glass"
-                                        onClick={() => handleLogin('google')}
-                                        disabled={!!loadingMethod || !ready}
+                                        onClick={handleGoogleLogin}
+                                        disabled={!ready || !!loadingMethod}
                                         className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
                                     >
                                         <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
@@ -197,35 +258,96 @@ export default function ConnectWalletModal({
                                         <span className="font-medium">Continue with Google</span>
                                         {loadingMethod === 'google' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
-                                </motion.div>
 
-                                {/* Wallet Button - Primary Emphasis */}
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.25 }}
-                                >
                                     <NeonButton
                                         variant="cyan"
-                                        onClick={() => handleLogin('wallet')}
-                                        disabled={!!loadingMethod || !ready}
+                                        onClick={handleWalletLogin}
+                                        disabled={!ready}
                                         className="w-full py-4 flex items-center justify-start gap-4 px-6 shadow-[0_0_20px_rgba(0,224,255,0.2)] hover:shadow-[0_0_30px_rgba(0,224,255,0.4)] group"
                                     >
                                         <div className="p-2 bg-black/20 rounded-full">
                                             <Wallet className="w-5 h-5 text-black" />
                                         </div>
                                         <span className="font-bold text-black">Connect Wallet</span>
-                                        {loadingMethod === 'wallet' ? (
-                                            <Loader2 className="w-4 h-4 animate-spin ml-auto text-black" />
-                                        ) : (
-                                            <div className="ml-auto flex -space-x-2">
-                                                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10" alt="MetaMask" />
-                                                <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10" alt="WC" />
-                                            </div>
-                                        )}
                                     </NeonButton>
                                 </motion.div>
-                            </div>
+                            )}
+
+                            {/* VIEW: EMAIL INPUT */}
+                            {view === 'email-input' && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="space-y-4"
+                                >
+                                    <div className="text-left space-y-2">
+                                        <label className="text-xs text-neon-cyan font-bold uppercase tracking-wider ml-1">
+                                            Email Address
+                                        </label>
+                                        <Input
+                                            type="email"
+                                            placeholder="you@example.com"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="bg-black/40 border-white/10 focus:border-neon-cyan text-lg py-6"
+                                            autoFocus
+                                            onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
+                                        />
+                                        {error && <p className="text-red-400 text-xs ml-1">{error}</p>}
+                                    </div>
+                                    <NeonButton
+                                        variant="cyan"
+                                        onClick={handleEmailSubmit}
+                                        disabled={loadingMethod === 'email'}
+                                        className="w-full py-4 font-bold text-black"
+                                    >
+                                        {loadingMethod === 'email' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Send Code"}
+                                    </NeonButton>
+                                </motion.div>
+                            )}
+
+                            {/* VIEW: OTP INPUT */}
+                            {view === 'otp-input' && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="space-y-4"
+                                >
+                                    <div className="text-center mb-4">
+                                        <p className="text-white/60 text-sm">Code sent to <span className="text-white font-medium">{email}</span></p>
+                                    </div>
+                                    <div className="text-left space-y-2">
+                                        <Input
+                                            type="text"
+                                            placeholder="123456"
+                                            value={otp}
+                                            maxLength={6}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                                setOtp(val);
+                                                if (val.length === 6) handleOtpSubmit();
+                                            }}
+                                            className="bg-black/40 border-white/10 focus:border-neon-cyan text-2xl py-6 text-center tracking-[0.5em] font-mono"
+                                            autoFocus
+                                        />
+                                        {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+                                    </div>
+                                    <NeonButton
+                                        variant="cyan"
+                                        onClick={handleOtpSubmit}
+                                        disabled={otp.length < 6 || loadingMethod === 'otp'}
+                                        className="w-full py-4 font-bold text-black"
+                                    >
+                                        {loadingMethod === 'otp' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Verify & Login"}
+                                    </NeonButton>
+                                    <button
+                                        onClick={() => setViewState('email-input')}
+                                        className="text-white/40 text-xs hover:text-white transition-colors"
+                                    >
+                                        Entered wrong email?
+                                    </button>
+                                </motion.div>
+                            )}
 
                             {/* Footer */}
                             <motion.div
@@ -250,7 +372,7 @@ export default function ConnectWalletModal({
                         onClose={() => setShowIdentityModal(false)}
                         suggestedUsername={conflictDetails.suggested}
                         onSubmit={(username) => {
-                            console.log(username); // Implement actual logic
+                            console.log(username);
                         }}
                     />
                 )}
