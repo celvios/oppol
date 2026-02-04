@@ -50,6 +50,28 @@ export default function ConnectWalletModal({
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
+    // Direct MetaMask connection (fallback)
+    const handleDirectMetaMask = async () => {
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            // Direct request to MetaMask
+            const accounts = await window.ethereum.request({
+                method: 'eth_requestAccounts'
+            });
+            console.log('[ConnectWalletModal] Connected to MetaMask:', accounts[0]);
+            onClose();
+        } catch (error) {
+            console.error('[ConnectWalletModal] MetaMask error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Simple connect - Privy handles everything
     const handleConnect = async () => {
         try {
@@ -158,7 +180,7 @@ export default function ConnectWalletModal({
 
                     {/* Content */}
                     <div className="space-y-4">
-                        {/* Single Connect Button - Privy handles everything */}
+                        {/* Privy Connect Button - All wallet types */}
                         <NeonButton
                             variant="cyan"
                             onClick={handleConnect}
@@ -166,12 +188,22 @@ export default function ConnectWalletModal({
                             className="w-full flex items-center justify-center gap-2 py-4 font-bold disabled:opacity-70 disabled:cursor-wait"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
-                            {loading ? 'Connecting...' : !ready ? 'Initializing...' : 'Connect Wallet'}
+                            {loading ? 'Connecting...' : !ready ? 'Initializing...' : 'Connect Wallet (All Types)'}
                         </NeonButton>
+
+                        {/* Direct MetaMask Button - Fallback if Privy doesn't trigger popup */}
+                        <button
+                            onClick={handleDirectMetaMask}
+                            disabled={loading}
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-wait"
+                        >
+                            <img src="https://www.google.com/s2/favicons?domain=metamask.io&sz=32" alt="MetaMask" className="w-5 h-5" />
+                            <span className="text-white font-medium">Direct MetaMask Only</span>
+                        </button>
 
                         {/* Info text */}
                         <p className="text-white/40 text-xs text-center">
-                            Supports MetaMask, WalletConnect, Email, and more
+                            Use "Direct MetaMask" if the popup doesn't appear
                         </p>
                     </div>
                 </GlassCard>
