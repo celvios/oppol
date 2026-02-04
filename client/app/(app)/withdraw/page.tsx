@@ -36,11 +36,11 @@ export default function WithdrawPage() {
     // Detect Embedded Wallet (Privy) - Robust Check
     // explicitly check if the connector is Privy or if we are authenticated WITHOUT a specific wagmi connector (fallback)
     // If user is connected via MetaMask (connector.id = 'metaMask'), we should NOT treat as embedded even if privy is 'authenticated' (background session)
-    const isPrivyConnector = 
-        connector?.id === 'privy' || 
+    const isPrivyConnector =
+        connector?.id === 'privy' ||
         connector?.name?.toLowerCase().includes('privy') ||
         user?.wallet?.walletClientType === 'privy';
-        
+
     const isEmbeddedWallet = isPrivyConnector || (authenticated && !connector);
 
     // Tab State (Only for Standard Wallets)
@@ -114,33 +114,25 @@ export default function WithdrawPage() {
 
                 // Logic: 
                 // 1. Check if we need to withdraw from game first
-                const gameBal = parseFloat(contractBalance);
-                const walletBal = parseFloat(walletBalance);
-                const reqAmount = parseFloat(amount);
+                const contractBalanceWei = ethers.parseUnits(contractBalance, 18);
+                const walletBalanceWei = ethers.parseUnits(walletBalance, 18);
 
                 // If asking for more than total available
-                if (reqAmount > (gameBal + walletBal)) {
+                if (amountInWei > (contractBalanceWei + walletBalanceWei)) {
                     throw new Error("Insufficient total funds.");
                 }
 
                 // Step 1: Withdraw from Game if needed
                 // If wallet balance is NOT enough to cover the transfer, we must withdraw from game
-                if (walletBal < reqAmount) {
-                    const neededFromGame = reqAmount - walletBal;
-                    // Add a small buffer/check to ensure we don't try to withdraw 0.0000001
-                    if (neededFromGame > 0) {
+                if (walletBalanceWei < amountInWei) {
+                    const neededFromGameWei = amountInWei - walletBalanceWei;
+                    // Add a small buffer/check to ensure we don't try to withdraw 0
+                    if (neededFromGameWei > BigInt(0)) {
                         setProcessingStep('Withdrawing funds from Game...');
-                        console.log(`Smart Withdraw: Need ${neededFromGame} from game.`);
+                        console.log(`Smart Withdraw: Need ${ethers.formatUnits(neededFromGameWei, 18)} from game.`);
 
                         const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-                        // We withdraw EXACTLY what is needed? Or just withdraw everything?
-                        // Safer to withdraw what is needed + buffer? Or just withdraw the 'amount' requested if it's all in game?
-                        // Simplest logic: If user wants to cash out X, and X is in game, withdraw X.
-                        // But if user has 50 in wallet and 50 in game, and wants 100?
-                        // Let's implement: Withdraw (Amount - WalletBalance).
-
-                        const withdrawAmountWei = ethers.parseUnits(neededFromGame.toFixed(18), 18); // Use fixed to avoid float errors
-                        const withdrawTx = await marketContract.withdraw(withdrawAmountWei);
+                        const withdrawTx = await marketContract.withdraw(neededFromGameWei);
                         await withdrawTx.wait();
 
                         // Refresh balance locally or wait?
@@ -192,11 +184,17 @@ export default function WithdrawPage() {
         }
     }
 
-    const availableBalance = isEmbeddedWallet
-        ? (parseFloat(contractBalance) + parseFloat(walletBalance)) // Total Liquid Assets
-        : (activeTab === 'withdraw' ? parseFloat(contractBalance) : parseFloat(walletBalance));
+    // Use BigInt for precise math
+    const contractBalanceWei = contractBalance ? ethers.parseUnits(contractBalance, 18) : BigInt(0);
+    const walletBalanceWei = walletBalance ? ethers.parseUnits(walletBalance, 18) : BigInt(0);
 
-    const canProceed = availableBalance > 0;
+    const availableBalanceWei = isEmbeddedWallet
+        ? contractBalanceWei + walletBalanceWei
+        : (activeTab === 'withdraw' ? contractBalanceWei : walletBalanceWei);
+
+    const availableBalance = ethers.formatUnits(availableBalanceWei, 18);
+
+    const canProceed = availableBalanceWei > BigInt(0);
 
     if (!ready || (isLoading && !contractBalance && !walletBalance)) return <SkeletonLoader />;
 
@@ -245,6 +243,9 @@ export default function WithdrawPage() {
                         <p className="text-2xl font-mono font-bold text-white">
                             ${parseFloat(availableBalance.toString()).toFixed(2)}
                             <span className="text-sm text-white/30 ml-2">USDC</span>
+                        </p>
+                        <p className="text-xs text-white/30 mt-1 font-mono">
+                            {availableBalance.toString()}
                         </p>
                     </div>
                 </div>
@@ -307,6 +308,9 @@ export default function WithdrawPage() {
                         <SlideToConfirm
                             onConfirm={handleAction}
                             text={isEmbeddedWallet ? "SLIDE TO CASH OUT" : "SLIDE TO WITHDRAW"}
+                            isLoading={step === 'processing'}
+                            disabled={step === 'processing'}
+                            side="YES"
                         />
 
                         <button onClick={() => setStep('input')} className="w-full text-center text-white/40 hover:text-white text-sm">
