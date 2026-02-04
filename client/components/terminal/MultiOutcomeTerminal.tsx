@@ -76,6 +76,11 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             return;
         }
         console.log("chartRef found, capturing...");
+
+        // Open modal instantly with loading state
+        setIsShareModalOpen(true);
+        setShareImageSrc(""); // Clear previous image
+
         try {
             const canvas = await html2canvas(chartRef.current, {
                 backgroundColor: '#020408', // Match background
@@ -88,11 +93,11 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 if (!blob) return;
                 const url = URL.createObjectURL(blob);
                 setShareImageSrc(url);
-                setIsShareModalOpen(true);
             }, 'image/png');
 
         } catch (err) {
             console.error("Failed to capture chart:", err);
+            setIsShareModalOpen(false);
         }
     };
     const [amount, setAmount] = useState('100');
@@ -671,156 +676,160 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     {/* Featured Carousel (Top of Market) */}
                     <DesktopFeaturedCarousel markets={markets} />
 
-                    {/* Header Info */}
-                    <GlassCard className="p-6 relative overflow-hidden group">
-                        {metadata && metadata.image && (
-                            <div className="absolute top-0 right-0 h-full w-2/3 opacity-20 mask-image-linear-to-l pointer-events-none mix-blend-screen">
-                                <img
-                                    src={metadata.image}
-                                    alt=""
-                                    className="h-full w-full object-cover object-center"
-                                    onError={(e) => {
-                                        const target = e.currentTarget;
-                                        target.style.display = 'none';
-                                        const parent = target.parentElement;
-                                        if (parent) parent.style.display = 'none';
-                                    }}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-surface" />
-                            </div>
-                        )}
-
-                        <div className="relative z-10">
-                            <div className="flex gap-2 mb-2 flex-wrap">
-                                <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
-                                <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green">{market.outcomeCount} Outcomes</span>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
-                                    ? 'bg-orange-500/20 text-orange-400'
-                                    : 'bg-white/10 text-white/50'
-                                    }`}>
-                                    {Date.now() > market.endTime * 1000
-                                        ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
-                                        : `Ends in ${formatDistanceToNow(market.endTime * 1000)}`
-                                    }
-                                </span>
-                                <div className="ml-auto">
-                                    <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
+                    {/* Capture Container - Includes Header + Chart for sharing */}
+                    <div ref={chartRef}>
+                        {/* Header Info */}
+                        <GlassCard className="p-6 relative overflow-hidden group mb-6">
+                            {metadata && metadata.image && (
+                                <div className="absolute top-0 right-0 h-full w-2/3 opacity-20 mask-image-linear-to-l pointer-events-none mix-blend-screen">
+                                    <img
+                                        src={metadata.image}
+                                        alt=""
+                                        className="h-full w-full object-cover object-center"
+                                        onError={(e) => {
+                                            const target = e.currentTarget;
+                                            target.style.display = 'none';
+                                            const parent = target.parentElement;
+                                            if (parent) parent.style.display = 'none';
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-l from-transparent to-surface" />
                                 </div>
-                            </div>
-                            <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">
-                                {market.question}
-                            </h1>
-                            {metadata && (
-                                <p className="text-white/60 text-sm max-w-xl mb-4 leading-relaxed bg-black/20 p-2 rounded-lg backdrop-blur-sm border border-white/5">
-                                    {metadata.description}
-                                </p>
                             )}
 
-                            <div className="flex gap-8 items-end mt-4">
-                                <div>
-                                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Leading</div>
-                                    <div className="text-3xl font-mono font-bold text-neon-green">
-                                        {market.outcomes[market.prices.indexOf(Math.max(...market.prices))]}
-                                    </div>
-                                    <div className="text-lg font-mono text-neon-green/70 flex items-baseline gap-2">
-                                        {Math.max(...market.prices).toFixed(1)}% <span className="text-xs text-white/50 font-sans">Chance</span>
+                            <div className="relative z-10">
+                                <div className="flex gap-2 mb-2 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
+                                    <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green">{market.outcomeCount} Outcomes</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
+                                        ? 'bg-orange-500/20 text-orange-400'
+                                        : 'bg-white/10 text-white/50'
+                                        }`}>
+                                        {Date.now() > market.endTime * 1000
+                                            ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
+                                            : `Ends in ${formatDistanceToNow(market.endTime * 1000)}`
+                                        }
+                                    </span>
+                                    <div className="ml-auto">
+                                        <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
                                     </div>
                                 </div>
+                                <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">
+                                    {market.question}
+                                </h1>
+                                {metadata && (
+                                    <p className="text-white/60 text-sm max-w-xl mb-4 leading-relaxed bg-black/20 p-2 rounded-lg backdrop-blur-sm border border-white/5">
+                                        {metadata.description}
+                                    </p>
+                                )}
 
-                                <div className="h-12 w-px bg-white/10" />
+                                <div className="flex gap-8 items-end mt-4">
+                                    <div>
+                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Leading</div>
+                                        <div className="text-3xl font-mono font-bold text-neon-green">
+                                            {market.outcomes[market.prices.indexOf(Math.max(...market.prices))]}
+                                        </div>
+                                        <div className="text-lg font-mono text-neon-green/70 flex items-baseline gap-2">
+                                            {Math.max(...market.prices).toFixed(1)}% <span className="text-xs text-white/50 font-sans">Chance</span>
+                                        </div>
+                                    </div>
 
-                                <div>
-                                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Volume</div>
-                                    <div className="text-xl font-mono text-white">${market.totalVolume}</div>
-                                </div>
+                                    <div className="h-12 w-px bg-white/10" />
 
-                                <div className="h-12 w-px bg-white/10" />
+                                    <div>
+                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Volume</div>
+                                        <div className="text-xl font-mono text-white">${market.totalVolume}</div>
+                                    </div>
 
-                                <div>
-                                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Liquidity</div>
-                                    <div className="text-xl font-mono text-white">${parseFloat(market.liquidityParam).toFixed(0)}</div>
+                                    <div className="h-12 w-px bg-white/10" />
+
+                                    <div>
+                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Liquidity</div>
+                                        <div className="text-xl font-mono text-white">${parseFloat(market.liquidityParam).toFixed(0)}</div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </GlassCard>
+                        </GlassCard>
 
-                    {/* Outcome Chance Chart & Bars */}
-                    <GlassCard ref={chartRef} className="flex-1 min-h-[500px] p-6 flex flex-col relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-4 z-10 relative">
-                            <h2 className="text-lg font-heading text-white">Chance Wave</h2>
-                            <button
-                                onClick={handleShareChart}
-                                className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
-                                title="Share Chart"
-                            >
-                                <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
-                            </button>
-                        </div>
+                        {/* Outcome Chance Chart & Bars */}
+                        <GlassCard className="flex-1 min-h-[500px] p-6 flex flex-col relative overflow-hidden">
+                            <div className="flex justify-between items-center mb-4 z-10 relative">
+                                <h2 className="text-lg font-heading text-white">Chance Wave</h2>
+                                <button
+                                    onClick={handleShareChart}
+                                    className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
+                                    title="Share Chart"
+                                >
+                                    <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                                </button>
+                            </div>
 
-                        {/* Chart Section */}
-                        <div className="h-[250px] w-full mb-6 border-b border-white/5 pb-6">
-                            <MultiOutcomeChart
-                                data={priceHistory}
-                                outcomes={market.outcomes || []}
-                            />
-                        </div>
+                            {/* Chart Section */}
+                            <div className="h-[250px] w-full mb-6 border-b border-white/5 pb-6">
+                                <MultiOutcomeChart
+                                    data={priceHistory}
+                                    outcomes={market.outcomes || []}
+                                />
+                            </div>
 
-                        <div className="flex justify-between items-center mb-3 z-10 relative">
-                            <h3 className="text-sm font-heading text-white/70">Outcome Distribution</h3>
-                            <span className="text-xs text-white/50 font-mono">Click to select</span>
-                        </div>
+                            <div className="flex justify-between items-center mb-3 z-10 relative">
+                                <h3 className="text-sm font-heading text-white/70">Outcome Distribution</h3>
+                                <span className="text-xs text-white/50 font-mono">Click to select</span>
+                            </div>
 
-                        <div className="flex-1 flex flex-col gap-3 pr-2">
-                            {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
-                                const color = getOutcomeColor(outcome, i);
-                                return (
-                                    <motion.button
-                                        key={i}
-                                        onClick={() => setSelectedOutcome(i)}
-                                        className={`relative p-4 rounded-xl border transition-all text-left ${selectedOutcome === i
-                                            ? 'border-white/30 bg-white/10'
-                                            : 'border-white/5 bg-white/5 hover:bg-white/10'
-                                            }`}
-                                        whileHover={{ scale: 1.01 }}
-                                        whileTap={{ scale: 0.99 }}
-                                    >
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className="w-4 h-4 rounded-full"
+                            <div className="flex-1 flex flex-col gap-3 pr-2">
+                                {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
+                                    const color = getOutcomeColor(outcome, i);
+                                    return (
+                                        <motion.button
+                                            key={i}
+                                            onClick={() => setSelectedOutcome(i)}
+                                            className={`relative p-4 rounded-xl border transition-all text-left ${selectedOutcome === i
+                                                ? 'border-white/30 bg-white/10'
+                                                : 'border-white/5 bg-white/5 hover:bg-white/10'
+                                                }`}
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.99 }}
+                                        >
+                                            <div className="flex justify-between items-center mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="w-4 h-4 rounded-full"
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                    <span className="font-heading text-white font-medium">{outcome || 'Unknown'}</span>
+                                                </div>
+                                                <span
+                                                    className="text-2xl font-mono font-bold"
+                                                    style={{ color: color }}
+                                                >
+                                                    {(market.prices[i] || 0).toFixed(1)}%
+                                                </span>
+                                            </div>
+
+                                            {/* Progress bar */}
+                                            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    className="h-full rounded-full"
                                                     style={{ backgroundColor: color }}
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${market.prices[i] || 0}%` }}
+                                                    transition={{ duration: 0.5, ease: "easeOut" }}
                                                 />
-                                                <span className="font-heading text-white font-medium">{outcome || 'Unknown'}</span>
                                             </div>
-                                            <span
-                                                className="text-2xl font-mono font-bold"
-                                                style={{ color: color }}
-                                            >
-                                                {(market.prices[i] || 0).toFixed(1)}%
-                                            </span>
-                                        </div>
 
-                                        {/* Progress bar */}
-                                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                            <motion.div
-                                                className="h-full rounded-full"
-                                                style={{ backgroundColor: color }}
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${market.prices[i] || 0}%` }}
-                                                transition={{ duration: 0.5, ease: "easeOut" }}
-                                            />
-                                        </div>
-
-                                        {selectedOutcome === i && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_#fff]" />
-                                            </div>
-                                        )}
-                                    </motion.button>
-                                );
-                            })}
-                        </div>
-                    </GlassCard>
+                                            {selectedOutcome === i && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_#fff]" />
+                                                </div>
+                                            )}
+                                        </motion.button>
+                                    );
+                                })}
+                            </div>
+                        </GlassCard>
+                    </div>
+                    {/* End Capture Container */}
 
 
                     {/* Comments Section (Inline) - Moved here to match width */}
