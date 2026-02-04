@@ -28,16 +28,21 @@ export function useBC400Check() {
                 setChecking(true);
                 const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com');
 
-                // Check NFT Balance
+                // Check NFT Balance with 10s timeout
                 const nftContract = new ethers.Contract(BC400_NFT_ADDRESS, BC400_ABI, provider);
-                const nftBalance = await nftContract.balanceOf(address).catch(() => BigInt(0));
+                const nftBalance = await Promise.race([
+                    nftContract.balanceOf(address),
+                    new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                ]).catch(() => BigInt(0));
 
-                // Check Token Balance
+                // Check Token Balance with 10s timeout
                 const tokenContract = new ethers.Contract(BC400_TOKEN_ADDRESS, BC400_ABI, provider);
-                const tokenBalance = await tokenContract.balanceOf(address).catch(() => BigInt(0));
+                const tokenBalance = await Promise.race([
+                    tokenContract.balanceOf(address),
+                    new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                ]).catch(() => BigInt(0));
 
-                // Logic: (NFT > 0) OR (Token >= 10M)
-                // BC400 uses 9 decimals (not 18!)
+                // BC400 uses 9 decimals (verified on-chain)
                 const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, BC400_DECIMALS);
 
                 const hasEnoughTokens = tokenBalance >= requiredTokens;
