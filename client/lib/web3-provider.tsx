@@ -41,12 +41,8 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         <PrivyProvider
             appId={appId}
             config={{
-                // Enable all login methods - Privy handles everything
+                // Login methods
                 loginMethods: ['wallet', 'google', 'email'],
-                // Disable auto-login - user must manually pick method each time
-                loginMethodsAndOrder: {
-                    primary: ['wallet', 'google', 'email'],
-                },
                 appearance: {
                     theme: 'dark',
                     accentColor: '#00FF94',
@@ -54,7 +50,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 },
                 embeddedWallets: {
                     createOnLogin: 'users-without-wallets',
-                    noPromptOnSignature: false, // Require confirmation
+                    noPromptOnSignature: false,
                 },
             }}
         >
