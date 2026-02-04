@@ -6,6 +6,8 @@ import { TerminalClient } from "@/components/terminal/TerminalClient";
 import ClientShell from "@/components/layout/ClientShell";
 
 // This is a SERVER COMPONENT
+export const dynamic = 'force-dynamic';
+
 export default async function TradePage() {
     const markets = await getMarketsServer();
 
