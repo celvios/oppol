@@ -240,10 +240,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
             {/* ConnectWalletModal removed - usage replaced with direct connect() */}
 
-            < BC400PurchaseModal
+            <BC400PurchaseModal
                 isOpen={showPurchaseModal}
-                onClose={() => setShowPurchaseModal(false)
-                }
+                onClose={() => setShowPurchaseModal(false)}
             />
         </>
     );
