@@ -8,6 +8,8 @@ import HomeResolver from "@/components/layout/HomeResolver";
 // - Desktop: Show Trading Terminal
 // - Mobile: Show Markets List
 // Logic handled reliably on client side by HomeResolver
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
     const markets = await getMarketsServer();
 
