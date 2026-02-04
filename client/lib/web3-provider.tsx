@@ -43,15 +43,20 @@ const config = defaultWagmiConfig({
 });
 
 // Initialize modal immediately at module level to ensure hooks work
-createWeb3Modal({
-    wagmiConfig: config,
-    projectId,
-    enableAnalytics: false,
-    themeMode: 'dark',
-    themeVariables: {
-        '--w3m-accent': '#00FF94',
-    },
-});
+// Guard against duplicate initialization (React Strict Mode in dev)
+let web3ModalInitialized = false;
+if (!web3ModalInitialized) {
+    createWeb3Modal({
+        wagmiConfig: config,
+        projectId,
+        enableAnalytics: false,
+        themeMode: 'dark',
+        themeVariables: {
+            '--w3m-accent': '#00FF94',
+        },
+    });
+    web3ModalInitialized = true;
+}
 
 /* 
  * Legacy modal instance tracker (kept for compatibility with window.web3modal if needed)

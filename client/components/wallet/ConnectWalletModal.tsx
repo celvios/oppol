@@ -91,17 +91,7 @@ export default function ConnectWalletModal({
         }
     };
 
-    // Debug logging - separate system states
-    useEffect(() => {
-        console.log('[ConnectWalletModal] External Wallet:', {
-            isConnected: externalWallet.isConnected,
-            address: externalWallet.address
-        });
-        console.log('[ConnectWalletModal] Social Login:', {
-            isAuthenticated: socialLogin.isAuthenticated,
-            isReady: socialLogin.isReady
-        });
-    }, [externalWallet.isConnected, externalWallet.address, socialLogin.isAuthenticated, socialLogin.isReady]);
+
 
     // Handle ESC key
     useEffect(() => {
