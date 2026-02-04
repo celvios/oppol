@@ -54,8 +54,10 @@ export default function ConnectWalletModal({
     const handleConnect = async () => {
         try {
             setLoading(true);
+            // Close our modal immediately so Privy's modal can show
+            onClose();
+            // Trigger Privy login - Privy's modal will appear
             await login();
-            // Privy handles the modal, wallet selection, everything
         } catch (error) {
             console.error('[ConnectWalletModal] Connection error:', error);
         } finally {
