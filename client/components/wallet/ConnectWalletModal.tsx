@@ -297,6 +297,39 @@ export default function ConnectWalletModal({
                                         {loadingMethod === 'google' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
 
+                                    {/* Socials Row */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <NeonButton
+                                            variant="glass"
+                                            onClick={() => {
+                                                setLoadingMethod('twitter');
+                                                initOAuth({ provider: 'twitter' }).catch(() => setLoadingMethod(null));
+                                            }}
+                                            disabled={!ready || !!loadingMethod}
+                                            className="w-full py-4 flex items-center justify-center gap-3 hover:bg-white/5 border border-white/10 hover:border-white/50 transition-all group"
+                                        >
+                                            <div className="p-1.5 bg-white/5 rounded-full group-hover:bg-white/10 transition-colors">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/X_logo_2023_original.svg" className="w-4 h-4 invert" alt="X" />
+                                            </div>
+                                            <span className="font-medium">Twitter</span>
+                                        </NeonButton>
+
+                                        <NeonButton
+                                            variant="glass"
+                                            onClick={() => {
+                                                setLoadingMethod('discord');
+                                                initOAuth({ provider: 'discord' }).catch(() => setLoadingMethod(null));
+                                            }}
+                                            disabled={!ready || !!loadingMethod}
+                                            className="w-full py-4 flex items-center justify-center gap-3 hover:bg-white/5 border border-white/10 hover:border-indigo-400/50 transition-all group"
+                                        >
+                                            <div className="p-1.5 bg-white/5 rounded-full group-hover:bg-indigo-400/20 transition-colors">
+                                                <img src="https://assets-global.website-files.com/6257adef93867e56f84d3092/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" className="w-4 h-4" alt="Discord" />
+                                            </div>
+                                            <span className="font-medium">Discord</span>
+                                        </NeonButton>
+                                    </div>
+
                                     <NeonButton
                                         variant="cyan"
                                         onClick={() => setViewState('wallet-selection')}
