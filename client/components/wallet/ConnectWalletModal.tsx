@@ -347,54 +347,58 @@ export default function ConnectWalletModal({
                             {/* WALLET SELECTION VIEW */}
                             {view === 'wallet-selection' && (
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
-                                    {/* MetaMask */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('injected')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-orange-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6" alt="MetaMask" />
-                                        </div>
-                                        <span className="font-medium">MetaMask</span>
-                                        {loadingMethod === 'MetaMask' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
+                                    {connectors.length > 0 ? (
+                                        connectors
+                                            .filter(c => c.id !== 'injected' || c.name.toLowerCase() !== 'injected') // Filter out generic 'injected' if named poorly, or keep it.
+                                            // Actually, keep all but prioritize visual naming
+                                            .filter((c, index, self) =>
+                                                index === self.findIndex((t) => (
+                                                    t.id === c.id
+                                                ))
+                                            )
+                                            .map((connector) => {
+                                                const isMetaMask = connector.name.toLowerCase().includes('metamask');
+                                                const isCoinbase = connector.name.toLowerCase().includes('coinbase');
+                                                const isWalletConnect = connector.name.toLowerCase().includes('walletconnect');
 
-                                    {/* Coinbase */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('coinbaseWalletSDK')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://avatars.githubusercontent.com/u/18060234?s=200&v=4" className="w-6 h-6 rounded-full" alt="Coinbase" />
-                                        </div>
-                                        <span className="font-medium">Coinbase Wallet</span>
-                                        {loadingMethod === 'Coinbase Wallet' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
+                                                let iconSrc = ""; // Generic
+                                                if (isMetaMask) iconSrc = "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg";
+                                                else if (isCoinbase) iconSrc = "https://avatars.githubusercontent.com/u/18060234?s=200&v=4";
+                                                else if (isWalletConnect) iconSrc = "https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg";
 
-                                    {/* WalletConnect */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('walletConnect')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-400/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6" alt="WC" />
+                                                return (
+                                                    <NeonButton
+                                                        key={connector.id}
+                                                        variant="glass"
+                                                        onClick={() => handleWalletConnect(connector.id)}
+                                                        disabled={!!loadingMethod}
+                                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
+                                                    >
+                                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                                            {iconSrc ? (
+                                                                <img src={iconSrc} className="w-6 h-6" alt={connector.name} />
+                                                            ) : (
+                                                                <Wallet className="w-5 h-5 text-white/70" />
+                                                            )}
+                                                        </div>
+                                                        <span className="font-medium">{connector.name}</span>
+                                                        {loadingMethod === connector.name && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                                    </NeonButton>
+                                                );
+                                            })
+                                    ) : (
+                                        <div className="text-center py-4 text-white/50">
+                                            <p>No wallets detected.</p>
+                                            <p className="text-xs mt-2">Try "More Wallets" below.</p>
                                         </div>
-                                        <span className="font-medium">WalletConnect</span>
-                                        {loadingMethod === 'WalletConnect' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
+                                    )}
 
                                     {/* More Wallets */}
                                     <button
                                         onClick={handleMoreWallets}
                                         className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors"
                                     >
-                                        More Wallets...
+                                        More Wallets... (Standard)
                                     </button>
 
                                     {error && (
