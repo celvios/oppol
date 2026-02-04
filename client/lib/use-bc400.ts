@@ -6,10 +6,11 @@ const BC400_ABI = [
     "function balanceOf(address owner) view returns (uint256)"
 ];
 
-// Placeholder - User can update this in .env later
+// BC400 Token Addresses
 const BC400_NFT_ADDRESS = "0xB929177331De755d7aCc5665267a247e458bCdeC";
 const BC400_TOKEN_ADDRESS = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD";
 const MIN_TOKEN_BALANCE = "10000000"; // 10 Million
+const BC400_DECIMALS = 9; // BC400 has 9 decimals (verified on-chain)
 
 export function useBC400Check() {
     const { address, isConnected } = useWallet();
@@ -36,12 +37,21 @@ export function useBC400Check() {
                 const tokenBalance = await tokenContract.balanceOf(address).catch(() => BigInt(0));
 
                 // Logic: (NFT > 0) OR (Token >= 10M)
-                // Assuming Token has 18 decimals. If 9, adjust accordingly.
-                // Standard ERC20 is 18. 10M = 10_000_000 * 10^18
-                const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, 18);
+                // BC400 uses 9 decimals (not 18!)
+                const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, BC400_DECIMALS);
 
                 const hasEnoughTokens = tokenBalance >= requiredTokens;
                 const hasNft = Number(nftBalance) > 0;
+
+                console.log('[BC400 Access Check]', {
+                    address,
+                    tokenBalance: ethers.formatUnits(tokenBalance, BC400_DECIMALS),
+                    requiredTokens: MIN_TOKEN_BALANCE,
+                    nftBalance: nftBalance.toString(),
+                    hasNft,
+                    hasEnoughTokens,
+                    hasAccess: hasNft || hasEnoughTokens
+                });
 
                 setHasNFT(hasNft || hasEnoughTokens);
             } catch (error) {
