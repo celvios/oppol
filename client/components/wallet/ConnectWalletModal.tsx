@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, X, Loader2, Sparkles, Zap, ShieldCheck, Mail, Globe, ArrowRight, ChevronLeft } from "lucide-react";
+import { Wallet, X, Loader2, Sparkles, Zap, Mail, ChevronLeft } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Input from "@/components/ui/Input";
-import { usePrivy, useLoginWithEmail, useLoginWithOAuth } from "@privy-io/react-auth";
+import { usePrivy, useLoginWithEmail, useLoginWithOAuth, useLoginWithSiwe } from "@privy-io/react-auth";
+import { useConnect, useSignMessage, useDisconnect, useAccount } from "wagmi";
 import UsernameOnboardingModal from "./UsernameOnboardingModal";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,29 +21,32 @@ interface ConnectWalletModalProps {
     };
 }
 
-type ViewState = 'selection' | 'email-input' | 'otp-input';
+type ViewState = 'selection' | 'email-input' | 'otp-input' | 'wallet-selection';
 
 export default function ConnectWalletModal({
     isOpen,
     onClose,
-    onConnect,
     context,
     contextData
 }: ConnectWalletModalProps) {
-    const { login, ready, authenticated } = usePrivy();
+    const { ready, authenticated } = usePrivy();
 
-    // Headless Hooks
+    // Headless Hooks (Privy)
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { initOAuth } = useLoginWithOAuth();
+    const { generateSiweMessage, loginWithSiwe } = useLoginWithSiwe();
+
+    // Headless Hooks (Wagmi) - For Wallet Flow
+    const { connectAsync, connectors } = useConnect();
+    const { signMessageAsync } = useSignMessage();
+    const { disconnectAsync } = useDisconnect();
+    const { isConnected: isWagmiConnected } = useAccount();
 
     const [view, setViewState] = useState<ViewState>('selection');
     const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [error, setError] = useState<string | null>(null);
-
-    const [showIdentityModal, setShowIdentityModal] = useState(false);
-    const [conflictDetails, setConflictDetails] = useState<{ suggested: string, wallet: string } | null>(null);
 
     // Reset state on close
     useEffect(() => {
@@ -74,7 +78,6 @@ export default function ConnectWalletModal({
         try {
             setLoadingMethod('google');
             await initOAuth({ provider: 'google' });
-            // Redirect happens automatically
         } catch (err) {
             console.error("Google login failed", err);
             setLoadingMethod(null);
@@ -109,46 +112,69 @@ export default function ConnectWalletModal({
         } catch (err) {
             console.error("Invalid code", err);
             setError("Invalid code. Please try again.");
-            setOtp(""); // Clear invalid code for UX
+            setOtp("");
         } finally {
             setLoadingMethod(null);
         }
     };
 
-    const handleWalletLogin = async () => {
-        // For standard wallet connection (MetaMask etc), we still use the main login flow
-        // but restrict it to 'wallet' only. This usually pops up the wallet extension directly
-        // or a very minimal Privy QR for specific wallets.
-        onClose();
-        await login({ loginMethods: ['wallet'] });
+    // --- TRUE HEADLESS WALLET LOGIC ---
+    const handleWalletConnect = async (connectorIs: string | any) => {
+        // Find connector by ID or object
+        const connector = connectors.find(c => c.id === connectorIs || c.name.toLowerCase().includes(connectorIs.toLowerCase()));
+        if (!connector) {
+            console.error("Connector not found");
+            return;
+        }
+
+        setLoadingMethod(connector.name);
+        setError(null);
+
+        try {
+            // 1. Ensure clean slate
+            if (isWagmiConnected) await disconnectAsync();
+
+            // 2. Connect via Wagmi
+            const result = await connectAsync({ connector });
+            const address = result.accounts[0];
+            const chainId = result.chainId;
+
+            // 3. Generate SIWE Message (Privy)
+            const message = await generateSiweMessage({
+                address,
+                chainId: chainId.toString()
+            });
+
+            // 4. Sign Message (Wagmi)
+            const signature = await signMessageAsync({ message });
+
+            // 5. Login to Privy (SIWE)
+            await loginWithSiwe({
+                signature,
+                message,
+                chainId: chainId.toString(),
+                walletClientType: connector.name.toLowerCase(), // helps Privy telemetry
+                connectorType: connector.type,
+            });
+
+            // Success!
+            onClose();
+
+        } catch (err: any) {
+            console.error("Wallet connection failed:", err);
+            setError(err.message || "Connection failed. Please try again.");
+            await disconnectAsync(); // Cleanup
+        } finally {
+            setLoadingMethod(null);
+        }
     };
 
     const getContextInfo = () => {
         switch (context) {
-            case 'bet':
-                return {
-                    title: "Ready to Win?",
-                    subtitle: `Place your prediction on ${contextData?.marketName || 'the future'}`,
-                    icon: Zap
-                };
-            case 'deposit':
-                return {
-                    title: "Fuel Your Account",
-                    subtitle: "Add funds to start trading instantly",
-                    icon: Wallet
-                };
-            case 'create':
-                return {
-                    title: "Become the House",
-                    subtitle: "Launch your own prediction market",
-                    icon: Sparkles
-                };
-            default:
-                return {
-                    title: "Unlock the Future",
-                    subtitle: "Connect to access decentralized prediction markets",
-                    icon: Wallet
-                };
+            case 'bet': return { title: "Ready to Win?", subtitle: `Place your prediction on ${contextData?.marketName || 'the future'}`, icon: Zap };
+            case 'deposit': return { title: "Fuel Your Account", subtitle: "Add funds to start trading instantly", icon: Wallet };
+            case 'create': return { title: "Become the House", subtitle: "Launch your own prediction market", icon: Sparkles };
+            default: return { title: "Unlock the Future", subtitle: "Connect to access decentralized prediction markets", icon: Wallet };
         }
     };
 
@@ -160,7 +186,6 @@ export default function ConnectWalletModal({
     return (
         <AnimatePresence>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                {/* Backdrop with blur and pulse */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -171,28 +196,24 @@ export default function ConnectWalletModal({
                     <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 animate-pulse" />
                 </motion.div>
 
-                {/* Main Card */}
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.9, opacity: 0, y: 20 }}
                     className="relative w-full max-w-md"
                 >
-                    {/* Glowing Border Effect */}
                     <div className="absolute -inset-[1px] bg-gradient-to-r from-neon-cyan via-purple-500 to-neon-cyan rounded-2xl opacity-75 blur-sm animate-gradient-xy" />
 
                     <GlassCard className="relative w-full overflow-hidden border-none shadow-[0_0_50px_-10px_rgba(0,224,255,0.3)]">
-                        {/* Back button (for email flow) */}
                         {view !== 'selection' && (
                             <button
-                                onClick={() => setViewState('selection')}
+                                onClick={() => setViewState(view === 'wallet-selection' ? 'selection' : 'selection')}
                                 className="absolute top-4 left-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                         )}
 
-                        {/* Close button */}
                         <button
                             onClick={onClose}
                             className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20 group"
@@ -200,20 +221,11 @@ export default function ConnectWalletModal({
                             <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                         </button>
 
-                        <div className="p-8 text-center relative z-10 min-h-[400px] flex flex-col justify-center">
+                        <div className="p-8 text-center relative z-10 min-h-[420px] flex flex-col justify-center">
 
-                            {/* Header Section */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="mb-8"
-                            >
-                                <motion.div
-                                    className="w-16 h-16 mx-auto mb-4 relative group"
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: "spring", stiffness: 200 }}
-                                >
+                            {/* Header */}
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                                <motion.div className="w-16 h-16 mx-auto mb-4 relative" initial={{ scale: 0 }} animate={{ scale: 1 }}>
                                     <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl" />
                                     <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)]">
                                         <Icon className="w-6 h-6 text-neon-cyan" />
@@ -222,18 +234,12 @@ export default function ConnectWalletModal({
                                 <h2 className="text-2xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
                                     {content.title}
                                 </h2>
-                                <p className="text-white/60 text-sm max-w-[80%] mx-auto">
-                                    {content.subtitle}
-                                </p>
+                                <p className="text-white/60 text-sm max-w-[80%] mx-auto">{content.subtitle}</p>
                             </motion.div>
 
-                            {/* VIEW: MAIN SELECTION */}
+                            {/* MAIN SELECTION VIEW */}
                             {view === 'selection' && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="space-y-3"
-                                >
+                                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
                                     <NeonButton
                                         variant="glass"
                                         onClick={() => setViewState('email-input')}
@@ -261,7 +267,7 @@ export default function ConnectWalletModal({
 
                                     <NeonButton
                                         variant="cyan"
-                                        onClick={handleWalletLogin}
+                                        onClick={() => setViewState('wallet-selection')}
                                         disabled={!ready}
                                         className="w-full py-4 flex items-center justify-start gap-4 px-6 shadow-[0_0_20px_rgba(0,224,255,0.2)] hover:shadow-[0_0_30px_rgba(0,224,255,0.4)] group"
                                     >
@@ -273,89 +279,84 @@ export default function ConnectWalletModal({
                                 </motion.div>
                             )}
 
-                            {/* VIEW: EMAIL INPUT */}
-                            {view === 'email-input' && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="space-y-4"
-                                >
-                                    <div className="text-left space-y-2">
-                                        <label className="text-xs text-neon-cyan font-bold uppercase tracking-wider ml-1">
-                                            Email Address
-                                        </label>
-                                        <Input
-                                            type="email"
-                                            placeholder="you@example.com"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            className="bg-black/40 border-white/10 focus:border-neon-cyan text-lg py-6"
-                                            autoFocus
-                                            onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
-                                        />
-                                        {error && <p className="text-red-400 text-xs ml-1">{error}</p>}
-                                    </div>
+                            {/* WALLET SELECTION VIEW */}
+                            {view === 'wallet-selection' && (
+                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
+                                    {/* MetaMask */}
                                     <NeonButton
-                                        variant="cyan"
-                                        onClick={handleEmailSubmit}
-                                        disabled={loadingMethod === 'email'}
-                                        className="w-full py-4 font-bold text-black"
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('injected')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-orange-500/50 transition-all group"
                                     >
-                                        {loadingMethod === 'email' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Send Code"}
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6" alt="MetaMask" />
+                                        </div>
+                                        <span className="font-medium">MetaMask</span>
+                                        {loadingMethod === 'MetaMask' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
+
+                                    {/* Coinbase */}
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('coinbaseWalletSDK')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all group"
+                                    >
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://avatars.githubusercontent.com/u/18060234?s=200&v=4" className="w-6 h-6 rounded-full" alt="Coinbase" />
+                                        </div>
+                                        <span className="font-medium">Coinbase Wallet</span>
+                                        {loadingMethod === 'Coinbase Wallet' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+
+                                    {/* WalletConnect */}
+                                    <NeonButton
+                                        variant="glass"
+                                        onClick={() => handleWalletConnect('walletConnect')}
+                                        disabled={!!loadingMethod}
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-400/50 transition-all group"
+                                    >
+                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
+                                            <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6" alt="WC" />
+                                        </div>
+                                        <span className="font-medium">WalletConnect</span>
+                                        {loadingMethod === 'WalletConnect' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
+                                    </NeonButton>
+
+                                    {error && (
+                                        <p className="text-red-400 text-xs mt-2 bg-red-500/10 p-2 rounded">{error}</p>
+                                    )}
                                 </motion.div>
                             )}
 
-                            {/* VIEW: OTP INPUT */}
-                            {view === 'otp-input' && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="space-y-4"
-                                >
-                                    <div className="text-center mb-4">
-                                        <p className="text-white/60 text-sm">Code sent to <span className="text-white font-medium">{email}</span></p>
-                                    </div>
+                            {/* EMAIL INPUT VIEW */}
+                            {view === 'email-input' && (
+                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                                     <div className="text-left space-y-2">
-                                        <Input
-                                            type="text"
-                                            placeholder="123456"
-                                            value={otp}
-                                            maxLength={6}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/[^0-9]/g, '');
-                                                setOtp(val);
-                                                if (val.length === 6) handleOtpSubmit();
-                                            }}
-                                            className="bg-black/40 border-white/10 focus:border-neon-cyan text-2xl py-6 text-center tracking-[0.5em] font-mono"
-                                            autoFocus
-                                        />
+                                        <label className="text-xs text-neon-cyan font-bold uppercase tracking-wider ml-1">Email Address</label>
+                                        <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-black/40 border-white/10 focus:border-neon-cyan text-lg py-6" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()} />
+                                        {error && <p className="text-red-400 text-xs ml-1">{error}</p>}
+                                    </div>
+                                    <NeonButton variant="cyan" onClick={handleEmailSubmit} disabled={loadingMethod === 'email'} className="w-full py-4 font-bold text-black">{loadingMethod === 'email' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Send Code"}</NeonButton>
+                                </motion.div>
+                            )}
+
+                            {/* OTP INPUT VIEW */}
+                            {view === 'otp-input' && (
+                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                                    <div className="text-center mb-4"><p className="text-white/60 text-sm">Code sent to <span className="text-white font-medium">{email}</span></p></div>
+                                    <div className="text-left space-y-2">
+                                        <Input type="text" placeholder="123456" value={otp} maxLength={6} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setOtp(val); if (val.length === 6) handleOtpSubmit(); }} className="bg-black/40 border-white/10 focus:border-neon-cyan text-2xl py-6 text-center tracking-[0.5em] font-mono" autoFocus />
                                         {error && <p className="text-red-400 text-xs text-center">{error}</p>}
                                     </div>
-                                    <NeonButton
-                                        variant="cyan"
-                                        onClick={handleOtpSubmit}
-                                        disabled={otp.length < 6 || loadingMethod === 'otp'}
-                                        className="w-full py-4 font-bold text-black"
-                                    >
-                                        {loadingMethod === 'otp' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Verify & Login"}
-                                    </NeonButton>
-                                    <button
-                                        onClick={() => setViewState('email-input')}
-                                        className="text-white/40 text-xs hover:text-white transition-colors"
-                                    >
-                                        Entered wrong email?
-                                    </button>
+                                    <NeonButton variant="cyan" onClick={handleOtpSubmit} disabled={otp.length < 6 || loadingMethod === 'otp'} className="w-full py-4 font-bold text-black">{loadingMethod === 'otp' ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Verify & Login"}</NeonButton>
+                                    <button onClick={() => setViewState('email-input')} className="text-white/40 text-xs hover:text-white transition-colors">Entered wrong email?</button>
                                 </motion.div>
                             )}
 
                             {/* Footer */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.35 }}
-                                className="mt-8 flex flex-col gap-2"
-                            >
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="mt-8 flex flex-col gap-2">
                                 <p className="text-[10px] text-white/30 uppercase tracking-widest font-mono flex items-center justify-center gap-2">
                                     <span>Powered by</span>
                                     <span className="text-neon-cyan font-bold glow-sm">OPoll</span>
@@ -365,17 +366,8 @@ export default function ConnectWalletModal({
                     </GlassCard>
                 </motion.div>
 
-                {/* Identity Modal (if needed) */}
-                {showIdentityModal && conflictDetails && (
-                    <UsernameOnboardingModal
-                        isOpen={showIdentityModal}
-                        onClose={() => setShowIdentityModal(false)}
-                        suggestedUsername={conflictDetails.suggested}
-                        onSubmit={(username) => {
-                            console.log(username);
-                        }}
-                    />
-                )}
+                {/* Identity Modal Stub if needed */}
+                <UsernameOnboardingModal isOpen={false} onClose={() => { }} suggestedUsername="" onSubmit={() => { }} />
             </div>
         </AnimatePresence>
     );

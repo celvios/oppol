@@ -79,8 +79,8 @@ export default function ProfilePage() {
                     <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
                         {/* Avatar */}
                         <div className="w-24 h-24 rounded-full bg-black border-4 border-black shadow-xl flex items-center justify-center relative">
-                            {user?.google?.picture ? (
-                                <img src={user.google.picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                            {(user?.google as any)?.picture ? (
+                                <img src={(user.google as any).picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
                             ) : (
                                 <div className="w-full h-full rounded-full bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-3xl font-bold text-white uppercase">
                                     {displayName.charAt(0)}
@@ -109,49 +109,47 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* GOOGLE USERS: Stats Grid */}
-            {isEmbeddedWallet && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Wallet Address */}
-                    <div className="bg-surface/30 border border-white/5 rounded-xl p-4 md:col-span-3 lg:col-span-1">
-                        <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Wallet Address</p>
-                        <div className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5 cursor-pointer hover:bg-white/5 transition-colors group" onClick={copyToClipboard}>
-                            <code className="text-sm font-mono text-white flex-1 truncate">
-                                {effectiveAddress}
-                            </code>
-                            {copied ? (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                                <Copy className="w-4 h-4 text-white/30 group-hover:text-white transition-colors" />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Total Volume */}
-                    <div className="bg-surface/30 border border-white/5 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Activity className="w-4 h-4 text-primary" />
-                            <p className="text-white/40 text-xs uppercase tracking-widest">Total Volume</p>
-                        </div>
-                        <p className="text-2xl font-mono text-white">
-                            ${userStats.totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-white/20 text-xs">Lifetime traded</p>
-                    </div>
-
-                    {/* Accuracy Rate */}
-                    <div className="bg-surface/30 border border-white/5 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <User className="w-4 h-4 text-purple-400" />
-                            <p className="text-white/40 text-xs uppercase tracking-widest">Accuracy Rate</p>
-                        </div>
-                        <p className={`text-2xl font-mono ${userStats.accuracyRate >= 50 ? 'text-green-400' : 'text-white'}`}>
-                            {userStats.accuracyRate}%
-                        </p>
-                        <p className="text-white/20 text-xs">Win Rate</p>
+            {/* Unified Stats Grid for ALL Users */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Wallet Address */}
+                <div className="bg-surface/30 border border-white/5 rounded-xl p-4 md:col-span-3 lg:col-span-1">
+                    <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Wallet Address</p>
+                    <div className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5 cursor-pointer hover:bg-white/5 transition-colors group" onClick={copyToClipboard}>
+                        <code className="text-sm font-mono text-white flex-1 truncate">
+                            {effectiveAddress}
+                        </code>
+                        {copied ? (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                            <Copy className="w-4 h-4 text-white/30 group-hover:text-white transition-colors" />
+                        )}
                     </div>
                 </div>
-            )}
+
+                {/* Total Volume */}
+                <div className="bg-surface/30 border border-white/5 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity className="w-4 h-4 text-primary" />
+                        <p className="text-white/40 text-xs uppercase tracking-widest">Total Volume</p>
+                    </div>
+                    <p className="text-2xl font-mono text-white">
+                        ${userStats.totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-white/20 text-xs">Lifetime traded</p>
+                </div>
+
+                {/* Accuracy Rate */}
+                <div className="bg-surface/30 border border-white/5 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4 text-purple-400" />
+                        <p className="text-white/40 text-xs uppercase tracking-widest">Accuracy Rate</p>
+                    </div>
+                    <p className={`text-2xl font-mono ${userStats.accuracyRate >= 50 ? 'text-green-400' : 'text-white'}`}>
+                        {userStats.accuracyRate}%
+                    </p>
+                    <p className="text-white/20 text-xs">Win Rate</p>
+                </div>
+            </div>
 
 
 

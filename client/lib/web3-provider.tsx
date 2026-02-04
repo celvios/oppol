@@ -12,17 +12,23 @@ import { WagmiProvider } from '@privy-io/wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { http, createConfig } from 'wagmi';
+import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 import { ReactNode, useState } from 'react';
 
 const queryClient = new QueryClient();
 
-// Wagmi config for Priv (required peer dependency)
+// Wagmi config with explicit connectors for Headless usage
 const config = createConfig({
     chains: [bsc, bscTestnet],
     transports: {
         [bsc.id]: http(),
         [bscTestnet.id]: http(),
     },
+    connectors: [
+        injected(),
+        coinbaseWallet({ appName: 'OPoll' }),
+        walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }), // Use provided ID or fallback
+    ],
 });
 
 interface Web3ProviderProps {
