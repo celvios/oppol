@@ -66,12 +66,14 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [mounted, setMounted] = useState(false);
     const [selectedOutcome, setSelectedOutcome] = useState<number>(0);
     const chartRef = useRef<HTMLDivElement>(null);
+    const mobileChartRef = useRef<HTMLDivElement>(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [shareImageSrc, setShareImageSrc] = useState<string>("");
 
-    const handleShareChart = async () => {
-        console.log("handleShareChart called");
-        if (!chartRef.current) {
+    const handleShareChart = async (isMobile = false) => {
+        const ref = isMobile ? mobileChartRef : chartRef;
+        console.log("handleShareChart called", { isMobile });
+        if (!ref.current) {
             console.error("chartRef is null");
             return;
         }
@@ -82,7 +84,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         setShareImageSrc(""); // Clear previous image
 
         try {
-            const canvas = await html2canvas(chartRef.current, {
+            const canvas = await html2canvas(ref.current, {
                 backgroundColor: '#020408', // Match background
                 scale: 2, // Retina quality
                 logging: false,
@@ -402,55 +404,70 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 {/* Featured Carousel (Mobile) */}
                 <FeaturedCarousel markets={markets} />
 
-                {/* Market Header */}
-                <GlassCard className="p-4">
-                    <div className="flex gap-2 mb-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
-                        {!market.resolved && Date.now() / 1000 < market.endTime && (
-                            <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-neon-green rounded-full animate-pulse" />
-                                LIVE
-                            </span>
-                        )}
-                        {market.resolved && (
-                            <span className="px-2 py-0.5 rounded bg-green-500/20 text-[10px] font-mono uppercase tracking-wider text-green-400">
-                                RESOLVED
-                            </span>
-                        )}
-                        {!market.resolved && Date.now() / 1000 >= market.endTime && (
-                            <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-[10px] font-mono uppercase tracking-wider text-yellow-400">
-                                ENDED
-                            </span>
-                        )}
-                        <div className="ml-auto">
-                            <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
+                {/* Mobile Capture Container - Includes Header + Chart for sharing */}
+                <div ref={mobileChartRef}>
+                    {/* Market Header */}
+                    <GlassCard className="p-4 mb-4">
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
+                            {!market.resolved && Date.now() / 1000 < market.endTime && (
+                                <span className="px-2 py-0.5 rounded bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider text-neon-green flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-neon-green rounded-full animate-pulse" />
+                                    LIVE
+                                </span>
+                            )}
+                            {market.resolved && (
+                                <span className="px-2 py-0.5 rounded bg-green-500/20 text-[10px] font-mono uppercase tracking-wider text-green-400">
+                                    RESOLVED
+                                </span>
+                            )}
+                            {!market.resolved && Date.now() / 1000 >= market.endTime && (
+                                <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-[10px] font-mono uppercase tracking-wider text-yellow-400">
+                                    ENDED
+                                </span>
+                            )}
+                            <div className="ml-auto">
+                                <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
+                            </div>
                         </div>
-                    </div>
-                    <h1 className="text-xl font-heading font-bold text-white mb-2">
-                        {market.question}
-                    </h1>
-                    {metadata && metadata.description && (
-                        <p className="text-white/60 text-xs mb-3 leading-relaxed">
-                            {metadata.description}
-                        </p>
-                    )}
-                    <div className="flex gap-4 text-xs text-text-secondary">
-                        <div>Vol: ${market.totalVolume}</div>
-                        <div>{market.outcomeCount} outcomes</div>
-                        <div>{formatDistanceToNow(market.endTime * 1000)}</div>
-                    </div>
-                </GlassCard >
+                        <h1 className="text-xl font-heading font-bold text-white mb-2">
+                            {market.question}
+                        </h1>
+                        {metadata && metadata.description && (
+                            <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                                {metadata.description}
+                            </p>
+                        )}
+                        <div className="flex gap-4 text-xs text-text-secondary">
+                            <div>Vol: ${market.totalVolume}</div>
+                            <div>{market.outcomeCount} outcomes</div>
+                            <div>{formatDistanceToNow(market.endTime * 1000)}</div>
+                        </div>
+                    </GlassCard >
 
-                {/* Chart */}
-                < GlassCard className="p-4" >
-                    <h2 className="text-sm font-heading text-white mb-3">Chance Wave</h2>
-                    <div className="h-[200px] w-full">
-                        <MultiOutcomeChart
-                            data={priceHistory}
-                            outcomes={market.outcomes || []}
-                        />
-                    </div>
-                </GlassCard >
+                    {/* Chart */}
+                    < GlassCard className="p-4" >
+                        <div className="flex justify-between items-center mb-3">
+                            <h2 className="text-sm font-heading text-white">Chance Wave</h2>
+                            <button
+                                onClick={() => handleShareChart(true)}
+                                className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
+                                title="Share Chart"
+                            >
+                                <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                            </button>
+                        </div>
+                        <div className="h-[200px] w-full">
+                            <MultiOutcomeChart
+                                data={priceHistory}
+                                outcomes={market.outcomes || []}
+                            />
+                        </div>
+                    </GlassCard >
+
+
+                </div>
+                {/* End Mobile Capture Container */}
 
                 {/* Outcomes */}
                 < GlassCard className="p-4" >

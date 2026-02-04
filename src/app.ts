@@ -949,127 +949,94 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
   try {
-    const { ethers } = await import('ethers');
+    console.log('[Markets API] Fetching markets from database (indexed)...');
 
-    // Simple In-Memory Cache (Global)
-    // Note: In serverless (Vercel), this persists only while the lambda is warm. 
-    // This is still very effective for high-concurrency spikes (50 users at once).
-    if (!global.marketsCache) {
-      global.marketsCache = { data: null, lastFetch: 0 };
-    }
+    // Query all markets from database (already indexed by marketIndexer service)
+    const result = await query(`
+      SELECT 
+        market_id,
+        question,
+        image as image_url,
+        description,
+        category as category_id,
+        outcome_names,
+        prices,
+        end_time,
+        liquidity_param,
+        outcome_count,
+        resolved,
+        winning_outcome,
+        boost_tier,
+        boost_expires_at,
+        last_indexed_at
+      FROM markets
+      ORDER BY market_id ASC
+    `);
 
-    const CACHE_TTL = 15000; // 15 seconds cache
-    const now = Date.now();
-
-    if (global.marketsCache.data && (now - global.marketsCache.lastFetch < CACHE_TTL)) {
-      console.log('[Markets API] Serving from cache (15s TTL)');
-      return res.json({ success: true, markets: global.marketsCache.data });
-    }
-
-    console.log(`[Markets API] Cache stale or empty. Fetching from contract...`);
-
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
-    // FORCE CORRECT CONTRACT (Ignore Env Var which is likely wrong)
-    const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
-    // const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
-
-    const marketABI = [
-      'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
-      'function getMarketOutcomes(uint256) view returns (string[])',
-      'function getAllPrices(uint256) view returns (uint256[])'
-    ];
-
-    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-
-    console.log('[Markets API] Using contract:', MARKET_ADDR);
-    console.log('[Markets API] Using RPC:', rpcUrl);
-
-    const count = await marketContract.marketCount();
-    console.log('[Markets API] Market count:', count.toString());
-
-    // Get market metadata from database - REQUIRED for proper market display
-    // We treating the DB as the "Active List". If it's not in the DB (deleted), we don't show it.
-    let metadataMap: Record<number, any> = {};
-    const validMarketIds: number[] = [];
-    try {
-      const metadataResult = await query('SELECT * FROM markets');
-      console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
-      metadataResult.rows.forEach((row: any) => {
-        metadataMap[row.market_id] = row;
-        validMarketIds.push(row.market_id);
-      });
-    } catch (e: any) {
-      console.error('[Markets API] DB metadata fetch failed (non-fatal):', e.message);
-      // In case of DB error, we might fallback to empty map, effectively showing nothing.
-      // Or we could fallback to showing everything if we want to fail-open, but fail-close is safer for "deleted" items.
-    }
-
-    // Only fetch markets that are in the database (this handles "soft delete")
-    // Filter on-chain IDs against validMarketIds
-    const onChainCount = Number(count);
-    const visibleMarketIds = validMarketIds.filter(id => id < onChainCount);
-
-    console.log(`[Markets API] Fetching ${visibleMarketIds.length} visible markets in PARALLEL...`);
-
-    // BATCHED Fetching to avoid Rate Limits (50 req/sec)
-    const BATCH_SIZE = 5;
-    const markets: any[] = [];
-
-    // Process in batches
-    for (let i = 0; i < visibleMarketIds.length; i += BATCH_SIZE) {
-      const batchIds = visibleMarketIds.slice(i, i + BATCH_SIZE);
-      // console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1}...`);
-
-      const batchPromises = batchIds.map(id =>
-        Promise.all([
-          marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
-          marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
-          marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
-        ]).then(([basicInfo, outcomes, prices]) => {
-          const metadata = metadataMap[id];
-          return {
-            market_id: id,
-            question: basicInfo.question,
-            description: metadata?.description || '',
-            image_url: metadata?.image || '',
-            category_id: metadata?.category || '',
-            outcomes: outcomes,
-            prices: prices.map((p: bigint) => Number(p) / 100),
-            outcomeCount: Number(basicInfo.outcomeCount),
-            endTime: Number(basicInfo.endTime),
-            liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
-            resolved: basicInfo.resolved,
-            winningOutcome: Number(basicInfo.winningOutcome)
-          };
-        }).catch(err => {
-          console.error(`[Markets API] Error fetching market ${id}:`, err.message || err);
-          return null;
-        })
-      );
-
-      const batchResults = await Promise.all(batchPromises);
-      markets.push(...batchResults.filter(m => m !== null));
-
-      // Small delay between batches to be nice to RPC
-      if (i + BATCH_SIZE < visibleMarketIds.length) {
-        await new Promise(r => setTimeout(r, 200));
+    const markets = result.rows.map((row: any) => {
+      // Parse outcome names (JSONB or array)
+      let outcomes = ['Yes', 'No'];
+      if (row.outcome_names) {
+        try {
+          outcomes = typeof row.outcome_names === 'string'
+            ? JSON.parse(row.outcome_names)
+            : row.outcome_names;
+        } catch (e) {
+          console.warn(`[Markets API] Failed to parse outcome_names for market ${row.market_id}`);
+        }
       }
-    }
 
-    console.log(`[Markets API] Caching ${markets.length} markets...`);
+      // Parse prices (JSONB stored by indexer)
+      let prices = outcomes.map(() => 50); // Default 50/50
+      if (row.prices) {
+        try {
+          prices = typeof row.prices === 'string'
+            ? JSON.parse(row.prices)
+            : row.prices;
+        } catch (e) {
+          console.warn(`[Markets API] Failed to parse prices for market ${row.market_id}`);
+        }
+      }
 
-    // Update Cache
-    global.marketsCache = {
-      data: markets,
-      lastFetch: Date.now()
-    };
+      // Check if boosted
+      const now = Date.now();
+      const isBoosted = row.boost_tier && row.boost_expires_at && (new Date(row.boost_expires_at).getTime() > now);
 
-    return res.json({ success: true, markets });
+      return {
+        market_id: row.market_id,
+        question: row.question,
+        image_url: row.image_url || '',
+        description: row.description || '',
+        category_id: row.category_id || 'General',
+        outcomes,
+        prices,
+        endTime: row.end_time ? Math.floor(new Date(row.end_time).getTime() / 1000) : 0,
+        liquidityParam: row.liquidity_param || '0',
+        outcomeCount: row.outcome_count || outcomes.length,
+        resolved: row.resolved || false,
+        winningOutcome: row.winning_outcome || 0,
+        is_boosted: isBoosted,
+        boost_tier: row.boost_tier,
+        boost_expires_at: row.boost_expires_at ? Math.floor(new Date(row.boost_expires_at).getTime() / 1000) : null,
+        last_indexed_at: row.last_indexed_at,
+      };
+    });
+
+    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB (0 RPC calls)`);
+
+    return res.json({
+      success: true,
+      markets,
+      source: 'database_indexed',
+      last_sync: markets[0]?.last_indexed_at || null
+    });
+
   } catch (error: any) {
-    console.error('Markets error:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch markets' });
+    console.error('[Markets API] Database error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch markets'
+    });
   }
 });
 
@@ -1615,6 +1582,12 @@ app.post('/api/admin/migrate', async (req, res) => {
       );
       CREATE INDEX IF NOT EXISTS idx_comments_market_id ON comments(market_id);
 
+      -- Add columns for Market Indexer
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS prices JSONB;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity_param VARCHAR(50);
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS outcome_count INTEGER DEFAULT 2;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP WITH TIME ZONE;
+
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
@@ -1622,6 +1595,7 @@ app.post('/api/admin/migrate', async (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
+
     `;
 
     await query(migrationQueries);
@@ -1902,6 +1876,16 @@ initDatabase().then(async () => {
   } else {
     console.log('ℹ️ Price tracker disabled (no DATABASE_URL configured)');
   }
+
+  // Start Market Indexer (Syncs blockchain state to DB every 30s for efficient API responses)
+  if (process.env.DATABASE_URL) {
+    const { startMarketIndexer } = await import('./services/marketIndexer');
+    console.log('🔄 Starting market indexer (30s interval)...');
+    startMarketIndexer(30000); // Sync every 30 seconds
+  } else {
+    console.log('ℹ️ Market indexer disabled (no DATABASE_URL configured)');
+  }
+
 
 }).catch(err => {
   console.error("⚠️ Database Initialization Failed:", err.message);
