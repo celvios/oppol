@@ -14,10 +14,14 @@ export function useWallet() {
   const { wallets } = useWallets();
   const { address, isConnected } = useAccount();
 
+  // User is considered connected if authenticated (Privy) OR wallet connected (Wagmi)
+  const effectivelyConnected = authenticated || isConnected;
+  const effectiveAddress = address || (wallets[0]?.address);
+
   return {
     // Connection state
-    isConnected: authenticated && isConnected,
-    address: address || null,
+    isConnected: effectivelyConnected,
+    address: effectiveAddress || null,
     isConnecting: !ready,
 
     // Actions
