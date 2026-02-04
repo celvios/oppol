@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Wallet, X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
-import { usePrivy, useLoginWithOAuth, useLoginWithEmail } from "@privy-io/react-auth";
-import { useWallet } from "@/lib/use-wallet";
+import { useExternalWallet } from "@/lib/use-external-wallet";
+import { useSocialLogin } from "@/lib/use-social-login";
 import UsernameOnboardingModal from "./UsernameOnboardingModal";
 
 interface ConnectWalletModalProps {
@@ -26,10 +26,9 @@ export default function ConnectWalletModal({
     context,
     contextData
 }: ConnectWalletModalProps) {
-    const { login: privyLogin, ready, authenticated } = usePrivy();
-    const { initOAuth } = useLoginWithOAuth();
-    const { sendCode, loginWithCode } = useLoginWithEmail();
-    const { connectAsync, connectors } = useWallet();
+    // Separated flows - NEVER let them interact
+    const externalWallet = useExternalWallet(); // Web3Modal ONLY
+    const socialLogin = useSocialLogin(); // Privy ONLY
 
     const [view, setView] = useState<'main' | 'socials' | 'email-input' | 'email-otp' | 'wallet-selection'>('main');
     const [email, setEmail] = useState("");
@@ -50,13 +49,14 @@ export default function ConnectWalletModal({
         }
     }, [isOpen]);
 
+    // Social login handlers - use ONLY Privy, no Web3Modal interaction
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
-            await initOAuth({ provider: 'google' });
+            await socialLogin.loginWithGoogle();
             // OAuth redirects, so loading state persists until unload
         } catch (e) {
-            console.error('Google Login Error:', e);
+            console.error('[ConnectWalletModal] Google Login Error:', e);
             setLoading(false);
         }
     };
@@ -67,10 +67,10 @@ export default function ConnectWalletModal({
 
         try {
             setLoading(true);
-            await sendCode({ email });
+            await socialLogin.sendEmailCode(email);
             setView('email-otp');
         } catch (err) {
-            console.error('Email Send Code Error:', err);
+            console.error('[ConnectWalletModal] Email Send Code Error:', err);
         } finally {
             setLoading(false);
         }
@@ -82,19 +82,26 @@ export default function ConnectWalletModal({
 
         try {
             setLoading(true);
-            await loginWithCode({ code: otp, email });
+            await socialLogin.verifyEmailCode(email, otp);
             onClose();
         } catch (err) {
-            console.error('OTP Verification Error:', err);
+            console.error('[ConnectWalletModal] OTP Verification Error:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    // Debug logging
+    // Debug logging - separate system states
     useEffect(() => {
-        console.log('[ConnectWalletModal] Privy State:', { ready, authenticated, hasLogin: !!privyLogin });
-    }, [ready, authenticated, privyLogin]);
+        console.log('[ConnectWalletModal] External Wallet:', {
+            isConnected: externalWallet.isConnected,
+            address: externalWallet.address
+        });
+        console.log('[ConnectWalletModal] Social Login:', {
+            isAuthenticated: socialLogin.isAuthenticated,
+            isReady: socialLogin.isReady
+        });
+    }, [externalWallet.isConnected, externalWallet.address, socialLogin.isAuthenticated, socialLogin.isReady]);
 
     // Handle ESC key
     useEffect(() => {
@@ -179,88 +186,32 @@ export default function ConnectWalletModal({
         }
     };
 
-    const handleDirectConnect = async () => {
-        if (isConnectingWallet) return;
-        setIsConnectingWallet(true);
+    // External wallet handler - use ONLY Web3Modal, no Privy interaction
+    const handleExternalWalletConnect = async () => {
         try {
-            console.log('[ConnectWalletModal] Direct connect triggered');
-            let connectedAddress = "";
+            console.log('[ConnectWalletModal] External wallet connection...');
+            setIsConnectingWallet(true);
+            setConnectionError('');
 
-            // Force fallback check for window.ethereum
-            if (typeof window !== 'undefined' && (window as any).ethereum) {
-                console.log('[ConnectWalletModal] Found window.ethereum, attempting connection...');
+            await externalWallet.connect();
 
-                // Try to find a precise connector first
-                const preciseConnector = connectors?.find(c =>
-                    c.id === 'injected' ||
-                    c.id === 'io.metamask' ||
-                    c.name.toLowerCase() === 'metamask'
-                );
-
-                // Use found connector OR any injected one as fallback
-                const targetConnector = preciseConnector || connectors?.find(c => c.type === 'injected');
-
-                if (targetConnector) {
-                    const result = await connectAsync({ connector: targetConnector });
-                    connectedAddress = result.accounts[0];
-                } else {
-                    // If purely forcing without a Wagmi connector object is impossible via connectAsync safely,
-                    // we might need to rely on the user having *some* injected connector in the list.
-                    // The previous "Force Fallback" block used connectAsync with `anyInjected`.
-                    console.warn('[ConnectWalletModal] No specific connector found, checking generic injected...');
-                    const anyInjected = connectors?.find(c => c.type === 'injected');
-                    if (anyInjected) {
-                        const result = await connectAsync({ connector: anyInjected });
-                        connectedAddress = result.accounts[0];
-                    } else {
-                        throw new Error("No browser wallet detected by Wagmi.");
-                    }
-                }
-
-                console.log('[ConnectWalletModal] Direct connect successful', connectedAddress);
-            } else {
-                throw new Error("No browser wallet found (window.ethereum missing).");
+            // Register user on backend if needed
+            if (externalWallet.address) {
+                await handleBackendRegistration(externalWallet.address);
             }
 
-            if (connectedAddress) {
-                const success = await handleBackendRegistration(connectedAddress);
-                if (success) onClose();
-            } else {
-                onClose(); // Should not happen if successful
-            }
-
+            onClose();
         } catch (e: any) {
-            console.error('[ConnectWalletModal] Direct Connect failed:', e);
+            console.error('[ConnectWalletModal] External wallet connection failed:', e);
 
-            // Handle common MetaMask errors
-            if (e.code === -32002 || e.message?.includes('already pending')) {
-                setConnectionError("⚠️ Request pending! Please check your MetaMask extension icon to approve.");
-            } else if (e.code === 4001) {
-                setConnectionError("❌ Connection rejected. Please try again.");
+            if (e.message?.includes('wait')) {
+                setConnectionError('⏱️ Please wait a moment before trying again.');
             } else {
-                setConnectionError(`❌ Error: ${e.message || 'Connection failed'}`);
+                setConnectionError(`❌ ${e.message || 'Connection failed'}`);
             }
         } finally {
             setIsConnectingWallet(false);
         }
-    };
-
-    const handleWeb3ModalConnect = async () => {
-        try {
-            console.log('[ConnectWalletModal] Opening Web3Modal...');
-            // onClose(); // Don't close immediately, wait for open() to succeed
-            await onConnect();
-            // Now close, as Web3Modal should be visible (z-index should be handled by Web3Modal being highest)
-            onClose();
-        } catch (e) {
-            console.error('[ConnectWalletModal] Web3Modal failed:', e);
-            // If it failed, don't close the modal so user can try again
-        }
-    };
-
-    // Main button just opens Web3Modal directly
-    const handleConnectClick = () => {
-        handleWeb3ModalConnect();
     };
 
     const onIdentitySubmit = async (newUsername: string) => {
@@ -316,13 +267,17 @@ export default function ConnectWalletModal({
                         <>
                             <NeonButton
                                 variant="cyan"
-                                onClick={handleConnectClick}
-                                disabled={isConnectingWallet}
+                                onClick={handleExternalWalletConnect}
+                                disabled={isConnectingWallet || externalWallet.isConnecting}
                                 className="w-full mb-3 flex items-center justify-center gap-2 py-4 font-bold disabled:opacity-70 disabled:cursor-wait"
                             >
-                                {isConnectingWallet ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
-                                {isConnectingWallet ? 'Connecting...' : 'Connect External Wallet'}
+                                {(isConnectingWallet || externalWallet.isConnecting) ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
+                                {(isConnectingWallet || externalWallet.isConnecting) ? 'Connecting...' : 'Connect External Wallet'}
                             </NeonButton>
+
+                            {connectionError && (
+                                <p className="text-red-400 text-sm mb-3">{connectionError}</p>
+                            )}
 
                             <div className="relative mb-3">
                                 <div className="absolute inset-0 flex items-center">
@@ -336,20 +291,20 @@ export default function ConnectWalletModal({
                             <NeonButton
                                 variant="glass"
                                 onClick={() => setView('socials')}
-                                disabled={!ready}
+                                disabled={!socialLogin.isReady}
                                 className="w-full mb-3 flex items-center justify-center gap-2 py-3 text-sm bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:cursor-wait"
                             >
-                                {!ready ? 'Initializing...' : 'Log In with Email / Socials'}
+                                {!socialLogin.isReady ? 'Initializing...' : 'Log In with Email / Socials'}
                             </NeonButton>
                         </>
                     ) : view === 'socials' ? (
                         <div className="space-y-3 animate-fadeIn">
                             <button
                                 onClick={handleGoogleLogin}
-                                disabled={loading}
+                                disabled={loading || socialLogin.isLoading}
                                 className="w-full flex items-center justify-center gap-3 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-colors disabled:opacity-70 disabled:cursor-wait"
                             >
-                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />}
+                                {(loading || socialLogin.isLoading) ? <Loader2 className="w-5 h-5 animate-spin" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />}
                                 Continue with Google
                             </button>
 

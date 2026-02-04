@@ -235,15 +235,17 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         <PrivyProvider
             appId={appId || ''}
             config={{
-                loginMethods: ['google', 'email'],
+                loginMethods: ['google', 'email'], // ONLY social logins, no wallet logins
                 appearance: {
                     theme: 'dark',
                     accentColor: '#00FF94',
                     logo: 'https://oppollbnb.vercel.app/icon.png',
                 },
                 embeddedWallets: {
-                    createOnLogin: 'users-without-wallets',
+                    createOnLogin: 'off', // CRITICAL: Disable wallet creation to prevent conflicts
                 },
+                // Disable automatic wallet connection to prevent cross-talk with Web3Modal
+                walletConnectCloudProjectId: undefined,
             }}
         >
             <QueryClientProvider client={queryClient}>
