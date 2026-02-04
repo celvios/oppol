@@ -119,11 +119,30 @@ export default function ConnectWalletModal({
     };
 
     // --- TRUE HEADLESS WALLET LOGIC ---
-    const handleWalletConnect = async (connectorIs: string | any) => {
-        // Find connector by ID or object
-        const connector = connectors.find(c => c.id === connectorIs || c.name.toLowerCase().includes(connectorIs.toLowerCase()));
+    const handleWalletConnect = async (walletId: string) => {
+        console.log("Attempting to connect to:", walletId);
+        console.log("Available connectors:", connectors.map(c => ({ id: c.id, name: c.name, type: c.type })));
+
+        // Robust matching logic
+        let connector = connectors.find(c => c.id === walletId);
+
+        // Fallback for MetaMask: check for 'metaMask' id or name
+        if (!connector && walletId === 'injected') {
+            connector = connectors.find(c =>
+                c.id.toLowerCase().includes('metamask') ||
+                c.name.toLowerCase().includes('metamask') ||
+                c.id === 'injected'
+            );
+        }
+
+        // Fallback for Coinbase
+        if (!connector && walletId === 'coinbaseWalletSDK') {
+            connector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name.toLowerCase().includes('coinbase'));
+        }
+
         if (!connector) {
-            console.error("Connector not found");
+            console.error(`Connector for ${walletId} not found.`);
+            setError(`Wallet not detected. Is it installed?`);
             return;
         }
 
@@ -135,9 +154,11 @@ export default function ConnectWalletModal({
             if (isWagmiConnected) await disconnectAsync();
 
             // 2. Connect via Wagmi
+            console.log("Connecting to wagmi connector:", connector.name);
             const result = await connectAsync({ connector });
             const address = result.accounts[0];
             const chainId = result.chainId;
+            console.log("Connected:", address, chainId);
 
             // 3. Generate SIWE Message (Privy)
             const message = await generateSiweMessage({
@@ -162,11 +183,22 @@ export default function ConnectWalletModal({
 
         } catch (err: any) {
             console.error("Wallet connection failed:", err);
-            setError(err.message || "Connection failed. Please try again.");
+            // Handle user rejection specifically
+            if (err.code === 4001 || err.message?.includes('rejected')) {
+                setError(null); // No error for user cancellation
+            } else {
+                setError(err.message || "Connection failed. Please try again.");
+            }
             await disconnectAsync(); // Cleanup
         } finally {
             setLoadingMethod(null);
         }
+    };
+
+    const handleMoreWallets = async () => {
+        onClose();
+        // Fallback to standard Privy modal for other wallets
+        await login({ loginMethods: ['wallet'] });
     };
 
     const getContextInfo = () => {
@@ -323,6 +355,14 @@ export default function ConnectWalletModal({
                                         <span className="font-medium">WalletConnect</span>
                                         {loadingMethod === 'WalletConnect' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
+
+                                    {/* More Wallets */}
+                                    <button
+                                        onClick={handleMoreWallets}
+                                        className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors"
+                                    >
+                                        More Wallets...
+                                    </button>
 
                                     {error && (
                                         <p className="text-red-400 text-xs mt-2 bg-red-500/10 p-2 rounded">{error}</p>
