@@ -45,7 +45,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 loginMethods: ['wallet', 'google', 'email'],
                 appearance: {
                     theme: 'dark',
-                    accentColor: '#00FF94',
+                    accentColor: '#00E0FF', // Neon Cyan
                     logo: 'https://oppollbnb.vercel.app/icon.png',
                 },
                 embeddedWallets: {
