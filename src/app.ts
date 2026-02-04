@@ -968,7 +968,8 @@ app.get('/api/markets', async (req, res) => {
         winning_outcome,
         boost_tier,
         boost_expires_at,
-        last_indexed_at
+        last_indexed_at,
+        created_at
       FROM markets
       ORDER BY market_id ASC
     `);
@@ -1019,6 +1020,7 @@ app.get('/api/markets', async (req, res) => {
         boost_tier: row.boost_tier,
         boost_expires_at: row.boost_expires_at ? Math.floor(new Date(row.boost_expires_at).getTime() / 1000) : null,
         last_indexed_at: row.last_indexed_at,
+        created_at: row.created_at,
       };
     });
 
@@ -1587,6 +1589,7 @@ app.post('/api/admin/migrate', async (req, res) => {
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity_param VARCHAR(50);
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS outcome_count INTEGER DEFAULT 2;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);

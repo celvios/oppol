@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
-import { TrendingUp, Users, Search, User } from "lucide-react";
+import { TrendingUp, Users, Search, User, Clock } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { web3MultiService as web3Service, MultiMarket } from "@/lib/web3-multi";
@@ -32,7 +32,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
     const [loading, setLoading] = useState(initialMarkets.length === 0);
-    const scrollRef = useRef<HTMLDivElement>(null);
+
 
     useEffect(() => {
         // Skip fetch if we already have initial data
@@ -62,21 +62,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
         fetchMarkets();
     }, [initialMarkets]);
 
-    // Auto-scroll effect
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (scrollRef.current) {
-                const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-                if (scrollLeft + clientWidth >= scrollWidth - 10) {
-                    scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-                } else {
-                    scrollRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' });
-                }
-            }
-        }, 4000);
 
-        return () => clearInterval(interval);
-    }, []);
 
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -94,23 +80,47 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                     const data = await response.json();
                     if (data.success && data.categories) {
                         const categoryNames = data.categories.map((cat: any) => cat.name);
-                        setCategories(['All', ...categoryNames]);
+                        setCategories(['All', 'Trending', 'New', ...categoryNames]);
+                    } else {
+                        setCategories(['All', 'Trending', 'New']);
                     }
+                } else {
+                    setCategories(['All', 'Trending', 'New']);
                 }
             } catch (error) {
                 console.error("Failed to fetch categories:", error);
+                setCategories(['All', 'Trending', 'New']);
             }
         }
         fetchCategories();
     }, []);
 
-    const filteredMarkets = markets.filter(m => {
-        const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (m.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-        const category = m.category_id || 'General';
-        const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
-        return matchesSearch && matchesCategory;
-    });
+    const filteredMarkets = (() => {
+        // First apply search filter
+        let result = markets.filter(m => {
+            const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (m.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesSearch;
+        });
+
+        // Then apply category filter/sort
+        if (selectedCategory === 'Trending') {
+            // Sort by volume descending
+            result = [...result].sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
+        } else if (selectedCategory === 'New') {
+            // Filter markets created in last 24 hours
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            result = result
+                .filter(m => m.created_at && new Date(m.created_at) > oneDayAgo)
+                .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        } else if (selectedCategory !== 'All') {
+            // Filter by regular category
+            const category = (m: MultiMarket) => m.category_id || 'General';
+            result = result.filter(m => category(m) === selectedCategory);
+        }
+
+        return result;
+    })();
 
     if (loading) return <div className="p-4"><SkeletonLoader /></div>;
 
@@ -169,51 +179,29 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                                 : "bg-white/5 text-white/60 text-shadow-sm border border-white/5"
                                 }`}
                         >
+                            {cat === 'Trending' && <TrendingUp className="w-3 h-3 inline mr-1" />}
                             {cat}
                         </button>
                     ))}
                 </div>
             )}
 
-            {/* Trending Feed (Boxed Cards) - Only show if no search query */}
-            {!searchQuery && selectedCategory === "All" && (
-                <>
-                    <div className="flex items-center gap-2 mb-4 px-4">
-                        <TrendingUp className="w-5 h-5 text-neon-cyan" />
-                        <h2 className="text-xl font-heading font-bold">Trending Feed</h2>
-                    </div>
-
-                    <div
-                        ref={scrollRef}
-                        className="flex overflow-x-auto snap-x snap-mandatory pb-4 no-scrollbar scroll-smooth mb-8"
-                        style={{
-                            scrollPaddingLeft: '16px',
-                            WebkitOverflowScrolling: 'touch'
-                        }}
-                    >
-                        {markets.slice(0, 6).map((market, index) => (
-                            <div
-                                key={market.id}
-                                className="flex-none snap-start snap-always"
-                                style={{
-                                    width: 'calc(100vw - 48px)',
-                                    marginLeft: index === 0 ? '16px' : '16px'
-                                }}
-                            >
-                                <TrendingMarketCard market={market} className="w-full h-full" />
-                            </div>
-                        ))}
-                        <div className="flex-none w-4" /> {/* Trailing space */}
-                    </div>
-                </>
-            )}
-
             {/* All Markets List (Bar Cards) */}
             <div className="px-4">
-                <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-5 h-5 text-neon-purple" />
+                <div className="flex items-center gap-2 mb-4 px-4">
+                    {selectedCategory === 'Trending' ? (
+                        <TrendingUp className="w-5 h-5 text-neon-cyan" />
+                    ) : selectedCategory === 'New' ? (
+                        <Clock className="w-5 h-5 text-neon-green" />
+                    ) : (
+                        <Users className="w-5 h-5 text-neon-purple" />
+                    )}
                     <h2 className="text-xl font-heading font-bold">
-                        {searchQuery || selectedCategory !== "All" ? "Results" : "All Markets"}
+                        {searchQuery
+                            ? "Search Results"
+                            : selectedCategory === 'All'
+                                ? "All Markets"
+                                : selectedCategory}
                     </h2>
                 </div>
 

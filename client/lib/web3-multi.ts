@@ -20,6 +20,7 @@ export interface MultiMarket {
     assertionPending?: boolean;
     assertedOutcome?: number;
     asserter?: string;
+    created_at?: string;  // Timestamp for market creation
     // Legacy fields for backward compatibility
     image?: string;          // Alias for image_url
     yesOdds?: number;
