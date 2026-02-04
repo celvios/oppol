@@ -133,3 +133,53 @@ body {
 .animate-scaleIn {
     animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* 
+   ----------------------------------------
+   PRIVY MODAL OVERRIDES (Cyberpunk/Neon) 
+   ----------------------------------------
+*/
+:root {
+    --privy-color-background: #020408 !important;
+    /* Matches --void */
+    --privy-color-background-2: #0f1219 !important;
+    --privy-color-foreground: #F8FAFC !important;
+    --privy-color-foreground-2: #94A3B8 !important;
+    --privy-color-foreground-3: #64748B !important;
+    --privy-color-accent: #00E0FF !important;
+    --privy-color-accent-light: rgba(0, 224, 255, 0.15) !important;
+    --privy-color-accent-dark: #00b0cc !important;
+    --privy-color-success: #4ADE80 !important;
+    --privy-color-error: #F87171 !important;
+
+    --privy-border-radius-sm: 8px !important;
+    --privy-border-radius-md: 16px !important;
+    /* More rounded */
+    --privy-border-radius-lg: 24px !important;
+
+    /* Fonts */
+    --privy-font-family: var(--font-inter), sans-serif !important;
+}
+
+/* Force Glass/Neon look on the modal container if accessible */
+[class*="privy-dialog-content"] {
+    border: 1px solid rgba(0, 224, 255, 0.2) !important;
+    box-shadow: 0 0 40px -10px rgba(0, 224, 255, 0.3) !important;
+    backdrop-filter: blur(20px) !important;
+    background: rgba(2, 4, 8, 0.95) !important;
+}
+
+/* Buttons inside Privy */
+[class*="privy-button-primary"] {
+    background: linear-gradient(90deg, #00E0FF, #00A3FF) !important;
+    color: #000 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 15px rgba(0, 224, 255, 0.4) !important;
+    border: none !important;
+    transition: all 0.3s ease !important;
+}
+
+[class*="privy-button-primary"]:hover {
+    box-shadow: 0 0 25px rgba(0, 224, 255, 0.6) !important;
+    transform: scale(1.02) !important;
+}

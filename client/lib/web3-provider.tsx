@@ -46,7 +46,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 appearance: {
                     theme: 'dark',
                     accentColor: '#00E0FF', // Neon Cyan
-                    logo: 'https://oppollbnb.vercel.app/icon.png',
+                    logo: 'https://oppollbnb.vercel.app/logo.png', // valid logo
                 },
                 embeddedWallets: {
                     createOnLogin: 'users-without-wallets',
