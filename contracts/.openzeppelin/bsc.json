@@ -750,7 +750,7 @@
             "label": "token",
             "offset": 0,
             "slot": "0",
-            "type": "t_contract(IERC20)2032",
+            "type": "t_contract(IERC20)1232",
             "contract": "PredictionMarketMultiV2",
             "src": "contracts\\PredictionMarketMultiV2.sol:56"
           },
@@ -758,7 +758,7 @@
             "label": "oracle",
             "offset": 0,
             "slot": "1",
-            "type": "t_contract(OptimisticOracleV3Interface)5509",
+            "type": "t_contract(OptimisticOracleV3Interface)1695",
             "contract": "PredictionMarketMultiV2",
             "src": "contracts\\PredictionMarketMultiV2.sol:57"
           },
@@ -790,7 +790,7 @@
             "label": "markets",
             "offset": 0,
             "slot": "5",
-            "type": "t_mapping(t_uint256,t_struct(Market)5580_storage)",
+            "type": "t_mapping(t_uint256,t_struct(Market)1766_storage)",
             "contract": "PredictionMarketMultiV2",
             "src": "contracts\\PredictionMarketMultiV2.sol:96"
           },
@@ -798,7 +798,7 @@
             "label": "positions",
             "offset": 0,
             "slot": "6",
-            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)5587_storage))",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)1773_storage))",
             "contract": "PredictionMarketMultiV2",
             "src": "contracts\\PredictionMarketMultiV2.sol:97"
           },
@@ -822,7 +822,7 @@
             "label": "creationToken",
             "offset": 0,
             "slot": "9",
-            "type": "t_contract(IERC20)2032",
+            "type": "t_contract(IERC20)1232",
             "contract": "PredictionMarketMultiV2",
             "src": "contracts\\PredictionMarketMultiV2.sol:104"
           },
@@ -930,11 +930,11 @@
             "label": "bytes32",
             "numberOfBytes": "32"
           },
-          "t_contract(IERC20)2032": {
+          "t_contract(IERC20)1232": {
             "label": "contract IERC20",
             "numberOfBytes": "20"
           },
-          "t_contract(OptimisticOracleV3Interface)5509": {
+          "t_contract(OptimisticOracleV3Interface)1695": {
             "label": "contract OptimisticOracleV3Interface",
             "numberOfBytes": "20"
           },
@@ -942,7 +942,7 @@
             "label": "mapping(address => bool)",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_address,t_struct(Position)5587_storage)": {
+          "t_mapping(t_address,t_struct(Position)1773_storage)": {
             "label": "mapping(address => struct PredictionMarketMultiV2.Position)",
             "numberOfBytes": "32"
           },
@@ -954,11 +954,11 @@
             "label": "mapping(bytes32 => uint256)",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)5587_storage))": {
+          "t_mapping(t_uint256,t_mapping(t_address,t_struct(Position)1773_storage))": {
             "label": "mapping(uint256 => mapping(address => struct PredictionMarketMultiV2.Position))",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_uint256,t_struct(Market)5580_storage)": {
+          "t_mapping(t_uint256,t_struct(Market)1766_storage)": {
             "label": "mapping(uint256 => struct PredictionMarketMultiV2.Market)",
             "numberOfBytes": "32"
           },
@@ -970,7 +970,7 @@
             "label": "string",
             "numberOfBytes": "32"
           },
-          "t_struct(Market)5580_storage": {
+          "t_struct(Market)1766_storage": {
             "label": "struct PredictionMarketMultiV2.Market",
             "members": [
               {
@@ -1072,7 +1072,7 @@
             ],
             "numberOfBytes": "480"
           },
-          "t_struct(Position)5587_storage": {
+          "t_struct(Position)1773_storage": {
             "label": "struct PredictionMarketMultiV2.Position",
             "members": [
               {
