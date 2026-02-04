@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle } from "lucide-react";
+import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle, Camera } from "lucide-react";
 import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
 import { web3MultiService as web3Service, MultiMarket as Market } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -15,6 +15,8 @@ import NeonButton from "@/components/ui/NeonButton";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 import LogoBrand from "@/components/ui/LogoBrand";
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
+import html2canvas from "html2canvas";
+import { ShareChartModal } from "@/components/ui/ShareChartModal";
 
 // Lazy load heavy components
 const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
@@ -130,6 +132,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const [isTradeSheetOpen, setIsTradeSheetOpen] = useState(false);
     const [tradeSide, setTradeSide] = useState<string>('YES'); // Changed to string to support multi-outcome names
     const [selectedOutcomeIndex, setSelectedOutcomeIndex] = useState<number>(0);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareImageSrc, setShareImageSrc] = useState<string>("");
+    const chartRef = useRef<HTMLDivElement>(null);
 
     const { isConnected, address, isConnecting, disconnect, connect } = useWallet();
     const MARKET_CONTRACT = getMarketContract();
@@ -342,6 +347,31 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
         }
     }, [retryCount]);
 
+    const handleShareChart = async () => {
+        if (!chartRef.current) return;
+
+        setIsShareModalOpen(true);
+        setShareImageSrc("");
+
+        try {
+            const canvas = await html2canvas(chartRef.current, {
+                backgroundColor: '#020408',
+                scale: 2,
+                logging: false,
+                useCORS: true
+            });
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                setShareImageSrc(url);
+            }, 'image/png');
+        } catch (err) {
+            console.error("Failed to capture chart:", err);
+            setIsShareModalOpen(false);
+        }
+    };
+
     if (errorInfo) {
         return (
             <div className="p-6 text-white">
@@ -415,133 +445,150 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                 <FeaturedCarousel markets={markets} />
             </div>
 
-            {/* 2. Price Hero */}
-            <div className="relative overflow-hidden mb-6">
-                {metadata && (
-                    <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
-                        <img
-                            src={metadata.image}
-                            alt=""
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-void via-void/80 to-transparent" />
-                    </div>
-                )}
-
-                <div className="px-6 py-8 relative z-10">
-                    <div className="flex items-start gap-4 mb-4">
-                        {/* Market Icon */}
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0">
-                            <img
-                                src={metadata?.image || '/markets/bitcoin.png'}
-                                alt=""
-                                className="w-8 h-8 object-contain"
-                                onError={(e) => {
-                                    // Fallback to a simple icon if image fails
-                                    e.currentTarget.style.display = 'none';
-                                }}
-                            />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
-                                {market.question}
-                                {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
-                            </h1>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">
-                                    {market.resolved ? (
-                                        <span className="text-neon-cyan">Resolved</span>
-                                    ) : (Date.now() / 1000) > (market.endTime || 0) ? (
-                                        <span className="text-orange-400">Ended {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : ''}</span>
-                                    ) : (
-                                        <span>Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}</span>
-                                    )}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
+            {/* Capture container for mobile chart sharing */}
+            <div ref={chartRef}>
+                {/* 2. Price Hero */}
+                <div className="relative overflow-hidden mb-6">
                     {metadata && (
-                        <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
-                            {metadata.description}
-                        </p>
+                        <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-screen">
+                            <img
+                                src={metadata.image}
+                                alt=""
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-void via-void/80 to-transparent" />
+                        </div>
                     )}
 
-                    <div className="flex items-end gap-3 mt-4">
-                        <div className={`text-3xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-2`}>
-                            {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
-                            <span className="text-sm font-heading font-medium text-white/50 tracking-normal">Chance</span>
+                    <div className="px-6 py-8 relative z-10">
+                        <div className="flex items-start gap-4 mb-4">
+                            {/* Market Icon */}
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0">
+                                <img
+                                    src={metadata?.image || '/markets/bitcoin.png'}
+                                    alt=""
+                                    className="w-8 h-8 object-contain"
+                                    onError={(e) => {
+                                        // Fallback to a simple icon if image fails
+                                        e.currentTarget.style.display = 'none';
+                                    }}
+                                />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-2xl font-heading font-bold text-white mb-2 leading-tight drop-shadow-md">
+                                    {market.question}
+                                    {isLoadingReal && <span className="text-xs text-yellow-400 ml-2">(Loading...)</span>}
+                                </h1>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">
+                                        {market.resolved ? (
+                                            <span className="text-neon-cyan">Resolved</span>
+                                        ) : (Date.now() / 1000) > (market.endTime || 0) ? (
+                                            <span className="text-orange-400">Ended {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : ''}</span>
+                                        ) : (
+                                            <span>Ends {market.endTime ? formatDistanceToNow(market.endTime * 1000, { addSuffix: true }) : 'Unknown'}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        {/* Percentage removed as requested */}
+
+                        {metadata && (
+                            <p className="text-sm text-white/70 mb-4 line-clamp-3 leading-relaxed max-w-[90%] backdrop-blur-sm bg-black/20 p-2 rounded-lg border border-white/5">
+                                {metadata.description}
+                            </p>
+                        )}
+
+                        <div className="flex items-end gap-3 mt-4">
+                            <div className={`text-3xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-2`}>
+                                {((market.outcomes?.length || 2) > 2 ? Math.max(...(market.prices || [market.yesOdds || 50])) : (market.yesOdds || 50)).toFixed(1)}%
+                                <span className="text-sm font-heading font-medium text-white/50 tracking-normal">Chance</span>
+                            </div>
+                            {/* Percentage removed as requested */}
+                        </div>
+                    </div>
+                </div>
+
+
+                {/* 3. Chart - Lazy loaded */}
+                <div className="relative px-4 mb-6">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-sm font-heading text-white">Chance Wave</h3>
+                        <button
+                            onClick={handleShareChart}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
+                            title="Share Chart"
+                        >
+                            <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                        </button>
+                    </div>
+                    <div className="h-[220px] w-full relative">
+                        {/* Watermark Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
+                            <LogoBrand size="xl" />
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
+                        <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData}>
+                                    <defs>
+                                        {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                            const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                                            return (
+                                                <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                                </linearGradient>
+                                            );
+                                        })}
+                                    </defs>
+
+                                    <Tooltip
+                                        content={<CustomTooltip />}
+                                        cursor={{
+                                            stroke: 'rgba(255,255,255,0.3)',
+                                            strokeWidth: 2,
+                                            strokeDasharray: '4 4'
+                                        }}
+                                    />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="time" hide />
+                                    <YAxis domain={[0, 100]} hide />
+                                    {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
+                                        let color;
+                                        const lower = outcome.toLowerCase();
+                                        if (lower === 'yes') color = '#27E8A7';
+                                        else if (lower === 'no') color = '#FF2E63';
+                                        else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+
+                                        return (
+                                            <Area
+                                                key={outcome}
+                                                type="monotone"
+                                                dataKey={outcome}
+                                                name={outcome}
+                                                stroke={color}
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill={`url(#gradient-${index})`}
+                                                animationDuration={0}
+                                                activeDot={{
+                                                    r: 4,
+                                                    fill: '#fff',
+                                                    stroke: color,
+                                                    strokeWidth: 2
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </Suspense>
                     </div>
                 </div>
             </div>
-
-            {/* 3. Chart - Lazy loaded */}
-            <div className="h-[220px] w-full mb-6 relative">
-                {/* Watermark Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
-                    <LogoBrand size="xl" />
-                </div>
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-void to-transparent z-10 pointer-events-none" />
-                <Suspense fallback={<div className="h-full bg-white/5 rounded-lg animate-pulse" />}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                            <defs>
-                                {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                                    const color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-                                    return (
-                                        <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                            <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                        </linearGradient>
-                                    );
-                                })}
-                            </defs>
-
-                            <Tooltip
-                                content={<CustomTooltip />}
-                                cursor={{
-                                    stroke: 'rgba(255,255,255,0.3)',
-                                    strokeWidth: 2,
-                                    strokeDasharray: '4 4'
-                                }}
-                            />
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis dataKey="time" hide />
-                            <YAxis domain={[0, 100]} hide />
-                            {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
-                                let color;
-                                const lower = outcome.toLowerCase();
-                                if (lower === 'yes') color = '#27E8A7';
-                                else if (lower === 'no') color = '#FF2E63';
-                                else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-
-                                return (
-                                    <Area
-                                        key={outcome}
-                                        type="monotone"
-                                        dataKey={outcome}
-                                        name={outcome}
-                                        stroke={color}
-                                        strokeWidth={2}
-                                        fillOpacity={1}
-                                        fill={`url(#gradient-${index})`}
-                                        animationDuration={0}
-                                        activeDot={{
-                                            r: 4,
-                                            fill: '#fff',
-                                            stroke: color,
-                                            strokeWidth: 2
-                                        }}
-                                    />
-                                );
-                            })}
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </Suspense>
-            </div>
+            {/* End capture container */}
 
             {/* 5. Metrics Cards */}
             <div className="px-4 grid grid-cols-2 gap-4 mb-10">
@@ -664,6 +711,15 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             <div className="px-4 pb-20 mt-8">
                 <CommentsSection marketId={market.id} />
             </div>
+
+            {/* Share Modal */}
+            <ShareChartModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                imageSrc={shareImageSrc}
+                marketQuestion={market.question}
+                marketId={market.id}
+            />
         </div >
     );
 }
