@@ -147,10 +147,10 @@ export default function ConnectWalletModal({
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 }}
                             >
-                                <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
+                                <h2 className="text-3xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                                     {content.title}
                                 </h2>
-                                <p className="text-white/60 text-sm mb-8 leading-relaxed max-w-[80%] mx-auto">
+                                <p className="text-white/60 text-sm mb-8 leading-relaxed max-w-[80%] mx-auto font-medium">
                                     {content.subtitle}
                                 </p>
                             </motion.div>
@@ -191,8 +191,9 @@ export default function ConnectWalletModal({
                                 transition={{ delay: 0.3 }}
                                 className="mt-6 flex flex-col gap-2"
                             >
-                                <p className="text-[10px] text-white/30 uppercase tracking-widest font-mono">
-                                    Protected by Privy Secure Enclave
+                                <p className="text-[10px] text-white/30 uppercase tracking-widest font-mono flex items-center justify-center gap-2">
+                                    <span>Powered by</span>
+                                    <span className="text-neon-cyan font-bold glow-sm">OPoll</span>
                                 </p>
                                 <div className="flex justify-center gap-3 opacity-30 grayscale hover:grayscale-0 transition-all duration-500">
                                     {/* Small icons for supported wallets as visual proof */}
