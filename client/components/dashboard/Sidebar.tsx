@@ -42,9 +42,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     const handleLogout = async () => {
-        disconnect();
-        await logout();
-        router.push('/');
+        try {
+            // First disconnect wallet
+            disconnect();
+
+            // Then logout from Privy
+            await logout();
+
+            // CRITICAL: Clear all localStorage to prevent auto-reconnect
+            if (typeof window !== 'undefined') {
+                // Clear Privy session data
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('privy:')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                // Clear any other wallet connections
+                localStorage.removeItem('wagmi.wallet');
+                localStorage.removeItem('wagmi.store');
+                localStorage.removeItem('wagmi.cache');
+            }
+
+            // Navigate to home
+            router.push('/');
+        } catch (error) {
+            console.error('[Sidebar] Logout error:', error);
+        }
     };
 
     const handleCreateClick = (e: React.MouseEvent) => {
