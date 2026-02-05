@@ -162,6 +162,18 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    // Main menu command
+    if (message === 'menu' || message === 'm' || message === '0') {
+      await handleMainMenu(phoneNumber);
+      return;
+    }
+
+    // Handle numbered menu selections (1-10) when no active session
+    if (!session && /^[1-9]|10$/.test(message)) {
+      await handleMenuSelection(phoneNumber, message);
+      return;
+    }
+
     if (message === 'search' || message === 's') {
       await handleSearch(phoneNumber);
       return;
@@ -213,9 +225,9 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
-    // If no session and no recognized command, show welcome menu
+    // If no session and no recognized command, show menu (auto-start for new users)
     if (!session) {
-      await handleStart(phoneNumber);
+      await handleMainMenu(phoneNumber);
       return;
     }
 
@@ -229,30 +241,81 @@ app.post('/webhook/whatsapp', async (req, res) => {
 });
 
 async function handleStart(phoneNumber: string) {
-  sessionManager.clear(phoneNumber);
-
-  // Auto-create wallet
+  // Create user if doesn't exist
   try {
-    const userData = await API.getOrCreateUser(phoneNumber);
-    analytics.trackUser(phoneNumber, userData.isNew);
+    await API.getOrCreateUser(phoneNumber);
   } catch (error) {
     console.error('Failed to create user:', error);
   }
 
-  // Send welcome with menu buttons
-  const menuText = `🎰 *Welcome to OPOLL!*
+  // Send welcome message
+  await sendMessage(phoneNumber, messages.welcome);
+}
 
-The first prediction market on WhatsApp.
+// Main Menu Handler
+async function handleMainMenu(phoneNumber: string) {
+  sessionManager.clear(phoneNumber);
+  await sendMessage(phoneNumber, messages.mainMenu);
+}
 
-Bet on real-world events and earn money when you're right!
+// Menu Selection Router (handles 1-10 from main menu)
+async function handleMenuSelection(phoneNumber: string, selection: string) {
+  switch (selection) {
+    case '1': // Browse Markets
+      await handleMarkets(phoneNumber);
+      break;
+    case '2': // Trending
+      await handleTrending(phoneNumber);
+      break;
+    case '3': // Search
+      await handleSearch(phoneNumber);
+      break;
+    case '4': // Profile
+      await handleProfile(phoneNumber);
+      break;
+    case '5': // Positions
+      await handlePositions(phoneNumber);
+      break;
+    case '6': // Bet History
+      await handleBetHistory(phoneNumber);
+      break;
+    case '7': // Deposit
+      await handleDeposit(phoneNumber);
+      break;
+    case '8': // Withdraw
+      await handleWithdraw(phoneNumber);
+      break;
+    case '9': // Alerts & Settings
+      await handleAlertsMenu(phoneNumber);
+      break;
+    case '10': // Help
+      await handleHelp(phoneNumber);
+      break;
+    default:
+      await handleMainMenu(phoneNumber);
+  }
+}
 
-Choose an option below:`;
+// Help Handler
+async function handleHelp(phoneNumber: string) {
+  await sendMessage(phoneNumber, messages.help);
+}
 
-  await sendMessageWithButtons(phoneNumber, menuText, [
-    { id: 'markets', title: '📊 Markets' },
-    { id: 'profile', title: '👤 Profile' },
-    { id: 'help', title: '❓ Help' }
-  ]);
+// Alerts & Settings Menu
+async function handleAlertsMenu(phoneNumber: string) {
+  const text = `⚙️ *Alerts & Settings*\n\n` +
+    `1️⃣ View Alerts\n` +
+    `2️⃣ Set New Alert\n` +
+    `3️⃣ Clear All Alerts\n\n` +
+    `〰️〰️〰️\n` +
+    `1-3: Option | 0: Menu`;
+
+  sessionManager.update(phoneNumber, {
+    state: UserState.BROWSING_MARKETS,
+    data: { alertsMenu: true }
+  });
+
+  await sendMessage(phoneNumber, text);
 }
 
 async function handleMarkets(phoneNumber: string) {
