@@ -30,28 +30,32 @@ async function syncMarket(marketId: number, marketContract: ethers.Contract): Pr
             marketContract.getAllPrices(marketId),
         ]);
 
-        // Convert prices to simple number array (basis points to percentages)
         const pricesFormatted = prices.map((p: bigint) => Number(p) / 100);
 
-        // Update database with current market state
+        // Insert or update market
         await query(
-            `UPDATE markets 
-             SET prices = $1,
-                 resolved = $2,
-                 winning_outcome = $3,
-                 end_time = $4,
-                 liquidity_param = $5,
-                 outcome_count = $6,
-                 last_indexed_at = NOW()
-             WHERE market_id = $7`,
+            `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, last_indexed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+             ON CONFLICT (market_id) DO UPDATE 
+             SET prices = $6,
+                 resolved = $7,
+                 winning_outcome = $8,
+                 end_time = $9,
+                 liquidity_param = $10,
+                 outcome_count = $11,
+                 last_indexed_at = NOW()`,
             [
+                marketId,
+                basicInfo.question,
+                basicInfo.description,
+                basicInfo.image,
+                JSON.stringify(outcomes),
                 JSON.stringify(pricesFormatted),
                 basicInfo.resolved,
                 Number(basicInfo.winningOutcome),
                 new Date(Number(basicInfo.endTime) * 1000),
                 ethers.formatUnits(basicInfo.liquidityParam, 18),
                 Number(basicInfo.outcomeCount),
-                marketId,
             ]
         );
 
@@ -82,14 +86,10 @@ export async function syncAllMarkets(): Promise<void> {
 
         console.log(`[Indexer] Starting sync for ${marketCount} markets...`);
 
-        // Get list of market IDs that exist in database (to avoid syncing deleted markets)
-        const dbResult = await query('SELECT market_id FROM markets ORDER BY market_id');
-        const validMarketIds = dbResult.rows.map((row: any) => row.market_id);
+        // Sync all markets from blockchain (will insert new ones)
+        const marketsToSync = Array.from({ length: marketCount }, (_, i) => i);
 
-        // Filter to only sync markets that are both on-chain and in DB
-        const marketsToSync = validMarketIds.filter((id: number) => id < marketCount);
-
-        console.log(`[Indexer] Syncing ${marketsToSync.length} active markets...`);
+        console.log(`[Indexer] Syncing ${marketsToSync.length} markets...`);
 
         // Sync in batches to avoid overwhelming RPC
         const BATCH_SIZE = 5;
