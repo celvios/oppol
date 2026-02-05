@@ -636,7 +636,7 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
   const market = markets[num - 1];
   sessionManager.update(phoneNumber, {
     state: UserState.VIEWING_MARKET,
-    data: { ...session.data, marketId: market.market_id }
+    data: { ...session.data, marketId: market.market_id, selectedMarket: market }
   });
 
   const text = formatMarketDetails(market);
@@ -647,7 +647,12 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
   const marketId = session.data.marketId;
   console.log(`[OUTCOME] Looking for market ID: ${marketId}`);
 
-  const market = await API.getMarket(marketId);
+  // Try to get market from session first, then fetch if needed
+  let market = session.data.selectedMarket;
+  if (!market) {
+    console.log(`[OUTCOME] Market not in session, fetching from API...`);
+    market = await API.getMarket(marketId);
+  }
 
   if (!market) {
     console.error(`[OUTCOME] ❌ Market ${marketId} not found!`);
@@ -655,6 +660,8 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
     sessionManager.clear(phoneNumber);
     return;
   }
+  
+  console.log(`[OUTCOME] ✅ Market found: ${market.question}`);
 
   // Check if message is a number (selecting from list)
   const num = parseInt(message);
@@ -703,12 +710,18 @@ async function handleAmountInput(phoneNumber: string, message: string, session: 
   // Get market from session, or fetch if missing
   let market = session.data.selectedMarket;
   if (!market) {
+    console.log(`[AMOUNT] Market not in session, fetching from API...`);
     market = await API.getMarket(session.data.marketId);
     if (!market) {
       await sendMessage(phoneNumber, '❌ Market not found. Reply *markets* to try again');
       sessionManager.clear(phoneNumber);
       return;
     }
+    // Store it in session for next time
+    sessionManager.update(phoneNumber, {
+      state: session.state,
+      data: { ...session.data, selectedMarket: market }
+    });
   }
 
   // Show confirmation screen
