@@ -1,0 +1,24 @@
+{
+  "name": "opoll-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "OPOLL WhatsApp Bot for Prediction Markets",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "npm run build && node dist/index.js"
+  },
+  "dependencies": {
+    "twilio": "^5.3.5",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "body-parser": "^1.20.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/express": "^5.0.6",
+    "typescript": "^5.7.3",
+    "ts-node": "^10.9.2"
+  }
+}

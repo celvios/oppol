@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+SETUP.md
+TESTING.md
+DEPLOYMENT.md
+PHASE2_COMPLETE.md
