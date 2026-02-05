@@ -691,7 +691,7 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
 async function handleAmountInput(phoneNumber: string, message: string, session: any) {
   if (message === 'cancel') {
     sessionManager.clear(phoneNumber);
-    await sendMessage(phoneNumber, '❌ Bet cancelled\\n\\n〰️〰️〰️\\n0: Menu');
+    await sendMessage(phoneNumber, '❌ Bet cancelled\n\n〰️〰️〰️\n0: Menu');
     return;
   }
 
@@ -703,7 +703,7 @@ async function handleAmountInput(phoneNumber: string, message: string, session: 
 
   const amount = validateAmount(message);
   if (!amount) {
-    await sendMessage(phoneNumber, '❌ Invalid amount\\n\\nEnter a number (e.g., 10)\\n\\n〰️〰️〰️\\ncancel | 0: Menu');
+    await sendMessage(phoneNumber, '❌ Invalid amount\n\nEnter a number (e.g., 10)\n\n〰️〰️〰️\ncancel | 0: Menu');
     return;
   }
 
@@ -731,15 +731,15 @@ async function handleAmountInput(phoneNumber: string, message: string, session: 
   const estimatedShares = (amount / (price / 100)).toFixed(2);
   const maxWin = (amount / (price / 100) - amount).toFixed(2);
 
-  const confirmText = `🎯 *Confirm Your Bet*\\n\\n` +
-    `📊 Market: ${escapeMarkdown(market.question)}\\n\\n` +
-    `🎯 Betting on: *${outcomeName}*\\n` +
-    `💵 Amount: *$${amount}*\\n` +
-    `📈 Current odds: ${price}%\\n` +
-    `🎫 Est. shares: ~${estimatedShares}\\n` +
-    `💰 Max win: ~$${maxWin}\\n\\n` +
-    `〰️〰️〰️\\n` +
-    `Type *confirm* to place bet\\n` +
+  const confirmText = `🎯 *Confirm Your Bet*\n\n` +
+    `📊 Market: ${escapeMarkdown(market.question)}\n\n` +
+    `🎯 Betting on: *${outcomeName}*\n` +
+    `💵 Amount: *$${amount}*\n` +
+    `📈 Current odds: ${price}%\n` +
+    `🎫 Est. shares: ~${estimatedShares}\n` +
+    `💰 Max win: ~$${maxWin}\n\n` +
+    `〰️〰️〰️\n` +
+    `Type *confirm* to place bet\n` +
     `Type *cancel* to abort`;
 
   sessionManager.update(phoneNumber, {
