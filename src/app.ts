@@ -1886,11 +1886,11 @@ initDatabase().then(async () => {
     console.log('ℹ️ Price tracker disabled (no DATABASE_URL configured)');
   }
 
-  // Start Market Indexer (Syncs blockchain state to DB every 30s for efficient API responses)
+  // Start Market Indexer (Syncs blockchain state to DB every 2 minutes for efficient API responses)
   if (process.env.DATABASE_URL) {
     const { startMarketIndexer } = await import('./services/marketIndexer');
-    console.log('🔄 Starting market indexer (30s interval)...');
-    startMarketIndexer(30000); // Sync every 30 seconds
+    console.log('🔄 Starting market indexer (2min interval)...');
+    startMarketIndexer(120000); // Sync every 2 minutes
   } else {
     console.log('ℹ️ Market indexer disabled (no DATABASE_URL configured)');
   }
