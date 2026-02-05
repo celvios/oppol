@@ -52,7 +52,7 @@ async function sendMessageWithButtons(to: string, body: string, buttons: Button[
       message += `${idx + 1}. ${btn.title}\n`;
     });
     message += '\nReply with number or command name';
-    
+
     await sendMessage(to, message);
   } catch (error: any) {
     console.error('Failed to send button message:', error.message);
@@ -67,7 +67,7 @@ async function sendQuickReply(to: string, body: string, options: string[]) {
       message += `${idx + 1}. ${opt}\n`;
     });
     message += '\nReply with number or option name';
-    
+
     await sendMessage(to, message);
   } catch (error: any) {
     console.error('Failed to send quick reply:', error.message);
@@ -109,6 +109,21 @@ app.post('/webhook/whatsapp', async (req, res) => {
       sessionManager.clear(phoneNumber);
       await sendMessage(phoneNumber, '❌ Cancelled\n\nReply *menu* to start over');
       return;
+    }
+
+    // Handle numeric selections from welcome menu (when no session exists)
+    if (!session && ['1', '2', '3'].includes(message)) {
+      switch (message) {
+        case '1':
+          await handleMarkets(phoneNumber);
+          return;
+        case '2':
+          await handleProfile(phoneNumber);
+          return;
+        case '3':
+          await sendMessage(phoneNumber, messages.help);
+          return;
+      }
     }
 
     // Handle commands
@@ -194,7 +209,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
 async function handleStart(phoneNumber: string) {
   sessionManager.clear(phoneNumber);
-  
+
   // Auto-create wallet
   try {
     const userData = await API.getOrCreateUser(phoneNumber);
@@ -222,7 +237,7 @@ Choose an option below:`;
 async function handleMarkets(phoneNumber: string) {
   try {
     const markets = await API.getActiveMarkets();
-    
+
     if (markets.length === 0) {
       await sendMessage(phoneNumber, '📊 *No active markets*\n\nCheck back later!\n\nReply *menu* to go back');
       return;
@@ -418,7 +433,7 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
       '4': 'entertainment', 'entertainment': 'entertainment',
       '5': 'all', 'all': 'all'
     };
-    
+
     const category = categories[message];
     if (category) {
       if (category === 'all') {
@@ -444,10 +459,10 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
       return;
     }
   }
-  
+
   const markets = session.data.allMarkets || [];
   const page = session.data.page || 0;
-  
+
   if (message === 'next') {
     const newPage = page + 1;
     sessionManager.update(phoneNumber, { data: { ...session.data, page: newPage } });
@@ -484,13 +499,13 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
   // Check if message is a number (selecting from list)
   const num = parseInt(message);
   let outcomeIndex = -1;
-  
+
   if (!isNaN(num) && num >= 1 && num <= market.outcomes.length) {
     outcomeIndex = num - 1;
   } else {
     outcomeIndex = market.outcomes.findIndex(o => o.toLowerCase() === message);
   }
-  
+
   if (outcomeIndex === -1) {
     const outcomeList = market.outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n');
     await sendMessage(phoneNumber, `❌ Invalid outcome. Choose:\n\n${outcomeList}\n\nReply with number or name`);
@@ -520,7 +535,7 @@ async function handleAmountInput(phoneNumber: string, message: string, session: 
   }
 
   const amount = validateAmount(message);
-  
+
   if (!amount) {
     await sendMessage(phoneNumber, '❌ Invalid amount. Please enter a valid number (e.g., 10):\n\nReply *cancel* to abort');
     return;
@@ -610,7 +625,7 @@ async function handleWithdrawAmount(phoneNumber: string, message: string, sessio
   }
 
   const amount = validateAmount(message);
-  
+
   if (!amount) {
     await sendMessage(phoneNumber, '❌ Invalid amount. Please enter a valid number:\n\nReply *cancel* to abort');
     return;
@@ -675,7 +690,7 @@ app.listen(PORT, () => {
   console.log(`🚀 WhatsApp Bot running on port ${PORT}`);
   console.log(`📡 Webhook URL: ${process.env.WEBHOOK_BASE_URL}/webhook/whatsapp`);
   sessionManager.startCleanup();
-  
+
   // Start alert checking
   alertManager.startChecking(async (phoneNumber, message) => {
     await sendMessage(phoneNumber, message);
@@ -695,7 +710,7 @@ async function handleSearch(phoneNumber: string) {
 async function handleSearchQuery(phoneNumber: string, query: string) {
   try {
     const markets = await API.getActiveMarkets();
-    const filtered = markets.filter(m => 
+    const filtered = markets.filter(m =>
       m.question.toLowerCase().includes(query.toLowerCase()) ||
       (m.description && m.description.toLowerCase().includes(query.toLowerCase()))
     );
@@ -711,7 +726,7 @@ async function handleSearchQuery(phoneNumber: string, query: string) {
       data: { page: 0, allMarkets: filtered, searchQuery: query }
     });
 
-    const text = `🔍 *Search Results for "${query}"*\n\nFound ${filtered.length} market(s)\n\n` + 
+    const text = `🔍 *Search Results for "${query}"*\n\nFound ${filtered.length} market(s)\n\n` +
       formatMarketList(filtered, 0);
     await sendMessage(phoneNumber, text);
   } catch (error: any) {
@@ -723,7 +738,7 @@ async function handleSearchQuery(phoneNumber: string, query: string) {
 // View alerts
 async function handleViewAlerts(phoneNumber: string) {
   const alerts = alertManager.getAlerts(phoneNumber);
-  
+
   if (alerts.length === 0) {
     await sendMessage(phoneNumber, '🔔 *No Active Alerts*\n\nSet alerts to get notified when prices change!\n\nReply *setalert* to create one\nReply *markets* to browse');
     return;
@@ -735,7 +750,7 @@ async function handleViewAlerts(phoneNumber: string) {
     text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
   });
   text += 'Reply *clearalerts* to remove all\nReply *menu* to go back';
-  
+
   await sendMessage(phoneNumber, text);
 }
 
@@ -743,7 +758,7 @@ async function handleViewAlerts(phoneNumber: string) {
 async function handleSetAlert(phoneNumber: string) {
   try {
     const markets = await API.getActiveMarkets();
-    
+
     if (markets.length === 0) {
       await sendMessage(phoneNumber, '📊 *No active markets*\n\nCheck back later!');
       return;
@@ -764,7 +779,7 @@ async function handleSetAlert(phoneNumber: string) {
 async function handleAlertMarketSelection(phoneNumber: string, message: string, session: any) {
   const markets = session.data.allMarkets || [];
   const num = parseInt(message);
-  
+
   if (isNaN(num) || num < 1 || num > markets.length) {
     await sendMessage(phoneNumber, '❌ Invalid number. Reply with a market number or *cancel*');
     return;
@@ -781,7 +796,7 @@ async function handleAlertMarketSelection(phoneNumber: string, message: string, 
     text += `${i + 1}. ${o} (${market.prices[i]}%)\n`;
   });
   text += '\nReply with number or *cancel*';
-  
+
   await sendMessage(phoneNumber, text);
 }
 
@@ -809,13 +824,13 @@ async function handleAlertOutcomeSelection(phoneNumber: string, message: string,
 
   const outcomeName = market.outcomes[outcomeIndex];
   const currentPrice = market.prices[outcomeIndex];
-  
+
   await sendMessage(phoneNumber, `🔔 *Alert for: ${outcomeName}*\n\nCurrent price: ${currentPrice}%\n\nEnter target price (1-99):\n\nReply *cancel* to abort`);
 }
 
 async function handleAlertPriceInput(phoneNumber: string, message: string, session: any) {
   const price = parseInt(message);
-  
+
   if (isNaN(price) || price < 1 || price > 99) {
     await sendMessage(phoneNumber, '❌ Invalid price. Enter a number between 1-99 or *cancel*');
     return;
@@ -831,7 +846,7 @@ async function handleAlertPriceInput(phoneNumber: string, message: string, sessi
 
 async function handleAlertDirectionSelection(phoneNumber: string, message: string, session: any) {
   const direction = message === '1' ? 'above' : message === '2' ? 'below' : null;
-  
+
   if (!direction) {
     await sendMessage(phoneNumber, '❌ Invalid choice. Reply with 1 (above) or 2 (below)');
     return;
@@ -876,19 +891,19 @@ async function handleCategories(phoneNumber: string) {
     `4. 🎬 Entertainment\n` +
     `5. 📊 All Markets\n\n` +
     `Reply with number or name`;
-  
+
   sessionManager.update(phoneNumber, {
     state: UserState.BROWSING_MARKETS,
     data: { categorySelection: true }
   });
-  
+
   await sendMessage(phoneNumber, text);
 }
 
 async function handleTrending(phoneNumber: string) {
   try {
     const markets = await API.getTrendingMarkets();
-    
+
     if (markets.length === 0) {
       await sendMessage(phoneNumber, '🔥 *No trending markets*\n\nReply *markets* to see all');
       return;
@@ -909,7 +924,7 @@ async function handleTrending(phoneNumber: string) {
 async function handleEndingSoon(phoneNumber: string) {
   try {
     const markets = await API.getEndingSoonMarkets();
-    
+
     if (markets.length === 0) {
       await sendMessage(phoneNumber, '⏰ *No markets ending soon*\n\nReply *markets* to see all');
       return;
