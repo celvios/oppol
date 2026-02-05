@@ -645,10 +645,14 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
 
 async function handleOutcomeSelection(phoneNumber: string, message: string, session: any) {
   const marketId = session.data.marketId;
+  console.log(`[OUTCOME] Looking for market ID: ${marketId}`);
+
   const market = await API.getMarket(marketId);
 
   if (!market) {
-    await sendMessage(phoneNumber, '❌ Market not found');
+    console.error(`[OUTCOME] ❌ Market ${marketId} not found!`);
+    await sendMessage(phoneNumber, `❌ Market not found (ID: ${marketId})\n\nReply *markets* to try again`);
+    sessionManager.clear(phoneNumber);
     return;
   }
 
