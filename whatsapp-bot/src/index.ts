@@ -203,6 +203,16 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    if (message === 'health') {
+      await handleHealth(phoneNumber);
+      return;
+    }
+
+    if (message === 'analytics') {
+      await handleAnalytics(phoneNumber);
+      return;
+    }
+
     // If no session and no recognized command, show welcome menu
     if (!session) {
       await handleStart(phoneNumber);
@@ -475,8 +485,22 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
   const page = session.data.page || 0;
 
   if (message === 'next') {
-    const newPage = page + 1;
-    sessionManager.update(phoneNumber, { data: { ...session.data, page: newPage } });
+    const newPage = (session.data.page || 0) + 1;
+    sessionManager.update(phoneNumber, {
+      state: session.state,
+      data: { ...session.data, page: newPage }
+    });
+    const text = formatMarketList(markets, newPage);
+    await sendMessage(phoneNumber, text);
+    return;
+  }
+
+  if (message === 'prev') {
+    const newPage = Math.max((session.data.page || 0) - 1, 0);
+    sessionManager.update(phoneNumber, {
+      state: session.state,
+      data: { ...session.data, page: newPage }
+    });
     const text = formatMarketList(markets, newPage);
     await sendMessage(phoneNumber, text);
     return;
@@ -529,7 +553,7 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
   });
 
   const outcomeName = market.outcomes[outcomeIndex];
-  await sendMessage(phoneNumber, `💰 *Betting on: ${outcomeName}*\n\nHow much USDC do you want to bet?\n\nType the amount (e.g., 10):\n\nReply *cancel* to abort`);
+  await sendMessage(phoneNumber, `💰 *Betting on: ${outcomeName}*\n\nHow much USDC to bet?\n\n💵 *Quick amounts:* 5 | 10 | 25 | 50 | 100\n\nOr type custom amount (e.g., 15)\n\nReply *cancel* to abort`);
 }
 
 async function handleAmountInput(phoneNumber: string, message: string, session: any) {
@@ -751,6 +775,49 @@ async function handleBetHistory(phoneNumber: string) {
   } catch (error: any) {
     console.error(`[BET HISTORY] ❌ Error:`, error.message);
     await sendMessage(phoneNumber, `❌ Failed to load bet history: ${error.message}\n\nReply *menu* to try again`);
+  }
+}
+
+// Health Check
+async function handleHealth(phoneNumber: string) {
+  const uptime = process.uptime();
+  const days = Math.floor(uptime / 86400);
+  const hours = Math.floor((uptime % 86400) / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+
+  const text = `✅ *System Health*\\n\\n` +
+    `⏱ *Uptime:* ${days}d ${hours}h ${minutes}m\\n` +
+    `🟢 *API:* Online\\n` +
+    `📱 *WhatsApp Bot:* Active\\n` +
+    `💾 *Memory:* ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB\\n\\n` +
+    `Reply *menu* for main menu`;
+
+  await sendMessage(phoneNumber, text);
+}
+
+// Analytics
+async function handleAnalytics(phoneNumber: string) {
+  try {
+    const markets = await API.getActiveMarkets();
+    const positions = await API.getUserPositions(phoneNumber);
+
+    const totalVolume = markets.reduce((sum, m) => {
+      const vol = parseFloat(m.totalVolume || '0');
+      return sum + vol;
+    }, 0);
+
+    const activeCount = markets.length;
+    const myBets = positions.length;
+
+    const text = `📊 *Platform Analytics*\\n\\n` +
+      `📈 *Active Markets:* ${activeCount}\\n` +
+      `💰 *Total Volume:* $${totalVolume.toFixed(2)}\\n` +
+      `🎯 *Your Bets:* ${myBets}\\n\\n` +
+      `Reply *menu* for main menu`;
+
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    await sendMessage(phoneNumber, `❌ Failed to load analytics: ${error.message}\\n\\nReply *menu* to try again`);
   }
 }
 

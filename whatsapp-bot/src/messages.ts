@@ -47,6 +47,8 @@ If you're right, you profit!
 • *setalert* - Create alert
 • *deposit* (d) - Add funds
 • *withdraw* (w) - Cash out
+• *health* - System status
+• *analytics* - Platform stats
 • *menu* - Main menu
 
 Reply *menu* to start trading!`,
