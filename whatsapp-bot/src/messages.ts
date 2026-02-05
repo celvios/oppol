@@ -42,6 +42,7 @@ If you're right, you profit!
 • *search* (s) - Search
 • *profile* (p) - Your stats
 • *positions* (pos) - Your bets
+• *bethistory* (bets, history) - Bet history with P&L
 • *alerts* (a) - View alerts
 • *setalert* - Create alert
 • *deposit* (d) - Add funds

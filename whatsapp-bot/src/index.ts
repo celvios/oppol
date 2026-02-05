@@ -198,6 +198,11 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    if (message === 'bethistory' || message === 'bets' || message === 'history' || message === 'txn') {
+      await handleBetHistory(phoneNumber);
+      return;
+    }
+
     // If no session and no recognized command, show welcome menu
     if (!session) {
       await handleStart(phoneNumber);
@@ -683,6 +688,69 @@ async function executeWithdraw(phoneNumber: string, session: any) {
   } catch (error: any) {
     await sendMessage(phoneNumber, `❌ Withdrawal failed: ${error.message}\n\nReply *menu* to try again`);
     sessionManager.clear(phoneNumber);
+  }
+}
+
+// Bet History
+async function handleBetHistory(phoneNumber: string) {
+  console.log(`[BET HISTORY] Starting for ${phoneNumber}`);
+  try {
+    const positions = await API.getUserPositions(phoneNumber);
+
+    if (positions.length === 0) {
+      await sendMessage(phoneNumber, '📊 *No Bets Yet*\n\nYou haven\'t placed any bets.\n\nReply *markets* to start betting!\nReply *menu* to go back');
+      return;
+    }
+
+    console.log(`[BET HISTORY] Got ${positions.length} positions`);
+    const markets = await API.getActiveMarkets();
+
+    let text = '📊 *Your Bet History*\n\n';
+    let totalPnL = 0;
+
+    positions.forEach((pos, idx) => {
+      const market = markets.find(m => m.market_id === pos.marketId);
+      let pnl = 0;
+      let status = '';
+
+      if (pos.resolved) {
+        // Resolved - calculate actual win/loss
+        const isWinner = pos.winningOutcome === pos.outcome;
+        if (isWinner) {
+          pnl = pos.shares - pos.totalInvested;
+          status = '✅ WON';
+        } else {
+          pnl = -pos.totalInvested;
+          status = '❌ LOST';
+        }
+      } else if (market?.prices) {
+        // Active - calculate current value
+        const currentPrice = market.prices[pos.outcome] / 100;
+        const currentValue = pos.shares * currentPrice;
+        pnl = currentValue - pos.totalInvested;
+        status = '⏳ ACTIVE';
+      } else {
+        status = '❓ UNKNOWN';
+      }
+
+      totalPnL += pnl;
+      const pnlSign = pnl >= 0 ? '+' : '';
+      const question = pos.question.length > 40 ? pos.question.substring(0, 37) + '...' : pos.question;
+
+      text += `${idx + 1}. ${escapeMarkdown(question)}\n`;
+      text += `   ${pos.outcomeName} - ${status}\n`;
+      text += `   Invested: $${pos.totalInvested.toFixed(2)} | P&L: ${pnlSign}$${pnl.toFixed(2)}\n\n`;
+    });
+
+    const totalSign = totalPnL >= 0 ? '+' : '';
+    text += `💰 *Total P&L: ${totalSign}$${totalPnL.toFixed(2)}*\n\n`;
+    text += 'Reply *menu* to go back';
+
+    console.log(`[BET HISTORY] ✅ Sending history`);
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    console.error(`[BET HISTORY] ❌ Error:`, error.message);
+    await sendMessage(phoneNumber, `❌ Failed to load bet history: ${error.message}\n\nReply *menu* to try again`);
   }
 }
 
