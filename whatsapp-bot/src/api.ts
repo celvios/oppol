@@ -5,14 +5,37 @@ const API_BASE = process.env.API_BASE_URL || 'http://localhost:3001/api';
 
 export class API {
   static async getOrCreateUser(phoneNumber: string): Promise<UserData> {
-    const { data } = await axios.post(`${API_BASE}/whatsapp/user`, { phone: phoneNumber });
-    return data;
+    const url = `${API_BASE}/whatsapp/user`;
+    console.log(`[API] POST ${url}`, { phone: phoneNumber });
+    try {
+      const { data } = await axios.post(url, { phone: phoneNumber });
+      console.log(`[API] ✅ User data received:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[API] ❌ Failed to get/create user:`);
+      console.error(`  URL: ${url}`);
+      console.error(`  Status: ${error.response?.status}`);
+      console.error(`  Error: ${error.message}`);
+      console.error(`  Response:`, error.response?.data);
+      throw error;
+    }
   }
 
   static async getUserBalance(phoneNumber: string): Promise<number> {
-    const user = await this.getOrCreateUser(phoneNumber);
-    const { data } = await axios.get(`${API_BASE}/balance/${user.user.wallet_address}`);
-    return parseFloat(data.balances?.custodialWallet?.depositedInContract || '0');
+    try {
+      const user = await this.getOrCreateUser(phoneNumber);
+      const url = `${API_BASE}/balance/${user.user.wallet_address}`;
+      console.log(`[API] GET ${url}`);
+      const { data } = await axios.get(url);
+      const balance = parseFloat(data.balances?.custodialWallet?.depositedInContract || '0');
+      console.log(`[API] ✅ Balance: $${balance}`);
+      return balance;
+    } catch (error: any) {
+      console.error(`[API] ❌ Failed to get balance:`);
+      console.error(`  Error: ${error.message}`);
+      console.error(`  Status: ${error.response?.status}`);
+      throw error;
+    }
   }
 
   static async getActiveMarkets(): Promise<Market[]> {
@@ -71,16 +94,37 @@ export class API {
     toAddress: string,
     amount: number
   ): Promise<{ success: boolean; transactionHash?: string; message?: string }> {
-    const { data } = await axios.post(`${API_BASE}/whatsapp/withdraw`, {
-      phone: phoneNumber,
-      toAddress,
-      amount
-    });
-    return data;
+    const url = `${API_BASE}/whatsapp/withdraw`;
+    const payload = { phone: phoneNumber, toAddress, amount };
+    console.log(`[API] POST ${url}`, payload);
+    try {
+      const { data } = await axios.post(url, payload);
+      console.log(`[API] ✅ Withdrawal successful:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[API] ❌ Failed to withdraw:`);
+      console.error(`  URL: ${url}`);
+      console.error(`  Status: ${error.response?.status}`);
+      console.error(`  Error: ${error.message}`);
+      console.error(`  Response:`, error.response?.data);
+      throw error;
+    }
   }
 
   static async getUserPositions(phoneNumber: string): Promise<Position[]> {
-    const { data } = await axios.get(`${API_BASE}/whatsapp/positions/${phoneNumber}`);
-    return data.positions || [];
+    const url = `${API_BASE}/whatsapp/positions/${phoneNumber}`;
+    console.log(`[API] GET ${url}`);
+    try {
+      const { data } = await axios.get(url);
+      console.log(`[API] ✅ Positions received:`, data.positions?.length || 0, 'positions');
+      return data.positions || [];
+    } catch (error: any) {
+      console.error(`[API] ❌ Failed to get positions:`);
+      console.error(`  URL: ${url}`);
+      console.error(`  Status: ${error.response?.status}`);
+      console.error(`  Error: ${error.message}`);
+      console.error(`  Response:`, error.response?.data);
+      throw error;
+    }
   }
 }
