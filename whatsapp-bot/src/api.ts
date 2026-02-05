@@ -34,7 +34,7 @@ export class API {
     marketId: number,
     outcomeIndex: number,
     amount: number
-  ): Promise<{ success: boolean; transactionHash?: string; message?: string }> {
+  ): Promise<{ success: boolean; transactionHash?: string; message?: string; shares?: number }> {
     const user = await this.getOrCreateUser(phoneNumber);
     const { data } = await axios.post(`${API_BASE}/bet`, {
       walletAddress: user.user.wallet_address,

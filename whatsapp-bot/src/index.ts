@@ -483,7 +483,7 @@ async function executeBet(phoneNumber: string, session: any) {
       analytics.trackBet(amount);
 
       const balance = await API.getUserBalance(phoneNumber);
-      const shares = result.transaction?.shares || 0;
+      const shares = result.shares || 0;
       const text = `✅ *Bet Placed Successfully!*\n\n` +
         `Market: ${escapeMarkdown(market?.question || '')}\n` +
         `Outcome: ${outcomeName}\n` +

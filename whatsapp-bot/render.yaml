@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: opoll-whatsapp-bot
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3002
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        sync: false
+      - key: API_BASE_URL
+        sync: false
+      - key: ADMIN_PHONES
+        sync: false
+    healthCheckPath: /health

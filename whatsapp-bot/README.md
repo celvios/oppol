@@ -89,19 +89,33 @@ whatsapp-bot/
 │   └── types.ts       - TypeScript types
 ```
 
-## Deployment
+## Production Deployment
 
-### Render / Railway / Heroku:
+**Status:** ✅ Ready for production!
+
+See detailed guides:
+- 📋 [Quick Deployment Checklist](./DEPLOY_CHECKLIST.md)
+- 🚀 [Full Production Deployment Guide](./PRODUCTION_DEPLOY.md)
+- 🗺️ [Feature Roadmap (Phases 4-12)](./ROADMAP.md)
+
+### Quick Deploy to Render
 1. Push to GitHub
-2. Connect repository
-3. Set environment variables
-4. Deploy
-5. Update Twilio webhook URL
+2. Connect to Render
+3. Add environment variables
+4. Deploy!
 
-### PM2 (VPS):
-```bash
-npm install -g pm2
-npm run build
-pm2 start dist/index.js --name whatsapp-bot
-pm2 save
-```
+See [PRODUCTION_DEPLOY.md](./PRODUCTION_DEPLOY.md) for step-by-step instructions.
+
+## Next Features (Roadmap)
+
+- **Phase 4:** Alert Management & Notifications (2-3h)
+- **Phase 5:** Categories & Filters (2-3h)
+- **Phase 6:** Transaction History (2h)
+- **Phase 7:** Enhanced UX (3-4h)
+- **Phase 8:** Complete Admin Panel (3-4h)
+- **Phase 9:** Testing & Reliability (4-5h)
+- **Phase 10:** Performance & Scaling (5-6h)
+- **Phase 11:** Advanced Features (8-10h)
+- **Phase 12:** Business Features (10-12h)
+
+See [ROADMAP.md](./ROADMAP.md) for detailed feature breakdown.

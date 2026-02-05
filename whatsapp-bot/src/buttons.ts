@@ -25,8 +25,7 @@ export function createButtonMessage(body: string, buttons: Button[]): string {
   }
 
   const twiml = new MessagingResponse();
-  const message = twiml.message();
-  message.body(body);
+  const message = twiml.message(body);
 
   buttons.forEach(btn => {
     message.media(`button:${btn.id}:${btn.title}`);
@@ -48,8 +47,7 @@ export function createListMessage(
   }
 
   const twiml = new MessagingResponse();
-  const message = twiml.message();
-  message.body(body);
+  const message = twiml.message(body);
 
   sections.forEach(section => {
     section.items.forEach(item => {
@@ -76,8 +74,7 @@ export function createQuickReply(body: string, replies: string[]): string {
   }
 
   const twiml = new MessagingResponse();
-  const message = twiml.message();
-  message.body(body);
+  const message = twiml.message(body);
 
   replies.forEach(reply => {
     message.media(`reply:${reply}`);
