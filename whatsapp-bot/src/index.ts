@@ -341,45 +341,51 @@ async function handleMarkets(phoneNumber: string) {
 
 async function handleProfile(phoneNumber: string) {
   try {
-    const [user, balance, positions] = await Promise.all([
-      API.getOrCreateUser(phoneNumber),
+    const [balance, positions] = await Promise.all([
       API.getUserBalance(phoneNumber),
       API.getUserPositions(phoneNumber)
     ]);
 
-    // Calculate total value
-    let totalValue = 0;
+    // Calculate total P&L
+    const markets = await API.getActiveMarkets();
     let totalPnL = 0;
 
-    const markets = await API.getActiveMarkets();
     positions.forEach(pos => {
       const market = markets.find(m => m.market_id === pos.marketId);
       if (pos.resolved) {
-        const price = pos.winningOutcome === pos.outcome ? 100 : 0;
-        const val = pos.shares * (price / 100);
-        totalValue += val;
-        totalPnL += val - pos.totalInvested;
+        const isWinner = pos.winningOutcome === pos.outcome;
+        totalPnL += isWinner ? (pos.shares - pos.totalInvested) : -pos.totalInvested;
       } else if (market?.prices) {
-        const price = market.prices[pos.outcome] || 0;
-        const val = pos.shares * (price / 100);
-        totalValue += val;
-        totalPnL += val - pos.totalInvested;
+        const currentPrice = market.prices[pos.outcome] / 100;
+        const currentValue = pos.shares * currentPrice;
+        totalPnL += currentValue - pos.totalInvested;
       }
     });
 
     const pnlSign = totalPnL >= 0 ? '+' : '';
+    const pnlEmoji = totalPnL >= 0 ? '📈' : '📉';
 
     const text = `👤 *Your Profile*\n\n` +
-      `Phone: ${phoneNumber}\n` +
-      `Wallet: \`${user.user.wallet_address}\`\n` +
-      `Balance: $${balance.toFixed(2)} USDC\n` +
-      `Holdings: $${totalValue.toFixed(2)}\n` +
-      `PnL: ${pnlSign}$${totalPnL.toFixed(2)}\n\n` +
-      `Reply *positions* to view your bets`;
+      `💰 Balance: *$${balance.toFixed(2)}*\n` +
+      `📊 Active Bets: *${positions.length}*\n` +
+      `${pnlEmoji} Total P&L: *${pnlSign}$${totalPnL.toFixed(2)}*\n\n` +
+      `*Quick Actions:*\n` +
+      `1️⃣ Deposit Funds\n` +
+      `2️⃣ Withdraw\n` +
+      `3️⃣ View Positions\n` +
+      `4️⃣ Bet History\n\n` +
+      `〰️〰️〰️\n` +
+      `1-4: Action | 0: Menu`;
+
+    // Set session to handle quick actions
+    sessionManager.update(phoneNumber, {
+      state: UserState.BROWSING_MARKETS,
+      data: { profileMenu: true }
+    });
 
     await sendMessage(phoneNumber, text);
   } catch (error: any) {
-    await sendMessage(phoneNumber, `❌ Failed to load profile: ${error.message}`);
+    await sendMessage(phoneNumber, `❌ Failed to load profile: ${error.message}\n\n〰️〰️〰️\n0: Menu`);
   }
 }
 
