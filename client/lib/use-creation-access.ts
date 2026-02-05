@@ -3,17 +3,16 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from './use-wallet';
 
-const MARKET_ABI = [
-    "function creationToken() view returns (address)",
-    "function minCreationBalance() view returns (uint256)",
-    "function publicCreation() view returns (bool)"
-];
-
 const ERC20_ABI = [
     "function balanceOf(address owner) view returns (uint256)"
 ];
 
-// Use environment variable or default to BSC Testnet
+// BC400 Token Addresses
+const BC400_NFT_ADDRESS = "0xB929177331De755d7aCc5665267a247e458bCdeC";
+const BC400_TOKEN_ADDRESS = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD";
+const MIN_TOKEN_BALANCE = "10000000"; // 10 Million
+const BC400_DECIMALS = 9; // BC400 has 9 decimals
+
 // Use environment variable or default to BSC Mainnet
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
 const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || process.env.CHAIN_ID || '56');
@@ -32,54 +31,39 @@ export function useCreationAccess() {
 
             try {
                 setChecking(true);
-                // Use configured RPC for reading state
                 const provider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
 
-                const marketAddress = process.env.NEXT_PUBLIC_MARKET_ADDRESS;
-                if (!marketAddress) {
-                    console.log('[CreationAccess] No market address configured');
-                    setCanCreate(false);
-                    setChecking(false);
-                    return;
-                }
+                // Check NFT Balance
+                const nftContract = new ethers.Contract(BC400_NFT_ADDRESS, ERC20_ABI, provider);
+                const nftBalance = await Promise.race([
+                    nftContract.balanceOf(address),
+                    new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                ]).catch(() => BigInt(0));
 
-                const market = new ethers.Contract(marketAddress, MARKET_ABI, provider);
+                // Check Token Balance
+                const tokenContract = new ethers.Contract(BC400_TOKEN_ADDRESS, ERC20_ABI, provider);
+                const tokenBalance = await Promise.race([
+                    tokenContract.balanceOf(address),
+                    new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                ]).catch(() => BigInt(0));
 
-                // Check if public creation is enabled
-                try {
-                    const isPublic = await market.publicCreation();
-                    if (isPublic) {
-                        setCanCreate(true);
-                        setChecking(false);
-                        return;
-                    }
-                } catch (e) {
-                    // Function might not exist on contract, assume not public
-                    console.log('[CreationAccess] publicCreation check failed, assuming restricted');
-                }
+                const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, BC400_DECIMALS);
+                const hasEnoughTokens = tokenBalance >= requiredTokens;
+                const hasNft = Number(nftBalance) > 0;
 
-                // Check token-gated access
-                try {
-                    const tokenAddr = await market.creationToken();
-                    if (tokenAddr === ethers.ZeroAddress) {
-                        // If restricted but no token set, likely only owner or disabled
-                        setCanCreate(false);
-                        setChecking(false);
-                        return;
-                    }
+                console.log('[CreationAccess Check]', {
+                    address,
+                    tokenBalance: ethers.formatUnits(tokenBalance, BC400_DECIMALS),
+                    requiredTokens: MIN_TOKEN_BALANCE,
+                    nftBalance: nftBalance.toString(),
+                    hasNft,
+                    hasEnoughTokens,
+                    canCreate: hasNft || hasEnoughTokens
+                });
 
-                    const minBalance = await market.minCreationBalance();
-                    const token = new ethers.Contract(tokenAddr, ERC20_ABI, provider);
-                    const balance = await token.balanceOf(address);
-
-                    setCanCreate(balance >= minBalance);
-                } catch (e) {
-                    // Token gating not configured, default to false
-                    console.log('[CreationAccess] Token gating check failed');
-                    setCanCreate(false);
-                }
+                setCanCreate(hasNft || hasEnoughTokens);
             } catch (err) {
-                console.error("[CreationAccess] Error checking creation access:", err);
+                console.error("[CreationAccess] Error checking BC400 access:", err);
                 setCanCreate(false);
             } finally {
                 setChecking(false);

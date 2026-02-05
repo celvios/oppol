@@ -51,7 +51,9 @@ export function useBC400Check() {
                 console.log('[BC400 Access Check]', {
                     address,
                     tokenBalance: ethers.formatUnits(tokenBalance, BC400_DECIMALS),
+                    tokenBalanceRaw: tokenBalance.toString(),
                     requiredTokens: MIN_TOKEN_BALANCE,
+                    requiredTokensRaw: requiredTokens.toString(),
                     nftBalance: nftBalance.toString(),
                     hasNft,
                     hasEnoughTokens,
