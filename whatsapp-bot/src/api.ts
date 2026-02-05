@@ -78,14 +78,20 @@ export class API {
     outcomeIndex: number,
     amount: number
   ): Promise<{ success: boolean; transactionHash?: string; message?: string; shares?: number }> {
-    const user = await this.getOrCreateUser(phoneNumber);
-    const { data } = await axios.post(`${API_BASE}/bet`, {
-      walletAddress: user.user.wallet_address,
-      marketId,
-      outcomeIndex,
-      amount
-    });
-    return data;
+    console.log(`[API] POST ${API_BASE}/whatsapp/bet`, { phone: phoneNumber, marketId, outcome: outcomeIndex, amount });
+    try {
+      const { data } = await axios.post(`${API_BASE}/whatsapp/bet`, {
+        phone: phoneNumber,
+        marketId,
+        outcome: outcomeIndex,
+        amount
+      });
+      console.log(`[API] ✅ Bet response:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[API] ❌ Bet error:`, error.response?.status, error.response?.data || error.message);
+      throw error;
+    }
   }
 
   static async withdraw(
