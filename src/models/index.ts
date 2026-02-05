@@ -26,6 +26,7 @@ const createTablesQuery = `
   -- WhatsApp Users Table (for bot users)
   CREATE TABLE IF NOT EXISTS whatsapp_users (
     phone_number VARCHAR(20) PRIMARY KEY,
+    username VARCHAR(100),
     wallet_address VARCHAR(42) UNIQUE NOT NULL,
     encrypted_private_key TEXT NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
@@ -186,7 +187,9 @@ export const initDatabase = async () => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       ALTER TABLE users ALTER COLUMN phone_number DROP NOT NULL;
+      ALTER TABLE users ALTER COLUMN phone_number DROP NOT NULL;
       ALTER TABLE telegram_transactions ADD COLUMN IF NOT EXISTS shares DECIMAL(18, 6);
+      ALTER TABLE whatsapp_users ADD COLUMN IF NOT EXISTS username VARCHAR(100);
 
       -- Migration for Comments (Replies)
       ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE;
