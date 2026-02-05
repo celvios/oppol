@@ -30,6 +30,8 @@ export interface Session {
     alertPrice?: number;
     alertDirection?: 'above' | 'below';
     categorySelection?: boolean;
+    alertsMenu?: boolean;
+    profileMenu?: boolean;
   };
   lastActivity: number;
 }
