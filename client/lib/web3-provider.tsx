@@ -61,6 +61,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 // Fix SIWE error
                 siweConfig: {
                     domain: typeof window !== 'undefined' ? window.location.host : 'opoll.org',
+                    uri: typeof window !== 'undefined' ? window.location.origin : 'https://opoll.org',
                 },
             }}
         >
