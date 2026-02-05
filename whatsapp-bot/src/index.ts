@@ -178,8 +178,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
       }
     }
 
-    // Handle commands
-    if (message === 'start' || message === 'menu' || message === 'hi' || message === 'hello') {
+    // Handle start/welcome commands
+    if (message === 'start' || message === 'hi' || message === 'hello') {
       await handleStart(phoneNumber);
       return;
     }
