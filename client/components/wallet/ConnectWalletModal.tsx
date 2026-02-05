@@ -136,9 +136,9 @@ export default function ConnectWalletModal({
     const getContextInfo = () => {
         switch (context) {
             case 'bet': return { title: "Ready to Win?", subtitle: `Place your prediction on ${contextData?.marketName || 'the future'}`, icon: Zap };
-            case 'deposit': return { title: "Fuel Your Account", subtitle: "Add funds to start trading instantly", icon: Wallet };
-            case 'create': return { title: "Become the House", subtitle: "Launch your own prediction market", icon: Sparkles };
-            default: return { title: "Unlock the Future", subtitle: "Connect to access decentralized prediction markets", icon: Wallet };
+            case 'deposit': return { title: "Connect Your Wallet", subtitle: "Securely connect to deposit funds", icon: Wallet };
+            case 'create': return { title: "Create a Market", subtitle: "Connect to launch your prediction market", icon: Sparkles };
+            default: return { title: "Connect Your Wallet", subtitle: "Access decentralized prediction markets", icon: Wallet };
         }
     };
 
