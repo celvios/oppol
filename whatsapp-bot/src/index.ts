@@ -54,22 +54,18 @@ async function sendMessageWithButtons(to: string, body: string, buttons: Button[
       }
     }));
 
-    await twilioClient.messages.create({
+    // @ts-ignore - Twilio types don't include WhatsApp interactive messages yet
+    await (twilioClient.messages.create({
       from: TWILIO_WHATSAPP_NUMBER,
       to: `whatsapp:${to}`,
       body: body,
-      // @ts-ignore - Twilio types may not include interactive messages
-      contentSid: undefined, // Not using content templates
+      contentSid: undefined,
       interactive: {
         type: 'button',
-        body: {
-          text: body
-        },
-        action: {
-          buttons: actions.slice(0, 3) // WhatsApp limits to 3 quick reply buttons
-        }
+        body: { text: body },
+        action: { buttons: actions.slice(0, 3) }
       }
-    });
+    } as any)); // TypeScript workaround for interactive property
 
     console.log(`✅ Sent button message to ${to}`);
   } catch (error: any) {
@@ -80,6 +76,37 @@ async function sendMessageWithButtons(to: string, body: string, buttons: Button[
       message += `${idx + 1}. ${btn.title}\n`;
     });
     message += '\nReply with number';
+    await sendMessage(to, message);
+  }
+}
+
+// Helper to send message with interactive list (for 4-10 options)
+async function sendMessageWithList(to: string, body: string, buttonText: string, sections: { title: string, rows: { id: string, title: string, description?: string }[] }[]) {
+  try {
+    // @ts-ignore - Using Twilio WhatsApp interactive list API
+    await twilioClient.messages.create({
+      from: TWILIO_WHATSAPP_NUMBER,
+      to: `whatsapp:${to}`,
+      contentSid: undefined,
+      interactive: {
+        type: 'list',
+        body: { text: body },
+        action: { button: buttonText, sections: sections }
+      }
+    } as any); // TypeScript workaround
+
+    console.log(`✅ Sent list message to ${to}`);
+  } catch (error: any) {
+    console.error('List message failed, using text fallback:', error.message);
+    let message = body + '\n\n';
+    sections.forEach(section => {
+      message += `*${section.title}*\n`;
+      section.rows.forEach((row, idx) => {
+        message += `${idx + 1}. ${row.title}\n`;
+      });
+      message += '\n';
+    });
+    message += 'Reply with number or command';
     await sendMessage(to, message);
   }
 }
