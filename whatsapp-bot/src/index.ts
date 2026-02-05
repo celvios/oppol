@@ -700,8 +700,18 @@ async function handleAmountInput(phoneNumber: string, message: string, session: 
     return;
   }
 
+  // Get market from session, or fetch if missing
+  let market = session.data.selectedMarket;
+  if (!market) {
+    market = await API.getMarket(session.data.marketId);
+    if (!market) {
+      await sendMessage(phoneNumber, '❌ Market not found. Reply *markets* to try again');
+      sessionManager.clear(phoneNumber);
+      return;
+    }
+  }
+
   // Show confirmation screen
-  const market = session.data.selectedMarket;
   const outcomeIndex = session.data.outcome;
   const outcomeName = market.outcomes[outcomeIndex];
   const price = Math.round(market.prices?.[outcomeIndex] || 50);
