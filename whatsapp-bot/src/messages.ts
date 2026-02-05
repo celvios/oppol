@@ -37,7 +37,8 @@ If you're right, you profit!
 • *search* (s) - Search
 • *profile* (p) - Your stats
 • *positions* (pos) - Your bets
-• *alerts* (a) - Price alerts
+• *alerts* (a) - View alerts
+• *setalert* - Create alert
 • *deposit* (d) - Add funds
 • *withdraw* (w) - Cash out
 • *menu* - Main menu

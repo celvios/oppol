@@ -22,6 +22,10 @@ class AlertManager {
     return this.alerts.get(phoneNumber) || [];
   }
 
+  clearAll(phoneNumber: string): void {
+    this.alerts.delete(phoneNumber);
+  }
+
   async checkAlerts(onAlert: (phoneNumber: string, message: string) => Promise<void>): Promise<void> {
     for (const [phoneNumber, alerts] of this.alerts.entries()) {
       for (const alert of alerts) {

@@ -7,7 +7,10 @@ export enum UserState {
   ENTERING_WITHDRAW_ADDRESS = 'ENTERING_WITHDRAW_ADDRESS',
   ENTERING_WITHDRAW_AMOUNT = 'ENTERING_WITHDRAW_AMOUNT',
   SEARCHING_MARKETS = 'SEARCHING_MARKETS',
-  SETTING_ALERT = 'SETTING_ALERT'
+  SETTING_ALERT = 'SETTING_ALERT',
+  SETTING_ALERT_OUTCOME = 'SETTING_ALERT_OUTCOME',
+  SETTING_ALERT_PRICE = 'SETTING_ALERT_PRICE',
+  SETTING_ALERT_DIRECTION = 'SETTING_ALERT_DIRECTION'
 }
 
 export interface Session {
@@ -24,6 +27,8 @@ export interface Session {
     searchQuery?: string;
     alertMarketId?: number;
     alertOutcome?: number;
+    alertPrice?: number;
+    alertDirection?: 'above' | 'below';
   };
   lastActivity: number;
 }

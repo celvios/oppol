@@ -157,6 +157,17 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    if (message === 'setalert' || message === 'alert') {
+      await handleSetAlert(phoneNumber);
+      return;
+    }
+
+    if (message === 'clearalerts') {
+      alertManager.clearAll(phoneNumber);
+      await sendMessage(phoneNumber, '✅ All alerts cleared\n\nReply *menu* to continue');
+      return;
+    }
+
     // Handle state-based flows
     await handleStateFlow(phoneNumber, message, session);
 
@@ -359,6 +370,22 @@ async function handleStateFlow(phoneNumber: string, message: string, session: an
 
     case UserState.SEARCHING_MARKETS:
       await handleSearchQuery(phoneNumber, message);
+      break;
+
+    case UserState.SETTING_ALERT:
+      await handleAlertMarketSelection(phoneNumber, message, session);
+      break;
+
+    case UserState.SETTING_ALERT_OUTCOME:
+      await handleAlertOutcomeSelection(phoneNumber, message, session);
+      break;
+
+    case UserState.SETTING_ALERT_PRICE:
+      await handleAlertPriceInput(phoneNumber, message, session);
+      break;
+
+    case UserState.SETTING_ALERT_DIRECTION:
+      await handleAlertDirectionSelection(phoneNumber, message, session);
       break;
 
     default:
@@ -647,7 +674,7 @@ async function handleViewAlerts(phoneNumber: string) {
   const alerts = alertManager.getAlerts(phoneNumber);
   
   if (alerts.length === 0) {
-    await sendMessage(phoneNumber, '🔔 *No Active Alerts*\n\nSet alerts to get notified when prices change!\n\nReply *markets* to browse');
+    await sendMessage(phoneNumber, '🔔 *No Active Alerts*\n\nSet alerts to get notified when prices change!\n\nReply *setalert* to create one\nReply *markets* to browse');
     return;
   }
 
@@ -656,7 +683,136 @@ async function handleViewAlerts(phoneNumber: string) {
     text += `${idx + 1}. Market #${alert.marketId}\n`;
     text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
   });
-  text += 'Reply *menu* to go back';
+  text += 'Reply *clearalerts* to remove all\nReply *menu* to go back';
   
   await sendMessage(phoneNumber, text);
 }
+
+// Set alert
+async function handleSetAlert(phoneNumber: string) {
+  try {
+    const markets = await API.getActiveMarkets();
+    
+    if (markets.length === 0) {
+      await sendMessage(phoneNumber, '📊 *No active markets*\n\nCheck back later!');
+      return;
+    }
+
+    sessionManager.update(phoneNumber, {
+      state: UserState.SETTING_ALERT,
+      data: { page: 0, allMarkets: markets }
+    });
+
+    const text = '🔔 *Set Price Alert*\n\nSelect a market:\n\n' + formatMarketList(markets, 0);
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    await sendMessage(phoneNumber, `❌ Failed to load markets: ${error.message}`);
+  }
+}
+
+async function handleAlertMarketSelection(phoneNumber: string, message: string, session: any) {
+  const markets = session.data.allMarkets || [];
+  const num = parseInt(message);
+  
+  if (isNaN(num) || num < 1 || num > markets.length) {
+    await sendMessage(phoneNumber, '❌ Invalid number. Reply with a market number or *cancel*');
+    return;
+  }
+
+  const market = markets[num - 1];
+  sessionManager.update(phoneNumber, {
+    state: UserState.SETTING_ALERT_OUTCOME,
+    data: { ...session.data, alertMarketId: market.market_id }
+  });
+
+  let text = `🔔 *Alert for:*\n${escapeMarkdown(market.question)}\n\nSelect outcome:\n\n`;
+  market.outcomes.forEach((o, i) => {
+    text += `${i + 1}. ${o} (${market.prices[i]}%)\n`;
+  });
+  text += '\nReply with number or *cancel*';
+  
+  await sendMessage(phoneNumber, text);
+}
+
+async function handleAlertOutcomeSelection(phoneNumber: string, message: string, session: any) {
+  const marketId = session.data.alertMarketId;
+  const market = await API.getMarket(marketId);
+
+  if (!market) {
+    await sendMessage(phoneNumber, '❌ Market not found');
+    sessionManager.clear(phoneNumber);
+    return;
+  }
+
+  const num = parseInt(message);
+  if (isNaN(num) || num < 1 || num > market.outcomes.length) {
+    await sendMessage(phoneNumber, '❌ Invalid outcome. Reply with number or *cancel*');
+    return;
+  }
+
+  const outcomeIndex = num - 1;
+  sessionManager.update(phoneNumber, {
+    state: UserState.SETTING_ALERT_PRICE,
+    data: { ...session.data, alertOutcome: outcomeIndex }
+  });
+
+  const outcomeName = market.outcomes[outcomeIndex];
+  const currentPrice = market.prices[outcomeIndex];
+  
+  await sendMessage(phoneNumber, `🔔 *Alert for: ${outcomeName}*\n\nCurrent price: ${currentPrice}%\n\nEnter target price (1-99):\n\nReply *cancel* to abort`);
+}
+
+async function handleAlertPriceInput(phoneNumber: string, message: string, session: any) {
+  const price = parseInt(message);
+  
+  if (isNaN(price) || price < 1 || price > 99) {
+    await sendMessage(phoneNumber, '❌ Invalid price. Enter a number between 1-99 or *cancel*');
+    return;
+  }
+
+  sessionManager.update(phoneNumber, {
+    state: UserState.SETTING_ALERT_DIRECTION,
+    data: { ...session.data, alertPrice: price }
+  });
+
+  await sendMessage(phoneNumber, `🔔 *Target: ${price}%*\n\nNotify me when price goes:\n\n1. Above ${price}%\n2. Below ${price}%\n\nReply with 1 or 2`);
+}
+
+async function handleAlertDirectionSelection(phoneNumber: string, message: string, session: any) {
+  const direction = message === '1' ? 'above' : message === '2' ? 'below' : null;
+  
+  if (!direction) {
+    await sendMessage(phoneNumber, '❌ Invalid choice. Reply with 1 (above) or 2 (below)');
+    return;
+  }
+
+  const { alertMarketId, alertOutcome, alertPrice } = session.data;
+  const market = await API.getMarket(alertMarketId);
+
+  if (!market) {
+    await sendMessage(phoneNumber, '❌ Market not found');
+    sessionManager.clear(phoneNumber);
+    return;
+  }
+
+  alertManager.add({
+    phoneNumber,
+    marketId: alertMarketId,
+    outcome: alertOutcome,
+    targetPrice: alertPrice,
+    direction,
+    createdAt: Date.now()
+  });
+
+  const outcomeName = market.outcomes[alertOutcome];
+  const text = `✅ *Alert Created!*\n\n` +
+    `Market: ${escapeMarkdown(market.question)}\n` +
+    `Outcome: ${outcomeName}\n` +
+    `Target: ${direction} ${alertPrice}%\n\n` +
+    `You'll be notified when triggered\n\n` +
+    `Reply *alerts* to view all alerts\nReply *menu* for main menu`;
+
+  await sendMessage(phoneNumber, text);
+  sessionManager.clear(phoneNumber);
+}
+
