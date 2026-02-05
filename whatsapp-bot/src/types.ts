@@ -29,6 +29,7 @@ export interface Session {
     alertOutcome?: number;
     alertPrice?: number;
     alertDirection?: 'above' | 'below';
+    categorySelection?: boolean;
   };
   lastActivity: number;
 }
