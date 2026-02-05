@@ -1591,6 +1591,11 @@ app.post('/api/admin/migrate', async (req, res) => {
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
+      -- Add boost columns
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS is_boosted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_expires_at BIGINT DEFAULT 0;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_tier INT DEFAULT 0;
+
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
