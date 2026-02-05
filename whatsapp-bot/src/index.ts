@@ -304,48 +304,10 @@ async function handleStart(phoneNumber: string) {
   await sendMessage(phoneNumber, messages.welcome);
 }
 
-// Main Menu Handler - Using Interactive List
+// Main Menu Handler
 async function handleMainMenu(phoneNumber: string) {
   sessionManager.clear(phoneNumber);
-
-  // Use WhatsApp interactive list for main menu (supports 10 options)
-  await sendMessageWithList(
-    phoneNumber,
-    '📊 *OPOLL Main Menu*\n\nWhat would you like to do?',
-    'View Menu',
-    [
-      {
-        title: '🎯 Trading',
-        rows: [
-          { id: 'markets', title: 'Browse Markets', description: 'See all active markets' },
-          { id: 'trending', title: 'Trending Now', description: 'Hot markets today' },
-          { id: 'search', title: 'Search Markets', description: 'Find specific topics' }
-        ]
-      },
-      {
-        title: '💰 Your Account',
-        rows: [
-          { id: 'profile', title: 'My Profile', description: 'Balance & stats' },
-          { id: 'positions', title: 'My Positions', description: 'Active bets' },
-          { id: 'bethistory', title: 'Bet History', description: 'Past bets & P&L' }
-        ]
-      },
-      {
-        title: '💵 Wallet',
-        rows: [
-          { id: 'deposit', title: 'Deposit Funds', description: 'Add USDC' },
-          { id: 'withdraw', title: 'Withdraw', description: 'Cash out' }
-        ]
-      },
-      {
-        title: '⚙️ More',
-        rows: [
-          { id: 'alerts', title: 'Alerts', description: 'Price notifications' },
-          { id: 'help', title: 'Help & Support', description: 'How it works' }
-        ]
-      }
-    ]
-  );
+  await sendMessage(phoneNumber, messages.mainMenu);
 }
 
 // Menu Selection Router (handles 1-10 from main menu)
