@@ -37,7 +37,7 @@ export async function getMarketsServer(): Promise<ServerMarket[]> {
 
     try {
         const response = await fetch(`${apiUrl}/api/markets`, {
-            next: { revalidate: 30 } // Cache for 30 seconds on server
+            cache: 'no-store' // Disable caching
         });
 
         if (!response.ok) {
