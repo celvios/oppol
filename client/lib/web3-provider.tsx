@@ -48,16 +48,19 @@ export function Web3Provider({ children }: Web3ProviderProps) {
         <PrivyProvider
             appId={appId}
             config={{
-                // Login methods
                 loginMethods: ['wallet', 'google', 'email'],
                 appearance: {
                     theme: 'dark',
-                    accentColor: '#00E0FF', // Neon Cyan
-                    logo: 'https://oppollbnb.vercel.app/logo.png', // valid logo
+                    accentColor: '#00E0FF',
+                    logo: 'https://oppollbnb.vercel.app/logo.png',
                 },
                 embeddedWallets: {
                     createOnLogin: 'users-without-wallets',
                     noPromptOnSignature: false,
+                },
+                // Fix SIWE error
+                siweConfig: {
+                    domain: typeof window !== 'undefined' ? window.location.host : 'opoll.org',
                 },
             }}
         >
