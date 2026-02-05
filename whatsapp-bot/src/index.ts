@@ -622,41 +622,51 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
 async function handleAmountInput(phoneNumber: string, message: string, session: any) {
   if (message === 'cancel') {
     sessionManager.clear(phoneNumber);
-    await sendMessage(phoneNumber, '❌ Bet cancelled\n\nReply *menu* to start over');
+    await sendMessage(phoneNumber, '❌ Bet cancelled\\n\\n〰️〰️〰️\\n0: Menu');
     return;
   }
 
-  // Check if confirming previous amount
-  if (message === 'confirm' && session.data.amount) {
+  // If the user is confirming the bet
+  if (message.toLowerCase() === 'confirm' && session.data.confirmingBet) {
     await executeBet(phoneNumber, session);
     return;
   }
 
   const amount = validateAmount(message);
-
   if (!amount) {
-    await sendMessage(phoneNumber, '❌ Invalid amount. Please enter a valid number (e.g., 10):\n\nReply *cancel* to abort');
+    await sendMessage(phoneNumber, '❌ Invalid amount\\n\\nEnter a number (e.g., 10)\\n\\n〰️〰️〰️\\ncancel | 0: Menu');
     return;
   }
 
-  const { marketId, outcome } = session.data;
-  const market = await API.getMarket(marketId);
-  const outcomeName = market?.outcomes[outcome] || 'Unknown';
-  const price = market?.prices?.[outcome] || 50;
-  const shares = (amount / (price / 100)).toFixed(2);
+  // Show confirmation screen
+  const market = session.data.selectedMarket;
+  const outcomeIndex = session.data.outcome;
+  const outcomeName = market.outcomes[outcomeIndex];
+  const price = Math.round(market.prices?.[outcomeIndex] || 50);
+  const estimatedShares = (amount / (price / 100)).toFixed(2);
+  const maxWin = (amount / (price / 100) - amount).toFixed(2);
 
-  const text = `✅ *Confirm Bet*\n\n` +
-    `Market: ${escapeMarkdown(market?.question || '')}\n` +
-    `Outcome: ${outcomeName} (${price}%)\n` +
-    `Amount: $${amount} USDC\n` +
-    `Shares: ~${shares}\n\n` +
-    `Reply *confirm* to place bet or *cancel* to abort`;
+  const confirmText = `🎯 *Confirm Your Bet*\\n\\n` +
+    `📊 Market: ${escapeMarkdown(market.question)}\\n\\n` +
+    `🎯 Betting on: *${outcomeName}*\\n` +
+    `💵 Amount: *$${amount}*\\n` +
+    `📈 Current odds: ${price}%\\n` +
+    `🎫 Est. shares: ~${estimatedShares}\\n` +
+    `💰 Max win: ~$${maxWin}\\n\\n` +
+    `〰️〰️〰️\\n` +
+    `Type *confirm* to place bet\\n` +
+    `Type *cancel* to abort`;
 
   sessionManager.update(phoneNumber, {
-    data: { ...session.data, amount }
+    state: UserState.ENTERING_AMOUNT,
+    data: {
+      ...session.data,
+      amount,
+      confirmingBet: true
+    }
   });
 
-  await sendMessage(phoneNumber, text);
+  await sendMessage(phoneNumber, confirmText);
 }
 
 async function executeBet(phoneNumber: string, session: any) {
