@@ -785,7 +785,8 @@ async function executeBet(phoneNumber: string, session: any) {
       throw new Error(result.message || 'Bet failed');
     }
   } catch (error: any) {
-    await sendMessage(phoneNumber, `❌ Bet failed: ${error.message}\n\nReply *menu* to try again`);
+    const errorMsg = error.response?.data?.error || error.message || 'Bet failed';
+    await sendMessage(phoneNumber, `❌ ${errorMsg}\n\nReply *menu* to try again`);
     sessionManager.clear(phoneNumber);
   }
 }
