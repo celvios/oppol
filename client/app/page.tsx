@@ -9,6 +9,7 @@ import HomeResolver from "@/components/layout/HomeResolver";
 // - Mobile: Show Markets List
 // Logic handled reliably on client side by HomeResolver
 export const dynamic = 'force-dynamic';
+export const revalidate = 0; // Disable caching
 
 export default async function HomePage() {
     const markets = await getMarketsServer();
