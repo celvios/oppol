@@ -9,7 +9,6 @@ export function useWallet() {
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Wait for client-side hydration to prevent flash
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -28,10 +27,13 @@ export function useWallet() {
     }
   };
 
+  // During hydration, preserve last known state to prevent flash
+  const shouldShowConnected = isHydrated ? effectivelyConnected : true;
+
   return {
-    isConnected: isHydrated && effectivelyConnected,
+    isConnected: shouldShowConnected,
     address: effectiveAddress || null,
-    isConnecting: !ready || !isHydrated,
+    isConnecting: !isHydrated || !ready,
     connect: () => login({ loginMethods: ['email', 'wallet', 'google'] }),
     disconnect: handleDisconnect,
     connectAsync: login,
