@@ -11,6 +11,7 @@ import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import { AlertModal } from "@/components/ui/AlertModal";
 import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
+import { QRCodeSVG } from 'qrcode.react';
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -431,6 +432,17 @@ export default function DepositPage() {
                                     <p className="text-white/70 mb-2">Send exactly</p>
                                     <h3 className="text-3xl font-mono font-bold text-green-500 mb-1">{depositAmount} <span className="text-sm text-white/60">USDC or USDT</span></h3>
                                     <p className="text-white/40 text-sm mb-6">to your personal address below (BNB Chain)</p>
+
+                                    {/* QR Code */}
+                                    <div className="bg-white p-4 rounded-xl mb-4 inline-block">
+                                        <QRCodeSVG 
+                                            value={effectiveAddress || ''}
+                                            size={200}
+                                            level="H"
+                                            includeMargin={true}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-white/40 mb-6">Scan with your wallet app</p>
 
                                     <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 flex items-center justify-between gap-2 overflow-hidden">
                                         <code className="text-sm font-mono text-white truncate">{effectiveAddress}</code>
