@@ -340,7 +340,7 @@ export default function ConnectWalletModal({
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="mt-8 flex flex-col gap-2">
                                 <p className="text-[10px] text-white/30 uppercase tracking-widest font-mono flex items-center justify-center gap-2">
                                     <span>Powered by</span>
-                                    <span className="text-neon-cyan font-bold glow-sm">OPoll</span>
+                                    <span className="text-neon-cyan font-bold glow-sm">BC400</span>
                                 </p>
                             </motion.div>
                         </div>
