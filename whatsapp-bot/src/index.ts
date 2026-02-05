@@ -587,6 +587,26 @@ async function handleMarketSelection(phoneNumber: string, message: string, sessi
     }
   }
 
+  // Handle alerts menu
+  if (session.data.alertsMenu) {
+    switch (message) {
+      case '1':
+        await handleViewAlerts(phoneNumber);
+        return;
+      case '2':
+        await handleSetAlert(phoneNumber);
+        return;
+      case '3':
+        alertManager.clearAll(phoneNumber);
+        await sendMessage(phoneNumber, '✅ All alerts cleared\n\nReply *menu* to continue');
+        sessionManager.clear(phoneNumber);
+        return;
+      case '0':
+        await handleMainMenu(phoneNumber);
+        return;
+    }
+  }
+
   // Handle category selection
   if (session.data.categorySelection) {
     const categories: { [key: string]: string } = {
