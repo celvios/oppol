@@ -7,6 +7,8 @@ Bet on real-world events and earn money when you're right!
 
 *Quick Start:*
 • Reply *markets* - Browse markets
+• Reply *trending* - Hot markets
+• Reply *categories* - By category
 • Reply *search* - Search markets
 • Reply *profile* - Your account
 • Reply *deposit* - Add funds
@@ -34,6 +36,9 @@ If you're right, you profit!
 
 *Commands:*
 • *markets* (m) - Browse
+• *categories* (cat) - By category
+• *trending* (hot) - Hot markets
+• *ending* (soon) - Ending soon
 • *search* (s) - Search
 • *profile* (p) - Your stats
 • *positions* (pos) - Your bets

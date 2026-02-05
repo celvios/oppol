@@ -56,6 +56,7 @@ export interface Market {
   resolved: boolean;
   winningOutcome: number;
   totalVolume?: string;
+  category?: string;
 }
 
 export interface Position {

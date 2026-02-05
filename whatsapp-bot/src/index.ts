@@ -168,6 +168,21 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    if (message === 'categories' || message === 'cat') {
+      await handleCategories(phoneNumber);
+      return;
+    }
+
+    if (message === 'trending' || message === 'hot') {
+      await handleTrending(phoneNumber);
+      return;
+    }
+
+    if (message === 'ending' || message === 'soon') {
+      await handleEndingSoon(phoneNumber);
+      return;
+    }
+
     // Handle state-based flows
     await handleStateFlow(phoneNumber, message, session);
 
@@ -394,6 +409,42 @@ async function handleStateFlow(phoneNumber: string, message: string, session: an
 }
 
 async function handleMarketSelection(phoneNumber: string, message: string, session: any) {
+  // Handle category selection
+  if (session.data.categorySelection) {
+    const categories: { [key: string]: string } = {
+      '1': 'sports', 'sports': 'sports',
+      '2': 'crypto', 'crypto': 'crypto',
+      '3': 'politics', 'politics': 'politics',
+      '4': 'entertainment', 'entertainment': 'entertainment',
+      '5': 'all', 'all': 'all'
+    };
+    
+    const category = categories[message];
+    if (category) {
+      if (category === 'all') {
+        await handleMarkets(phoneNumber);
+      } else {
+        try {
+          const markets = await API.getMarketsByCategory(category);
+          if (markets.length === 0) {
+            await sendMessage(phoneNumber, `📊 No ${category} markets found\n\nReply *markets* to see all`);
+            sessionManager.clear(phoneNumber);
+            return;
+          }
+          sessionManager.update(phoneNumber, {
+            state: UserState.BROWSING_MARKETS,
+            data: { page: 0, allMarkets: markets, categorySelection: false }
+          });
+          const text = `📊 *${category.charAt(0).toUpperCase() + category.slice(1)} Markets*\n\n` + formatMarketList(markets, 0);
+          await sendMessage(phoneNumber, text);
+        } catch (error: any) {
+          await sendMessage(phoneNumber, `❌ Failed to load: ${error.message}`);
+        }
+      }
+      return;
+    }
+  }
+  
   const markets = session.data.allMarkets || [];
   const page = session.data.page || 0;
   
@@ -726,7 +777,7 @@ async function handleAlertMarketSelection(phoneNumber: string, message: string, 
   });
 
   let text = `🔔 *Alert for:*\n${escapeMarkdown(market.question)}\n\nSelect outcome:\n\n`;
-  market.outcomes.forEach((o, i) => {
+  market.outcomes.forEach((o: string, i: number) => {
     text += `${i + 1}. ${o} (${market.prices[i]}%)\n`;
   });
   text += '\nReply with number or *cancel*';
@@ -814,5 +865,65 @@ async function handleAlertDirectionSelection(phoneNumber: string, message: strin
 
   await sendMessage(phoneNumber, text);
   sessionManager.clear(phoneNumber);
+}
+
+// Categories
+async function handleCategories(phoneNumber: string) {
+  const text = `📊 *Browse by Category*\n\n` +
+    `1. 🏈 Sports\n` +
+    `2. 💰 Crypto\n` +
+    `3. 🗳️ Politics\n` +
+    `4. 🎬 Entertainment\n` +
+    `5. 📊 All Markets\n\n` +
+    `Reply with number or name`;
+  
+  sessionManager.update(phoneNumber, {
+    state: UserState.BROWSING_MARKETS,
+    data: { categorySelection: true }
+  });
+  
+  await sendMessage(phoneNumber, text);
+}
+
+async function handleTrending(phoneNumber: string) {
+  try {
+    const markets = await API.getTrendingMarkets();
+    
+    if (markets.length === 0) {
+      await sendMessage(phoneNumber, '🔥 *No trending markets*\n\nReply *markets* to see all');
+      return;
+    }
+
+    sessionManager.update(phoneNumber, {
+      state: UserState.BROWSING_MARKETS,
+      data: { page: 0, allMarkets: markets }
+    });
+
+    const text = '🔥 *Trending Markets*\n\nMost active right now:\n\n' + formatMarketList(markets, 0);
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    await sendMessage(phoneNumber, `❌ Failed to load trending: ${error.message}`);
+  }
+}
+
+async function handleEndingSoon(phoneNumber: string) {
+  try {
+    const markets = await API.getEndingSoonMarkets();
+    
+    if (markets.length === 0) {
+      await sendMessage(phoneNumber, '⏰ *No markets ending soon*\n\nReply *markets* to see all');
+      return;
+    }
+
+    sessionManager.update(phoneNumber, {
+      state: UserState.BROWSING_MARKETS,
+      data: { page: 0, allMarkets: markets }
+    });
+
+    const text = '⏰ *Ending Soon*\n\nLast chance to bet:\n\n' + formatMarketList(markets, 0);
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    await sendMessage(phoneNumber, `❌ Failed to load markets: ${error.message}`);
+  }
 }
 
