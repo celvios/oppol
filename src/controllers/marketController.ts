@@ -16,7 +16,7 @@ const marketCache: { all?: CacheEntry; single: Map<string, CacheEntry> } = {
     single: new Map()
 };
 
-const CACHE_TTL_MS = 30000; // 30 seconds cache TTL
+const CACHE_TTL_MS = 300000; // 5 minutes cache TTL
 
 function isCacheValid(entry: CacheEntry | undefined): boolean {
     if (!entry) return false;
@@ -27,15 +27,15 @@ function isCacheValid(entry: CacheEntry | undefined): boolean {
 
 export const createMarketMetadata = async (req: Request, res: Response) => {
     try {
-        const { marketId, question, description, imageUrl, categoryId } = req.body;
+        const { marketId, question, description, imageUrl, categoryId, creatorAddress } = req.body;
 
         if (!marketId || !question) {
             return res.status(400).json({ success: false, message: 'Missing marketId or question' });
         }
 
         await query(
-            'insert into markets (market_id, question, description, image, category) values ($1, $2, $3, $4, $5)',
-            [marketId, question, description || '', imageUrl || '', categoryId || '']
+            'insert into markets (market_id, question, description, image, category, creator_address) values ($1, $2, $3, $4, $5, $6)',
+            [marketId, question, description || '', imageUrl || '', categoryId || '', creatorAddress || '']
         );
 
         res.json({ success: true, message: 'Market metadata created' });
@@ -56,10 +56,11 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         console.log('🔄 Cache miss - fetching fresh market data from blockchain');
         const result = await query('select * from markets', []);
 
-        const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
         const { CONFIG } = require('../config/contracts');
+        const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
         const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
-        console.log('📄 Using contract address:', MARKET_ADDRESS);
+        console.log('📄 [CLIENT API] Using contract address:', MARKET_ADDRESS);
+        console.log('📄 [CLIENT API] RPC:', CONFIG.RPC_URL);
 
         const abi = [
             'function getMarketOutcomes(uint256) view returns (string[])',
@@ -88,9 +89,19 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                         resolved: basicInfo[6],
                         winningOutcome: Number(basicInfo[7])
                     };
-                } catch (err) {
-                    console.error(`Failed to fetch on-chain data for market ${row.market_id}:`, err);
-                    onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+                } catch (err: any) {
+                    if (err.code !== 'CALL_EXCEPTION') {
+                        console.warn(`[Market ${row.market_id}] On-chain fetch failed:`, err.message);
+                    }
+                    onChainData = {
+                        outcomes: ['Yes', 'No'],
+                        prices: [0.5, 0.5],
+                        outcomeCount: 2,
+                        endTime: Math.floor(Date.now() / 1000) + 86400,
+                        liquidityParam: '0',
+                        resolved: false,
+                        winningOutcome: 0
+                    };
                 }
 
                 return {
@@ -99,16 +110,33 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     description: row.description || '',
                     image_url: row.image || '',
                     category_id: row.category || '',
+                    creator_address: row.creator_address || '',
+                    is_boosted: row.is_boosted || false,
+                    boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
+                    creator_fee: 2, // V3 Constant
                     ...onChainData
                 };
             })
         );
 
-        // Store in cache
-        marketCache.all = { data: markets, timestamp: Date.now() };
-        console.log('✅ Markets cached for 30 seconds');
+        // Filter out markets that are Resolved AND older than 48 hours (after endTime)
+        const VISIBLE_WINDOW = 48 * 60 * 60; // 48 Hours in seconds
+        const nowSec = Math.floor(Date.now() / 1000);
 
-        res.json({ success: true, markets });
+        const visibleMarkets = markets.filter((m: any) => {
+            // Always show active markets (not resolved)
+            if (!m.resolved) return true;
+
+            // For resolved markets, check if they are within the retention window
+            // We use endTime as the anchor since we don't track exact resolution time
+            return (nowSec < (m.endTime + VISIBLE_WINDOW));
+        });
+
+        // Store in cache
+        marketCache.all = { data: visibleMarkets, timestamp: Date.now() };
+        console.log(`✅ Cached ${visibleMarkets.length} markets (${markets.length - visibleMarkets.length} hidden)`);
+
+        res.json({ success: true, markets: visibleMarkets });
     } catch (error) {
         console.error('Get All Metadata Error:', error);
         res.json({ success: true, markets: [] });
@@ -129,8 +157,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
         // FETCH ON-CHAIN DATA
         let onChainData: any = {};
         try {
-            const provider = new ethers.JsonRpcProvider(process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com');
             const { CONFIG } = require('../config/contracts');
+            const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
             const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
             console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);
             console.log(`[Market ${marketId}] RPC URL: ${process.env.BNB_RPC_URL}`);
@@ -185,10 +213,21 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             };
 
             console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
-        } catch (err) {
-            console.error(`Failed to fetch on-chain data for ${marketId}:`, err);
+        } catch (err: any) {
+            // Suppress "missing revert data" noise for mismatched markets
+            if (err.code !== 'CALL_EXCEPTION') {
+                console.warn(`[Market ${marketId}] On-chain fetch failed:`, err.message);
+            }
             // Fallback for outcomes if on-chain fails (default Yes/No)
-            onChainData = { outcomes: ['Yes', 'No'], prices: [50, 50] };
+            onChainData = {
+                outcomes: ['Yes', 'No'],
+                prices: [0.5, 0.5],
+                outcomeCount: 2,
+                endTime: Math.floor(Date.now() / 1000) + 86400, // +24h
+                liquidityParam: '0',
+                resolved: false,
+                winningOutcome: 0
+            };
         }
 
         const market = {
@@ -197,6 +236,10 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             description: row.description || '',
             image_url: row.image || '',
             category_id: row.category || '',
+            creator_address: row.creator_address || '',
+            is_boosted: row.is_boosted || false,
+            boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
+            creator_fee: 2, // V3 Constant
             ...onChainData
         };
 

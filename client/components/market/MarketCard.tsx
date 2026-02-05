@@ -3,6 +3,7 @@
 import GlassCard from "@/components/ui/GlassCard";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import BoostButton from "./BoostButton";
 
 // Outcome colors for multi-outcome markets
 const OUTCOME_COLORS = [
@@ -30,6 +31,10 @@ interface MarketCardProps {
     // API metadata (optional)
     image_url?: string;
     description?: string;
+    isBoosted?: boolean;
+    endTime?: number;
+    resolved?: boolean;
+    winningOutcome?: number;
 }
 
 export default function MarketCard({
@@ -44,18 +49,26 @@ export default function MarketCard({
     outcomeCount = 2,
     color = "cyan",
     image_url,
-    description
+    description,
+    isBoosted,
+    endTime,
+    resolved = false,
+    winningOutcome
 }: MarketCardProps) {
+
+    // Check if market has ended
+    const isEnded = endTime ? (Date.now() > (endTime * 1000)) : false;
+
     // Use API metadata - no fallback, API is source of truth
     // Base64 images should start with 'data:image/' or be a valid URL
     const isValidImage = (img: string | undefined): boolean => {
         if (!img || !img.trim()) return false;
         const trimmed = img.trim();
         // Check if it's a base64 data URI or a valid URL
-        return trimmed.startsWith('data:image/') || 
-               trimmed.startsWith('http://') || 
-               trimmed.startsWith('https://') ||
-               trimmed.startsWith('/');
+        return trimmed.startsWith('data:image/') ||
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('/');
     };
 
     const metadata = {
@@ -102,7 +115,7 @@ export default function MarketCard({
     }
 
     return (
-        <Link href={`/terminal?marketId=${id}`}>
+        <Link href={`/trade?marketId=${id}`}>
             <GlassCard
                 className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}
@@ -127,8 +140,30 @@ export default function MarketCard({
                     </div>
                 )}
 
+                {/* Status Badges */}
+                <div className="absolute top-4 left-4 z-20 flex gap-2">
+                    {metadata.category && (
+                        <span className="px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] font-mono text-white/70 border border-white/10">
+                            {metadata.category}
+                        </span>
+                    )}
+
+                    {/* Resolved / Ended Badges */}
+                    {resolved ? (
+                        <span className="px-2 py-1 bg-neon-green/20 backdrop-blur-md rounded-lg text-[10px] font-mono text-neon-green border border-neon-green/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+                            RESOLVED
+                        </span>
+                    ) : isEnded ? (
+                        <span className="px-2 py-1 bg-orange-500/20 backdrop-blur-md rounded-lg text-[10px] font-mono text-orange-400 border border-orange-500/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                            AWAITING RESOLUTION
+                        </span>
+                    ) : null}
+                </div>
+
                 {/* Content */}
-                <div className="relative z-10 flex flex-col justify-end h-full p-5">
+                <div className={`relative z-10 flex flex-col justify-end h-full p-5 ${isEnded ? 'grayscale-[50%]' : ''}`}>
 
                     {/* Title */}
                     <div className="mb-4">
@@ -142,6 +177,13 @@ export default function MarketCard({
                             </p>
                         )}
                         <p className="text-xs text-text-secondary mt-1 font-mono">Vol: {volume}</p>
+
+                        {/* Boost Button - Prevent bubbling */}
+                        {!isEnded && (
+                            <div className="mt-2" onClick={(e) => e.preventDefault()}>
+                                <BoostButton marketId={id} isBoosted={isBoosted} />
+                            </div>
+                        )}
                     </div>
 
                     {isMultiOutcome ? (
@@ -149,8 +191,10 @@ export default function MarketCard({
                         <div className="space-y-2">
                             {/* Leading outcome */}
                             <div className="flex justify-between text-xs font-mono uppercase tracking-wider">
-                                <span className="text-neon-green">Leading: {leadingOutcome}</span>
-                                <span className="text-white">{leadingPrice}%</span>
+                                <span className="text-neon-green">
+                                    {resolved ? `Winner: ${outcomes?.[winningOutcome || 0]}` : `Leading: ${leadingOutcome}`}
+                                </span>
+                                <span className="text-white">{resolved ? '100%' : `${leadingPrice}%`}</span>
                             </div>
 
                             {/* Mini distribution bar */}
@@ -160,9 +204,11 @@ export default function MarketCard({
                                         key={i}
                                         className="h-full transition-all duration-500"
                                         style={{
-                                            width: `${outcome.price}%`,
+                                            width: resolved
+                                                ? (i === winningOutcome ? '100%' : '0%')
+                                                : `${outcome.price}%`,
                                             backgroundColor: outcome.color,
-                                            minWidth: outcome.price > 0 ? '2px' : '0'
+                                            minWidth: (resolved && i !== winningOutcome) ? '0' : (outcome.price > 0 ? '2px' : '0')
                                         }}
                                     />
                                 ))}
@@ -173,26 +219,27 @@ export default function MarketCard({
                                 <span className="text-[10px] text-white/40 font-mono">
                                     {outcomes?.length || outcomeCount} outcomes
                                 </span>
-                                <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full text-white/60">
-                                    {metadata.category}
-                                </span>
                             </div>
                         </div>
                     ) : (
                         /* Binary (YES/NO) display */
                         <div className="space-y-2">
                             <div className="flex justify-between text-xs font-mono uppercase tracking-wider">
-                                <span className="text-outcome-a">{outcomeA} {displayOutcomes[0]?.price}%</span>
-                                <span className="text-outcome-b">{displayOutcomes[1]?.price}% {outcomeB}</span>
+                                <span className={`${resolved && winningOutcome === 0 ? 'text-neon-green font-bold' : 'text-outcome-a'}`}>
+                                    {outcomeA} {resolved ? (winningOutcome === 0 ? 'WIN' : '') : `${displayOutcomes[0]?.price}%`}
+                                </span>
+                                <span className={`${resolved && winningOutcome === 1 ? 'text-neon-green font-bold' : 'text-outcome-b'}`}>
+                                    {resolved ? (winningOutcome === 1 ? 'WIN' : '') : `${displayOutcomes[1]?.price}%`} {outcomeB}
+                                </span>
                             </div>
                             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden flex">
                                 <div
                                     className="h-full bg-outcome-a shadow-[0_0_10px_vars(--outcome-a)] transition-all duration-1000"
-                                    style={{ width: `${displayOutcomes[0]?.price}%` }}
+                                    style={{ width: resolved ? (winningOutcome === 0 ? '100%' : '0%') : `${displayOutcomes[0]?.price}%` }}
                                 />
                                 <div
                                     className="h-full bg-outcome-b shadow-[0_0_10px_vars(--outcome-b)] transition-all duration-1000"
-                                    style={{ width: `${displayOutcomes[1]?.price}%` }}
+                                    style={{ width: resolved ? (winningOutcome === 1 ? '100%' : '0%') : `${displayOutcomes[1]?.price}%` }}
                                 />
                             </div>
                         </div>

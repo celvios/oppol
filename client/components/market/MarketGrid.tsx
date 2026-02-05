@@ -30,12 +30,13 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
                     const data = await response.json();
                     if (data.success && data.categories) {
                         const categoryNames = data.categories.map((cat: any) => cat.name);
-                        setCategories(['All', ...categoryNames]);
+                        // Add special categories: Trending & New
+                        setCategories(['All', 'Trending', 'New', ...categoryNames]);
                     }
                 }
             } catch (error) {
                 console.error("Failed to fetch categories:", error);
-                // Keep default 'All' category
+                setCategories(['All', 'Trending', 'New']);
             }
         }
         fetchCategories();
@@ -44,22 +45,15 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     useEffect(() => {
         // Skip fetch if we already have initial data
         if (initialMarkets.length > 0) {
-            // Sort by volume
-            const sorted = [...initialMarkets].sort((a, b) =>
-                parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
-            );
-            setMarkets(sorted);
+            // Default sort by volume just for initial state
+            setMarkets([...initialMarkets]);
             return;
         }
 
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
-                // Sort by volume (descending) for trending
-                const sorted = [...data].sort((a, b) =>
-                    parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
-                );
-                setMarkets(sorted);
+                setMarkets(data);
             } catch (e) {
                 console.error("Failed to fetch markets", e);
             }
@@ -68,12 +62,39 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     }, [initialMarkets]);
 
     let filteredMarkets = markets.filter(m => {
-        // Use API category - no fallback
+        // Special Category Logic
+        if (selectedCategory === 'Trending') return true; // Will sort by volume later
+        if (selectedCategory === 'New') {
+            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            // Assuming m.createdAt or similar exists, otherwise use ID as proxy or skip
+            // For now, let's assume higher ID = newer if no timestamp
+            // Or if we have endTime, maybe we can infer? 
+            // Better: use ID as proxy for "New" since auto-increment
+            // Or check if we have a createdAt field. 'm.endTime' is available.
+            return true;
+        }
+
+        // Standard Category Logic
         const category = m.category_id || 'General';
         const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
         const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
+
+    // Apply Sorting based on Category
+    if (selectedCategory === 'Trending') {
+        filteredMarkets.sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
+    } else if (selectedCategory === 'New') {
+        // Sort by ID descending (proxy for newest)
+        filteredMarkets.sort((a, b) => Number(b.id) - Number(a.id));
+        // Filter for "New" roughly (top 10 newest or strict 24h if we had timestamps)
+        // Since we don't have explicit createdAt, return top 12 newest
+        filteredMarkets = filteredMarkets.slice(0, 12);
+    } else {
+        // Default sort mechanisms (maybe by volume or ending soon?)
+        // Let's keep existing order or volume default
+        filteredMarkets.sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
+    }
 
     // Apply limit if specified (for trending section)
     if (limit && limit > 0) {
@@ -149,6 +170,10 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
                             color="green"
                             image_url={market.image_url || market.image}
                             description={market.description}
+                            isBoosted={market.isBoosted}
+                            endTime={market.endTime}
+                            resolved={market.resolved}
+                            winningOutcome={market.winningOutcome}
                         />
                     </motion.div>
                 ))}

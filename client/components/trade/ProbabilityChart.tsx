@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
+import LogoBrand from "@/components/ui/LogoBrand";
 
 // Lazy load Recharts components
 const AreaChart = lazy(() => import("recharts").then(m => ({ default: m.AreaChart })));
@@ -24,7 +25,12 @@ const data = [
 export default function ProbabilityChart({ outcome = "YES" }: { outcome?: "YES" | "NO" }) {
     const color = outcome === "YES" ? "#4ADE80" : "#F87171";
     return (
-        <div className="w-full h-[400px]">
+        <div className="w-full h-[400px] relative">
+            {/* Watermark Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
+                <LogoBrand size="xl" />
+            </div>
+
             <Suspense fallback={<div className="w-full h-full bg-white/5 rounded-lg animate-pulse" />}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data}>

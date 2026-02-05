@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateMagicLink, verifyMagicToken } from '../controllers/authController';
+import { generateMagicLink, registerUser } from '../controllers/authController';
 import { getWallet, linkWallet } from '../controllers/walletController';
 import { WhatsAppController } from '../controllers/whatsappController';
 import { TelegramController } from '../controllers/telegramController';
@@ -10,7 +10,7 @@ const router = Router();
 
 // Auth Routes (Deprecated/Removed)
 // router.post('/auth/magic-link', generateMagicLink);
-// router.post('/auth/verify', verifyMagicToken);
+router.post('/register', registerUser);
 
 // Wallet Routes
 router.get('/wallet/:userId', getWallet);
@@ -21,7 +21,10 @@ router.use('/balance', balanceRoutes);
 
 // WhatsApp Bot Routes
 router.post('/whatsapp/user', WhatsAppController.getOrCreateUser);
-router.get('/whatsapp/user', WhatsAppController.getUserByPhone);
+router.post('/whatsapp/bet', WhatsAppController.placeBet);
+router.post('/whatsapp/withdraw', WhatsAppController.withdraw);
+router.get('/whatsapp/positions/:phone', WhatsAppController.getPositions);
+router.get('/whatsapp/balance/:phone', WhatsAppController.getBalance);
 
 // Telegram Bot Routes
 router.post('/telegram/user', TelegramController.getOrCreateUser);

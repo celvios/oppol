@@ -1,108 +1,44 @@
-'use client';
-
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useEffect, useState } from 'react';
-
-// Storage keys for persistence
-const WALLET_STORAGE_KEY = 'opoll-wallet-state';
-const CONNECTION_TIMESTAMP_KEY = 'opoll-wallet-timestamp';
-
-// Helper to get stored wallet state
-function getStoredWalletState() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem(WALLET_STORAGE_KEY);
-    const timestamp = localStorage.getItem(CONNECTION_TIMESTAMP_KEY);
-    
-    if (stored && timestamp) {
-      const state = JSON.parse(stored);
-      const connectionTime = parseInt(timestamp);
-      
-      // Consider connection valid for 24 hours
-      if (Date.now() - connectionTime < 24 * 60 * 60 * 1000) {
-        return state;
-      }
-    }
-  } catch (e) {
-    console.warn('[useWallet] Failed to read stored state:', e);
-  }
-  return null;
-}
-
-// Helper to store wallet state
-function storeWalletState(address: string | null, isConnected: boolean) {
-  if (typeof window === 'undefined') return;
-  try {
-    if (isConnected && address) {
-      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({ address, isConnected }));
-      localStorage.setItem(CONNECTION_TIMESTAMP_KEY, Date.now().toString());
-    } else {
-      localStorage.removeItem(WALLET_STORAGE_KEY);
-      localStorage.removeItem(CONNECTION_TIMESTAMP_KEY);
-    }
-  } catch (e) {
-    console.warn('[useWallet] Failed to store state:', e);
-  }
-}
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useAccount, useDisconnect } from 'wagmi';
 
 export function useWallet() {
-  const [isConnecting, setIsConnecting] = useState(false);
-  
-  // Wagmi hooks
+  const { login, logout: privyLogout, ready, authenticated } = usePrivy();
+  const { wallets } = useWallets();
   const { address, isConnected } = useAccount();
-  const { connectAsync, isPending } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
-  
-  // Get stored state and use it as the source of truth
-  const storedState = getStoredWalletState();
-  const [displayState, setDisplayState] = useState(() => {
-    // Initialize with stored state if available
-    return storedState || { address: null, isConnected: false };
-  });
 
-  // Only update display state when Wagmi shows a real connection
-  useEffect(() => {
-    if (isConnected && address) {
-      // Connected - update immediately
-      const newState = { address, isConnected: true };
-      setDisplayState(newState);
-      storeWalletState(address, true);
-    }
-    // Never update on disconnect - UI stays connected
-  }, [address, isConnected]);
+  // User is considered connected if authenticated (Privy) OR wallet connected (Wagmi)
+  // BUT: for explicit logout, we want to clear both
+  const effectivelyConnected = authenticated || isConnected;
+  const effectiveAddress = address || (wallets[0]?.address);
 
-  const connectWallet = async () => {
-    setIsConnecting(true);
+  // Combined disconnect function
+  const handleDisconnect = async () => {
     try {
-      const modal = (window as any).web3modal;
-      if (modal?.open) {
-        await modal.open();
+      // Disconnect Wagmi (External wallets)
+      if (isConnected) {
+        wagmiDisconnect();
       }
-    } catch (error) {
-      console.error('[useWallet] Connection failed:', error);
-    } finally {
-      setTimeout(() => setIsConnecting(false), 2000);
+      // Logout Privy (Social/Embedded)
+      await privyLogout();
+    } catch (e) {
+      console.error('Disconnect error:', e);
     }
   };
 
-  const disconnectWallet = async () => {
-    try {
-      wagmiDisconnect();
-      // Only clear on manual disconnect
-      const newState = { address: null, isConnected: false };
-      setDisplayState(newState);
-      storeWalletState(null, false);
-    } catch (error) {
-      console.error('[useWallet] Disconnect failed:', error);
-    }
-  };
-
-  // Always return stored/display state - never Wagmi state directly
   return {
-    isConnected: displayState.isConnected,
-    address: displayState.address,
-    isConnecting: isConnecting || isPending,
-    connect: connectWallet,
-    disconnect: disconnectWallet
+    // Connection state
+    isConnected: effectivelyConnected,
+    address: effectiveAddress || null,
+    isConnecting: !ready,
+
+    // Actions
+    // Actions
+    connect: () => login({ loginMethods: ['email', 'wallet', 'google'] }), // Enforce specific login methods
+    disconnect: handleDisconnect, // Disconnects BOTH systems
+
+    // Compatibility
+    connectAsync: login,
+    connectors: wallets,
   };
 }

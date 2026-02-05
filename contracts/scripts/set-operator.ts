@@ -1,43 +1,46 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    // 1. Configuration
-    const MARKET_ADDRESS = "0xbBE2811Ab064bd76667D49346a025530310AD03E"; // Deployed address
+    const marketAddress = process.env.NEXT_PUBLIC_MARKET_ADDRESS || "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
 
-    // Get server wallet (operator) from env or use deployer
+    if (!marketAddress) {
+        throw new Error("Market Address not found"); // Should not happen with fallback
+    }
+
+    console.log(`Connecting to market at ${marketAddress}...`);
+
+    // Get the deployer (signer)
     const [deployer] = await ethers.getSigners();
-    let OPERATOR_ADDRESS = process.env.SERVER_WALLET || deployer.address;
+    console.log(` interacting as deployer: ${deployer.address}`);
 
-    // OR manually override here if needed:
-    // OPERATOR_ADDRESS = "YOUR_SERVER_WALLET_ADDRESS";
+    // Get the contract instance
+    const PredictionMarket = await ethers.getContractFactory("PredictionMarketMultiV2");
+    const market = PredictionMarket.attach(marketAddress);
 
-    console.log("Checking operator status for:", OPERATOR_ADDRESS);
-    console.log("On Market Contract:", MARKET_ADDRESS);
+    // Determine the operator address
+    // Priority: OPERATOR_ADDRESS env var -> same as deployer
+    let operatorAddress = process.env.OPERATOR_ADDRESS;
 
-    // 2. Attach to Contract
-    const PredictionMarketUMA = await ethers.getContractFactory("PredictionMarketUMA");
-    const market = PredictionMarketUMA.attach(MARKET_ADDRESS) as any;
+    if (!operatorAddress) {
+        console.log("No OPERATOR_ADDRESS set, using deployer address as operator...");
+        operatorAddress = deployer.address;
+    }
 
-    // 3. Check Status
-    const isOperator = await market.operators(OPERATOR_ADDRESS);
-    console.log(`Current Status: ${isOperator ? "✅ AUTHORIZED" : "❌ NOT AUTHORIZED"}`);
+    console.log(`Whitelisting operator: ${operatorAddress}`);
 
+    // Check if already an operator
+    const isOperator = await market.operators(operatorAddress);
     if (isOperator) {
-        console.log("Server wallet is already an operator. No action needed.");
+        console.log(`Address ${operatorAddress} is already an operator.`);
         return;
     }
 
-    // 4. Set Operator (if not set)
-    console.log("Authorizing operator...");
-    try {
-        const tx = await market.setOperator(OPERATOR_ADDRESS, true);
-        console.log("Transaction sent:", tx.hash);
-        await tx.wait();
-        console.log("✅ Success! Server wallet is now an authorized operator.");
-    } catch (error) {
-        console.error("Failed to set operator:", error);
-        console.log("Make sure you are using the owner wallet to run this script.");
-    }
+    // Set operator
+    const tx = await market.setOperator(operatorAddress, true);
+    console.log(`Transaction sent: ${tx.hash}`);
+
+    await tx.wait();
+    console.log(`Successfully set ${operatorAddress} as operator.`);
 }
 
 main()

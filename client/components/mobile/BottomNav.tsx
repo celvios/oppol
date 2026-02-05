@@ -2,41 +2,42 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, BarChart2, Search, Wallet, User, LayoutGrid } from "lucide-react";
-import { motion } from "framer-motion";
+import { Home, Wallet, PlusCircle, Globe, Trophy, User, Menu } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
-import { useCreationAccess } from "@/lib/use-creation-access";
-import { PlusCircle } from "lucide-react";
+import { useBC400Check } from "@/lib/use-bc400";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen, isInputFocused, isCommentsOpen } = useUIStore();
-    const { isConnected, address, disconnect, connect } = useWallet();
-    const { canCreate } = useCreationAccess();
+    const { isConnected, connect } = useWallet();
+    const { hasNFT } = useBC400Check();
+
     const [showWalletModal, setShowWalletModal] = useState(false);
-
-    const handleLogout = () => {
-        localStorage.clear();
-        disconnect();
-        router.push('/');
-    };
-
-    const isLoggedIn = isConnected;
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     if (isTradeModalOpen || isInputFocused || isCommentsOpen) return null;
 
-    const navItems = [
-        { name: "Home", icon: Home, href: "/" },
-        { name: "Terminal", icon: BarChart2, href: "/terminal" },
-        { name: "Markets", icon: LayoutGrid, href: "/markets" },
-        ...(canCreate ? [{ name: "Create", icon: PlusCircle, href: "/admin/create-market" }] : []),
-        { name: "Search", icon: Search, href: "/search" },
-        { name: "Portfolio", icon: Wallet, href: "/terminal/portfolio" },
-    ];
+    const handleCreateClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        if (!isConnected) {
+            setShowWalletModal(true);
+            return;
+        }
+
+        if (hasNFT) {
+            router.push('/admin/create-market');
+        } else {
+            setShowPurchaseModal(true);
+        }
+    };
 
     return (
         <>
@@ -44,40 +45,90 @@ export default function BottomNav() {
                 <div className="absolute inset-0 bg-void/80 backdrop-blur-xl border-t border-white/5" suppressHydrationWarning={true} />
 
                 <nav className="relative flex justify-around items-center h-20 pb-2" suppressHydrationWarning={true}>
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        const Icon = item.icon;
+                    {/* Markets (Replaces Home) */}
+                    <Link
+                        href="/"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    >
+                        {pathname === "/" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")}>Markets</span>
+                    </Link>
 
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
-                            >
-                                {isActive && (
-                                    <motion.div
-                                        layoutId="nav-active"
-                                        className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
-                                    />
-                                )}
+                    {/* Leaderboard */}
+                    <div
+                        onClick={() => alert("Leaderboard Coming Soon!")}
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                    >
+                        <Trophy className="w-6 h-6 text-text-secondary transition-colors" />
+                        <span className="text-text-secondary transition-colors">LeaderBoard</span>
+                    </div>
 
-                                <Icon
-                                    className={twMerge(
-                                        "w-6 h-6 transition-colors duration-300",
-                                        isActive ? "text-neon-cyan" : "text-text-secondary"
-                                    )}
-                                />
-                                <span className={twMerge(
-                                    "transition-colors duration-300",
-                                    isActive ? "text-white" : "text-text-secondary"
-                                )}>
-                                    {item.name}
-                                </span>
-                            </Link>
-                        );
-                    })}
+                    {/* Create Poll */}
+                    <div
+                        onClick={handleCreateClick}
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                    >
+                        {pathname === "/admin/create-market" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <PlusCircle className={twMerge("w-6 h-6 transition-colors", pathname === "/admin/create-market" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/admin/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
+                    </div>
+
+                    {/* Portfolio */}
+                    <Link
+                        href="/portfolio"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    >
+                        {pathname === "/portfolio" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
+                    </Link>
+
+
+
+                    {/* Menu */}
+                    <Link
+                        href="/menu"
+                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                    >
+                        {pathname === "/menu" && (
+                            <motion.div
+                                layoutId="nav-active"
+                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                            />
+                        )}
+                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")}>Menu</span>
+                    </Link>
                 </nav>
             </div>
+
+            <ConnectWalletModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+                onConnect={connect}
+                context="create"
+            />
+
+            <BC400PurchaseModal
+                isOpen={showPurchaseModal}
+                onClose={() => setShowPurchaseModal(false)}
+            />
         </>
     );
 }

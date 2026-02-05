@@ -13,6 +13,13 @@ interface IUniswapV2Router02 {
         uint deadline
     ) external returns (uint[] memory amounts);
 
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+
     function WETH() external pure returns (address);
 }
 
@@ -68,6 +75,37 @@ contract Zap is Ownable {
         usdc.approve(address(market), usdcBalance);
 
         // 6. Deposit into Market for User
+        market.depositFor(msg.sender, usdcBalance);
+    }
+
+    /**
+     * @dev Zap Native BNB into the Prediction Market (converts to USDC)
+     * @param minUSDC The minimum amount of USDC to receive (slippage protection)
+     */
+    function zapInBNB(uint256 minUSDC) external payable {
+        require(msg.value > 0, "Amount must be > 0");
+
+        // 1. Swap BNB -> USDC
+        address[] memory path = new address[](2);
+        path[0] = router.WETH(); // WBNB
+        path[1] = address(usdc); // USDC
+
+        // router.swapExactETHForTokens{value: amount}(amountOutMin, path, to, deadline)
+        router.swapExactETHForTokens{value: msg.value}(
+            minUSDC,
+            path,
+            address(this),
+            block.timestamp + 300
+        );
+
+        // 2. Get received USDC balance
+        uint256 usdcBalance = usdc.balanceOf(address(this));
+        require(usdcBalance > 0, "Swap failed to yield USDC");
+
+        // 3. Approve Market to spend USDC
+        usdc.approve(address(market), usdcBalance);
+
+        // 4. Deposit into Market for User
         market.depositFor(msg.sender, usdcBalance);
     }
 

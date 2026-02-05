@@ -56,7 +56,7 @@ export default function MobileHero() {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-3 w-full mt-8">
-                    <Link href="/terminal" className="w-full">
+                    <Link href="/" className="w-full">
                         <NeonButton variant="cyan" className="w-full justify-center">
                             <Terminal className="w-4 h-4 mr-2" />
                             PREDICT VIA WEB

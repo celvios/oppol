@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
             timeout: 120000,
         },
         bsc: {
-            url: "https://bsc-rpc.publicnode.com",
+            url: "https://bnb-mainnet.g.alchemy.com/v2/Xo1rl1WS3c_qYc5694os6",
             chainId: 56,
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
             timeout: 600000,

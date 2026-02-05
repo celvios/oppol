@@ -20,6 +20,7 @@ export interface MultiMarket {
     assertionPending?: boolean;
     assertedOutcome?: number;
     asserter?: string;
+    created_at?: string;  // Timestamp for market creation
     // Legacy fields for backward compatibility
     image?: string;          // Alias for image_url
     yesOdds?: number;
@@ -29,6 +30,10 @@ export interface MultiMarket {
     yesPool?: string;
     noPool?: string;
     outcome?: boolean; // true if YES won, false if NO won (for binary)
+    // Boost fields
+    isBoosted?: boolean;
+    boost_expires_at?: number;
+    boost_tier?: number;
 }
 
 export interface MultiPosition {
@@ -213,8 +218,8 @@ export class Web3MultiService {
     private async fetchMarketsFromAPI(): Promise<MultiMarket[]> {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (!apiUrl) {
-            console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set.');
-            return this.getMarketsFromContract();
+            console.error('[Web3MultiService] NEXT_PUBLIC_API_URL is not set. Cannot fetch markets.');
+            return [];
         }
 
         try {
@@ -229,8 +234,8 @@ export class Web3MultiService {
             }
 
             if (!data.markets || data.markets.length === 0) {
-                console.warn('[Web3MultiService] API returned no markets - forcing contract fallback');
-                throw new Error('API returned no markets');
+                console.warn('[Web3MultiService] API returned no markets');
+                return [];
             }
 
             // Map API response to MultiMarket interface
@@ -249,37 +254,26 @@ export class Web3MultiService {
                 totalVolume: m.totalVolume || '0',
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
+                // Boost fields
+                isBoosted: m.is_boosted || (m.market_id !== undefined ? m.market_id : m.id) < 3, // TEMP: Auto-boost first 3 markets for demo
+                boost_tier: m.boost_tier,
+                boost_expires_at: m.boost_expires_at,
                 image: m.image_url || '',
             }));
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
-            return this.getMarketsFromContract();
+            console.error('[Web3MultiService] Fallback to contract disabled to reduce RPC usage');
+            return [];
         }
     }
 
     /**
      * Fallback: Get markets directly from contract in PARALLEL
+     * DISABLED to reduce RPC usage - API should be the only source
      */
     private async getMarketsFromContract(): Promise<MultiMarket[]> {
-        if (!this.predictionMarket) return [];
-        try {
-            const count = Number(await this.predictionMarket.marketCount());
-            const ids = Array.from({ length: count }, (_, i) => i);
-
-            // PARALLEL fetch all markets at once
-            const marketPromises = ids.map(id =>
-                this.getMarket(id).catch(e => {
-                    console.error(`Error fetching market ${id}:`, e);
-                    return null;
-                })
-            );
-
-            const results = await Promise.all(marketPromises);
-            return results.filter((m): m is MultiMarket => m !== null);
-        } catch (error) {
-            console.error('Error fetching multi-markets from contract:', error);
-            return [];
-        }
+        console.warn('[Web3MultiService] getMarketsFromContract is disabled to reduce RPC usage');
+        return [];
     }
 
     /**
@@ -331,6 +325,8 @@ export class Web3MultiService {
                 yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),
                 noPool: '0',
                 outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
+                // Boost fields - Consistent with API
+                isBoosted: marketId < 3,
             };
         } catch (error) {
             console.error('Error fetching multi-market:', error);

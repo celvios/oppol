@@ -1,167 +1,71 @@
+/**
+ * Web3 Provider - Privy Only (with Wagmi)
+ * 
+ * Clean implementation using ONLY Privy for all wallet connections.
+ * Privy requires Wagmi as a peer dependency for blockchain interactions.
+ */
+
 'use client';
 
-import { createWeb3Modal } from '@web3modal/wagmi/react';
-import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
-import { WagmiProvider, useAccount, useDisconnect } from 'wagmi';
-import { bsc, bscTestnet } from 'wagmi/chains';
+import { PrivyProvider } from '@privy-io/react-auth';
+import { WagmiProvider } from '@privy-io/wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode, useState, useEffect, useRef } from 'react';
-import { cookieStorage, createStorage } from 'wagmi';
+import { bsc, bscTestnet } from 'wagmi/chains';
+import { http, createConfig } from 'wagmi';
+import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors';
+import { ReactNode, useState } from 'react';
 
-const projectId = '70415295a4738286445072f5c2392457';
+const queryClient = new QueryClient();
 
-const metadata = {
-    name: 'OPoll',
-    description: 'Decentralized Prediction Market',
-    url: 'https://oppollbnb.vercel.app',
-    icons: ['https://oppollbnb.vercel.app/icon.png'],
-};
-
-const chains = [bsc, bscTestnet] as const;
-
-const config = defaultWagmiConfig({
-    chains,
-    projectId,
-    metadata,
+// Wagmi config with explicit connectors for Headless usage
+const config = createConfig({
+    chains: [bsc, bscTestnet],
+    transports: {
+        [bsc.id]: http(),
+        [bscTestnet.id]: http(),
+    },
+    connectors: [
+        injected(),
+        coinbaseWallet({ appName: 'OPoll' }),
+        walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
+    ],
     ssr: true,
-    storage: createStorage({
-        storage: cookieStorage,
-    }),
 });
-
-// Global modal instance tracker
-let modalInstance: any = null;
-let modalInitialized = false;
-
-function initializeModal() {
-    if (!modalInitialized && typeof window !== 'undefined') {
-        console.log('[Web3Provider] Initializing Web3Modal');
-        
-        try {
-            modalInstance = createWeb3Modal({
-                wagmiConfig: config,
-                projectId,
-                enableAnalytics: false,
-                themeMode: 'dark',
-                themeVariables: {
-                    '--w3m-accent': '#00FF94',
-                },
-            });
-            
-            // Store modal instance on window for global access
-            (window as any).web3modal = modalInstance;
-            modalInitialized = true;
-            
-            console.log('[Web3Provider] Web3Modal initialized successfully');
-        } catch (error) {
-            console.error('[Web3Provider] Failed to initialize Web3Modal:', error);
-        }
-    }
-    return modalInstance;
-}
-
-// Bridge component to sync Wagmi state with custom events
-function WagmiBridge() {
-    const { address, isConnected } = useAccount();
-    const { disconnect } = useDisconnect();
-    const lastStateRef = useRef({ address: null, isConnected: false });
-
-    // Sync Wagmi state -> Custom Events (for useWallet)
-    useEffect(() => {
-        const currentAddress = address || null;
-        const currentConnected = isConnected;
-        
-        // Only dispatch if state actually changed
-        if (currentAddress !== lastStateRef.current.address || 
-            currentConnected !== lastStateRef.current.isConnected) {
-            
-            console.log('[WagmiBridge] State changed:', { 
-                from: lastStateRef.current, 
-                to: { address: currentAddress, isConnected: currentConnected } 
-            });
-            
-            lastStateRef.current = { address: currentAddress, isConnected: currentConnected };
-            
-            window.dispatchEvent(new CustomEvent('wallet-changed', {
-                detail: { address: currentAddress, isConnected: currentConnected }
-            }));
-        }
-    }, [address, isConnected]);
-
-    // Listen for connection and initialization requests
-    useEffect(() => {
-        const handleConnectRequest = () => {
-            console.log('[WagmiBridge] Connect request received');
-            const modal = (window as any).web3modal || modalInstance;
-            if (modal && modal.open) {
-                console.log('[WagmiBridge] Opening modal');
-                modal.open();
-            } else {
-                console.error('[WagmiBridge] Modal not available for connection');
-            }
-        };
-
-        const handleDisconnectRequest = () => {
-            console.log('[WagmiBridge] Disconnect request received');
-            disconnect();
-        };
-        
-        const handleInitModal = () => {
-            console.log('[WagmiBridge] Modal initialization request received');
-            initializeModal();
-        };
-
-        window.addEventListener('wallet-connect-request', handleConnectRequest);
-        window.addEventListener('wallet-disconnect-request', handleDisconnectRequest);
-        window.addEventListener('init-web3modal', handleInitModal);
-        
-        return () => {
-            window.removeEventListener('wallet-connect-request', handleConnectRequest);
-            window.removeEventListener('wallet-disconnect-request', handleDisconnectRequest);
-            window.removeEventListener('init-web3modal', handleInitModal);
-        };
-    }, [disconnect]);
-
-    return null;
-}
 
 interface Web3ProviderProps {
     children: ReactNode;
 }
 
 export function Web3Provider({ children }: Web3ProviderProps) {
-    const [mounted, setMounted] = useState(false);
-    const initRef = useRef(false);
+    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
-    const [queryClient] = useState(() => new QueryClient({
-        defaultOptions: {
-            queries: {
-                refetchOnWindowFocus: false,
-                retry: false,
-                staleTime: 30000, // 30 seconds
-            },
-        },
-    }));
+    if (!appId) {
+        console.error("FATAL: NEXT_PUBLIC_PRIVY_APP_ID is not defined.");
+        return <>{children}</>;
+    }
 
-    useEffect(() => {
-        if (!initRef.current) {
-            console.log('[Web3Provider] Mounting and initializing');
-            setMounted(true);
-            initializeModal();
-            initRef.current = true;
-        }
-    }, []);
-
-    // Always render with Wagmi context to ensure proper hydration
-    // The useWallet hook will handle the mounted state internally
     return (
-        <WagmiProvider config={config} reconnectOnMount={true}>
+        <PrivyProvider
+            appId={appId}
+            config={{
+                // Login methods
+                loginMethods: ['wallet', 'google', 'email'],
+                appearance: {
+                    theme: 'dark',
+                    accentColor: '#00E0FF', // Neon Cyan
+                    logo: 'https://oppollbnb.vercel.app/logo.png', // valid logo
+                },
+                embeddedWallets: {
+                    createOnLogin: 'users-without-wallets',
+                    noPromptOnSignature: false,
+                },
+            }}
+        >
             <QueryClientProvider client={queryClient}>
-                <WagmiBridge />
-                {children}
+                <WagmiProvider config={config}>
+                    {children}
+                </WagmiProvider>
             </QueryClientProvider>
-        </WagmiProvider>
+        </PrivyProvider>
     );
 }
-
-export { config };

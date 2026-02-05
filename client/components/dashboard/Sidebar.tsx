@@ -3,20 +3,24 @@
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Terminal, Globe } from "lucide-react";
+import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe, Trophy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/lib/use-wallet";
-import { useCreationAccess } from "@/lib/use-creation-access";
+import { useBC400Check } from "@/lib/use-bc400";
 import { PlusCircle } from "lucide-react";
 import LogoBrand from "@/components/ui/LogoBrand";
+import SidebarBoostButton from "@/components/market/SidebarBoostButton";
+import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
+import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
+import { useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 
 const navItems = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Terminal", href: "/terminal", icon: Terminal },
-    { name: "Explore", href: "/markets", icon: Globe },
-    { name: "Portfolio", href: "/terminal/portfolio", icon: PieChart },
-    { name: "Deposit", href: "/terminal/deposit", icon: ArrowUpRight },
-    { name: "Withdraw", href: "/terminal/withdraw", icon: ArrowDownRight },
+    { name: "Markets", href: "/", icon: Globe },
+    { name: "Portfolio", href: "/portfolio", icon: PieChart },
+    { name: "Deposit", href: "/deposit", icon: ArrowUpRight },
+    { name: "Withdraw", href: "/withdraw", icon: ArrowDownRight },
+    { name: "Profile", href: "/profile", icon: User },
 ];
 
 interface SidebarProps {
@@ -27,12 +31,59 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isAdmin, isConnected, address, disconnect, connect } = useWallet();
-    const { canCreate } = useCreationAccess();
+    const { isConnected, address, disconnect, connect } = useWallet();
+    const { authenticated, user, logout } = usePrivy();
+    const { hasNFT } = useBC400Check();
 
-    const handleLogout = () => {
-        disconnect();
-        router.push('/');
+    const isEffectivelyConnected = isConnected || authenticated;
+    const effectiveAddress = address || user?.wallet?.address;
+
+    const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+
+    const handleLogout = async () => {
+        try {
+            // Call unified disconnect (Wagmi + Privy)
+            await disconnect();
+        } catch (error) {
+            console.error('[Sidebar] Logout error:', error);
+        } finally {
+            // ALWAYS force clear everything in finally block
+            // This ensures we clean up even if logout API fails
+            if (typeof window !== 'undefined') {
+                // Clear ALL Privy session data
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('privy:')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                // Clear Wagmi cache
+                localStorage.removeItem('wagmi.wallet');
+                localStorage.removeItem('wagmi.store');
+                localStorage.removeItem('wagmi.cache');
+                localStorage.removeItem('wagmi.connected');
+            }
+
+            // Navigate to home and FORCE reload to clear in-memory state
+            router.push('/');
+            router.refresh();
+        }
+    };
+
+    const handleCreateClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        if (!isConnected) {
+            setShowWalletModal(true);
+            return;
+        }
+
+        if (hasNFT) {
+            router.push('/admin/create-market');
+        } else {
+            setShowPurchaseModal(true);
+        }
     };
 
     return (
@@ -45,7 +96,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             >
                 {/* Header / Logo */}
                 <div className="mb-6 flex items-center justify-between px-2">
-                    {/* Logo removed */}
+                    <LogoBrand showText={!collapsed} size={collapsed ? "sm" : "md"} />
                     <div /> {/* Spacer to keep toggle button to the right if needed, or just empty */}
 
                     {!collapsed && (
@@ -60,6 +111,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 space-y-2">
+                    {!collapsed && (
+                        <div className="mb-4">
+                            <SidebarBoostButton />
+                        </div>
+                    )}
+
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
@@ -85,27 +142,45 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         );
                     })}
 
-                    {canCreate && (
-                        <Link
-                            href="/admin/create-market"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 border border-neon-cyan/20 bg-neon-cyan/5 hover:bg-neon-cyan/10",
-                                pathname === "/admin/create-market"
-                                    ? "text-neon-cyan"
-                                    : "text-neon-cyan/80",
-                                collapsed ? "justify-center" : ""
-                            )}
-                            title={collapsed ? "Create Market" : undefined}
-                        >
-                            <PlusCircle className="w-5 h-5 text-neon-cyan" />
-                            {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Market</span>}
-                        </Link>
+                    <div
+                        onClick={() => alert("Leaderboard Coming Soon!")}
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group cursor-pointer text-white/60 hover:text-white hover:bg-white/5",
+                            collapsed ? "justify-center" : ""
+                        )}
+                        title={collapsed ? "Leaderboard" : undefined}
+                    >
+                        <Trophy className="w-5 h-5 transition-transform group-hover:scale-110" />
+                        {!collapsed && <span className="font-medium text-sm">Leaderboard</span>}
+                    </div>
+
+                    <div
+                        onClick={handleCreateClick}
+                        className={cn(
+                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 bg-neon-cyan/5 hover:bg-neon-cyan/10 cursor-pointer",
+                            pathname === "/admin/create-market"
+                                ? "text-neon-cyan"
+                                : "text-neon-cyan/80",
+                            collapsed ? "justify-center" : ""
+                        )}
+                        title={collapsed ? "Create Poll" : undefined}
+                    >
+                        <PlusCircle className="w-5 h-5 text-neon-cyan" />
+                        {!collapsed && <span className="font-medium text-sm text-neon-cyan">Create Poll</span>}
+                    </div>
+
+
+
+                    {!collapsed && (
+                        <div className="mt-4 mb-2">
+                            {/* <SidebarBoostButton /> */}
+                        </div>
                     )}
 
-                    {isConnected ? (
+                    {isEffectivelyConnected ? (
                         <div
                             className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary border border-primary/20",
+                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary",
                                 collapsed ? "justify-center" : ""
                             )}
                         >
@@ -117,7 +192,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 <>
                                     <div className="flex-1">
                                         <span className="font-mono text-xs">
-                                            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Logged In'}
+                                            {effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : 'Logged In'}
                                         </span>
                                     </div>
                                     <button
@@ -139,43 +214,41 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => connect()}
+                            onClick={() => setShowWalletModal(true)}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
+                                "hover:bg-primary/10 hover:text-primary hover:border-primary/20 hover:border",
                                 collapsed ? "justify-center" : ""
                             )}
-                            title={collapsed ? "Connect Wallet" : undefined}
+                            title={collapsed ? "Log In" : undefined}
                         >
                             <Wallet className="w-5 h-5 transition-transform group-hover:scale-110" />
-                            {!collapsed && <span className="font-medium text-sm">Connect Wallet</span>}
+                            {!collapsed && <span className="font-medium text-sm">Log In</span>}
                         </button>
                     )}
 
-                    {isConnected && isAdmin && (
-                        <Link
-                            href="/admin"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-4 border",
-                                pathname === "/admin"
-                                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                                    : "text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/10 border-transparent hover:border-amber-500/20",
-                                collapsed ? "justify-center" : ""
-                            )}
-                            title={collapsed ? "Admin Panel" : undefined}
-                        >
-                            <Shield className="w-5 h-5" />
-                            {!collapsed && <span className="font-medium text-sm">Admin Panel</span>}
-                        </Link>
-                    )}
+
                 </nav>
 
                 {!collapsed && (
                     <div className="pt-4 border-t border-white/10 text-center">
                         <span className="text-[10px] text-white/20">Powered by BNB Chain</span>
+                        {/* Revert verified */}
                     </div>
                 )}
             </div>
+            <ConnectWalletModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+                onConnect={connect}
+                context="create"
+            />
+
+            <BC400PurchaseModal
+                isOpen={showPurchaseModal}
+                onClose={() => setShowPurchaseModal(false)}
+            />
         </>
     );
 }

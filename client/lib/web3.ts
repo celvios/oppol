@@ -65,9 +65,13 @@ export class Web3Service {
 
         const contracts = getContracts() as any;
 
-        // Use the unified multi-outcome contract
-        // Use the unified multi-outcome contract
-        const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket;
+        // Use the unified multi-outcome contract with fallback to env var
+        const marketAddress = contracts.predictionMarketMulti
+            || contracts.predictionMarket
+            || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
+
+        console.log('[Web3Service] Initializing with market address:', marketAddress);
+
         if (marketAddress && marketAddress !== "") {
             try {
                 this.predictionMarket = new ethers.Contract(
@@ -75,11 +79,12 @@ export class Web3Service {
                     PREDICTION_MARKET_MULTI_ABI,
                     this.provider
                 );
+                console.log('[Web3Service] Market contract initialized successfully');
             } catch (e) {
                 console.error('[Web3Service] Failed to instantiate Market Contract:', e);
             }
         } else {
-            console.warn('[Web3Service] Missing Market Contract Address');
+            console.error('[Web3Service] Missing Market Contract Address - balance queries will fail!');
         }
 
         const usdcAddress = contracts.mockUSDC || contracts.usdc;
@@ -158,12 +163,14 @@ export class Web3Service {
      * Get single market
      */
     async getMarket(marketId: number): Promise<Market | null> {
+        const pm = this.predictionMarket;
+        if (!pm) return null;
         try {
             const [basicInfo, outcomes, shares, prices] = await Promise.all([
-                this.predictionMarket.getMarketBasicInfo(marketId),
-                this.predictionMarket.getMarketOutcomes(marketId),
-                this.predictionMarket.getMarketShares(marketId),
-                this.predictionMarket.getAllPrices(marketId),
+                pm.getMarketBasicInfo(marketId),
+                pm.getMarketOutcomes(marketId),
+                pm.getMarketShares(marketId),
+                pm.getAllPrices(marketId),
             ]);
 
             const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 6));
@@ -230,8 +237,10 @@ export class Web3Service {
      * Get user position
      */
     async getUserPosition(marketId: number, userAddress: string) {
+        const pm = this.predictionMarket;
+        if (!pm) return null;
         try {
-            const position = await this.predictionMarket.getUserPosition(marketId, userAddress);
+            const position = await pm.getUserPosition(marketId, userAddress);
             const shares = position.shares || [];
 
             return {
@@ -250,8 +259,10 @@ export class Web3Service {
      * Get USDC balance (wallet balance)
      */
     async getUSDCBalance(address: string): Promise<string> {
+        const usdc = this.usdc;
+        if (!usdc) return '0';
         try {
-            const balance = await this.usdc.balanceOf(address);
+            const balance = await usdc.balanceOf(address);
             return ethers.formatUnits(balance, 6);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
@@ -263,9 +274,13 @@ export class Web3Service {
      * Get deposited balance in the prediction market contract
      */
     async getDepositedBalance(address: string): Promise<string> {
+        const pm = this.predictionMarket;
+        if (!pm) return '0';
         try {
-            const balance = await this.predictionMarket.userBalances(address);
-            return ethers.formatUnits(balance, 6);
+            const balance = await pm.userBalances(address);
+            // IMPORTANT: Using 18 decimals because users deposited USDT (18 decimals)
+            // Even though contract expects USDC (6 decimals), the actual deposits are USDT
+            return ethers.formatUnits(balance, 18);
         } catch (error: any) {
             console.error('Error fetching deposited balance:', error);
             return '0';

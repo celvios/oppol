@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, MessageCircle, Heart, ThumbsDown, Repeat2, X } from "lucide-react";
+import { Send, MessageCircle, Heart, ThumbsDown, X } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
 import NeonButton from "@/components/ui/NeonButton";
 import { cn } from "@/lib/utils";
@@ -197,12 +197,7 @@ const CommentItem = ({
                             </div>
                         </button>
 
-                        {/* Share / More */}
-                        <button className="group text-white/40 hover:text-neon-cyan transition-colors">
-                            <div className="p-1.5 rounded-full group-hover:bg-neon-cyan/10 transition-colors">
-                                <Repeat2 className="w-[18px] h-[18px]" />
-                            </div>
-                        </button>
+
                     </div>
 
                     {/* Show Replies Text Link */}
@@ -314,41 +309,39 @@ export default function CommentsSection({ marketId, className }: CommentsSection
                 const replaceTempComment = (nodes: Comment[]): Comment[] => {
                     return nodes.map(node => {
                         // Check if this node is the temp comment we're looking for
-                        if (node.id.startsWith('temp-') && 
-                            node.text === comment.text && 
+                        if (node.id.startsWith('temp-') &&
                             node.wallet_address === comment.wallet_address &&
-                            node.parent_id === comment.parent_id) {
+                            (node.text === comment.text || node.text.trim() === comment.text.trim())) {
                             return comment;
                         }
-                        
+
                         // Check replies recursively
                         if (node.replies && node.replies.length > 0) {
                             const updatedReplies = replaceTempComment(node.replies);
                             // Check if any reply was replaced
-                            const replyReplaced = updatedReplies.some((reply, idx) => 
+                            const replyReplaced = updatedReplies.some((reply, idx) =>
                                 reply.id === comment.id && node.replies![idx].id.startsWith('temp-')
                             );
                             if (replyReplaced) {
                                 return { ...node, replies: updatedReplies };
                             }
                         }
-                        
+
                         return node;
                     });
                 };
 
                 // Check if there's a temp comment to replace
-                const hasTempComment = prev.some(c => 
-                    c.id.startsWith('temp-') && 
-                    c.text === comment.text && 
+                // We'll relax the check slightly to ensure we catch it
+                const hasTempComment = prev.some(c =>
+                    c.id.startsWith('temp-') &&
                     c.wallet_address === comment.wallet_address &&
-                    c.parent_id === comment.parent_id
-                ) || prev.some(c => 
-                    c.replies?.some(r => 
-                        r.id.startsWith('temp-') && 
-                        r.text === comment.text && 
+                    (c.text === comment.text || c.text.trim() === comment.text.trim())
+                ) || prev.some(c =>
+                    c.replies?.some(r =>
+                        r.id.startsWith('temp-') &&
                         r.wallet_address === comment.wallet_address &&
-                        r.parent_id === comment.parent_id
+                        (r.text === comment.text || r.text.trim() === comment.text.trim())
                     )
                 );
 

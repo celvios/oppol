@@ -35,7 +35,7 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
         const signer = new ethers.Wallet(privateKey, provider);
 
         // Get Contract
-        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
         if (!MARKET_ADDR) throw new Error('Market contract address not configured');
 
         const marketABI = [
@@ -73,8 +73,11 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         const chainId = Number(process.env.CHAIN_ID) || 56;
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
 
-        // FORCE CORRECT CONTRACT
-        const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
+        // USE CORRECT CONTRACT FROM ENV
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+        console.log('👮 [ADMIN API] Using contract address:', MARKET_ADDR);
+
+        if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
             'function marketCount() view returns (uint256)',
@@ -232,7 +235,8 @@ router.post('/sync-markets', checkAdminAuth, async (req, res) => {
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
         const chainId = Number(process.env.CHAIN_ID) || 56;
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
-        const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+        if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
             'function marketCount() view returns (uint256)',
@@ -391,7 +395,7 @@ router.get('/users', checkAdminAuth, async (req, res) => {
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
         const chainId = Number(process.env.CHAIN_ID) || 56;
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
-        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
 
         if (MARKET_ADDR) {
             const marketABI = ['function userBalances(address) view returns (uint256)'];

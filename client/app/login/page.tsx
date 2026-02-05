@@ -9,7 +9,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         // Web App is now Wallet-Only. Redirect to Terminal.
-        router.push("/terminal");
+        router.push("/");
     }, [router]);
 
     return (

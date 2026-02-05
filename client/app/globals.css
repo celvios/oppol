@@ -133,3 +133,15 @@ body {
 .animate-scaleIn {
     animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* 
+   ----------------------------------------
+   PRIVY MODAL OVERRIDES (Cyberpunk/Neon) 
+   ----------------------------------------
+   Minimal overrides for the auth popup itself
+*/
+:root {
+    --privy-color-accent: #00E0FF !important;
+    --privy-border-radius-md: 16px !important;
+    --privy-font-family: var(--font-inter), sans-serif !important;
+}

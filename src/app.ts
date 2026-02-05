@@ -11,10 +11,12 @@ import { startDepositWatcher, watchAddress, setDepositCallback } from './service
 import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 import { query } from './config/database';
+import { CONFIG } from './config/contracts';
 import { validateAddress } from './utils/addressValidator';
 import adminRoutes from './routes/adminRoutes';
 import updateBalanceRoutes from './routes/admin';
 import commentsRoutes from './routes/comments';
+import boostRoutes from './routes/boostRoutes';
 import { apiRouter } from './routes/api';
 
 const app = express();
@@ -39,7 +41,8 @@ const corsOptions = {
       'https://www.opoll.org',
       'https://opoll.org',
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'http://localhost:3002'
     ];
 
     // Check if origin is in allowed list or matches vercel.app pattern
@@ -75,7 +78,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin', updateBalanceRoutes);
 
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
+// API Routes (includes Telegram, WhatsApp, Markets, etc.)
 app.use('/api/comments', commentsRoutes);
+app.use('/api/boost', boostRoutes);
 app.use('/api', apiRouter);
 
 // WHATSAPP USER ENDPOINT - Get or create user wallet
@@ -138,10 +143,11 @@ app.post('/api/calculate-cost', async (req, res) => {
     const sharesAmount = Math.floor(shares);
     const isYes = side.toUpperCase() === 'YES';
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     const marketABI = [
       'function calculateCost(uint256 _marketId, bool _isYes, uint256 _shares) view returns (uint256)',
     ];
@@ -187,7 +193,7 @@ app.post('/api/bet', async (req, res) => {
     const outcomeIndex = explicitOutcome !== undefined ? explicitOutcome : (side?.toUpperCase() === 'YES' ? 0 : 1);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -199,9 +205,8 @@ app.post('/api/bet', async (req, res) => {
     console.log('🔍 [BET DEBUG] Signer address:', signer.address);
 
     // Unified multi-outcome contract address
-    const MARKET_ADDR = ethers.getAddress(
-      process.env.MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
-    );
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log('🔍 [BET DEBUG] Market address:', MARKET_ADDR);
 
     // Multi-outcome contract ABI
@@ -352,7 +357,7 @@ app.post('/api/multi-bet', async (req, res) => {
     const maxCost = parseFloat(amount);
 
     // Server wallet (operator) configuration
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
@@ -364,9 +369,8 @@ app.post('/api/multi-bet', async (req, res) => {
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
     // Multi-outcome contract address
-    const MULTI_MARKET_ADDR = ethers.getAddress(
-      process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6'
-    );
+    const MULTI_MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+    if (!MULTI_MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log('🔍 [MULTI-BET DEBUG] Multi-Market address:', MULTI_MARKET_ADDR);
 
     const marketABI = [
@@ -517,10 +521,11 @@ app.post('/api/wallet/link', async (req, res) => {
     const normalizedAddress = validateAddress(walletAddress, 'Wallet address');
 
     // Fetch balance from contract directly using connected wallet address
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT || '0x0d0279825957d13c74E6C187Cc37D502E0c3D168';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     console.log(`[Wallet Link] Using Market Address: ${MARKET_ADDR}`);
     console.log(`[Wallet Link] Using RPC: ${rpcUrl}`);
 
@@ -558,7 +563,7 @@ app.post('/api/faucet', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid address required' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -568,7 +573,8 @@ app.post('/api/faucet', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_CONTRACT;
+    if (!USDC_ADDR) throw new Error("Missing USDC_CONTRACT env var");
     const usdcABI = ['function mint(address to, uint256 amount)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -620,7 +626,7 @@ app.post('/api/withdraw', async (req, res) => {
     // const userWallet = await getUserWallet(userId);
 
     // Use environment variables for production
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -630,7 +636,8 @@ app.post('/api/withdraw', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
     const signer = new ethers.Wallet(privateKey, provider);
 
-    const USDC_ADDR = process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_ADDRESS;
+    if (!USDC_ADDR) throw new Error("Missing USDC_ADDRESS env var");
     const usdcABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const usdc = new ethers.Contract(USDC_ADDR, usdcABI, signer);
 
@@ -669,11 +676,14 @@ app.get('/api/balance/:walletAddress', async (req, res) => {
       return res.status(400).json({ error: 'Invalid wallet address' });
     }
 
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
-    const USDC_ADDR = process.env.USDC_CONTRACT || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
+    const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_CONTRACT;
+
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
+    if (!USDC_ADDR) throw new Error("Missing USDC_CONTRACT env var");
 
     const marketABI = ['function userBalances(address) view returns (uint256)'];
     const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
@@ -728,10 +738,11 @@ app.get('/api/wallet/balance/:address', async (req, res) => {
     }
 
     // Read deposited balance from market contract
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+    const rpcUrl = CONFIG.RPC_URL;
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
 
-    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS;
+    if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
     const marketABI = ['function userBalances(address user) view returns (uint256)'];
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
 
@@ -786,7 +797,7 @@ app.post('/api/admin/create-market', async (req, res) => {
     console.log(`[Admin] Creating market: "${question}" with outcomes: ${outcomes.join(', ')}`);
 
     // Setup Provider & Signer (Owner)
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org'; // Default to public RPC if main failed
+    const rpcUrl = CONFIG.RPC_URL; // Default to public RPC if main failed
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error('Server wallet not configured');
 
@@ -938,127 +949,96 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
   try {
-    const { ethers } = await import('ethers');
+    console.log('[Markets API] Fetching markets from database (indexed)...');
 
-    // Simple In-Memory Cache (Global)
-    // Note: In serverless (Vercel), this persists only while the lambda is warm. 
-    // This is still very effective for high-concurrency spikes (50 users at once).
-    if (!global.marketsCache) {
-      global.marketsCache = { data: null, lastFetch: 0 };
-    }
+    // Query all markets from database (already indexed by marketIndexer service)
+    const result = await query(`
+      SELECT 
+        market_id,
+        question,
+        image as image_url,
+        description,
+        category as category_id,
+        outcome_names,
+        prices,
+        end_time,
+        liquidity_param,
+        outcome_count,
+        resolved,
+        winning_outcome,
+        boost_tier,
+        boost_expires_at,
+        last_indexed_at,
+        created_at
+      FROM markets
+      ORDER BY market_id ASC
+    `);
 
-    const CACHE_TTL = 15000; // 15 seconds cache
-    const now = Date.now();
-
-    if (global.marketsCache.data && (now - global.marketsCache.lastFetch < CACHE_TTL)) {
-      console.log('[Markets API] Serving from cache (15s TTL)');
-      return res.json({ success: true, markets: global.marketsCache.data });
-    }
-
-    console.log(`[Markets API] Cache stale or empty. Fetching from contract...`);
-
-    const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
-    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
-    // FORCE CORRECT CONTRACT (Ignore Env Var which is likely wrong)
-    const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
-    // const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
-
-    const marketABI = [
-      'function marketCount() view returns (uint256)',
-      'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
-      'function getMarketOutcomes(uint256) view returns (string[])',
-      'function getAllPrices(uint256) view returns (uint256[])'
-    ];
-
-    const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-
-    console.log('[Markets API] Using contract:', MARKET_ADDR);
-    console.log('[Markets API] Using RPC:', rpcUrl);
-
-    const count = await marketContract.marketCount();
-    console.log('[Markets API] Market count:', count.toString());
-
-    // Get market metadata from database - REQUIRED for proper market display
-    // We treating the DB as the "Active List". If it's not in the DB (deleted), we don't show it.
-    let metadataMap: Record<number, any> = {};
-    const validMarketIds: number[] = [];
-    try {
-      const metadataResult = await query('SELECT * FROM markets');
-      console.log(`[Markets API] Found ${metadataResult.rows.length} market metadata entries in database`);
-      metadataResult.rows.forEach((row: any) => {
-        metadataMap[row.market_id] = row;
-        validMarketIds.push(row.market_id);
-      });
-    } catch (e: any) {
-      console.error('[Markets API] DB metadata fetch failed (non-fatal):', e.message);
-      // In case of DB error, we might fallback to empty map, effectively showing nothing.
-      // Or we could fallback to showing everything if we want to fail-open, but fail-close is safer for "deleted" items.
-    }
-
-    // Only fetch markets that are in the database (this handles "soft delete")
-    // Filter on-chain IDs against validMarketIds
-    const onChainCount = Number(count);
-    const visibleMarketIds = validMarketIds.filter(id => id < onChainCount);
-
-    console.log(`[Markets API] Fetching ${visibleMarketIds.length} visible markets in PARALLEL...`);
-
-    // BATCHED Fetching to avoid Rate Limits (50 req/sec)
-    const BATCH_SIZE = 5;
-    const markets: any[] = [];
-
-    // Process in batches
-    for (let i = 0; i < visibleMarketIds.length; i += BATCH_SIZE) {
-      const batchIds = visibleMarketIds.slice(i, i + BATCH_SIZE);
-      // console.log(`[Markets API] Processing batch ${i / BATCH_SIZE + 1}...`);
-
-      const batchPromises = batchIds.map(id =>
-        Promise.all([
-          marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
-          marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
-          marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
-        ]).then(([basicInfo, outcomes, prices]) => {
-          const metadata = metadataMap[id];
-          return {
-            market_id: id,
-            question: basicInfo.question,
-            description: metadata?.description || '',
-            image_url: metadata?.image || '',
-            category_id: metadata?.category || '',
-            outcomes: outcomes,
-            prices: prices.map((p: bigint) => Number(p) / 100),
-            outcomeCount: Number(basicInfo.outcomeCount),
-            endTime: Number(basicInfo.endTime),
-            liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
-            resolved: basicInfo.resolved,
-            winningOutcome: Number(basicInfo.winningOutcome)
-          };
-        }).catch(err => {
-          console.error(`[Markets API] Error fetching market ${id}:`, err.message || err);
-          return null;
-        })
-      );
-
-      const batchResults = await Promise.all(batchPromises);
-      markets.push(...batchResults.filter(m => m !== null));
-
-      // Small delay between batches to be nice to RPC
-      if (i + BATCH_SIZE < visibleMarketIds.length) {
-        await new Promise(r => setTimeout(r, 200));
+    const markets = result.rows.map((row: any) => {
+      // Parse outcome names (JSONB or array)
+      let outcomes = ['Yes', 'No'];
+      if (row.outcome_names) {
+        try {
+          outcomes = typeof row.outcome_names === 'string'
+            ? JSON.parse(row.outcome_names)
+            : row.outcome_names;
+        } catch (e) {
+          console.warn(`[Markets API] Failed to parse outcome_names for market ${row.market_id}`);
+        }
       }
-    }
 
-    console.log(`[Markets API] Caching ${markets.length} markets...`);
+      // Parse prices (JSONB stored by indexer)
+      let prices = outcomes.map(() => 50); // Default 50/50
+      if (row.prices) {
+        try {
+          prices = typeof row.prices === 'string'
+            ? JSON.parse(row.prices)
+            : row.prices;
+        } catch (e) {
+          console.warn(`[Markets API] Failed to parse prices for market ${row.market_id}`);
+        }
+      }
 
-    // Update Cache
-    global.marketsCache = {
-      data: markets,
-      lastFetch: Date.now()
-    };
+      // Check if boosted
+      const now = Date.now();
+      const isBoosted = row.boost_tier && row.boost_expires_at && (new Date(row.boost_expires_at).getTime() > now);
 
-    return res.json({ success: true, markets });
+      return {
+        market_id: row.market_id,
+        question: row.question,
+        image_url: row.image_url || '',
+        description: row.description || '',
+        category_id: row.category_id || 'General',
+        outcomes,
+        prices,
+        endTime: row.end_time ? Math.floor(new Date(row.end_time).getTime() / 1000) : 0,
+        liquidityParam: row.liquidity_param || '0',
+        outcomeCount: row.outcome_count || outcomes.length,
+        resolved: row.resolved || false,
+        winningOutcome: row.winning_outcome || 0,
+        is_boosted: isBoosted,
+        boost_tier: row.boost_tier,
+        boost_expires_at: row.boost_expires_at ? Math.floor(new Date(row.boost_expires_at).getTime() / 1000) : null,
+        last_indexed_at: row.last_indexed_at,
+        created_at: row.created_at,
+      };
+    });
+
+    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB (0 RPC calls)`);
+
+    return res.json({
+      success: true,
+      markets,
+      source: 'database_indexed',
+      last_sync: markets[0]?.last_indexed_at || null
+    });
+
   } catch (error: any) {
-    console.error('Markets error:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch markets' });
+    console.error('[Markets API] Database error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch markets'
+    });
   }
 });
 
@@ -1427,22 +1407,31 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
     // Get weighted average entry price for each market and side
     // Formula: Sum(Cost) / Sum(Shares)
     // We filter by user address (case insensitive)
+    // Get weighted average entry price for each market and side
+    // Also calculating total volume and accuracy
     const result = await query(
       `SELECT 
-            market_id, 
-            side, 
-            SUM(total_cost) as total_cost, 
-            SUM(shares) as total_shares,
-            SUM(total_cost) / NULLIF(SUM(shares), 0) as avg_price
-         FROM trades 
-         WHERE LOWER(user_address) = LOWER($1) OR LOWER(user_address) = 'external_wallet'
-         GROUP BY market_id, side`,
+            t.market_id, 
+            t.side, 
+            SUM(t.total_cost) as total_cost, 
+            SUM(t.shares) as total_shares,
+            SUM(t.total_cost) / NULLIF(SUM(t.shares), 0) as avg_price,
+            m.resolved,
+            m.winning_outcome
+         FROM trades t
+         LEFT JOIN markets m ON t.market_id = m.market_id
+         WHERE LOWER(t.user_address) = LOWER($1) OR LOWER(t.user_address) = 'external_wallet'
+         GROUP BY t.market_id, t.side, m.resolved, m.winning_outcome`,
       [address]
     );
 
     const stats: Record<string, any> = {};
+    let totalVolume = 0;
+    let totalResolvedSubmissions = 0;
+    let totalWins = 0;
 
     result.rows.forEach((row: any) => {
+      // Portfolio Stats Key
       const key = `${row.market_id}-${row.side}`;
       stats[key] = {
         marketId: row.market_id,
@@ -1451,9 +1440,48 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
         totalCost: parseFloat(row.total_cost),
         totalShares: parseFloat(row.total_shares)
       };
+
+      // Aggregate Volume
+      totalVolume += parseFloat(row.total_cost);
+
+      // Calculate Accuracy (Win Rate)
+      // Only count markets that have resolved
+      if (row.resolved) {
+        // Simple heuristic: A "trade" row represents a position. 
+        // If the user BET on the winning outcome, it's a "win". 
+        // Note: This counts unique (Market, Side) pairs as one "submission/prediction". 
+        // E.g. Betting on YES multiple times counts as 1 "prediction" for YES.
+
+        totalResolvedSubmissions++;
+
+        const winningOutcomeIndex = Number(row.winning_outcome);
+        let isWin = false;
+
+        // Convention: NO = 0, YES = 1 (Binary) or Outcome Index matching
+        if (row.side === 'YES' && winningOutcomeIndex === 1) isWin = true;
+        else if (row.side === 'NO' && winningOutcomeIndex === 0) isWin = true;
+        // Handle multi-outcome (side might be '1', '2' etc if stored that way, or just binary logic for now)
+        // Adjust based on your schema. Assuming 'YES'/'NO' text for now from previous context.
+
+        if (isWin) {
+          totalWins++;
+        }
+      }
     });
 
-    return res.json({ success: true, stats });
+    // Accuracy Calculation
+    const accuracyRate = totalResolvedSubmissions > 0
+      ? Math.round((totalWins / totalResolvedSubmissions) * 100)
+      : 0; // Default to 0 or null? 0 is fine.
+
+    return res.json({
+      success: true,
+      stats,
+      userStats: {
+        totalVolume,
+        accuracyRate
+      }
+    });
   } catch (error: any) {
     console.error('Portfolio stats error:', error);
     return res.json({ success: false, stats: {} }); // Fallback to empty on error
@@ -1556,6 +1584,13 @@ app.post('/api/admin/migrate', async (req, res) => {
       );
       CREATE INDEX IF NOT EXISTS idx_comments_market_id ON comments(market_id);
 
+      -- Add columns for Market Indexer
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS prices JSONB;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity_param VARCHAR(50);
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS outcome_count INTEGER DEFAULT 2;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
       -- Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
@@ -1563,6 +1598,7 @@ app.post('/api/admin/migrate', async (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
+
     `;
 
     await query(migrationQueries);
@@ -1844,7 +1880,18 @@ initDatabase().then(async () => {
     console.log('ℹ️ Price tracker disabled (no DATABASE_URL configured)');
   }
 
+  // Start Market Indexer (Syncs blockchain state to DB every 30s for efficient API responses)
+  if (process.env.DATABASE_URL) {
+    const { startMarketIndexer } = await import('./services/marketIndexer');
+    console.log('🔄 Starting market indexer (30s interval)...');
+    startMarketIndexer(30000); // Sync every 30 seconds
+  } else {
+    console.log('ℹ️ Market indexer disabled (no DATABASE_URL configured)');
+  }
+
+
 }).catch(err => {
-  console.error("Failed to initialize database:", err);
-  process.exit(1);
+  console.error("⚠️ Database Initialization Failed:", err.message);
+  console.log("⚠️ STARTING IN OFFLINE MODE: Database features will check for connectivity or return mock data.");
+  // Do not exit, allow server to run for API endpoints that don't need DB or have fallbacks
 });

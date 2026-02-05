@@ -46,6 +46,9 @@ export async function recordMarketPrice(marketId: number): Promise<void> {
 /**
  * Record prices for all markets
  */
+/**
+ * Record prices for all markets
+ */
 export async function recordAllMarketPrices(): Promise<void> {
     try {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -54,13 +57,37 @@ export async function recordAllMarketPrices(): Promise<void> {
         const count = await market.marketCount();
         const marketCount = Number(count);
 
-        for (let i = 0; i < marketCount; i++) {
-            await recordMarketPrice(i);
+        console.log(`📊 Recording prices for ${marketCount} markets...`);
+
+        // Use the same provider for all calls
+        // Run in chunks to avoid rate limits, but parallelize slightly
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < marketCount; i += CHUNK_SIZE) {
+            const chunk = [];
+            for (let j = 0; j < CHUNK_SIZE && i + j < marketCount; j++) {
+                chunk.push(recordMarketPriceWithProvider(i + j, market));
+            }
+            await Promise.all(chunk);
         }
 
-        console.log(`📊 Recorded prices for ${marketCount} markets`);
+        console.log(`✅ Recorded prices for ${marketCount} markets`);
     } catch (error) {
         console.error('Failed to record market prices:', error);
+    }
+}
+
+async function recordMarketPriceWithProvider(marketId: number, marketContract: ethers.Contract): Promise<void> {
+    try {
+        const { query } = await import('../config/database');
+        const prices = await marketContract.getAllPrices(marketId);
+        const priceValue = prices.length > 0 ? Number(prices[0]) : 5000;
+
+        await query(
+            'INSERT INTO price_history (market_id, price) VALUES ($1, $2)',
+            [marketId, priceValue]
+        );
+    } catch (error) {
+        console.error(`Failed to record price for market ${marketId}:`, error);
     }
 }
 

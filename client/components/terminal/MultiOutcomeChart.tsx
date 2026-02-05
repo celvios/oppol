@@ -1,4 +1,4 @@
-"use strict";
+"use client";
 
 import { useMemo } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
     Tooltip,
     Legend
 } from 'recharts';
+import LogoBrand from "@/components/ui/LogoBrand";
 
 interface MultiOutcomeChartProps {
     data: any[]; // Array of history points
@@ -55,7 +56,12 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
     if (!outcomes || outcomes.length === 0) return null;
 
     return (
-        <div style={{ width: "100%", height }}>
+        <div style={{ width: "100%", height }} className="relative">
+            {/* Watermark Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.1]">
+                <LogoBrand size="xl" />
+            </div>
+
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     {gradients}

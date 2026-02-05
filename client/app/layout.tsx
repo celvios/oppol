@@ -5,11 +5,10 @@ import { ReownProvider } from "@/lib/reown-provider";
 import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
-import BottomNav from "@/components/mobile/BottomNav";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
-import { WalletDebugPanel } from "@/components/ui/WalletDebugPanel";
-import { WalletConnectionTest } from "@/components/ui/WalletConnectionTest";
+import { NetworkChecker } from "@/components/NetworkChecker";
+import { RPCMonitorInit } from "@/components/RPCMonitorInit";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -29,12 +28,15 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "OPoll | Decentralized Prediction Market",
   description: "Predict the future. Own the outcome.",
-  themeColor: "#05050A",
   icons: {
     icon: '/brand-logo.png',
     shortcut: '/brand-logo.png',
     apple: '/brand-logo.png',
   },
+};
+
+export const viewport = {
+  themeColor: "#05050A",
 };
 
 export default function RootLayout({
@@ -48,17 +50,16 @@ export default function RootLayout({
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-void text-text-primary`}
         suppressHydrationWarning={true}
       >
+        <RPCMonitorInit />
         <div className="min-h-screen" suppressHydrationWarning={true}>
           <Web3Provider>
             <ReownProvider>
               <SettingsProvider>
+                <NetworkChecker />
                 <AnimatedBackground />
                 <UserRegistrationManager />
                 <Header />
                 {children}
-                <BottomNav />
-                <WalletDebugPanel />
-                <WalletConnectionTest />
               </SettingsProvider>
             </ReownProvider>
           </Web3Provider>

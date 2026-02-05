@@ -42,7 +42,10 @@ interface Market {
     assertionPending?: boolean;
     assertedOutcome?: boolean;
     asserter?: string;
+    isBoosted?: boolean;
 }
+
+import BoostButton from "@/components/market/BoostButton";
 
 interface PricePoint {
     time: string;
@@ -92,6 +95,19 @@ export function DesktopTerminal() {
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        if (market) {
+            console.log('[DesktopTerminal] Debug Market:', {
+                id: market.id,
+                endTime: market.endTime,
+                endTimeDate: new Date(market.endTime * 1000).toLocaleString(),
+                now: Date.now() / 1000,
+                isEnded: Date.now() / 1000 > market.endTime,
+                resolved: market.resolved
+            });
+        }
+    }, [market]);
 
     // --- Data Fetching ---
 
@@ -279,7 +295,7 @@ export function DesktopTerminal() {
 
 
     return (
-        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px] mx-auto">
+        <div className="h-[calc(100vh-80px)] p-4 md:p-6 grid grid-cols-12 gap-6 max-w-[1800px]">
             <SuccessModal
                 isOpen={isSuccessModalOpen}
                 onClose={() => {
@@ -396,7 +412,18 @@ export function DesktopTerminal() {
                     <div className="relative z-10">
                         <div className="flex gap-2 mb-2">
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
-                            <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Ends {formatDistanceToNow(market.endTime * 1000)}</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${Date.now() > market.endTime * 1000
+                                ? 'bg-orange-500/20 text-orange-400'
+                                : 'bg-white/10 text-white/50'
+                                }`}>
+                                {Date.now() > market.endTime * 1000
+                                    ? `Ended ${formatDistanceToNow(market.endTime * 1000)} ago`
+                                    : `Ends in ${formatDistanceToNow(market.endTime * 1000)}`
+                                }
+                            </span>
+                            <div className="ml-auto">
+                                <BoostButton marketId={market.id} isBoosted={market.isBoosted} compact />
+                            </div>
                         </div>
                         <h1 className="text-2xl md:text-3xl font-heading font-bold text-white mb-2 max-w-2xl text-shadow-glow">
                             {market.question}
@@ -455,7 +482,7 @@ export function DesktopTerminal() {
                     <div className="text-2xl font-mono text-white flex items-center gap-2">
                         <span className="text-neon-cyan">$</span>
                         {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/terminal/deposit'}>DEPOSIT</NeonButton>
+                        <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/deposit'}>DEPOSIT</NeonButton>
                     </div>
                 </GlassCard>
 
@@ -537,7 +564,7 @@ export function DesktopTerminal() {
                     </div>
 
                     {/* Market Resolution or Trade Form */}
-                    {(Date.now() / 1000 > market.endTime || market.resolved || market.assertionPending) ? (
+                    {((Date.now() / 1000) > (market.endTime || 0) || market.resolved || market.assertionPending) ? (
                         <div className="flex-none p-6 bg-white/5 border-t border-white/5">
                             <ResolutionPanel
                                 marketId={market.id}

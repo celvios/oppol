@@ -148,7 +148,7 @@ export default function SearchPage() {
                             else if (/Election|Vote|Politics|War/i.test(m.question)) MarketIcon = Globe;
 
                             return (
-                                <Link key={m.id} href={`/terminal?marketId=${m.id}`}>
+                                <Link key={m.id} href={`/?marketId=${m.id}`}>
                                     <GlassCard className="p-4 active:scale-[0.98] transition-all hover:bg-white/10">
                                         <div className="flex justify-between items-start mb-3 gap-4">
                                             <div className="flex items-start gap-3">

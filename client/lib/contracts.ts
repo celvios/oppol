@@ -12,18 +12,18 @@ const getEnv = (key: string, fallback?: string): string => {
 };
 
 export const CONTRACTS = {
-    predictionMarket: getEnv('NEXT_PUBLIC_MARKET_ADDRESS', '0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717'),
-    predictionMarketMulti: getEnv('NEXT_PUBLIC_MARKET_ADDRESS', '0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717'),
-    mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
-    usdc: getEnv('NEXT_PUBLIC_USDC_CONTRACT', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
-    zap: getEnv('NEXT_PUBLIC_ZAP_ADDRESS', '0xAdeA2580607B668735B065E22fdF66404C90A12A'),
-    oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS', '0x9A053db1980AB2bCcc3086Cb4d4c9d2CA1A036c4')
+    predictionMarket: getEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
+    predictionMarketMulti: getEnv('NEXT_PUBLIC_MARKET_ADDRESS'),
+    mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT'),
+    usdc: getEnv('NEXT_PUBLIC_USDC_CONTRACT'),
+    zap: getEnv('NEXT_PUBLIC_ZAP_ADDRESS'),
+    oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS')
 };
 
 export const NETWORK = {
     chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 56), // Default to BSC Mainnet
     name: process.env.NEXT_PUBLIC_NETWORK_NAME || 'BNB Smart Chain',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-rpc.publicnode.com',
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || '',
     explorer: process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://bscscan.com'
 };
 

@@ -60,9 +60,9 @@ export function SlideToConfirm({ onConfirm, isLoading, disabled, text, side }: S
             ref={containerRef}
             className={`
                 relative w-full h-12 rounded-full overflow-hidden 
-                bg-black/40 backdrop-blur-md border border-white/10 
+                bg-white/5 backdrop-blur-md border border-white/20 
                 select-none shadow-inner transition-all duration-300
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/20'}
+                ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30 hover:bg-white/10'}
             `}
         >
             {/* Background Fill Animation */}
