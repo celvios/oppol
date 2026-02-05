@@ -7,6 +7,7 @@ Bet on real-world events and earn money when you're right!
 
 *Quick Start:*
 • Reply *markets* - Browse markets
+• Reply *search* - Search markets
 • Reply *profile* - Your account
 • Reply *deposit* - Add funds
 • Reply *help* - How it works`,
@@ -32,11 +33,13 @@ If you're right, you profit!
 • Profit = $0.40/share (67% return!)
 
 *Commands:*
-• *markets* - Browse
-• *profile* - Your stats
-• *positions* - Your bets
-• *deposit* - Add funds
-• *withdraw* - Cash out
+• *markets* (m) - Browse
+• *search* (s) - Search
+• *profile* (p) - Your stats
+• *positions* (pos) - Your bets
+• *alerts* (a) - Price alerts
+• *deposit* (d) - Add funds
+• *withdraw* (w) - Cash out
 • *menu* - Main menu
 
 Reply *menu* to start trading!`,

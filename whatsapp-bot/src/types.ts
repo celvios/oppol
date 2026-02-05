@@ -6,7 +6,8 @@ export enum UserState {
   CONFIRMING_BET = 'CONFIRMING_BET',
   ENTERING_WITHDRAW_ADDRESS = 'ENTERING_WITHDRAW_ADDRESS',
   ENTERING_WITHDRAW_AMOUNT = 'ENTERING_WITHDRAW_AMOUNT',
-  SEARCHING_MARKETS = 'SEARCHING_MARKETS'
+  SEARCHING_MARKETS = 'SEARCHING_MARKETS',
+  SETTING_ALERT = 'SETTING_ALERT'
 }
 
 export interface Session {
@@ -19,9 +20,21 @@ export interface Session {
     outcome?: number;
     amount?: number;
     withdrawAddress?: string;
+    withdrawAmount?: number;
     searchQuery?: string;
+    alertMarketId?: number;
+    alertOutcome?: number;
   };
   lastActivity: number;
+}
+
+export interface PriceAlert {
+  phoneNumber: string;
+  marketId: number;
+  outcome: number;
+  targetPrice: number;
+  direction: 'above' | 'below';
+  createdAt: number;
 }
 
 export interface Market {
@@ -56,4 +69,12 @@ export interface UserData {
     wallet_address: string;
   };
   isNew: boolean;
+}
+
+export interface BotStats {
+  totalUsers: number;
+  activeUsers24h: number;
+  totalBets: number;
+  totalVolume: number;
+  messagesProcessed: number;
 }

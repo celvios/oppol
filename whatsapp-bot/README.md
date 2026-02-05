@@ -59,13 +59,22 @@ npm start
 
 ## Commands
 
+### User Commands
 - `start` / `menu` - Main menu
-- `markets` - Browse active markets
-- `profile` - View your profile
-- `deposit` - Get deposit address
-- `withdraw` - Withdraw funds
-- `positions` - View your bets
-- `help` - How it works
+- `markets` / `m` - Browse active markets
+- `search` / `s` - Search markets by keyword
+- `profile` / `p` - View your profile
+- `deposit` / `d` - Get deposit address
+- `withdraw` / `w` - Withdraw funds
+- `positions` / `pos` - View your bets
+- `alerts` / `a` - View price alerts
+- `help` / `h` / `?` - How it works
+- `cancel` - Cancel current action
+
+### Admin Commands (requires ADMIN_PHONES)
+- `admin` - View admin commands
+- `stats` - View bot statistics
+- `users` - View user count
 
 ## Architecture
 

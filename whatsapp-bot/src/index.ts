@@ -8,6 +8,9 @@ import { API } from './api';
 import { messages } from './messages';
 import { formatMarketList, formatMarketDetails, validateAddress, validateAmount, escapeMarkdown } from './helpers';
 import { createButtonMessage, createQuickReply, Button } from './buttons';
+import { analytics } from './analytics';
+import { alertManager } from './alerts';
+import { isAdmin, getAdminCommands, getStatsMessage } from './admin';
 
 dotenv.config();
 
@@ -83,8 +86,23 @@ app.post('/webhook/whatsapp', async (req, res) => {
   res.status(200).send();
 
   try {
+    // Track message
+    analytics.trackMessage(phoneNumber);
+
     // Get or create session
     const session = sessionManager.get(phoneNumber);
+
+    // Admin commands
+    if (isAdmin(phoneNumber)) {
+      if (message === 'admin') {
+        await sendMessage(phoneNumber, getAdminCommands());
+        return;
+      }
+      if (message === 'stats') {
+        await sendMessage(phoneNumber, getStatsMessage());
+        return;
+      }
+    }
 
     // Handle cancel command
     if (message === 'cancel') {
@@ -129,6 +147,16 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
+    if (message === 'search' || message === 's') {
+      await handleSearch(phoneNumber);
+      return;
+    }
+
+    if (message === 'alerts' || message === 'a') {
+      await handleViewAlerts(phoneNumber);
+      return;
+    }
+
     // Handle state-based flows
     await handleStateFlow(phoneNumber, message, session);
 
@@ -143,7 +171,8 @@ async function handleStart(phoneNumber: string) {
   
   // Auto-create wallet
   try {
-    await API.getOrCreateUser(phoneNumber);
+    const userData = await API.getOrCreateUser(phoneNumber);
+    analytics.trackUser(phoneNumber, userData.isNew);
   } catch (error) {
     console.error('Failed to create user:', error);
   }
@@ -328,6 +357,10 @@ async function handleStateFlow(phoneNumber: string, message: string, session: an
       await handleWithdrawAmount(phoneNumber, message, session);
       break;
 
+    case UserState.SEARCHING_MARKETS:
+      await handleSearchQuery(phoneNumber, message);
+      break;
+
     default:
       await sendMessage(phoneNumber, messages.invalidInput);
   }
@@ -446,6 +479,9 @@ async function executeBet(phoneNumber: string, session: any) {
     const result = await API.placeBet(phoneNumber, marketId, outcome, amount);
 
     if (result.success) {
+      // Track bet
+      analytics.trackBet(amount);
+
       const balance = await API.getUserBalance(phoneNumber);
       const shares = result.transaction?.shares || 0;
       const text = `✅ *Bet Placed Successfully!*\n\n` +
@@ -561,4 +597,66 @@ app.listen(PORT, () => {
   console.log(`🚀 WhatsApp Bot running on port ${PORT}`);
   console.log(`📡 Webhook URL: ${process.env.WEBHOOK_BASE_URL}/webhook/whatsapp`);
   sessionManager.startCleanup();
+  
+  // Start alert checking
+  alertManager.startChecking(async (phoneNumber, message) => {
+    await sendMessage(phoneNumber, message);
+  });
 });
+
+// Search handler
+async function handleSearch(phoneNumber: string) {
+  sessionManager.update(phoneNumber, {
+    state: UserState.SEARCHING_MARKETS,
+    data: {}
+  });
+  await sendMessage(phoneNumber, '🔍 *Search Markets*\n\nType keywords to search (e.g., "bitcoin", "trump"):\n\nReply *cancel* to abort');
+}
+
+// Handle search query
+async function handleSearchQuery(phoneNumber: string, query: string) {
+  try {
+    const markets = await API.getActiveMarkets();
+    const filtered = markets.filter(m => 
+      m.question.toLowerCase().includes(query.toLowerCase()) ||
+      (m.description && m.description.toLowerCase().includes(query.toLowerCase()))
+    );
+
+    if (filtered.length === 0) {
+      await sendMessage(phoneNumber, `🔍 No markets found for "${query}"\n\nTry different keywords or reply *markets* to see all`);
+      sessionManager.clear(phoneNumber);
+      return;
+    }
+
+    sessionManager.update(phoneNumber, {
+      state: UserState.BROWSING_MARKETS,
+      data: { page: 0, allMarkets: filtered, searchQuery: query }
+    });
+
+    const text = `🔍 *Search Results for "${query}"*\n\nFound ${filtered.length} market(s)\n\n` + 
+      formatMarketList(filtered, 0);
+    await sendMessage(phoneNumber, text);
+  } catch (error: any) {
+    await sendMessage(phoneNumber, `❌ Search failed: ${error.message}`);
+    sessionManager.clear(phoneNumber);
+  }
+}
+
+// View alerts
+async function handleViewAlerts(phoneNumber: string) {
+  const alerts = alertManager.getAlerts(phoneNumber);
+  
+  if (alerts.length === 0) {
+    await sendMessage(phoneNumber, '🔔 *No Active Alerts*\n\nSet alerts to get notified when prices change!\n\nReply *markets* to browse');
+    return;
+  }
+
+  let text = '🔔 *Your Price Alerts*\n\n';
+  alerts.forEach((alert, idx) => {
+    text += `${idx + 1}. Market #${alert.marketId}\n`;
+    text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
+  });
+  text += 'Reply *menu* to go back';
+  
+  await sendMessage(phoneNumber, text);
+}
