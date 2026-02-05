@@ -670,11 +670,11 @@ async function handleOutcomeSelection(phoneNumber: string, message: string, sess
   if (!isNaN(num) && num >= 1 && num <= market.outcomes.length) {
     outcomeIndex = num - 1;
   } else {
-    outcomeIndex = market.outcomes.findIndex(o => o.toLowerCase() === message);
+    outcomeIndex = market.outcomes.findIndex((o: any) => o.toLowerCase() === message);
   }
 
   if (outcomeIndex === -1) {
-    const outcomeList = market.outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n');
+    const outcomeList = market.outcomes.map((o: any, i: any) => `${i + 1}. ${o}`).join('\n');
     await sendMessage(phoneNumber, `❌ Invalid outcome. Choose:\n\n${outcomeList}\n\nReply with number or name`);
     return;
   }
