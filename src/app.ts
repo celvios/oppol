@@ -1004,6 +1004,7 @@ app.get('/api/markets', async (req, res) => {
       const isBoosted = row.boost_tier && row.boost_expires_at && (new Date(row.boost_expires_at).getTime() > now);
 
       return {
+        id: row.market_id,
         market_id: row.market_id,
         question: row.question,
         image_url: row.image_url || '',
