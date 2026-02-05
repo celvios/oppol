@@ -191,8 +191,8 @@ export default function ConnectWalletModal({
                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
                                 <motion.div className="w-16 h-16 mx-auto mb-4 relative" initial={{ scale: 0 }} animate={{ scale: 1 }}>
                                     <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl" />
-                                    <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)]">
-                                        <Icon className="w-6 h-6 text-neon-cyan" />
+                                    <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)] p-3">
+                                        <img src="/brand-logo.png" alt="OPoll" className="w-full h-full object-contain" />
                                     </div>
                                 </motion.div>
                                 <h2 className="text-2xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
