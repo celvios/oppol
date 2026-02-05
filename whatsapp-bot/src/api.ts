@@ -23,11 +23,10 @@ export class API {
 
   static async getUserBalance(phoneNumber: string): Promise<number> {
     try {
-      const user = await this.getOrCreateUser(phoneNumber);
-      const url = `${API_BASE}/balance/${user.user.wallet_address}`;
+      const url = `${API_BASE}/whatsapp/balance/${phoneNumber}`;
       console.log(`[API] GET ${url}`);
       const { data } = await axios.get(url);
-      const balance = parseFloat(data.balances?.custodialWallet?.depositedInContract || '0');
+      const balance = data.balance || 0;
       console.log(`[API] ✅ Balance: $${balance}`);
       return balance;
     } catch (error: any) {
