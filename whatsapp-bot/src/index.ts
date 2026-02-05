@@ -394,12 +394,12 @@ async function handleMarkets(phoneNumber: string) {
 async function handleProfile(phoneNumber: string) {
   try {
     const [balance, positions] = await Promise.all([
-      API.getUserBalance(phoneNumber),
-      API.getUserPositions(phoneNumber)
+      API.getUserBalance(phoneNumber).catch(() => 0),
+      API.getUserPositions(phoneNumber).catch(() => [])
     ]);
 
     // Calculate total P&L
-    const markets = await API.getActiveMarkets();
+    const markets = await API.getActiveMarkets().catch(() => []);
     let totalPnL = 0;
 
     positions.forEach(pos => {
