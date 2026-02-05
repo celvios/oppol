@@ -127,7 +127,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 
     // Handle commands
-    if (message === 'start' || message === 'menu' || message === 'hi' || message === 'hello' || !session) {
+    if (message === 'start' || message === 'menu' || message === 'hi' || message === 'hello') {
       await handleStart(phoneNumber);
       return;
     }
@@ -195,6 +195,12 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     if (message === 'ending' || message === 'soon') {
       await handleEndingSoon(phoneNumber);
+      return;
+    }
+
+    // If no session and no recognized command, show welcome menu
+    if (!session) {
+      await handleStart(phoneNumber);
       return;
     }
 
