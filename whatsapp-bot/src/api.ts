@@ -39,7 +39,19 @@ export class API {
 
   static async getActiveMarkets(): Promise<Market[]> {
     const { data } = await axios.get(`${API_BASE}/markets`);
-    return data.markets || [];
+    const markets = data.markets || [];
+    
+    // Filter out ended and resolved markets
+    const now = Math.floor(Date.now() / 1000);
+    return markets.filter((m: Market) => {
+      // Exclude resolved markets
+      if (m.resolved) return false;
+      // Exclude markets that have ended
+      if (m.endTime && m.endTime < now) return false;
+      // Exclude markets without proper data
+      if (!m.question || !m.outcomes || m.outcomes.length === 0) return false;
+      return true;
+    });
   }
 
   static async getMarketsByCategory(category: string): Promise<Market[]> {
