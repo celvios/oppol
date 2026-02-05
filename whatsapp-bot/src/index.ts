@@ -751,10 +751,32 @@ async function handleViewAlerts(phoneNumber: string) {
   }
 
   let text = '🔔 *Your Price Alerts*\n\n';
-  alerts.forEach((alert, idx) => {
-    text += `${idx + 1}. Market #${alert.marketId}\n`;
-    text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
-  });
+
+  for (let idx = 0; idx < alerts.length; idx++) {
+    const alert = alerts[idx];
+    try {
+      const market = await API.getMarket(alert.marketId);
+
+      if (market) {
+        const outcomeName = market.outcomes[alert.outcome] || `Outcome ${alert.outcome}`;
+        const currentPrice = market.prices[alert.outcome] || 0;
+        const question = market.question.length > 50
+          ? market.question.substring(0, 47) + '...'
+          : market.question;
+
+        text += `${idx + 1}. ${escapeMarkdown(question)}\n`;
+        text += `   ${outcomeName} ${alert.direction} ${alert.targetPrice}% (now ${Math.round(currentPrice)}%)\n\n`;
+      } else {
+        // Fallback if market not found
+        text += `${idx + 1}. Market #${alert.marketId}\n`;
+        text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
+      }
+    } catch (error) {
+      // Fallback on error
+      text += `${idx + 1}. Market #${alert.marketId}\n`;
+      text += `   Outcome ${alert.outcome}: ${alert.direction} ${alert.targetPrice}%\n\n`;
+    }
+  }
   text += 'Reply *clearalerts* to remove all\nReply *menu* to go back';
 
   await sendMessage(phoneNumber, text);
