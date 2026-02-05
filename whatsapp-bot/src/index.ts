@@ -566,6 +566,27 @@ async function handleStateFlow(phoneNumber: string, message: string, session: an
 }
 
 async function handleMarketSelection(phoneNumber: string, message: string, session: any) {
+  // Handle profile menu quick actions
+  if (session.data.profileMenu) {
+    switch (message) {
+      case '1':
+        await handleDeposit(phoneNumber);
+        return;
+      case '2':
+        await handleWithdraw(phoneNumber);
+        return;
+      case '3':
+        await handlePositions(phoneNumber);
+        return;
+      case '4':
+        await handleBetHistory(phoneNumber);
+        return;
+      case '0':
+        await handleMainMenu(phoneNumber);
+        return;
+    }
+  }
+
   // Handle category selection
   if (session.data.categorySelection) {
     const categories: { [key: string]: string } = {
