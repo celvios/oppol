@@ -214,7 +214,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
       return;
     }
 
-    // Main menu command
+    // Main menu command - should show interactive list menu
     if (message === 'menu' || message === 'm' || message === '0') {
       await handleMainMenu(phoneNumber);
       return;
