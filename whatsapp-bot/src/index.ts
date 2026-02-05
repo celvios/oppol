@@ -45,17 +45,42 @@ async function sendMessage(to: string, body: string) {
 // Helper to send message with buttons
 async function sendMessageWithButtons(to: string, body: string, buttons: Button[]) {
   try {
-    // Note: Twilio's WhatsApp API doesn't support interactive buttons via SDK
-    // We'll use text-based menu instead
+    // Use Twilio's quick reply buttons for WhatsApp
+    const actions = buttons.map((btn, idx) => ({
+      type: 'reply',
+      reply: {
+        id: `btn_${idx}`,
+        title: btn.title
+      }
+    }));
+
+    await twilioClient.messages.create({
+      from: TWILIO_WHATSAPP_NUMBER,
+      to: `whatsapp:${to}`,
+      body: body,
+      // @ts-ignore - Twilio types may not include interactive messages
+      contentSid: undefined, // Not using content templates
+      interactive: {
+        type: 'button',
+        body: {
+          text: body
+        },
+        action: {
+          buttons: actions.slice(0, 3) // WhatsApp limits to 3 quick reply buttons
+        }
+      }
+    });
+
+    console.log(`✅ Sent button message to ${to}`);
+  } catch (error: any) {
+    console.error('Failed to send button message:', error.message);
+    // Fallback to text if buttons fail
     let message = body + '\n\n';
     buttons.forEach((btn, idx) => {
       message += `${idx + 1}. ${btn.title}\n`;
     });
-    message += '\nReply with number or command name';
-
+    message += '\nReply with number';
     await sendMessage(to, message);
-  } catch (error: any) {
-    console.error('Failed to send button message:', error.message);
   }
 }
 
@@ -252,10 +277,48 @@ async function handleStart(phoneNumber: string) {
   await sendMessage(phoneNumber, messages.welcome);
 }
 
-// Main Menu Handler
+// Main Menu Handler - Using Interactive List
 async function handleMainMenu(phoneNumber: string) {
   sessionManager.clear(phoneNumber);
-  await sendMessage(phoneNumber, messages.mainMenu);
+
+  // Use WhatsApp interactive list for main menu (supports 10 options)
+  await sendMessageWithList(
+    phoneNumber,
+    '📊 *OPOLL Main Menu*\n\nWhat would you like to do?',
+    'View Menu',
+    [
+      {
+        title: '🎯 Trading',
+        rows: [
+          { id: 'markets', title: 'Browse Markets', description: 'See all active markets' },
+          { id: 'trending', title: 'Trending Now', description: 'Hot markets today' },
+          { id: 'search', title: 'Search Markets', description: 'Find specific topics' }
+        ]
+      },
+      {
+        title: '💰 Your Account',
+        rows: [
+          { id: 'profile', title: 'My Profile', description: 'Balance & stats' },
+          { id: 'positions', title: 'My Positions', description: 'Active bets' },
+          { id: 'bethistory', title: 'Bet History', description: 'Past bets & P&L' }
+        ]
+      },
+      {
+        title: '💵 Wallet',
+        rows: [
+          { id: 'deposit', title: 'Deposit Funds', description: 'Add USDC' },
+          { id: 'withdraw', title: 'Withdraw', description: 'Cash out' }
+        ]
+      },
+      {
+        title: '⚙️ More',
+        rows: [
+          { id: 'alerts', title: 'Alerts', description: 'Price notifications' },
+          { id: 'help', title: 'Help & Support', description: 'How it works' }
+        ]
+      }
+    ]
+  );
 }
 
 // Menu Selection Router (handles 1-10 from main menu)
