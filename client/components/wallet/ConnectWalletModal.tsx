@@ -118,19 +118,68 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- STANDARD PRIVY LOGIC (Styled) ---
-    // User requested to use "Privy own" logic but kept within this UI.
-    const handleWalletConnect = async (strategy: string) => {
-        console.log("Triggering Privy Standard Flow for:", strategy);
-        onClose(); // Close our modal
+    // --- HEADLESS WALLET CONNECTION (Privy SIWE) ---
+    const handleWalletConnect = async (walletType: string) => {
+        setLoadingMethod(walletType);
+        setError(null);
+        
+        try {
+            // Check if wallet is available
+            if (!window.ethereum && walletType !== 'walletconnect') {
+                throw new Error(`${walletType} not detected. Please install it first.`);
+            }
 
-        // Open Privy's standard modal which handles all wallet detection/connection perfectly
-        // We keep our custom buttons as entry points.
-        await login({ loginMethods: ['wallet'] });
+            // Request accounts from the wallet
+            let accounts: string[];
+            if (walletType === 'walletconnect') {
+                // For WalletConnect, use Privy's standard flow
+                await login({ loginMethods: ['wallet'] });
+                return;
+            } else {
+                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            }
+
+            if (!accounts || accounts.length === 0) {
+                throw new Error('No accounts found');
+            }
+
+            const address = accounts[0];
+
+            // Generate SIWE message
+            const message = await generateSiweMessage({ address });
+
+            // Request signature from wallet
+            const signature = await window.ethereum.request({
+                method: 'personal_sign',
+                params: [message, address]
+            });
+
+            // Login with Privy using SIWE
+            await loginWithSiwe({ message, signature });
+
+            // Success - modal will auto-close via useEffect
+        } catch (err: any) {
+            console.error('Wallet connection failed:', err);
+            
+            let errorMessage = 'Connection failed';
+            if (err.message?.includes('User rejected')) {
+                errorMessage = 'Connection rejected';
+            } else if (err.message?.includes('not detected')) {
+                errorMessage = err.message;
+            } else if (err.code === 4001) {
+                errorMessage = 'Connection rejected';
+            }
+            
+            setError(errorMessage);
+        } finally {
+            setLoadingMethod(null);
+        }
     };
 
     const handleMoreWallets = async () => {
-        await handleWalletConnect('more');
+        // For "More Wallets", use Privy's standard modal as fallback
+        onClose();
+        await login({ loginMethods: ['wallet'] });
     };
 
     const getContextInfo = () => {
