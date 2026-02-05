@@ -1113,7 +1113,7 @@ async function handleAlertMarketSelection(phoneNumber: string, message: string, 
   });
 
   let text = `🔔 *Alert for:*\n${escapeMarkdown(market.question)}\n\nSelect outcome:\n\n`;
-  market.outcomes.forEach((o: string, i: number) => {
+  market.outcomes.forEach((o: any, i: any) => {
     text += `${i + 1}. ${o} (${market.prices[i]}%)\n`;
   });
   text += '\nReply with number or *cancel*';
