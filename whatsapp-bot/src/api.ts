@@ -71,9 +71,8 @@ export class API {
     toAddress: string,
     amount: number
   ): Promise<{ success: boolean; transactionHash?: string; message?: string }> {
-    const user = await this.getOrCreateUser(phoneNumber);
-    const { data } = await axios.post(`${API_BASE}/telegram/withdraw`, {
-      telegramId: phoneNumber,
+    const { data } = await axios.post(`${API_BASE}/whatsapp/withdraw`, {
+      phone: phoneNumber,
       toAddress,
       amount
     });
@@ -81,8 +80,7 @@ export class API {
   }
 
   static async getUserPositions(phoneNumber: string): Promise<Position[]> {
-    const user = await this.getOrCreateUser(phoneNumber);
-    const { data } = await axios.get(`${API_BASE}/telegram/positions/${phoneNumber}`);
+    const { data } = await axios.get(`${API_BASE}/whatsapp/positions/${phoneNumber}`);
     return data.positions || [];
   }
 }
