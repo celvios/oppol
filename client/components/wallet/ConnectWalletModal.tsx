@@ -152,7 +152,7 @@ export default function ConnectWalletModal({
             // Generate SIWE message
             const message = await generateSiweMessage({
                 address,
-                chainId
+                chainId: chainId.toString()
             });
 
             // Request signature from wallet
