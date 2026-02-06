@@ -124,45 +124,9 @@ export default function ConnectWalletModal({
         setError(null);
 
         try {
-            // Check if wallet is available
-            if (!window.ethereum && walletType !== 'walletconnect') {
-                throw new Error(`${walletType} not detected. Please install it first.`);
-            }
-
-            // Request accounts from the wallet
-            let accounts: string[];
-            if (walletType === 'walletconnect') {
-                // For WalletConnect, use Privy's standard flow
-                await login({ loginMethods: ['wallet'] });
-                return;
-            } else {
-                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            }
-
-            if (!accounts || accounts.length === 0) {
-                throw new Error('No accounts found');
-            }
-
-            const address = accounts[0];
-
-            // Get Chain ID to ensure SIWE message is valid
-            const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-            const chainId = parseInt(chainIdHex, 16);
-
-            // Generate SIWE message
-            const message = await generateSiweMessage({
-                address,
-                chainId: chainId.toString()
-            });
-
-            // Request signature from wallet
-            const signature = await window.ethereum.request({
-                method: 'personal_sign',
-                params: [message, address]
-            });
-
-            // Login with Privy using SIWE
-            await loginWithSiwe({ message, signature });
+            // Use Privy's built-in wallet connection
+            // This handles wallet detection, SIWE message generation, and authentication
+            await login({ loginMethods: ['wallet'] });
 
             // Success - modal will auto-close via useEffect
         } catch (err: any) {
