@@ -122,7 +122,7 @@ export default function ConnectWalletModal({
     const handleWalletConnect = async (walletType: string) => {
         setLoadingMethod(walletType);
         setError(null);
-        
+
         try {
             // Check if wallet is available
             if (!window.ethereum && walletType !== 'walletconnect') {
@@ -145,8 +145,15 @@ export default function ConnectWalletModal({
 
             const address = accounts[0];
 
+            // Get Chain ID to ensure SIWE message is valid
+            const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+            const chainId = parseInt(chainIdHex, 16);
+
             // Generate SIWE message
-            const message = await generateSiweMessage({ address });
+            const message = await generateSiweMessage({
+                address,
+                chainId
+            });
 
             // Request signature from wallet
             const signature = await window.ethereum.request({
@@ -160,7 +167,7 @@ export default function ConnectWalletModal({
             // Success - modal will auto-close via useEffect
         } catch (err: any) {
             console.error('Wallet connection failed:', err);
-            
+
             let errorMessage = 'Connection failed';
             if (err.message?.includes('User rejected')) {
                 errorMessage = 'Connection rejected';
@@ -169,7 +176,7 @@ export default function ConnectWalletModal({
             } else if (err.code === 4001) {
                 errorMessage = 'Connection rejected';
             }
-            
+
             setError(errorMessage);
         } finally {
             setLoadingMethod(null);
