@@ -127,7 +127,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
     return (
         <div className="w-full pb-20 md:hidden overflow-x-hidden">
             {/* Custom Header */}
-            <div className="flex items-center justify-between px-4 pt-6 pb-4 mb-4">
+            <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 pt-6 pb-4 mb-4">
                 <LogoBrand size="sm" />
                 <div className="flex items-center gap-4">
                     <a href="https://t.me/opoll_predict_bot" target="_blank" rel="noreferrer" className="text-white hover:text-neon-cyan transition-colors">
