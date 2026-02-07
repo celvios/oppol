@@ -109,6 +109,7 @@ export default function DepositPage() {
     const isUSDTDirect = tokens.find(t => t.symbol === 'USDT')?.direct || false;
     const [tokenBalance, setTokenBalance] = useState('0.00');
     const [depositAmount, setDepositAmount] = useState('');
+    const [gameBalance, setGameBalance] = useState('0.00');
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
@@ -130,6 +131,7 @@ export default function DepositPage() {
     useEffect(() => {
         if (effectiveAddress && connectorClient) {
             fetchBalance();
+            fetchGameBalance();
         }
     }, [effectiveAddress, selectedToken, connectorClient]);
 
@@ -173,6 +175,19 @@ export default function DepositPage() {
         } catch (error: any) {
             console.error('[Deposit] Failed to fetch balance:', error);
             setTokenBalance('0.00');
+        }
+    }
+
+    async function fetchGameBalance() {
+        if (!effectiveAddress) return;
+
+        try {
+            const { web3Service } = await import('@/lib/web3');
+            const balance = await web3Service.getDepositedBalance(effectiveAddress);
+            setGameBalance(parseFloat(balance).toFixed(2));
+        } catch (error: any) {
+            console.error('[Deposit] Failed to fetch game balance:', error);
+            setGameBalance('0.00');
         }
     }
 
@@ -307,6 +322,7 @@ export default function DepositPage() {
             setDepositAmount('');
             setFundingStep('input'); // Reset flow
             fetchBalance();
+            fetchGameBalance(); // Refresh game balance
 
         } catch (error: any) {
             console.error('Deposit failed:', error);
@@ -384,6 +400,15 @@ export default function DepositPage() {
                         </button>
                     </div>
 
+                    {/* Game Balance Display */}
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-white/60">Game Balance</span>
+                            <span className="text-2xl font-mono font-bold text-green-500">${gameBalance}</span>
+                        </div>
+                        <p className="text-xs text-white/40 mt-1">This is your deposited balance. Use this to bet!</p>
+                    </div>
+
                     {/* CONTENT AREA */}
                     {isEmbeddedWallet ? (
                         // --- EMBEDDED WALLET FLOW ---
@@ -435,7 +460,7 @@ export default function DepositPage() {
 
                                     {/* QR Code */}
                                     <div className="bg-white p-4 rounded-xl mb-4 inline-block">
-                                        <QRCodeSVG 
+                                        <QRCodeSVG
                                             value={effectiveAddress || ''}
                                             size={200}
                                             level="H"
