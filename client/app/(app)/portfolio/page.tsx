@@ -53,8 +53,8 @@ export default function PortfolioPage() {
 
         const effectiveAddress = address || user?.wallet?.address;
 
-        // Only fetch data if wallet is connected and we have an address
-        if (!isEffectivelyConnected || !effectiveAddress) {
+        // Only fetch data if we have an address (even if flags are transitioning)
+        if (!effectiveAddress) {
             setLoading(false);
             return;
         }
