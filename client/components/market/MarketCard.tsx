@@ -115,7 +115,7 @@ export default function MarketCard({
     }
 
     return (
-        <Link href={`/trade?marketId=${id}`}>
+        <Link href={`/trade?marketId=${id}`} prefetch={true}>
             <GlassCard
                 className="h-64 group cursor-pointer border-white/5 hover:border-outcome-a/30 overflow-hidden"
                 whileHover={{ y: -5, scale: 1.02 }}
