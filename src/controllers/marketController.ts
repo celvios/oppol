@@ -53,7 +53,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
             return res.json({ success: true, markets: marketCache.all!.data });
         }
 
-        console.log('🔄 Cache miss - fetching fresh market data from blockchain');
+        console.log('🔄 Cache miss - fetching fresh market data from blockchain via Multicall3');
         const result = await query('select * from markets', []);
 
         const { CONFIG } = require('../config/contracts');
@@ -62,62 +62,121 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         console.log('📄 [CLIENT API] Using contract address:', MARKET_ADDRESS);
         console.log('📄 [CLIENT API] RPC:', CONFIG.RPC_URL);
 
-        const abi = [
+        // Multicall3 on BSC Mainnet
+        const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+        const MULTICALL3_ABI = [
+            'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[] returnData)'
+        ];
+
+        const marketAbi = [
             'function getMarketOutcomes(uint256) view returns (string[])',
             'function getAllPrices(uint256) view returns (uint256[])',
             'function getMarketBasicInfo(uint256) view returns (string, string, string, uint256, uint256, uint256, bool, uint256)'
         ];
-        const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
-        // Fetch ALL markets' on-chain data in PARALLEL for instant loading
-        const markets = await Promise.all(
-            result.rows.map(async (row) => {
-                let onChainData: any = {};
-                try {
-                    const [outcomes, prices, basicInfo] = await Promise.all([
-                        contract.getMarketOutcomes(row.market_id),
-                        contract.getAllPrices(row.market_id),
-                        contract.getMarketBasicInfo(row.market_id)
-                    ]);
+        const marketInterface = new ethers.Interface(marketAbi);
+        const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
 
-                    onChainData = {
-                        outcomes: outcomes,
-                        prices: prices.map((p: bigint) => Number(p) / 100),
-                        outcomeCount: Number(basicInfo[3]),
-                        endTime: Number(basicInfo[4]),
-                        liquidityParam: basicInfo[5].toString(),
-                        resolved: basicInfo[6],
-                        winningOutcome: Number(basicInfo[7])
-                    };
-                } catch (err: any) {
-                    if (err.code !== 'CALL_EXCEPTION') {
-                        console.warn(`[Market ${row.market_id}] On-chain fetch failed:`, err.message);
-                    }
-                    onChainData = {
-                        outcomes: ['Yes', 'No'],
-                        prices: [0.5, 0.5],
-                        outcomeCount: 2,
-                        endTime: Math.floor(Date.now() / 1000) + 86400,
-                        liquidityParam: '0',
-                        resolved: false,
-                        winningOutcome: 0
-                    };
-                }
+        // Build multicall batch: 3 calls per market (outcomes, prices, basicInfo)
+        const calls: any[] = [];
+        result.rows.forEach((row) => {
+            const marketId = row.market_id;
 
-                return {
-                    market_id: row.market_id,
-                    question: row.question,
-                    description: row.description || '',
-                    image_url: row.image || '',
-                    category_id: row.category || '',
-                    creator_address: row.creator_address || '',
-                    is_boosted: row.is_boosted || false,
-                    boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
-                    creator_fee: 2, // V3 Constant
-                    ...onChainData
+            // Call 1: getMarketOutcomes
+            calls.push({
+                target: MARKET_ADDRESS,
+                allowFailure: true,
+                callData: marketInterface.encodeFunctionData('getMarketOutcomes', [marketId])
+            });
+
+            // Call 2: getAllPrices
+            calls.push({
+                target: MARKET_ADDRESS,
+                allowFailure: true,
+                callData: marketInterface.encodeFunctionData('getAllPrices', [marketId])
+            });
+
+            // Call 3: getMarketBasicInfo
+            calls.push({
+                target: MARKET_ADDRESS,
+                allowFailure: true,
+                callData: marketInterface.encodeFunctionData('getMarketBasicInfo', [marketId])
+            });
+        });
+
+        console.log(`📞 Executing Multicall3 with ${calls.length} calls (${result.rows.length} markets)`);
+        const startTime = Date.now();
+
+        // Execute single multicall batch
+        const responses = await multicall.aggregate3(calls);
+
+        console.log(`✅ Multicall3 completed in ${Date.now() - startTime}ms`);
+
+        // Decode responses and map to markets
+        const markets = result.rows.map((row, index) => {
+            const baseIndex = index * 3; // Each market has 3 calls
+
+            const outcomesResponse = responses[baseIndex];
+            const pricesResponse = responses[baseIndex + 1];
+            const basicInfoResponse = responses[baseIndex + 2];
+
+            let onChainData: any = {};
+
+            try {
+                // Decode outcomes
+                const outcomes = outcomesResponse.success
+                    ? marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0]
+                    : ['Yes', 'No'];
+
+                // Decode prices
+                const prices = pricesResponse.success
+                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => Number(p) / 100)
+                    : [50, 50];
+
+                // Decode basic info
+                const basicInfo = basicInfoResponse.success
+                    ? marketInterface.decodeFunctionResult('getMarketBasicInfo', basicInfoResponse.returnData)
+                    : [null, null, null, 2, Math.floor(Date.now() / 1000) + 86400, '0', false, 0];
+
+                onChainData = {
+                    outcomes: outcomes,
+                    prices: prices,
+                    outcomeCount: Number(basicInfo[3]),
+                    endTime: Number(basicInfo[4]),
+                    liquidityParam: basicInfo[5].toString(),
+                    resolved: basicInfo[6],
+                    winningOutcome: Number(basicInfo[7])
                 };
-            })
-        );
+
+                if (!outcomesResponse.success || !pricesResponse.success || !basicInfoResponse.success) {
+                    console.warn(`[Market ${row.market_id}] Some multicall responses failed (outcomes: ${outcomesResponse.success}, prices: ${pricesResponse.success}, basicInfo: ${basicInfoResponse.success})`);
+                }
+            } catch (err: any) {
+                console.error(`[Market ${row.market_id}] Failed to decode multicall response:`, err.message);
+                onChainData = {
+                    outcomes: ['Yes', 'No'],
+                    prices: [50, 50],
+                    outcomeCount: 2,
+                    endTime: Math.floor(Date.now() / 1000) + 86400,
+                    liquidityParam: '0',
+                    resolved: false,
+                    winningOutcome: 0
+                };
+            }
+
+            return {
+                market_id: row.market_id,
+                question: row.question,
+                description: row.description || '',
+                image_url: row.image || '',
+                category_id: row.category || '',
+                creator_address: row.creator_address || '',
+                is_boosted: row.is_boosted || false,
+                boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
+                creator_fee: 2, // V3 Constant
+                ...onChainData
+            };
+        });
 
         // Filter out markets that are Resolved AND older than 48 hours (after endTime)
         const VISIBLE_WINDOW = 48 * 60 * 60; // 48 Hours in seconds
