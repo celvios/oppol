@@ -107,9 +107,9 @@ export default function DepositPage() {
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
     const isUSDTDirect = tokens.find(t => t.symbol === 'USDT')?.direct || false;
-    const [tokenBalance, setTokenBalance] = useState('0.00');
+    const [tokenBalance, setTokenBalance] = useState<string | null>(null);
     const [depositAmount, setDepositAmount] = useState('');
-    const [gameBalance, setGameBalance] = useState('0.00');
+    const [gameBalance, setGameBalance] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
@@ -355,8 +355,9 @@ export default function DepositPage() {
     };
 
     const isAuthLoading = !ready || (authenticated && !walletsReady);
+    const isBalanceLoading = isEffectivelyConnected && (tokenBalance === null || gameBalance === null);
 
-    if (isConnecting || isAuthLoading) return <SkeletonLoader />;
+    if (isConnecting || isAuthLoading || isBalanceLoading) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8">
@@ -404,7 +405,7 @@ export default function DepositPage() {
                     <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 mb-4">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-white/60">Game Balance</span>
-                            <span className="text-2xl font-mono font-bold text-green-500">${gameBalance}</span>
+                            <span className="text-2xl font-mono font-bold text-green-500">${gameBalance || '0.00'}</span>
                         </div>
                         <p className="text-xs text-white/40 mt-1">This is your deposited balance. Use this to bet!</p>
                     </div>
@@ -556,8 +557,8 @@ export default function DepositPage() {
                                 <div className="flex justify-between mb-2">
                                     <label className="text-sm font-medium text-white/60">Amount ({selectedToken.symbol})</label>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setDepositAmount(tokenBalance)} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
-                                            Balance: {tokenBalance}
+                                        <button onClick={() => setDepositAmount(tokenBalance || '0.00')} className="text-xs text-secondary hover:text-white cursor-pointer transition-colors">
+                                            Balance: {tokenBalance || '0.00'}
                                         </button>
 
                                     </div>
