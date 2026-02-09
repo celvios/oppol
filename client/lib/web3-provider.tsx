@@ -25,7 +25,7 @@ const config = createConfig({
         [bscTestnet.id]: http(),
     },
     connectors: [
-        injected(),
+        // injected(), // Privy handles injected wallets automatically
         coinbaseWallet({ appName: 'OPoll' }),
         walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
     ],
@@ -52,7 +52,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                 appearance: {
                     theme: 'dark',
                     accentColor: '#00E0FF',
-                    logo: 'https://oppollbnb.vercel.app/logo.png',
+                    logo: '/logo.png', // Use relative path
                 },
                 embeddedWallets: {
                     createOnLogin: 'users-without-wallets',
