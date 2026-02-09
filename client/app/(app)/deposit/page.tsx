@@ -355,7 +355,7 @@ export default function DepositPage() {
     };
 
     const isAuthLoading = !ready || (authenticated && !walletsReady);
-    const isBalanceLoading = isEffectivelyConnected && (tokenBalance === null || gameBalance === null);
+    const isBalanceLoading = isEffectivelyConnected && !!effectiveAddress && (tokenBalance === null || gameBalance === null);
 
     if (isConnecting || isAuthLoading || isBalanceLoading) return <SkeletonLoader />;
 
