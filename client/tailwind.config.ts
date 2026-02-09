@@ -16,6 +16,7 @@ const config: Config = {
                 success: "#27E8A7",    // Spring Green
                 "text-primary": "#FFFFFF",
                 "text-secondary": "#94A3B8",
+                primary: "#00F0FF", // Cyan Neon
             },
             fontFamily: {
                 sans: ["var(--font-inter)", "sans-serif"],
