@@ -118,24 +118,48 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- HEADLESS WALLET CONNECTION (Privy SIWE) ---
+    // --- HEADLESS WALLET CONNECTION (Direct Wagmi) ---
     const handleWalletConnect = async (walletType: string) => {
         setLoadingMethod(walletType);
         setError(null);
 
         try {
-            // Use Privy's built-in wallet connection
-            // This handles wallet detection, SIWE message generation, and authentication
-            await login({ loginMethods: ['wallet'] });
+            // Find the appropriate Wagmi connector based on wallet type
+            let connector;
 
-            // Success - modal will auto-close via useEffect
+            if (walletType === 'metamask') {
+                connector = connectors.find(c => c.id === 'metaMaskSDK' || c.name.toLowerCase().includes('metamask'));
+            } else if (walletType === 'coinbase') {
+                connector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name.toLowerCase().includes('coinbase'));
+            } else if (walletType === 'walletconnect') {
+                connector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
+            } else if (walletType === 'trust') {
+                connector = connectors.find(c => c.name.toLowerCase().includes('trust'));
+            } else if (walletType === 'binance') {
+                connector = connectors.find(c => c.name.toLowerCase().includes('binance'));
+            }
+
+            if (!connector) {
+                // Fallback to first available injected wallet
+                connector = connectors.find(c => c.type === 'injected') || connectors[0];
+            }
+
+            if (!connector) {
+                throw new Error(`${walletType} not available. Please install the wallet extension.`);
+            }
+
+            // Connect via Wagmi
+            await connectAsync({ connector });
+
+            // Success - close modal
+            onClose();
         } catch (err: any) {
             console.error('Wallet connection failed:', err);
 
             let errorMessage = 'Connection failed';
             if (err.message?.includes('User rejected')) {
                 errorMessage = 'Connection rejected';
-            } else if (err.message?.includes('not detected')) {
+            } else if (err.message?.includes('not available') || err.message?.includes('not detected')) {
                 errorMessage = err.message;
             } else if (err.code === 4001) {
                 errorMessage = 'Connection rejected';
@@ -234,10 +258,10 @@ export default function ConnectWalletModal({
                                         variant="glass"
                                         onClick={() => setViewState('email-input')}
                                         disabled={!ready}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-white/50 transition-all group"
                                     >
-                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
-                                            <Mail className="w-5 h-5 text-white group-hover:text-neon-cyan" />
+                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-white/20 transition-colors">
+                                            <Mail className="w-5 h-5 text-white" />
                                         </div>
                                         <span className="font-medium">Continue with Email</span>
                                     </NeonButton>
@@ -246,9 +270,9 @@ export default function ConnectWalletModal({
                                         variant="glass"
                                         onClick={handleGoogleLogin}
                                         disabled={!ready || !!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-neon-cyan/50 transition-all group"
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-white/50 transition-all group"
                                     >
-                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-neon-cyan/20 transition-colors">
+                                        <div className="p-2 bg-white/5 rounded-full group-hover:bg-white/20 transition-colors">
                                             {/* Google SVG */}
                                             <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -265,10 +289,10 @@ export default function ConnectWalletModal({
 
 
                                     <NeonButton
-                                        variant="cyan"
+                                        variant="glass"
                                         onClick={() => setViewState('wallet-selection')}
                                         disabled={!ready}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 shadow-[0_0_20px_rgba(0,224,255,0.2)] hover:shadow-[0_0_30px_rgba(0,224,255,0.4)] group"
+                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-white hover:bg-white/90 border border-white transition-all group"
                                     >
                                         <div className="p-2 bg-black/20 rounded-full">
                                             <Wallet className="w-5 h-5 text-black" />
