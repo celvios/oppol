@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useEffect } from "react";
-import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
+import { TerminalSkeleton } from "@/components/ui/SkeletonLoader";
 import { web3MultiService } from "@/lib/web3-multi";
 import type { ServerMarket } from "@/lib/server-fetch";
 
@@ -24,12 +24,12 @@ export function TerminalClient({ initialMarkets }: TerminalClientProps) {
     return (
         <>
             <div className="hidden md:block">
-                <Suspense fallback={<SkeletonLoader />}>
+                <Suspense fallback={<TerminalSkeleton />}>
                     <MultiOutcomeTerminal initialMarkets={initialMarkets as any} />
                 </Suspense>
             </div>
             <div className="block md:hidden">
-                <Suspense fallback={<SkeletonLoader />}>
+                <Suspense fallback={<TerminalSkeleton />}>
                     <MobileTerminal initialMarkets={initialMarkets as any} />
                 </Suspense>
             </div>
