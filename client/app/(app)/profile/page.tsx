@@ -73,7 +73,7 @@ export default function ProfilePage() {
             {/* Profile Header */}
             <div className="relative bg-surface/30 border border-white/5 rounded-2xl overflow-hidden">
                 {/* Banner / Background */}
-                <div className="h-32 bg-gradient-to-r from-primary/20 to-purple-500/20 w-full absolute top-0 left-0" />
+                <div className="h-32 bg-white/5 w-full absolute top-0 left-0" />
 
                 <div className="pt-16 px-6 pb-6 relative z-10">
                     <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
@@ -82,7 +82,7 @@ export default function ProfilePage() {
                             {(user?.google as any)?.picture ? (
                                 <img src={(user?.google as any).picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
                             ) : (
-                                <div className="w-full h-full rounded-full bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center text-3xl font-bold text-white uppercase">
+                                <div className="w-full h-full rounded-full bg-white/10 flex items-center justify-center text-3xl font-bold text-white uppercase">
                                     {displayName.charAt(0)}
                                 </div>
                             )}

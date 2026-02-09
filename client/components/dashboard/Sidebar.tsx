@@ -136,7 +136,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 <Icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
                                 {!collapsed && <span className="font-medium text-sm">{item.name}</span>}
                                 {isActive && !collapsed && (
-                                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_#00E0FF]" />
+                                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
                                 )}
                             </Link>
                         );
@@ -186,7 +186,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         >
                             <div className="relative">
                                 <Wallet className="w-5 h-5" />
-                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_#00E0FF]" />
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
                             </div>
                             {!collapsed && (
                                 <>

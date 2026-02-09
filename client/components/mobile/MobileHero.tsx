@@ -40,7 +40,7 @@ export default function MobileHero() {
                             src="/opoll-logo-full.png"
                             alt="OPoll"
                             fill
-                            className="object-contain drop-shadow-[0_0_30px_rgba(0,224,255,0.3)]"
+                            className="object-contain"
                             priority
                         />
                     </span>
@@ -77,7 +77,7 @@ export default function MobileHero() {
 
                     <button
                         disabled
-                        className="w-full px-4 py-3 text-sm font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] opacity-80 cursor-not-allowed"
+                        className="w-full px-4 py-3 text-sm font-heading font-medium tracking-wide flex items-center justify-center gap-2 rounded-lg transition-all duration-300 bg-[#25D366] text-white opacity-80 cursor-not-allowed"
                     >
                         <MessageCircle className="w-4 h-4" />
                         PREDICT VIA WHATSAPP (SOON)

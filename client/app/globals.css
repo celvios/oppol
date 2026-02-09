@@ -35,11 +35,9 @@ body {
     -webkit-font-smoothing: antialiased;
     position: relative;
 
-    /* Glossy Sheen + Toned Down Ambience */
+    /* Glossy Sheen only - Removed colored gradients */
     background-image:
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 40%),
-        radial-gradient(circle at 15% 50%, rgba(0, 240, 255, 0.03), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(255, 46, 99, 0.02), transparent 25%);
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 40%);
     background-attachment: fixed;
     /* Ensures gloss stays at top */
 }
@@ -71,9 +69,9 @@ body {
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     /* Safari support */
+    /* Safari support */
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.1);
-    /* Slight Cyan glow */
+    /* box-shadow removed for flat look */
 }
 
 /* Text Gradients */

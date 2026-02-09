@@ -107,7 +107,7 @@ export default function ConnectWalletModal({
         setLoadingMethod('otp');
         setError(null);
         try {
-            await loginWithCode({ code: otp, email });
+            await loginWithCode({ code: otp });
             onClose();
         } catch (err) {
             console.error("Invalid code", err);
@@ -177,7 +177,6 @@ export default function ConnectWalletModal({
                     className="absolute inset-0 bg-black/90 backdrop-blur-md"
                     onClick={onClose}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 animate-pulse" />
                 </motion.div>
 
                 <motion.div
@@ -186,9 +185,9 @@ export default function ConnectWalletModal({
                     exit={{ scale: 0.9, opacity: 0, y: 20 }}
                     className="relative w-full max-w-md"
                 >
-                    <div className="absolute -inset-[1px] bg-gradient-to-r from-neon-cyan via-purple-500 to-neon-cyan rounded-2xl opacity-75 blur-sm animate-gradient-xy" />
 
-                    <GlassCard className="relative w-full overflow-hidden border-none shadow-[0_0_50px_-10px_rgba(0,224,255,0.3)]">
+
+                    <GlassCard className="relative w-full overflow-hidden border-none shadow-2xl">
                         {view !== 'selection' && view !== 'more-wallets' && (
                             <button
                                 onClick={() => setViewState(view === 'wallet-selection' ? 'selection' : view === 'otp-input' ? 'email-input' : 'selection')}
@@ -218,12 +217,11 @@ export default function ConnectWalletModal({
                             {/* Header */}
                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
                                 <motion.div className="w-16 h-16 mx-auto mb-4 relative" initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                                    <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl" />
-                                    <div className="relative w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-full border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,224,255,0.3)] p-3">
+                                    <div className="relative w-full h-full bg-black rounded-full border border-white/10 flex items-center justify-center p-3">
                                         <img src="/brand-logo.png" alt="OPoll" className="w-full h-full object-contain" />
                                     </div>
                                 </motion.div>
-                                <h2 className="text-2xl font-bold mb-2 tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
+                                <h2 className="text-2xl font-bold mb-2 tracking-tight text-white">
                                     {content.title}
                                 </h2>
                                 <p className="text-white/60 text-sm max-w-[80%] mx-auto">{content.subtitle}</p>
@@ -469,7 +467,7 @@ export default function ConnectWalletModal({
                 </motion.div>
 
                 {/* Identity Modal Stub if needed */}
-                <UsernameOnboardingModal isOpen={false} onClose={() => { }} suggestedUsername="" onSubmit={() => { }} />
+                <UsernameOnboardingModal isOpen={false} onClose={() => { }} suggestedUsername="" onSubmit={async (_username) => true} />
             </div>
         </AnimatePresence>
     );
