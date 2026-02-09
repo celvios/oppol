@@ -55,7 +55,7 @@ export default function PortfolioPage() {
 
         // Only fetch data if we have an address (even if flags are transitioning)
         if (!effectiveAddress) {
-            setLoading(false);
+            // Keep loading if we are authorized but waiting for address
             return;
         }
 

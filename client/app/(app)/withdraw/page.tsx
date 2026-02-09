@@ -57,9 +57,9 @@ export default function WithdrawPage() {
     const [processingStep, setProcessingStep] = useState(''); // e.g., "Withdrawing from game...", "Sending to wallet..."
 
     // Data State
-    const [contractBalance, setContractBalance] = useState('0.00'); // Deposited in Game
-    const [walletBalance, setWalletBalance] = useState('0.00');   // In Wallet
-    const [isLoading, setIsLoading] = useState(false);
+    const [contractBalance, setContractBalance] = useState<string | null>(null); // Deposited in Game
+    const [walletBalance, setWalletBalance] = useState<string | null>(null);   // In Wallet
+    const [isLoading, setIsLoading] = useState(true);
     const [showConnectModal, setShowConnectModal] = useState(false);
 
     const contracts = getContracts() as any;
@@ -69,10 +69,17 @@ export default function WithdrawPage() {
     const effectiveAddress = address || user?.wallet?.address;
 
     useEffect(() => {
+        if (!isEffectivelyConnected && !ready) return;
+
+        if (!isEffectivelyConnected) {
+            setIsLoading(false);
+            return;
+        }
+
         if (effectiveAddress) {
             fetchAllBalances();
         }
-    }, [effectiveAddress]);
+    }, [effectiveAddress, isEffectivelyConnected, ready]);
 
     async function fetchAllBalances() {
         if (!effectiveAddress) return;
@@ -88,9 +95,14 @@ export default function WithdrawPage() {
                 const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
                 const balWei = await usdcContract.balanceOf(effectiveAddress);
                 setWalletBalance(ethers.formatUnits(balWei, 18));
+            } else {
+                setWalletBalance('0.00');
             }
         } catch (error: any) {
             console.error('Failed to fetch balances:', error);
+            // Fallback to 0 on error so we don't stick on loading forever
+            if (contractBalance === null) setContractBalance('0.00');
+            if (walletBalance === null) setWalletBalance('0.00');
         } finally {
             setIsLoading(false);
         }
@@ -114,8 +126,8 @@ export default function WithdrawPage() {
 
                 // Logic: 
                 // 1. Check if we need to withdraw from game first
-                const contractBalanceWei = ethers.parseUnits(contractBalance, 18);
-                const walletBalanceWei = ethers.parseUnits(walletBalance, 18);
+                const contractBalanceWei = ethers.parseUnits(contractBalance || '0', 18);
+                const walletBalanceWei = ethers.parseUnits(walletBalance || '0', 18);
 
                 // If asking for more than total available
                 if (amountInWei > (contractBalanceWei + walletBalanceWei)) {
@@ -196,7 +208,10 @@ export default function WithdrawPage() {
 
     const canProceed = availableBalanceWei > BigInt(0);
 
-    if (!ready || (isLoading && !contractBalance && !walletBalance)) return <SkeletonLoader />;
+    // Show skeleton if loading OR if we are connected but balances are still null (initial fetch pending)
+    if (!ready || isLoading || (isEffectivelyConnected && (contractBalance === null || walletBalance === null))) {
+        return <SkeletonLoader />;
+    }
 
     if (!isEffectivelyConnected) {
         return (
@@ -308,8 +323,8 @@ export default function WithdrawPage() {
                         <SlideToConfirm
                             onConfirm={handleAction}
                             text={isEmbeddedWallet ? "SLIDE TO CASH OUT" : "SLIDE TO WITHDRAW"}
-                            isLoading={step === 'processing'}
-                            disabled={step === 'processing'}
+                            isLoading={false}
+                            disabled={false}
                             side="YES"
                         />
 
