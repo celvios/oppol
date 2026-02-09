@@ -55,7 +55,11 @@ export default function PortfolioPage() {
 
         // Only fetch data if we have an address (even if flags are transitioning)
         if (!effectiveAddress) {
-            // Keep loading if we are authorized but waiting for address
+            // If checking auth/wallet status, keep loading. 
+            // If we are fully connected/ready but have no address, stop loading.
+            if (!isConnecting) {
+                setLoading(false);
+            }
             return;
         }
 
@@ -169,7 +173,7 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [address, authenticated, user]);
+    }, [address, authenticated, user, isConnecting, isEffectivelyConnected]);
 
     if (isConnecting) {
         return (
