@@ -380,8 +380,8 @@ export default function DepositPage() {
                     {/* Header / Wallet Info */}
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                                <Wallet className="w-5 h-5 text-primary" />
+                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                                <Wallet className="w-5 h-5 text-white" />
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-white">
@@ -423,11 +423,11 @@ export default function DepositPage() {
                             {fundingStep !== 'input' && (
                                 <div className="text-center mb-4">
                                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs">
-                                        <span className={fundingStep === 'payment' ? 'text-primary' : 'text-white/50'}>1. Send</span>
+                                        <span className={fundingStep === 'payment' ? 'text-white' : 'text-white/50'}>1. Send</span>
                                         <span className="text-white/20">→</span>
-                                        <span className={fundingStep === 'verifying' ? 'text-primary' : 'text-white/50'}>2. Verify</span>
+                                        <span className={fundingStep === 'verifying' ? 'text-white' : 'text-white/50'}>2. Verify</span>
                                         <span className="text-white/20">→</span>
-                                        <span className={fundingStep === 'depositing' ? 'text-primary' : 'text-white/50'}>3. Play</span>
+                                        <span className={fundingStep === 'depositing' ? 'text-white' : 'text-white/50'}>3. Play</span>
                                     </div>
                                 </div>
                             )}
@@ -442,7 +442,7 @@ export default function DepositPage() {
                                             value={depositAmount}
                                             onChange={(e) => setDepositAmount(e.target.value)}
                                             placeholder="0.00"
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-8 pr-4 text-2xl font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-primary text-center"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-8 pr-4 text-2xl font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-white text-center"
                                         />
                                     </div>
                                     <button
@@ -481,7 +481,7 @@ export default function DepositPage() {
                                         </button>
                                     </div>
 
-                                    <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg mb-6 text-xs text-blue-200">
+                                    <div className="bg-white/5 border border-white/10 p-3 rounded-lg mb-6 text-xs text-white/60">
                                         Send from Binance, Coinbase, or any external wallet on <strong>BNB Smart Chain (BEP20)</strong>.
                                     </div>
 
@@ -503,7 +503,7 @@ export default function DepositPage() {
                                     <h3 className="text-xl font-bold text-white mb-2">Checking for Funds...</h3>
                                     <p className="text-white/50 text-sm mb-6">This usually takes 10-30 seconds.</p>
                                     <div className="w-full bg-white/5 rounded-full h-1 mb-2 overflow-hidden">
-                                        <div className="h-full bg-primary/50 animate-progress"></div>
+                                        <div className="h-full bg-white/50 animate-progress"></div>
                                     </div>
                                     <p className="text-xs text-white/30">Auto-refreshing balance...</p>
                                     <button onClick={() => setFundingStep('input')} className="mt-6 text-xs text-white/40 hover:text-white">Cancel</button>
@@ -533,7 +533,7 @@ export default function DepositPage() {
                                             className={`py-2 px-3 rounded-lg font-bold transition-all border ${token.comingSoon
                                                 ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
                                                 : selectedToken.symbol === token.symbol
-                                                    ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(0,240,255,0.2)]'
+                                                    ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]'
                                                     : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                                 }`}
                                         >
@@ -552,7 +552,7 @@ export default function DepositPage() {
                                     ))}
                                 </div>
                                 <div className="text-xs text-white/40 text-center">
-                                    Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
+                                    Selected: <span className="text-white font-bold">{selectedToken.symbol}</span>
                                     {selectedToken.direct ? ' (Direct)' : ` (Auto-converted to ${isUSDTDirect ? 'USDT' : 'USDC'})`}
                                 </div>
                             </div>
@@ -578,9 +578,9 @@ export default function DepositPage() {
 
                             {/* Status Message */}
                             {isProcessing && (
-                                <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center justify-center gap-3 animate-pulse">
-                                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                                    <span className="text-primary text-sm font-bold">{statusMessage || 'Processing...'}</span>
+                                <div className="bg-white/10 border border-white/20 rounded-xl p-3 flex items-center justify-center gap-3 animate-pulse">
+                                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                    <span className="text-white text-sm font-bold">{statusMessage || 'Processing...'}</span>
                                 </div>
                             )}
 
@@ -598,14 +598,14 @@ export default function DepositPage() {
             ) : (
                 <>
                     <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center">
-                        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
-                            <Wallet className="w-8 h-8 text-primary" />
+                        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-6">
+                            <Wallet className="w-8 h-8 text-white" />
                         </div>
                         <h2 className="text-xl font-bold text-white mb-2">Deposit Funds</h2>
                         <p className="text-white/50 mb-6">Connect your wallet to deposit and start trading</p>
                         <button
                             onClick={() => setShowConnectModal(true)}
-                            className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
+                            className="px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-xl transition-all"
                         >
                             Log In
                         </button>
