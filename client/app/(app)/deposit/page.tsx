@@ -129,11 +129,11 @@ export default function DepositPage() {
     const MARKET_CONTRACT = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
 
     useEffect(() => {
-        if (effectiveAddress && connectorClient) {
+        if (effectiveAddress) {
             fetchBalance();
             fetchGameBalance();
         }
-    }, [effectiveAddress, selectedToken, connectorClient]);
+    }, [effectiveAddress, selectedToken]);
 
     // Polling for "Verifying" step
     useEffect(() => {
