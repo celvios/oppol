@@ -357,7 +357,11 @@ export default function DepositPage() {
     const isAuthLoading = !ready || (authenticated && !walletsReady);
     const isBalanceLoading = isEffectivelyConnected && !!effectiveAddress && (tokenBalance === null || gameBalance === null);
 
-    if (isConnecting || isAuthLoading || isBalanceLoading) return <SkeletonLoader />;
+    // FIX: If we are effectively connected, we shouldn't block on isConnecting/isAuthLoading
+    // This prevents infinite loading if the wallet adapter is slow to report "ready"
+    const isLoadingState = (!isEffectivelyConnected && (isConnecting || isAuthLoading)) || isBalanceLoading;
+
+    if (isLoadingState) return <SkeletonLoader />;
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 pt-8 pb-32">
