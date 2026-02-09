@@ -127,16 +127,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 className={cn(
                                     "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group",
                                     isActive
-                                        ? "bg-primary/10 text-primary border border-primary/20"
+                                        ? "bg-white/10 text-white border border-white/20"
                                         : "text-white/60 hover:text-white hover:bg-white/5",
                                     collapsed ? "justify-center" : ""
                                 )}
                                 title={collapsed ? item.name : undefined}
                             >
-                                <Icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
+                                <Icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-white")} />
                                 {!collapsed && <span className="font-medium text-sm">{item.name}</span>}
                                 {isActive && !collapsed && (
-                                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
                                 )}
                             </Link>
                         );

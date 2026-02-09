@@ -30,7 +30,8 @@ export default function ClientShell({
                 )}
             >
                 {/* Ambient Top Glow */}
-                <div className="absolute top-0 left-0 w-full h-[300px] bg-primary/5 blur-[120px] pointer-events-none" />
+                {/* Ambient Top Glow - Removed blue gradient */}
+                {/* <div className="absolute top-0 left-0 w-full h-[300px] bg-primary/5 blur-[120px] pointer-events-none" /> */}
 
                 <motion.div className="relative z-10">
                     {children}

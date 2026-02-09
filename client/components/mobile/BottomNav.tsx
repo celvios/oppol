@@ -53,10 +53,10 @@ export default function BottomNav() {
                         {pathname === "/" && (
                             <motion.div
                                 layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                                className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
-                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <Globe className={twMerge("w-6 h-6 transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/" ? "text-white" : "text-text-secondary")}>Markets</span>
                     </Link>
 
@@ -77,10 +77,10 @@ export default function BottomNav() {
                         {pathname === "/admin/create-market" && (
                             <motion.div
                                 layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                                className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
-                        <PlusCircle className={twMerge("w-6 h-6 transition-colors", pathname === "/admin/create-market" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <PlusCircle className={twMerge("w-6 h-6 transition-colors", pathname === "/admin/create-market" ? "text-white" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/admin/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
                     </div>
 
@@ -92,10 +92,10 @@ export default function BottomNav() {
                         {pathname === "/portfolio" && (
                             <motion.div
                                 layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                                className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
-                        <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
 
@@ -109,10 +109,10 @@ export default function BottomNav() {
                         {pathname === "/menu" && (
                             <motion.div
                                 layoutId="nav-active"
-                                className="absolute -top-[1px] w-12 h-1 bg-neon-cyan rounded-full shadow-[0_0_10px_#00F0FF]"
+                                className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
-                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-neon-cyan" : "text-text-secondary")} />
+                        <Menu className={twMerge("w-6 h-6 transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/menu" ? "text-white" : "text-text-secondary")}>Menu</span>
                     </Link>
                 </nav>
