@@ -25,7 +25,7 @@ const config = createConfig({
         [bscTestnet.id]: http(),
     },
     connectors: [
-        // injected(), // Privy handles injected wallets automatically
+        injected(), // Restoring explicit injected connector
         coinbaseWallet({ appName: 'OPoll' }),
         walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
     ],
