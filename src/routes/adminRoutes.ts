@@ -1,6 +1,9 @@
 import express from 'express';
 import { ethers } from 'ethers';
 import { query } from '../config/database';
+import { CONFIG } from '../config/contracts';
+import { MARKET_ABI } from '../config/abis';
+import { getProvider } from '../config/provider';
 
 const router = express.Router();
 
@@ -459,6 +462,40 @@ router.get('/health', checkAdminAuth, async (req, res) => {
     } catch (error: any) {
         console.error('Critical Health Check Error:', error);
         return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Debug route to check contract state directly
+router.get('/debug-market/:id', checkAdminAuth, async (req: express.Request, res: express.Response) => {
+    try {
+        const marketId = req.params.id;
+        console.log(`[Debug] Checking market ${marketId}...`);
+
+        const provider = getProvider();
+        const marketContract = new ethers.Contract(CONFIG.MARKET_CONTRACT, MARKET_ABI, provider);
+
+        const [basic, outcomes, prices, shares] = await Promise.all([
+            marketContract.getMarketBasicInfo(marketId),
+            marketContract.getMarketOutcomes(marketId),
+            marketContract.getAllPrices(marketId),
+            marketContract.getMarketShares(marketId)
+        ]);
+
+        const data = {
+            id: marketId,
+            question: basic.question,
+            liquidityParam: basic.liquidityParam.toString(),
+            outcomes: outcomes,
+            pricesRaw: prices.map((p: bigint) => p.toString()),
+            pricesFormatted: prices.map((p: bigint) => ethers.formatUnits(p, 18)),
+            sharesRaw: shares.map((s: bigint) => s.toString()),
+            sharesFormatted: shares.map((s: bigint) => ethers.formatUnits(s, 18))
+        };
+
+        res.json({ success: true, data });
+    } catch (error: any) {
+        console.error(`[Debug] Failed:`, error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

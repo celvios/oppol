@@ -8,8 +8,8 @@ let isRunning = false;
 let intervalId: NodeJS.Timeout | null = null;
 
 // Helper to format prices
-// Helper to format prices (contract returns 1e18 precision = 100%)
-const formatPrices = (prices: bigint[]) => prices.map((p) => Number(ethers.formatUnits(p, 18)) * 100);
+// Helper to format prices (contract returns basis points 10000 = 100%)
+const formatPrices = (prices: bigint[]) => prices.map((p) => Number(p) / 100);
 
 /**
  * Sync all active markets from blockchain to database using Multicall3
