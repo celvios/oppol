@@ -467,12 +467,15 @@ app.post('/api/multi-bet', async (req, res) => {
 
       const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, mid]);
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
-      const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+      const rawCost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+
+      // CRITICAL FIX: Contract returns cost in base units, multiply by 1e6 to get USDC units
+      const cost = rawCost * BigInt(1e6);
       lastCheckedCost = cost;
 
       // Log first 5 and last 5 iterations
       if (iterations < 5 || iterations > 68) {
-        console.log(`🔍 [ITER ${iterations}] shares=${ethers.formatUnits(mid, 18)}, cost=${ethers.formatUnits(cost, 6)} USDC, effectiveMax=${ethers.formatUnits(effectiveMaxCost, 6)}`);
+        console.log(`🔍 [ITER ${iterations}] shares=${ethers.formatUnits(mid, 18)}, rawCost=${rawCost.toString()}, cost=${ethers.formatUnits(cost, 6)} USDC, effectiveMax=${ethers.formatUnits(effectiveMaxCost, 6)}`);
       }
 
       if (cost <= effectiveMaxCost) {
@@ -496,9 +499,13 @@ app.post('/api/multi-bet', async (req, res) => {
     const sharesInUnits = bestShares; // Already in units
     const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
     const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
-    const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
+    const rawActualCost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+
+    // CRITICAL FIX: Contract returns cost in base units, multiply by 1e6 to get USDC units
+    const actualCost = rawActualCost * BigInt(1e6);
     const costFormatted = ethers.formatUnits(actualCost, 6);
-    console.log(`✅ Cost: $${costFormatted} for ${bestShares} shares`);
+    const sharesFormatted = ethers.formatUnits(bestShares, 18);
+    console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares (rawCost: ${rawActualCost.toString()})`);
 
     if (userBalance < actualCost) {
       return res.status(400).json({
