@@ -499,4 +499,84 @@ router.get('/debug-market/:id', checkAdminAuth, async (req: express.Request, res
     }
 });
 
+// Backfill Volume Data
+router.post('/backfill-volume', checkAdminAuth, async (req, res) => {
+    try {
+        console.log('[Admin] Starting volume backfill...');
+
+        const provider = getProvider();
+        const marketContract = new ethers.Contract(CONFIG.MARKET_CONTRACT, MARKET_ABI, provider);
+
+        const marketCount = Number(await marketContract.marketCount());
+        const currentBlock = await provider.getBlockNumber();
+
+        // Scan back 580k blocks (~20 days on BSC)
+        const startBlock = Math.max(0, currentBlock - 580000);
+
+        console.log(`[Admin] Scanning ${marketCount} markets from block ${startBlock} to ${currentBlock}`);
+
+        const CHUNK_SIZE = 5000;
+        const volumes = new Map<number, bigint>();
+
+        // Initialize all markets to 0
+        for (let i = 0; i < marketCount; i++) {
+            volumes.set(i, BigInt(0));
+        }
+
+        let totalTrades = 0;
+
+        // Scan blockchain in chunks
+        for (let from = startBlock; from <= currentBlock; from += CHUNK_SIZE) {
+            const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
+
+            try {
+                const filter = marketContract.filters.SharesPurchased();
+                const logs = await marketContract.queryFilter(filter, from, to);
+
+                totalTrades += logs.length;
+
+                for (const log of logs) {
+                    // @ts-ignore
+                    const marketId = Number(log.args[0]);
+                    // @ts-ignore
+                    const cost = BigInt(log.args[4]);
+
+                    const currentVol = volumes.get(marketId) || BigInt(0);
+                    volumes.set(marketId, currentVol + cost);
+                }
+            } catch (e: any) {
+                console.error(`[Admin] Chunk error ${from}-${to}:`, e.message);
+            }
+        }
+
+        console.log(`[Admin] Found ${totalTrades} total trades`);
+
+        // Update database
+        const results: any[] = [];
+        for (let marketId = 0; marketId < marketCount; marketId++) {
+            const volume = volumes.get(marketId) || BigInt(0);
+            const volumeFormatted = ethers.formatUnits(volume, 18);
+
+            if (volume > 0n) {
+                await query(
+                    `UPDATE markets SET volume = $1 WHERE market_id = $2`,
+                    [volumeFormatted, marketId]
+                );
+                results.push({ marketId, volume: volumeFormatted });
+                console.log(`[Admin] Market ${marketId}: $${volumeFormatted}`);
+            }
+        }
+
+        res.json({
+            success: true,
+            blocksScanned: currentBlock - startBlock,
+            totalTrades,
+            marketsUpdated: results
+        });
+    } catch (error: any) {
+        console.error('[Admin] Backfill failed:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
