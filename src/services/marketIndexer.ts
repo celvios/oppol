@@ -128,11 +128,11 @@ export async function syncAllMarkets(): Promise<void> {
                 let isFirstRun = false;
 
                 if (!state) {
-                    // First run for this market: Look back deeper (e.g. 500k blocks ~17 days) or safe limit
-                    // Since verification script proved it works, we do a chunked scan
+                    // First run for this market: Look back 50k blocks (~1.5 days on BSC)
+                    // Reduced from 500k to prevent timeout loops during initialization
                     console.log(`[Indexer] Initializing volume for Market ${marketId}...`);
                     isFirstRun = true;
-                    fetchFromBlock = Math.max(0, currentBlock - 500000);
+                    fetchFromBlock = Math.max(0, currentBlock - 50000);
                     volume = BigInt(0);
                 } else {
                     // Incremental update
