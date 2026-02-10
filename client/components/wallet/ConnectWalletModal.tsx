@@ -118,24 +118,53 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- WALLET CONNECTION via Privy ---
+    // --- WALLET CONNECTION with fallback to WalletConnect ---
     const handleWalletConnect = async (walletType: string) => {
         setLoadingMethod(walletType);
         setError(null);
 
         try {
-            // Let Privy handle wallet detection and connection automatically
-            await login({ loginMethods: ['wallet'] });
+            // Check if wallet is installed via window.ethereum or other providers
+            const hasMetaMask = typeof window !== 'undefined' && window.ethereum?.isMetaMask;
+            const hasCoinbase = typeof window !== 'undefined' && window.ethereum?.isCoinbaseWallet;
+            const hasOKX = typeof window !== 'undefined' && (window as any).okxwallet;
+            const hasPhantom = typeof window !== 'undefined' && (window as any).phantom?.ethereum;
+            const hasRabby = typeof window !== 'undefined' && (window as any).rabby;
+
+            let isWalletInstalled = false;
+
+            // Check if the specific wallet is installed
+            if (walletType === 'metamask' && hasMetaMask) isWalletInstalled = true;
+            else if (walletType === 'coinbase' && hasCoinbase) isWalletInstalled = true;
+            else if (walletType === 'okx' && hasOKX) isWalletInstalled = true;
+            else if (walletType === 'phantom' && hasPhantom) isWalletInstalled = true;
+            else if (walletType === 'rabby' && hasRabby) isWalletInstalled = true;
+
+            // For WalletConnect and uninstalled wallets, use WalletConnect
+            if (walletType === 'walletconnect' || !isWalletInstalled) {
+                // Use WalletConnect connector for uninstalled wallets
+                const wcConnector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
+                if (wcConnector) {
+                    await connectAsync({ connector: wcConnector });
+                    onClose();
+                } else {
+                    // Fallback to Privy's login which will show WalletConnect option
+                    await login({ loginMethods: ['wallet'] });
+                }
+            } else {
+                // Wallet is installed, use Privy's login to connect directly
+                await login({ loginMethods: ['wallet'] });
+            }
 
             // Success - modal will auto-close via useEffect when authenticated
         } catch (err: any) {
             console.error('Wallet connection failed:', err);
 
             let errorMessage = 'Connection failed';
-            if (err.message?.includes('User rejected') || err.message?.includes('rejected')) {
+            if (err.message?.includes('User rejected') || err.message?.includes('rejected') || err.message?.includes('User closed modal')) {
                 errorMessage = 'Connection rejected by user';
             } else if (err.message?.includes('not available') || err.message?.includes('not installed') || err.message?.includes('not detected')) {
-                errorMessage = 'Wallet not found. Please install it first or try another wallet.';
+                errorMessage = `${walletType.charAt(0).toUpperCase() + walletType.slice(1)} is connecting via QR code. Please scan with your mobile wallet app.`;
             } else if (err.code === 4001) {
                 errorMessage = 'Connection rejected by user';
             } else if (err.message) {
