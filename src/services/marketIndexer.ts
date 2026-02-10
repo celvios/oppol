@@ -1,14 +1,15 @@
 import { ethers } from 'ethers';
 import { query } from '../config/database';
-import { CONFIG } from '../config/config';
+import { CONFIG } from '../config/contracts';
 import { MARKET_ABI } from '../config/abis';
-import { getProvider } from '../utils/provider';
+import { getProvider } from '../config/provider';
 
 let isRunning = false;
 let intervalId: NodeJS.Timeout | null = null;
 
 // Helper to format prices
-const formatPrices = (prices: bigint[]) => prices.map((p) => Number(p) / 100);
+// Helper to format prices (contract returns 1e18 precision = 100%)
+const formatPrices = (prices: bigint[]) => prices.map((p) => Number(ethers.formatUnits(p, 18)) * 100);
 
 /**
  * Sync all active markets from blockchain to database using Multicall3
