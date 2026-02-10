@@ -129,11 +129,11 @@ export async function syncAllMarkets(): Promise<void> {
 
                 if (!state) {
                     // First run for this market: Look back 50k blocks (~1.5 days on BSC)
-                    // Reduced from 500k to prevent timeout loops during initialization
-                    console.log(`[Indexer] Initializing volume for Market ${marketId}...`);
+                    //// Reduced from 500k to prevent timeout loops during initialization
                     isFirstRun = true;
                     fetchFromBlock = Math.max(0, currentBlock - 50000);
                     volume = BigInt(0);
+                    console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
                 } else {
                     // Incremental update
                     fetchFromBlock = state.lastBlock + 1;
@@ -160,8 +160,8 @@ export async function syncAllMarkets(): Promise<void> {
                                 // @ts-ignore
                                 totalNewVolume += BigInt(log.args[4]);
                             }
-                        } catch (e) {
-                            console.warn(`[Indexer] Chunk error ${from}-${to}:`, e);
+                        } catch (e: any) {
+                            console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
                         }
                     }
 
@@ -173,7 +173,9 @@ export async function syncAllMarkets(): Promise<void> {
                         volume: volume
                     });
 
-                    if (totalNewVolume > 0n) {
+                    if (isFirstRun) {
+                        console.log(`[Indexer] ✅ Market ${marketId}: Volume = $${ethers.formatUnits(volume, 18)}`);
+                    } else if (totalNewVolume > 0n) {
                         console.log(`[Indexer] Market ${marketId} +${ethers.formatUnits(totalNewVolume, 18)} vol`);
                     }
                 }
