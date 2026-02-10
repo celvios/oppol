@@ -598,4 +598,32 @@ router.get('/check-volume/:marketId', checkAdminAuth, async (req, res) => {
     }
 });
 
+// Set volume directly
+router.post('/set-volume', checkAdminAuth, async (req, res) => {
+    try {
+        const { marketId, volume } = req.body;
+
+        if (marketId === undefined || volume === undefined) {
+            return res.status(400).json({ success: false, error: 'Missing marketId or volume' });
+        }
+
+        console.log(`[Admin] Setting Market ${marketId} volume to ${volume}`);
+
+        const result = await query(
+            `UPDATE markets SET volume = $1 WHERE market_id = $2 RETURNING market_id, volume`,
+            [volume.toString(), marketId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: false, error: 'Market not found or update failed' });
+        }
+
+        console.log(`[Admin] ✅ Updated:`, result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error: any) {
+        console.error('[Admin] Set volume failed:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
