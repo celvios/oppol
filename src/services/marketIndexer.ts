@@ -104,10 +104,12 @@ export async function syncAllMarkets(): Promise<void> {
                     ? marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0]
                     : ['Yes', 'No'];
 
-                // Decode prices
+                if (!pricesResponse.success) {
+                    console.warn(`[Indexer] getAllPrices failed for market ${marketId}`);
+                }
                 const prices = pricesResponse.success
                     ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0]
-                    : [BigInt(5000), BigInt(5000)];
+                    : [ethers.parseUnits("0.5", 18), ethers.parseUnits("0.5", 18)];
 
                 if (!basicInfo) {
                     console.warn(`[Indexer] Market ${marketId}: basicInfo call failed, skipping`);
