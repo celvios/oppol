@@ -112,12 +112,17 @@ export function DesktopTerminal() {
     // --- Data Fetching ---
 
     const fetchHistory = useCallback(async (id: number) => {
-        const generatePlaceholder = (price: number) => {
+        const generatePlaceholder = (yesPrice: number) => {
             const now = Date.now();
-            return Array.from({ length: 50 }).map((_, i) => ({
-                time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
-                price: price + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
-            }));
+            return Array.from({ length: 50 }).map((_, i) => {
+                const waveOffset = Math.sin((now - (49 - i) * 1000) / 800) * 0.5;
+                const yes = Math.max(0, Math.min(100, yesPrice + waveOffset));
+                return {
+                    time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
+                    Yes: yes,
+                    No: 100 - yes
+                };
+            });
         };
 
         try {
@@ -192,18 +197,23 @@ export function DesktopTerminal() {
                 const timeString = new Date(now).toLocaleTimeString();
                 const basePrice = marketRef.current?.yesOdds || 50;
                 const waveOffset = Math.sin(now / 800) * 0.5;
-                const animatedPrice = basePrice + waveOffset;
+                const yes = Math.max(0, Math.min(100, basePrice + waveOffset));
 
                 const newPoint = {
                     time: timeString,
-                    price: animatedPrice
+                    Yes: yes,
+                    No: 100 - yes
                 };
 
                 if (prev.length === 0) {
-                    return Array(50).fill(null).map((_, i) => ({
-                        time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
-                        price: basePrice + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)
-                    }));
+                    return Array(50).fill(null).map((_, i) => {
+                        const y = Math.max(0, Math.min(100, basePrice + (Math.sin((now - (49 - i) * 1000) / 800) * 0.5)));
+                        return {
+                            time: new Date(now - (49 - i) * 1000).toLocaleTimeString(),
+                            Yes: y,
+                            No: 100 - y
+                        };
+                    });
                 }
 
                 const newHistory = [...prev, newPoint];
@@ -550,7 +560,7 @@ export function DesktopTerminal() {
                                         {(() => {
                                             const amt = parseFloat(amount || '0');
                                             const price = (tradeSide === 'YES' ? market.yesOdds : 100 - market.yesOdds) / 100;
-                                            if (amt === 0 || price === 0) return '0';
+                                            if (amt === 0 || price <= 0.01) return '0';
                                             return `~${(amt / price).toFixed(0)}`;
                                         })()}
                                     </span>
