@@ -495,7 +495,7 @@ app.post('/api/multi-bet', async (req, res) => {
       success: true,
       transaction: {
         hash: receipt.hash,
-        shares: bestShares,
+        shares: ethers.formatUnits(bestShares, 18),
         cost: costFormatted,
         newPrice
       }
