@@ -53,6 +53,19 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                     theme: 'dark',
                     accentColor: '#00E0FF',
                     logo: '/logo.png',
+                    walletList: [
+                        'metamask',
+                        'coinbase_wallet',
+                        'wallet_connect',
+                        'rainbow',
+                        'trust',
+                        'phantom',
+                        'okx_wallet',
+                        'rabby_wallet',
+                        'brave_wallet',
+                        'zerion',
+                        'uniswap'
+                    ],
                 },
                 // Correct way to set WalletConnect Project ID in Privy
                 walletConnectCloudProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74',
