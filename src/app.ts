@@ -458,6 +458,7 @@ app.post('/api/multi-bet', async (req, res) => {
 
     // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
     let iterations = 0;
+    let lastCheckedCost = BigInt(0);
     while (low <= high && iterations < 100) {
       const mid = (low + high) / BigInt(2);
       // mid is already in 18 decimals (wei)
@@ -465,6 +466,12 @@ app.post('/api/multi-bet', async (req, res) => {
       const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, mid]);
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
       const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+      lastCheckedCost = cost;
+
+      // Log first 5 and last 5 iterations
+      if (iterations < 5 || iterations > 68) {
+        console.log(`🔍 [ITER ${iterations}] shares=${ethers.formatUnits(mid, 18)}, cost=${ethers.formatUnits(cost, 6)} USDC, effectiveMax=${ethers.formatUnits(effectiveMaxCost, 6)}`);
+      }
 
       if (cost <= effectiveMaxCost) {
         bestShares = mid;
@@ -479,6 +486,7 @@ app.post('/api/multi-bet', async (req, res) => {
 
     if (bestShares === BigInt(0)) {
       console.error('❌ [MULTI-BET ERROR] No shares found! maxCost:', maxCost, 'effectiveMaxCost:', ethers.formatUnits(effectiveMaxCost, 6));
+      console.error('❌ [MULTI-BET ERROR] Last checked cost:', ethers.formatUnits(lastCheckedCost, 6), 'USDC');
       return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
     }
 
