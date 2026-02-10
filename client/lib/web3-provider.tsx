@@ -35,7 +35,7 @@ const wagmiAdapter = new WagmiAdapter({
 const metadata = {
     name: 'OPoll',
     description: 'OPoll Prediction Market',
-    url: 'https://opoll.org', // origin must match your domain & subdomain
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://opoll.org', // origin must match your domain & subdomain
     icons: ['https://opoll.org/logo.png']
 };
 
