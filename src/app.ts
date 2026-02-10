@@ -870,38 +870,24 @@ app.post('/api/admin/create-market', async (req, res) => {
     // Get Contract
     const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = [
-      'function createMarket(string, string[], uint256, uint256, uint256) external returns (uint256)',
+      // V3 function - auto-calculates liquidity as (outcomes.length * 100 * 1e6)
+      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationDays) external returns (uint256)',
       'function marketCount() view returns (uint256)'
     ];
     const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
 
-    // 1. Approve Token Transfer for Subsidy/Liquidity if needed (skipped for now as liquidityParam is mostly virtual in this impl)
-    // Actually, createMarket takes _subsidy. If > 0, we need to approve.
-    // Assuming 0 subsidy for simplicity unless requested.
+    // Convert duration to days (V3 uses days, not seconds)
+    const durationDays = Math.ceil((durationHours || 24) / 24);
 
-    // 2. Call createMarket
-    const durationSeconds = (durationHours || 24) * 3600;
-    const liquidityParam = ethers.parseUnits((initialLiquidity || 100).toString(), 6); // Default 100 B-param (normalized to token decimals if needed, assume 6 for USDC)
-    // Note: In LMSR, B-param is usually roughly equal to total max possible loss. 
-    // The contract uses a simple integer for B. Let's use 100 * 1e18 for precision if it parses it that way, 
-    // but the contract says `uint256 constant PRECISION = 1e18;` so B should be scaled by 1e18?
-    // Checking calculateCost: `(costAfter - costBefore) / PRECISION`. 
-    // Wait, typical LMSR B is distinct. Looking at deployed contract logic, let's assume raw value or scaled by token decimals? 
-    // The contract `_lmsrCost` divides by `b`. `(shares * PRECISION) / b`.
-    // If b is small (e.g. 100), `shares * PRECISION / 100` allows large exponent. 
-    // If shares are 6 decimals (USDC), `1e6 * 1e18 / 100` = `1e22`. exp(1e22) is huge.
-    // Shares should probably be treated as 18 decimals internally or similar.
-    // Let's stick to a safe default found in previous deployments or use a standard B-param like 500 * 1e18 (500 tokens).
+    console.log(`[Admin] Using V3 createMarketV3 - liquidity will auto-calculate to ${outcomes.length * 100} USDC`);
 
-    // Safest bet: 100 * 1e18 (Standard for 18 decimal tokens).
-    const liquidityB = BigInt(initialLiquidity || 1000) * BigInt(1e18);
-
-    const tx = await contract.createMarket(
+    // Call V3 createMarketV3 - NO manual liquidity parameter needed!
+    const tx = await contract.createMarketV3(
       question,
+      image || '',           // V3 requires image
+      description || '',     // V3 requires description  
       outcomes,
-      durationSeconds,
-      liquidityB,
-      0 // Subsidy 0 for now
+      durationDays
     );
 
     console.log(`[Admin] TX Sent: ${tx.hash}`);
@@ -963,24 +949,20 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
     // Get Contract
     const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae';
     const marketABI = [
-      'function createMarket(string, string, string, string[], uint256, uint256, uint256) external returns (uint256)',
+      // V3 function - auto-calculates liquidity
+      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationDays) external returns (uint256)',
       'function marketCount() view returns (uint256)'
     ];
     const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
 
-    // V2: Updated Call with Image & Description
-    // Params: question, image, description, outcomes, duration, liquidity, subsidy
-    const durationSeconds = Math.floor(parseFloat(durationDays) * 24 * 60 * 60);
-    const liquidityParam = ethers.parseUnits("100", 18);
+    console.log(`[Admin V3] Creating market with auto-calculated liquidity: ${outcomes.length * 100} USDC`);
 
-    const tx = await contract.createMarket(
+    const tx = await contract.createMarketV3(
       question,
       image || "",
       description || "",
       outcomes,
-      durationSeconds,
-      liquidityParam,
-      0 // Subsidy
+      parseInt(durationDays) // V3 uses days as integer
     );
 
     console.log(`[Admin V2] TX Sent: ${tx.hash}`);
