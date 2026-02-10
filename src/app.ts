@@ -452,25 +452,15 @@ app.post('/api/multi-bet', async (req, res) => {
 
     let bestShares = BigInt(0);
 
+
     console.log('🔍 [MULTI-BET DEBUG] Starting binary search (fractional)');
     console.log('🔍 [MULTI-BET DEBUG] maxCost:', maxCost, 'maxCostInUnits:', maxCostInUnits.toString());
     console.log('🔍 [MULTI-BET DEBUG] effectiveMaxCost after fee:', effectiveMaxCost.toString(), 'formatted:', ethers.formatUnits(effectiveMaxCost, 6));
-
-    // Log market state
-    const marketData = iface.encodeFunctionData('getMarketShares', [marketId]);
-    const marketResult = await rawCall(MULTI_MARKET_ADDR, marketData);
-    const currentShares = iface.decodeFunctionResult('getMarketShares', marketResult)[0];
-
-    const liquidityData = iface.encodeFunctionData('getMarketBasicInfo', [marketId]);
-    const liquidityResult = await rawCall(MULTI_MARKET_ADDR, liquidityData);
-    const marketInfo = iface.decodeFunctionResult('getMarketBasicInfo', liquidityResult);
-    const liquidityParam = marketInfo[5]; // liquidityParam is 6th element
-
-    console.log('🔍 [MARKET STATE]');
-    console.log('  - Liquidity Param:', ethers.formatUnits(liquidityParam, 6), 'USDC');
-    console.log('  - Current Shares:', currentShares.map((s: any) => ethers.formatUnits(s, 18)).join(', '));
-
     console.log('🔍 [MULTI-BET DEBUG] Search range: low=', low.toString(), 'high=', high.toString());
+
+    // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
+    let iterations = 0;
+    let lastCheckedCost = BigInt(0);
     while (low <= high && iterations < 100) {
       const mid = (low + high) / BigInt(2);
       // mid is already in 18 decimals (wei)
