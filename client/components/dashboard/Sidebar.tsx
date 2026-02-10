@@ -12,7 +12,6 @@ import LogoBrand from "@/components/ui/LogoBrand";
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 
 const navItems = [
     { name: "Markets", href: "/", icon: Globe },
@@ -31,40 +30,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { isConnected, address, disconnect, connect } = useWallet();
-    const { authenticated, user, logout } = usePrivy();
     const { hasNFT } = useBC400Check();
 
-    const isEffectivelyConnected = isConnected || authenticated;
-    const effectiveAddress = address || user?.wallet?.address;
+    const isEffectivelyConnected = isConnected;
+    const effectiveAddress = address;
 
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
     const handleLogout = async () => {
         try {
-            // Call unified disconnect (Wagmi + Privy)
             await disconnect();
         } catch (error) {
             console.error('[Sidebar] Logout error:', error);
         } finally {
-            // ALWAYS force clear everything in finally block
-            // This ensures we clean up even if logout API fails
             if (typeof window !== 'undefined') {
-                // Clear ALL Privy session data
-                Object.keys(localStorage).forEach(key => {
-                    if (key.startsWith('privy:')) {
-                        localStorage.removeItem(key);
-                    }
-                });
-
-                // Clear Wagmi cache
+                // Clear Wagmi cache/Reown cache if needed
                 localStorage.removeItem('wagmi.wallet');
                 localStorage.removeItem('wagmi.store');
                 localStorage.removeItem('wagmi.cache');
                 localStorage.removeItem('wagmi.connected');
             }
-
-            // Navigate to home and FORCE reload to clear in-memory state
             router.push('/');
             router.refresh();
         }

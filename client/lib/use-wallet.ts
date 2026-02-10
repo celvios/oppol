@@ -1,36 +1,22 @@
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useDisconnect } from 'wagmi';
 
 export function useWallet() {
-  const { login, logout, ready, authenticated, user } = usePrivy();
-  const { address, isConnected, isConnecting: isWagmiConnecting } = useAccount();
+  const { open } = useAppKit();
+  const { address, isConnected, status } = useAppKitAccount();
   const { disconnect } = useDisconnect();
-  const { wallets } = useWallets();
 
-  // Unified "isConnected" state
-  // We consider connected if EITHER Privy is authenticated (Email/Social) OR Wagmi is connected (External Wallet)
-  const isWalletConnected = authenticated || isConnected;
-
-  // Unified address
-  // Prioritize Wagmi address (active external wallet) -> then Privy embedded wallet
-  const walletAddress = address || user?.wallet?.address;
-
-  const handleDisconnect = async () => {
-    try {
-      if (isConnected) disconnect();
-      await logout();
-    } catch (e) {
-      console.error('Disconnect error:', e);
-    }
+  const handleConnect = async () => {
+    await open();
   };
 
   return {
-    isConnected: isWalletConnected,
-    address: walletAddress || null,
-    isConnecting: !ready || isWagmiConnecting,
-    connect: login, // Opens Privy modal
-    disconnect: handleDisconnect,
-    connectors: wallets,
-    user,
+    isConnected: isConnected,
+    address: address || null,
+    isConnecting: status === 'connecting' || status === 'reconnecting',
+    connect: handleConnect, // Opens Reown modal
+    disconnect: disconnect,
+    user: null, // Reown doesn't provide a unified user object in the same way. We maintain null to match minimal interface.
+    connectors: [], // Reown handles connectors internally
   };
 }

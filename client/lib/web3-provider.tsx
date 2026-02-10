@@ -1,35 +1,61 @@
 /**
- * Web3 Provider - Privy Only (with Wagmi)
+ * Web3 Provider - Reown AppKit (formerly Web3Modal)
  * 
- * Clean implementation using ONLY Privy for all wallet connections.
- * Privy requires Wagmi as a peer dependency for blockchain interactions.
+ * Replaces Privy for authentication (Wallet, Email, Socials).
+ * Uses Wagmi Adapter for blockchain interaction.
  */
 
 'use client';
 
-import { PrivyProvider } from '@privy-io/react-auth';
-import { WagmiProvider } from '@privy-io/wagmi';
+import { createAppKit } from '@reown/appkit/react';
+import { WagmiProvider } from 'wagmi';
+import { bsc, bscTestnet } from '@reown/appkit/networks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { bsc, bscTestnet } from 'wagmi/chains';
-import { http, createConfig } from 'wagmi';
-import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors';
-import { ReactNode, useState } from 'react';
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+import { ReactNode } from 'react';
 
+// 0. Setup QueryClient
 const queryClient = new QueryClient();
 
-// Wagmi config with explicit connectors for Headless usage
-const config = createConfig({
-    chains: [bsc, bscTestnet],
-    transports: {
-        [bsc.id]: http(),
-        [bscTestnet.id]: http(),
+// 1. Get Project ID
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74';
+
+import { type AppKitNetwork } from '@reown/appkit/networks';
+
+// 2. Create Wagmi Adapter
+export const networks = [bsc, bscTestnet] as [AppKitNetwork, ...AppKitNetwork[]];
+
+const wagmiAdapter = new WagmiAdapter({
+    networks,
+    projectId,
+    ssr: true
+});
+
+// 3. Create Metadata
+const metadata = {
+    name: 'OPoll',
+    description: 'OPoll Prediction Market',
+    url: 'https://opoll.org', // origin must match your domain & subdomain
+    icons: ['https://opoll.org/logo.png']
+};
+
+// 4. Create AppKit
+createAppKit({
+    adapters: [wagmiAdapter],
+    networks,
+    projectId,
+    metadata,
+    features: {
+        analytics: true, // Optional - defaults to your Cloud configuration
+        email: true, // default to true
+        socials: ['google', 'x', 'github', 'discord', 'apple'],
+        emailShowWallets: true, // show wallets on email login (optional)
     },
-    connectors: [
-        injected(),
-        coinbaseWallet({ appName: 'OPoll' }),
-        walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
-    ],
-    ssr: true,
+    themeMode: 'dark',
+    themeVariables: {
+        '--w3m-accent': '#00E0FF',
+        '--w3m-border-radius-master': '1px'
+    }
 });
 
 interface Web3ProviderProps {
@@ -37,53 +63,11 @@ interface Web3ProviderProps {
 }
 
 export function Web3Provider({ children }: Web3ProviderProps) {
-    const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-
-    if (!appId) {
-        console.error("FATAL: NEXT_PUBLIC_PRIVY_APP_ID is not defined.");
-        return <>{children}</>;
-    }
-
     return (
-        <PrivyProvider
-            appId={appId}
-            config={{
-                supportedChains: [bsc, bscTestnet],
-                loginMethods: ['wallet', 'google', 'email'],
-                appearance: {
-                    theme: 'dark',
-                    accentColor: '#00E0FF',
-                    logo: '/logo.png',
-                    walletList: [
-                        'metamask',
-                        'coinbase_wallet',
-                        'wallet_connect',
-                        'rainbow',
-                        'rabby_wallet',
-                        'zerion',
-                        'trust_wallet',
-                    ],
-                },
-                // Correct way to set WalletConnect Project ID in Privy
-                walletConnectCloudProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74',
-
-                embeddedWallets: {
-                    ethereum: {
-                        createOnLogin: 'users-without-wallets',
-                    },
-                },
-                // Fix SIWE error
-                siweConfig: {
-                    domain: typeof window !== 'undefined' ? window.location.host : 'opoll.org',
-                    uri: typeof window !== 'undefined' ? window.location.origin : 'https://opoll.org',
-                },
-            }}
-        >
+        <WagmiProvider config={wagmiAdapter.wagmiConfig}>
             <QueryClientProvider client={queryClient}>
-                <WagmiProvider config={config}>
-                    {children}
-                </WagmiProvider>
+                {children}
             </QueryClientProvider>
-        </PrivyProvider>
+        </WagmiProvider>
     );
 }

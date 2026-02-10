@@ -54,54 +54,20 @@ const getTokens = () => {
     ];
 };
 
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 export default function DepositPage() {
     const tokens = getTokens();
     const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
-    const { user, authenticated, createWallet, ready } = usePrivy();
-    const { wallets, ready: walletsReady } = useWallets();
-
-    const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
 
     // Effective connection state (Standard OR Embedded)
-    const isEffectivelyConnected = isConnected || authenticated;
-    const effectiveAddress = address || user?.wallet?.address || embeddedWallet?.address;
+    const isEffectivelyConnected = isConnected;
+    const effectiveAddress = address;
 
-    useEffect(() => {
-        console.log('[DepositPage Debug] State:', {
-            isConnected,
-            authenticated,
-            isEffectivelyConnected,
-            address,
-            privyWallet: user?.wallet,
-            embeddedWallet,
-            walletsLength: wallets.length,
-            wallets: wallets.map(w => ({ type: w.walletClientType, address: w.address })),
-            effectiveAddress
-        });
-    }, [isConnected, authenticated, address, user, effectiveAddress, wallets, embeddedWallet]);
-
-    // Auto-create wallet if authenticated but missing
-    useEffect(() => {
-        if (authenticated && !user?.wallet && !embeddedWallet && !address) {
-            console.log('[DepositPage] No wallet found for authenticated user. Attempting to create...');
-            createWallet().catch(err => console.error('[DepositPage] Failed to create wallet:', err));
-        }
-    }, [authenticated, user, embeddedWallet, address, createWallet]);
-
-    // Detect Embedded Wallet (Privy) - Robust Check
-    // We treat the user as "Embedded/Smart Wallet" if:
-    // 1. They are authenticated via Privy AND have Google/Email/Twitter linked (Social Login)
-    // 2. Their connected wallet is explicitly 'privy'
-    const isEmbeddedWallet =
-        (authenticated && (!!user?.google || !!user?.email || !!user?.twitter || !!user?.discord)) ||
-        user?.wallet?.walletClientType === 'privy' ||
-        connector?.id === 'privy' ||
-        connector?.name?.toLowerCase().includes('privy') ||
-        connector?.name?.toLowerCase().includes('embedded');
+    // Detect Embedded Wallet (Reown Email/Social)
+    // Reown usually names its email connector 'auth' or similar, but for now we treat all connected wallets same
+    const isEmbeddedWallet = connector?.id === 'w3m-email' || connector?.id === 'auth';
 
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
@@ -353,12 +319,12 @@ export default function DepositPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const isAuthLoading = !ready || (authenticated && !walletsReady);
+    const isAuthLoading = isConnecting;
     const isBalanceLoading = isEffectivelyConnected && !!effectiveAddress && (tokenBalance === null || gameBalance === null);
 
     // FIX: If we are effectively connected, we shouldn't block on isConnecting/isAuthLoading
     // This prevents infinite loading if the wallet adapter is slow to report "ready"
-    const isLoadingState = (!isEffectivelyConnected && (isConnecting || isAuthLoading)) || isBalanceLoading;
+    const isLoadingState = (!isEffectivelyConnected && isConnecting) || isBalanceLoading;
 
     if (isLoadingState) return <SkeletonLoader />;
 

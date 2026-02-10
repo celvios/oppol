@@ -1,25 +1,21 @@
 "use client";
 
 import { Bell, Shield, Wallet, Monitor, CheckCircle, Calendar, Activity, Copy, User } from "lucide-react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useWallet } from "@/lib/use-wallet";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function ProfilePage() {
-    const { user, authenticated, ready } = usePrivy();
-    const { address, disconnect, isConnected } = useWallet();
-    const { wallets } = useWallets();
+    const { address, disconnect, isConnected, isConnecting } = useWallet();
 
     const [copied, setCopied] = useState(false);
     const [userStats, setUserStats] = useState({ totalVolume: 0, accuracyRate: 0 });
 
-    // Identify Embedded (Google/Social) Wallet
-    const isEmbeddedWallet = authenticated && (!!user?.google || !!user?.email || !!user?.twitter || !!user?.discord);
-
-    // Use effective address
-    const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-    const effectiveAddress = address || user?.wallet?.address || embeddedWallet?.address || "";
+    // Reown doesn't easily expose email/google info in the same way.
+    // For now, we simplify to just "User" or Address.
+    const authenticated = isConnected;
+    const ready = !isConnecting;
+    const effectiveAddress = address || "";
 
     // Fetch Stats
     useEffect(() => {
@@ -36,11 +32,11 @@ export default function ProfilePage() {
         }
     }, [ready, effectiveAddress, authenticated]);
 
-    const displayName = user?.google?.name || user?.email?.address?.split('@')[0] || (effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : "Guest User");
-    const displayEmail = user?.google?.email || user?.email?.address || "";
+    const displayName = effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : "Guest User";
+    const displayEmail = ""; // Not available via Reown hooks directly yet
 
-    // Date Joined (from Privy or Mock)
-    const dateJoined = user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "January 2025";
+    // Date Joined (Mock for now)
+    const dateJoined = "January 2025";
 
     const copyToClipboard = () => {
         if (effectiveAddress) {
@@ -79,13 +75,9 @@ export default function ProfilePage() {
                     <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
                         {/* Avatar */}
                         <div className="w-24 h-24 rounded-full bg-black border-4 border-black shadow-xl flex items-center justify-center relative">
-                            {(user?.google as any)?.picture ? (
-                                <img src={(user?.google as any).picture} alt="Profile" className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full rounded-full bg-white/10 flex items-center justify-center text-3xl font-bold text-white uppercase">
-                                    {displayName.charAt(0)}
-                                </div>
-                            )}
+                            <div className="w-full h-full rounded-full bg-white/10 flex items-center justify-center text-3xl font-bold text-white uppercase">
+                                {displayName.charAt(0)}
+                            </div>
                             {authenticated && (
                                 <div className="absolute bottom-0 right-0 bg-black rounded-full p-1">
                                     <CheckCircle className="w-6 h-6 text-neon-cyan fill-black" />

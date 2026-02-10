@@ -4,7 +4,6 @@ import { PieChart, TrendingUp, Wallet, Plus, Minus, LogOut } from "lucide-react"
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
-import { usePrivy } from "@privy-io/react-auth";
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
@@ -30,15 +29,14 @@ export default function PortfolioPage() {
     const [loading, setLoading] = useState(true);
 
     const { isConnected, isConnecting, address, connect, disconnect } = useWallet();
-    const { authenticated, user, logout } = usePrivy();
 
     // Effective connection state (Standard OR Embedded)
-    const isEffectivelyConnected = isConnected || authenticated;
+    const isEffectivelyConnected = isConnected;
 
     // Debug logging
     useEffect(() => {
-        console.log('[Portfolio] Wallet State:', { isConnected, authenticated, address: address || user?.wallet?.address });
-    }, [isConnected, authenticated, address, user]);
+        console.log('[Portfolio] Wallet State:', { isConnected, address });
+    }, [isConnected, address]);
 
     useEffect(() => {
         // Reset loading state when wallet connection changes
@@ -50,7 +48,7 @@ export default function PortfolioPage() {
             return;
         }
 
-        const effectiveAddress = address || user?.wallet?.address;
+        const effectiveAddress = address;
 
         // Only fetch data if we have an address (even if flags are transitioning)
         if (!effectiveAddress) {
@@ -172,7 +170,7 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [address, authenticated, user, isConnecting, isEffectivelyConnected]);
+    }, [address, isConnecting, isEffectivelyConnected]);
 
     if (isConnecting) {
         return (

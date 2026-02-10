@@ -21,26 +21,20 @@ const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] }
 ];
 
-import { usePrivy } from "@privy-io/react-auth";
-
 export default function WithdrawPage() {
-    const { isConnected, address, connect } = useWallet();
+    const { isConnected, address, connect, isConnecting } = useWallet();
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
-    const { user, authenticated, ready } = usePrivy();
 
     // Effective connection state
-    const isEffectivelyConnected = isConnected || authenticated;
+    const isEffectivelyConnected = isConnected;
 
-    // Detect Embedded Wallet (Privy) - Robust Check
-    // explicitly check if the connector is Privy or if we are authenticated WITHOUT a specific wagmi connector (fallback)
-    // If user is connected via MetaMask (connector.id = 'metaMask'), we should NOT treat as embedded even if privy is 'authenticated' (background session)
-    const isPrivyConnector =
-        connector?.id === 'privy' ||
-        connector?.name?.toLowerCase().includes('privy') ||
-        user?.wallet?.walletClientType === 'privy';
-
-    const isEmbeddedWallet = isPrivyConnector || (authenticated && !connector);
+    // Detect Embedded Wallet (Reown Email/Social)
+    // Reown usually names its email connector 'auth' or similar, but for now we treat all connected wallets same
+    // unless we need specific handling. 'isEmbeddedWallet' was used to disable manual transfer tab?
+    // Let's assume false or check connector name if needed.
+    // For Reown, email wallet is an EOA via wagmi.
+    const isEmbeddedWallet = connector?.id === 'w3m-email' || connector?.id === 'auth';
 
     // Tab State (Only for Standard Wallets)
     const [activeTab, setActiveTab] = useState<'withdraw' | 'transfer'>('withdraw');
@@ -65,11 +59,9 @@ export default function WithdrawPage() {
     const USDC_ADDRESS = contracts.usdc;
     const MARKET_CONTRACT = (contracts.predictionMarket || contracts.predictionMarketMulti || process.env.NEXT_PUBLIC_MARKET_ADDRESS) as `0x${string}`;
 
-    const effectiveAddress = address || user?.wallet?.address;
+    const effectiveAddress = address;
 
     useEffect(() => {
-        if (!isEffectivelyConnected && !ready) return;
-
         if (!isEffectivelyConnected) {
             setIsLoading(false);
             return;
@@ -78,7 +70,7 @@ export default function WithdrawPage() {
         if (effectiveAddress) {
             fetchAllBalances();
         }
-    }, [effectiveAddress, isEffectivelyConnected, ready]);
+    }, [effectiveAddress, isEffectivelyConnected]);
 
     async function fetchAllBalances() {
         if (!effectiveAddress) return;
@@ -208,7 +200,7 @@ export default function WithdrawPage() {
     const canProceed = availableBalanceWei > BigInt(0);
 
     // Show skeleton if loading OR if we are connected but balances are still null (initial fetch pending)
-    if (!ready || isLoading || (isEffectivelyConnected && (contractBalance === null || walletBalance === null))) {
+    if (isConnecting || isLoading || (isEffectivelyConnected && (contractBalance === null || walletBalance === null))) {
         return <SkeletonLoader />;
     }
 
