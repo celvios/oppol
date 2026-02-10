@@ -25,7 +25,7 @@ const config = createConfig({
         [bscTestnet.id]: http(),
     },
     connectors: [
-        // injected(), // Removed again to avoid conflict
+        injected(), // Enable detection of all injected wallet extensions
         coinbaseWallet({ appName: 'OPoll' }),
         walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
     ],
@@ -58,11 +58,9 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                         'coinbase_wallet',
                         'wallet_connect',
                         'rainbow',
-                        'trust',
                         'phantom',
                         'okx_wallet',
                         'rabby_wallet',
-                        'brave_wallet',
                         'zerion',
                         'uniswap'
                     ],
@@ -74,7 +72,6 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                     ethereum: {
                         createOnLogin: 'users-without-wallets',
                     },
-                    noPromptOnSignature: false,
                 },
                 // Fix SIWE error
                 siweConfig: {
