@@ -1018,18 +1018,6 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
   }
 });
 
-// MANUAL SYNC ENDPOINT (for debugging)
-app.post('/api/admin/sync-markets', async (req, res) => {
-  try {
-    console.log('[Admin] Manual market sync triggered');
-    const { syncAllMarkets } = await import('./services/marketIndexer');
-    await syncAllMarkets();
-    return res.json({ success: true, message: 'Market sync complete' });
-  } catch (error: any) {
-    console.error('[Admin] Manual sync failed:', error);
-    return res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
