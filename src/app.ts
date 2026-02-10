@@ -411,11 +411,17 @@ app.post('/api/multi-bet', async (req, res) => {
 
     // Binary search to find max shares (in wei) for given cost
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
+
+    // DEDUCT FEE: Contract adds 5% fee ON TOP of cost.
+    // So Total = Cost * 1.05
+    // We need Cost <= UserAmount / 1.05
+    const FEE_BPS = BigInt(500); // 5%
+    const BPS_DIVISOR = BigInt(10000);
+    const effectiveMaxCost = BigInt(maxCostInUnits) * BPS_DIVISOR / (BPS_DIVISOR + FEE_BPS);
+
     let low = BigInt(1);
     // Rough estimate: 1 USDC (1e6) ~= 1 Share (1e18) if price is 1.0
     // So if price is 0.01, 1 USDC ~= 100 Shares
-    // Safety max: maxCost * 1e12 * 100 (assuming min price 1%)
-    // Let's use a safe upper bound: maxCost (USDC units) * 1e12 * 1000
     const conversionFactor = BigInt(10) ** BigInt(12);
     let high = BigInt(maxCostInUnits) * conversionFactor * BigInt(100);
 
@@ -433,7 +439,7 @@ app.post('/api/multi-bet', async (req, res) => {
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
       const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
 
-      if (cost <= BigInt(maxCostInUnits)) {
+      if (cost <= effectiveMaxCost) {
         bestShares = mid;
         low = mid + BigInt(1);
       } else {
