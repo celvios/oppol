@@ -430,6 +430,7 @@ app.post('/api/multi-bet', async (req, res) => {
     const balanceData = iface.encodeFunctionData('userBalances', [normalizedAddress]);
     const balanceResult = await rawCall(MULTI_MARKET_ADDR, balanceData);
     const userBalance = iface.decodeFunctionResult('userBalances', balanceResult)[0];
+    console.log('🔍 [MULTI-BET DEBUG] Raw balance:', userBalance.toString());
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`✅ User balance: $${balanceFormatted}`);
 
