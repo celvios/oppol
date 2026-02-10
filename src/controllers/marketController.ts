@@ -137,9 +137,13 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     ? marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0]
                     : ['Yes', 'No'];
 
-                // Decode prices
+                // Decode prices - Contract returns basis points (10000 = 100%)
                 const prices = pricesResponse.success
-                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => Number(p) / 100)
+                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => {
+                        const basisPoints = Number(p);
+                        // Convert from basis points to percentage (0-100)
+                        return basisPoints / 100;
+                    })
                     : (() => {
                         // Dynamic fallback
                         const count = outcomes.length; // outcomes derived above
