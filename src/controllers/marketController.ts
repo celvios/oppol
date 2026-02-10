@@ -141,6 +141,12 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 const prices = pricesResponse.success
                     ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => {
                         const basisPoints = Number(p);
+                        // If prices are suspiciously low (< 1), contract might be returning bad data
+                        if (basisPoints < 1 && basisPoints > 0) {
+                            console.warn(`[Market ${row.market_id}] Suspiciously low price detected: ${basisPoints}`);
+                            // Return equal distribution as fallback
+                            return null;
+                        }
                         // Convert from basis points to percentage (0-100)
                         return basisPoints / 100;
                     })
@@ -150,6 +156,10 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                         const equalShare = 100 / count;
                         return Array(count).fill(equalShare);
                     })();
+
+                // Check if any prices are null (bad data) and use fallback
+                const hasBadData = prices.some((p: number | null) => p === null);
+                const finalPrices = hasBadData ? Array(outcomes.length).fill(100 / outcomes.length) : prices;
 
                 // Decode basic info
                 const basicInfo = basicInfoResponse.success
@@ -170,7 +180,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
 
                 onChainData = {
                     outcomes: outcomes,
-                    prices: prices,
+                    prices: finalPrices,
                     outcomeCount: Number(basicInfo[3]),
                     endTime: Number(basicInfo[4]),
                     liquidityParam: basicInfo[5].toString(),
