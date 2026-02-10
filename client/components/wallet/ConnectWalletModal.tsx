@@ -118,51 +118,28 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- HEADLESS WALLET CONNECTION (Direct Wagmi) ---
+    // --- WALLET CONNECTION via Privy ---
     const handleWalletConnect = async (walletType: string) => {
         setLoadingMethod(walletType);
         setError(null);
 
         try {
-            // Find the appropriate Wagmi connector based on wallet type
-            let connector;
+            // Let Privy handle wallet detection and connection automatically
+            await login({ loginMethods: ['wallet'] });
 
-            if (walletType === 'metamask') {
-                connector = connectors.find(c => c.id === 'metaMaskSDK' || c.name.toLowerCase().includes('metamask'));
-            } else if (walletType === 'coinbase') {
-                connector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name.toLowerCase().includes('coinbase'));
-            } else if (walletType === 'walletconnect') {
-                connector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
-            } else if (walletType === 'trust') {
-                connector = connectors.find(c => c.name.toLowerCase().includes('trust'));
-            } else if (walletType === 'binance') {
-                connector = connectors.find(c => c.name.toLowerCase().includes('binance'));
-            }
-
-            if (!connector) {
-                // Fallback to first available injected wallet
-                connector = connectors.find(c => c.type === 'injected') || connectors[0];
-            }
-
-            if (!connector) {
-                throw new Error(`${walletType} not available. Please install the wallet extension.`);
-            }
-
-            // Connect via Wagmi
-            await connectAsync({ connector });
-
-            // Success - close modal
-            onClose();
+            // Success - modal will auto-close via useEffect when authenticated
         } catch (err: any) {
             console.error('Wallet connection failed:', err);
 
             let errorMessage = 'Connection failed';
-            if (err.message?.includes('User rejected')) {
-                errorMessage = 'Connection rejected';
-            } else if (err.message?.includes('not available') || err.message?.includes('not detected')) {
-                errorMessage = err.message;
+            if (err.message?.includes('User rejected') || err.message?.includes('rejected')) {
+                errorMessage = 'Connection rejected by user';
+            } else if (err.message?.includes('not available') || err.message?.includes('not installed') || err.message?.includes('not detected')) {
+                errorMessage = 'Wallet not found. Please install it first or try another wallet.';
             } else if (err.code === 4001) {
-                errorMessage = 'Connection rejected';
+                errorMessage = 'Connection rejected by user';
+            } else if (err.message) {
+                errorMessage = err.message;
             }
 
             setError(errorMessage);
