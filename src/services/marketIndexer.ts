@@ -11,6 +11,13 @@ let intervalId: NodeJS.Timeout | null = null;
 // Helper to format prices (contract returns basis points 10000 = 100%)
 const formatPrices = (prices: bigint[]) => prices.map((p) => Number(p) / 100);
 
+// Cache for incremental updates
+interface MarketState {
+    lastBlock: number;
+    volume: bigint;
+}
+const marketCache: Map<number, MarketState> = new Map();
+
 /**
  * Sync all active markets from blockchain to database using Multicall3
  */
@@ -29,13 +36,14 @@ export async function syncAllMarkets(): Promise<void> {
         // Get total market count from blockchain
         const count = await marketContract.marketCount();
         const marketCount = Number(count);
+        const currentBlock = await provider.getBlockNumber();
 
         if (marketCount === 0) {
             console.log('[Indexer] No markets found on-chain');
             return;
         }
 
-        console.log(`[Indexer] Starting sync for ${marketCount} markets...`);
+        console.log(`[Indexer] Starting sync for ${marketCount} markets at block ${currentBlock}...`);
 
         // Multicall3 on BSC Mainnet
         const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
@@ -76,7 +84,6 @@ export async function syncAllMarkets(): Promise<void> {
         }
 
         console.log(`[Indexer] Syncing ${marketIds.length} markets...`);
-        console.log(`[Indexer] 📞 Executing Multicall3 with ${calls.length} calls...`);
         const startTime = Date.now();
 
         // Execute single multicall batch
@@ -96,7 +103,7 @@ export async function syncAllMarkets(): Promise<void> {
             try {
                 // Check if all calls succeeded
                 if (!basicInfoResponse.success || !outcomesResponse.success || !pricesResponse.success) {
-                    console.warn(`[Indexer] Partial failure for market ${marketId}, skipping update. (Basic: ${basicInfoResponse.success}, Outcomes: ${outcomesResponse.success}, Prices: ${pricesResponse.success})`);
+                    console.warn(`[Indexer] Partial failure for market ${marketId}, skipping update.`);
                     continue;
                 }
 
@@ -112,38 +119,68 @@ export async function syncAllMarkets(): Promise<void> {
                 // Format prices (e.g. 5000 -> 50.00)
                 const pricesFormatted = formatPrices(prices);
 
-                // --- Volume Calculation ---
-                let volume = '0';
-                try {
-                    // Look back 5k blocks (running every 30s means we only need small lookback, but 5k covers restarts)
-                    // QuickNode limit is often 10k
-                    const currentBlock = await provider.getBlockNumber();
-                    const fromBlock = Math.max(0, currentBlock - 5000);
+                // --- Volume Calculation (Stateful) ---
+                let volume = BigInt(0);
 
-                    // We need to query events for this specific market
-                    const logs = await marketContract.queryFilter(
-                        marketContract.filters.SharesPurchased(marketId),
-                        fromBlock,
-                        'latest'
-                    );
+                // Check cache state
+                let state = marketCache.get(marketId);
+                let fetchFromBlock = 0;
+                let isFirstRun = false;
 
-                    let totalVol = BigInt(0);
-                    logs.forEach((log: any) => {
-                        // event SharesPurchased(..., cost) -> cost is index 4
-                        const cost = log.args[4];
-                        totalVol += cost;
-                    });
-
-                    // Convert 18 decimals (cost) to standard unit string
-                    // Assuming cost is stored as 1e18 on chain, matching formatUnits(18) usage elsewhere
-                    volume = ethers.formatUnits(totalVol, 18);
-
-                } catch (e: any) {
-                    console.error(`[Indexer] Failed to calc volume for market ${marketId}: ${e.message}`);
+                if (!state) {
+                    // First run for this market: Look back deeper (e.g. 500k blocks ~17 days) or safe limit
+                    // Since verification script proved it works, we do a chunked scan
+                    console.log(`[Indexer] Initializing volume for Market ${marketId}...`);
+                    isFirstRun = true;
+                    fetchFromBlock = Math.max(0, currentBlock - 500000);
+                    volume = BigInt(0);
+                } else {
+                    // Incremental update
+                    fetchFromBlock = state.lastBlock + 1;
+                    volume = state.volume;
                 }
 
+                // Only query if new blocks exist
+                if (currentBlock >= fetchFromBlock) {
+                    const CHUNK_SIZE = 2000;
+                    let totalNewVolume = BigInt(0);
+
+                    // Use chunked fetching to avoid RPC limits
+                    // Backward scan for initialization is safer if we want oldest last
+                    // But here forward scan from `fetchFromBlock` is better
+                    for (let from = fetchFromBlock; from <= currentBlock; from += CHUNK_SIZE) {
+                        const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
+                        try {
+                            const logs = await marketContract.queryFilter(
+                                marketContract.filters.SharesPurchased(marketId),
+                                from,
+                                to
+                            );
+                            for (const log of logs) {
+                                // @ts-ignore
+                                totalNewVolume += BigInt(log.args[4]);
+                            }
+                        } catch (e) {
+                            console.warn(`[Indexer] Chunk error ${from}-${to}:`, e);
+                        }
+                    }
+
+                    volume += totalNewVolume;
+
+                    // Update Cache
+                    marketCache.set(marketId, {
+                        lastBlock: currentBlock,
+                        volume: volume
+                    });
+
+                    if (totalNewVolume > 0n) {
+                        console.log(`[Indexer] Market ${marketId} +${ethers.formatUnits(totalNewVolume, 18)} vol`);
+                    }
+                }
+
+                const finalVolumeStr = ethers.formatUnits(volume, 18);
+
                 // Insert or update market
-                // Note: 'volume' and 'liquidity' are now in the INSERT/UPDATE
                 await query(
                     `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity, outcome_count, volume, last_indexed_at, category)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized')
@@ -170,13 +207,13 @@ export async function syncAllMarkets(): Promise<void> {
                         basicInfo.resolved,
                         Number(basicInfo.winningOutcome),
                         new Date(Number(basicInfo.endTime) * 1000),
-                        ethers.formatUnits(basicInfo.liquidityParam, 18), // Liquidity is 1e18 scaled
+                        ethers.formatUnits(basicInfo.liquidityParam, 18),
                         Number(basicInfo.outcomeCount),
-                        volume
+                        finalVolumeStr
                     ]
                 );
 
-                console.log(`[Indexer] Synced market ${marketId} (Vol: ${volume})`);
+                // console.log(`[Indexer] Synced market ${marketId} (Vol: ${finalVolumeStr})`);
             } catch (error: any) {
                 console.error(`[Indexer] Failed to sync market ${marketId}:`, error.message);
             }
