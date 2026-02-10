@@ -251,7 +251,7 @@ export class Web3MultiService {
                 prices: m.prices || [],
                 endTime: m.endTime,
                 liquidityParam: m.liquidityParam || '0',
-                totalVolume: m.totalVolume || '0',
+                totalVolume: m.volume || m.totalVolume || '0',
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
                 // Boost fields
