@@ -515,7 +515,10 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     // Execute transaction
-    const maxCostWithSlippage = actualCost * BigInt(110) / BigInt(100); // 10% slippage
+    // CRITICAL FIX: Contract stores balances in 18 decimals, so maxCost must also be in 18 decimals
+    // actualCost is in 6 decimals (USDC format), multiply by 1e12 to get 18 decimals
+    const actualCostIn18Decimals = actualCost * BigInt(1e12);
+    const maxCostWithSlippage = actualCostIn18Decimals * BigInt(110) / BigInt(100); // 10% slippage
 
     console.log('🔍 [MULTI-BET DEBUG] Encoding transaction');
     console.log('🔍 [TX PARAMS]:', {
@@ -524,9 +527,10 @@ app.post('/api/multi-bet', async (req, res) => {
       outcomeIndex,
       shares: ethers.formatUnits(sharesInUnits, 18),
       sharesRaw: sharesInUnits.toString(),
-      maxCost: ethers.formatUnits(maxCostWithSlippage, 6),
+      maxCost: ethers.formatUnits(maxCostWithSlippage, 18),
       maxCostRaw: maxCostWithSlippage.toString(),
       actualCost: ethers.formatUnits(actualCost, 6),
+      actualCostIn18Decimals: ethers.formatUnits(actualCostIn18Decimals, 18),
       userBalance: ethers.formatUnits(userBalance, 18)
     });
 
