@@ -66,7 +66,7 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
                                 pointerEvents: isActive ? 'auto' : 'none',
                             }}
                         >
-                            <Link href={`/trade?marketId=${market.id}`} className="block h-full w-full">
+                            <Link href={`/multi?marketId=${market.id}`} className="block h-full w-full">
                                 <div className="h-full w-full relative overflow-hidden group">
                                     {/* Background Image */}
                                     <div className="absolute inset-0">

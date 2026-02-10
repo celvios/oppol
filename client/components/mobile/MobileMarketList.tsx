@@ -244,7 +244,7 @@ function TrendingMarketCard({ market, className }: { market: MultiMarket, classN
 
     return (
         <div className={className}>
-            <Link href={`/trade?marketId=${market.id}`} className="block h-full">
+            <Link href={`/multi?marketId=${market.id}`} className="block h-full">
                 <GlassCard className="p-5 h-full active:scale-[0.98] transition-transform border border-white/5 active:border-outcome-a relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -363,7 +363,7 @@ function MarketCard({ market, className }: { market: MultiMarket, className?: st
 
     return (
         <div className={className}>
-            <Link href={`/trade?marketId=${market.id}`} className="block w-full">
+            <Link href={`/multi?marketId=${market.id}`} className="block w-full">
                 <div className="flex items-center gap-4 p-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 active:scale-[0.99] transition-all relative overflow-hidden group">
 
                     {/* Compact Image Info */}

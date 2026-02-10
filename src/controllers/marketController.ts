@@ -131,7 +131,12 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 // Decode prices
                 const prices = pricesResponse.success
                     ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => Number(p) / 100)
-                    : [50, 50];
+                    : (() => {
+                        // Dynamic fallback
+                        const count = outcomes.length; // outcomes derived above
+                        const equalShare = 100 / count;
+                        return Array(count).fill(equalShare);
+                    })();
 
                 // Decode basic info
                 const basicInfo = basicInfoResponse.success
@@ -246,7 +251,10 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 console.log(`[Market ${marketId}] Prices success:`, prices.map((p: bigint) => p.toString()));
             } catch (e) {
                 console.error(`[Market ${marketId}] getAllPrices failed:`, e);
-                prices = [BigInt(5000), BigInt(5000)]; // 50% each
+                // Dynamic fallback based on outcome count
+                const count = outcomes.length;
+                const equalShare = Math.floor(10000 / count);
+                prices = Array(count).fill(BigInt(equalShare));
             }
 
             try {

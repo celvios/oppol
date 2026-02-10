@@ -1,77 +1,86 @@
 
-import { ethers } from "hardhat";
+const { ethers } = require("hardhat");
 
 async function main() {
     const PROXY_ADDRESS = "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
-
-    console.log("🚀 Starting RAW V3 Deployment...");
+    console.log("🚀 Starting V3 Manual Upgrade (Precision Fix)...");
 
     const [signer] = await ethers.getSigners();
     console.log(`Signer: ${signer.address}`);
 
-    // 1. Get Factory just to get bytecode
+    // 1. Deploy Implementation
+    console.log("Deploying Implementation...");
     const V3Factory = await ethers.getContractFactory("PredictionMarketMultiV3");
-    const bytecode = V3Factory.bytecode;
 
-    if (!bytecode || bytecode === "0x") {
+    if (!V3Factory.bytecode || V3Factory.bytecode === "0x") {
         throw new Error("Failed to fetch bytecode for PredictionMarketMultiV3");
     }
 
-    console.log("Constructing raw deploy transaction (only data)...");
+    const implementation = await V3Factory.deploy();
+    await implementation.waitForDeployment();
+    const implAddress = await implementation.getAddress();
+    console.log(`✅ Implementation Deployed at: ${implAddress}`);
 
-    const rawTx = {
-        data: bytecode,
-        // Explicitly undefined 'to' just in case, though omitting it is standard
-        to: undefined
-    };
+    // 2. Upgrade Proxy
+    console.log("Upgrading Proxy...");
 
-    console.log("Sending raw transaction...");
+    // Use minimal ABI to avoid artifact issues
+    const UUPSABI = [
+        "function upgradeTo(address newImplementation) external",
+        "function owner() view returns (address)"
+    ];
+
+    // Connect to proxy with UUPS interface
+    const proxy = new ethers.Contract(PROXY_ADDRESS, UUPSABI, signer);
+
+    // Check owner
     try {
-        const txResponse = await signer.sendTransaction(rawTx);
-        console.log(`Deploy Tx Sent: ${txResponse.hash}`);
-
-        console.log("Waiting for confirmation...");
-        const receipt = await txResponse.wait();
-        const implAddress = receipt?.contractAddress;
-
-        if (!implAddress) {
-            throw new Error("No contract address in receipt!");
+        const owner = await proxy.owner();
+        console.log(`Contract Owner: ${owner}`);
+        if (owner.toLowerCase() !== signer.address.toLowerCase()) {
+            console.warn("⚠️ Signer is NOT owner! Upgrade will likely fail.");
         }
+    } catch (e) {
+        console.log("⚠️ Could not fetch owner:", e.message);
+    }
 
-        console.log(`✅ Implementation Deployed at: ${implAddress}`);
-
-        // 4. Upgrade Proxy
-        console.log("Upgrading Proxy...");
-        // We can reuse the factory for attachment now that we have an address
-        const proxy = V3Factory.attach(PROXY_ADDRESS);
-
+    try {
         const upgradeTx = await proxy.upgradeTo(implAddress);
         console.log(`Upgrade Tx: ${upgradeTx.hash}`);
         await upgradeTx.wait();
         console.log("✅ Proxy Upgraded");
+    } catch (e) {
+        console.error("❌ Upgrade Failed:", e.message);
+        return;
+    }
 
-        // 5. Initialize
-        console.log("Initializing...");
-        try {
-            const initTx = await proxy.initializeV3();
-            await initTx.wait();
-            console.log("✅ V3 Initialized");
-        } catch (e: any) {
-            console.log("⚠️ Initialization warning (expected if already initialized):", e.message);
-        }
+    // 3. Initialize V3 & Set Fees
+    console.log("Initializing V3 & Setting Fees...");
 
-        // 6. Set Fee
-        console.log("Setting Protocol Fee to 10%...");
-        try {
-            const feeTx = await proxy.setProtocolFee(1000);
-            await feeTx.wait();
-            console.log("✅ Fees Set");
-        } catch (e: any) {
-            console.log("⚠️ Set Fee warning:", e.message);
-        }
+    // Connect with V3 interface for specific functions
+    const proxyV3 = V3Factory.attach(PROXY_ADDRESS);
 
-    } catch (e: any) {
-        console.error("❌ FATAL ERROR during deployment:", e);
+    try {
+        const initTx = await proxyV3.initializeV3();
+        await initTx.wait();
+        console.log("✅ V3 Initialized");
+    } catch (e) {
+        console.log("⚠️ Initialization warning (already init?):", e.message);
+    }
+
+    try {
+        // Set Total Protocol Fee to 10% (1000 bps)
+        const feeTx = await proxyV3.setProtocolFee(1000);
+        await feeTx.wait();
+        console.log("✅ Protocol Fee set to 10%");
+
+        // Set Creator Fee to 2% (200 bps)
+        const cFeeTx = await proxyV3.setCreatorFee(200);
+        await cFeeTx.wait();
+        console.log("✅ Creator Fee set to 2%");
+
+    } catch (e) {
+        console.log("⚠️ Set Fee warning:", e.message);
     }
 }
 

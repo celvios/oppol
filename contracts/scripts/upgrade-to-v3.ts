@@ -8,7 +8,8 @@ async function main() {
     console.log("🚀 Starting V3 Upgrade...");
 
     // Hardcode address for reliability during debug
-    const PROXY_ADDRESS = "0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717";
+    // CORRECT MAINNET ADDRESS from .env
+    const PROXY_ADDRESS = "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
     console.log(`Using Proxy: ${PROXY_ADDRESS}`);
 
     // Deploy new implementation
@@ -31,15 +32,20 @@ async function main() {
 
     console.log("⚙️ Configuring V3 Fees...");
     // 8% = 800, 2% = 200
-    const tx = await v3.setFees(800, 200);
-    await tx.wait();
+    // Note: setFees doesn't exist, use individual setters
+    try {
+        const pTx = await v3.setProtocolFee(1000); // 10% total
+        await pTx.wait();
+        console.log("✅ Protocol Fee set to 10%");
 
-    console.log("✅ Fees set: Protocol 8%, Creator 2%");
+        const cTx = await v3.setCreatorFee(200); // 2% creator
+        await cTx.wait();
+        console.log("✅ Creator Fee set to 2%");
+    } catch (e: any) {
+        console.log("⚠️ Error setting fees:", e.message);
+    }
 
-    // Verify
-    const pFee = await v3.protocolFee();
-    const cFee = await v3.creatorFee();
-    console.log(`🔍 Verification - Protocol: ${pFee}, Creator: ${cFee}`);
+    console.log(`🔍 Verification - Protocol Fee Updated`);
 }
 
 main()

@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
             timeout: 120000,
         },
         bsc: {
-            url: "https://bnb-mainnet.g.alchemy.com/v2/Xo1rl1WS3c_qYc5694os6",
+            url: "https://delicate-greatest-energy.bsc.quiknode.pro/97d400e0de1e7c8b3969827d8452f896270454d0/",
             chainId: 56,
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
             timeout: 600000,

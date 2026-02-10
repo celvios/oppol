@@ -153,7 +153,7 @@ app.post('/api/calculate-cost', async (req, res) => {
     ];
 
     const market = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-    const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 6);
+    const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 18); // Shares are 18 decimals
     const cost = await market.calculateCost(marketId, isYes, sharesInUnits);
     const costFormatted = ethers.formatUnits(cost, 6);
 
@@ -255,7 +255,7 @@ app.post('/api/bet', async (req, res) => {
     console.log('🔍 [BET DEBUG] Starting binary search for outcomeIndex:', outcomeIndex);
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
+      const sharesInUnits = ethers.parseUnits(mid.toString(), 18); // Shares are 18 decimals
 
       const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
       const costResult = await rawCall(MARKET_ADDR, costData);
@@ -274,7 +274,7 @@ app.post('/api/bet', async (req, res) => {
     }
 
     // Get final cost
-    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
+    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 18); // Shares are 18 decimals
     const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
     const costResult = await rawCall(MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
@@ -412,13 +412,13 @@ app.post('/api/multi-bet', async (req, res) => {
     // Binary search to find max shares for given cost
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
     let low = 1;
-    let high = Math.floor(maxCost * 2);
+    let high = Math.floor(maxCost * 2); // Heuristic start
     let bestShares = 0;
 
     console.log('🔍 [MULTI-BET DEBUG] Starting binary search');
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      const sharesInUnits = ethers.parseUnits(mid.toString(), 6);
+      const sharesInUnits = ethers.parseUnits(mid.toString(), 18); // Shares are 18 decimals
 
       const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
@@ -437,7 +437,7 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     // Get final cost
-    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 6);
+    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 18); // Shares are 18 decimals
     const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
     const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];

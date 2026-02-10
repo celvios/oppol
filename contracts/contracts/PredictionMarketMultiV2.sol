@@ -536,7 +536,8 @@ contract PredictionMarketMultiV2 is
         returns (uint256) 
     {
         Market storage market = markets[_marketId];
-        uint256 b = market.liquidityParam;
+        // PRECISION FIX: Scale 6-decimal liquidity to 18 decimals
+        uint256 b = market.liquidityParam * 1e12; 
         
         uint256 costBefore = _lmsrCost(market.shares, b);
         
@@ -554,6 +555,7 @@ contract PredictionMarketMultiV2 is
     function _lmsrCost(uint256[] memory shares, uint256 b) internal pure returns (uint256) {
         uint256 sumExp = 0;
         for (uint256 i = 0; i < shares.length; i++) {
+            // b is already scaled to 18 decimals here
             sumExp += _exp((shares[i] * PRECISION) / b);
         }
         uint256 lnSum = _ln(sumExp);
@@ -567,9 +569,19 @@ contract PredictionMarketMultiV2 is
         returns (uint256) 
     {
         Market storage market = markets[_marketId];
-        uint256 b = market.liquidityParam;
+        // PRECISION FIX: Scale to 18 decimals
+        uint256 b = market.liquidityParam * 1e12;
         
-        if (b == 0 || market.outcomeCount == 0) {
+        // Check for 0 liquidity or 0 shares (initial state)
+        bool allZero = true;
+        for(uint256 i=0; i<market.outcomeCount; i++) {
+            if(market.shares[i] != 0) {
+                allZero = false;
+                break;
+            }
+        }
+
+        if (b == 0 || market.outcomeCount == 0 || allZero) {
             return 10000 / market.outcomeCount;
         }
         
@@ -589,10 +601,21 @@ contract PredictionMarketMultiV2 is
         returns (uint256[] memory) 
     {
         Market storage market = markets[_marketId];
-        uint256 b = market.liquidityParam;
+        // PRECISION FIX: Scale to 18 decimals
+        uint256 b = market.liquidityParam * 1e12;
+
         uint256[] memory prices = new uint256[](market.outcomeCount);
         
-        if (b == 0 || market.outcomeCount == 0) {
+        // Check for 0 liquidity or 0 shares (initial state)
+        bool allZero = true;
+        for(uint256 i=0; i<market.outcomeCount; i++) {
+            if(market.shares[i] != 0) {
+                allZero = false;
+                break;
+            }
+        }
+        
+        if (b == 0 || market.outcomeCount == 0 || allZero) {
             uint256 equalPrice = 10000 / market.outcomeCount;
             for (uint256 i = 0; i < market.outcomeCount; i++) {
                 prices[i] = equalPrice;
