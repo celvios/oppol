@@ -57,6 +57,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                         'metamask',
                         'coinbase_wallet',
                         'wallet_connect',
+                        'wallet_connect_qr', // Shows searchable list of 100+ wallets
                         'rainbow',
                         'phantom',
                         'okx_wallet',
