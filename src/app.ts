@@ -452,6 +452,9 @@ app.post('/api/multi-bet', async (req, res) => {
     let bestShares = BigInt(0);
 
     console.log('🔍 [MULTI-BET DEBUG] Starting binary search (fractional)');
+    console.log('🔍 [MULTI-BET DEBUG] maxCost:', maxCost, 'maxCostInUnits:', maxCostInUnits.toString());
+    console.log('🔍 [MULTI-BET DEBUG] effectiveMaxCost after fee:', effectiveMaxCost.toString(), 'formatted:', ethers.formatUnits(effectiveMaxCost, 6));
+    console.log('🔍 [MULTI-BET DEBUG] Search range: low=', low.toString(), 'high=', high.toString());
 
     // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
     let iterations = 0;
@@ -472,7 +475,10 @@ app.post('/api/multi-bet', async (req, res) => {
       iterations++;
     }
 
+    console.log('🔍 [MULTI-BET DEBUG] Binary search complete. Iterations:', iterations, 'bestShares:', bestShares.toString());
+
     if (bestShares === BigInt(0)) {
+      console.error('❌ [MULTI-BET ERROR] No shares found! maxCost:', maxCost, 'effectiveMaxCost:', ethers.formatUnits(effectiveMaxCost, 6));
       return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
     }
 

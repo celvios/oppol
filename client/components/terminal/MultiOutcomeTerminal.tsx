@@ -316,7 +316,14 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             });
 
             const data = await response.json();
+            console.log('🔍 [BET RESPONSE]:', JSON.stringify(data, null, 2));
             if (data.success) {
+                console.log('🔍 [SUCCESS DATA]:', {
+                    shares: data.transaction?.shares,
+                    cost: data.transaction?.cost,
+                    newPrice: data.transaction?.newPrice,
+                    hash: data.transaction?.hash
+                });
                 setSuccessData({
                     marketId: market.id,
                     outcome: market.outcomes[selectedOutcome],
