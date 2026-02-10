@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle, Camera } from "lucide-react";
-import { ReownConnectButton } from "@/components/ui/ReownConnectButtonLite";
+import WalletConnectButtonLite from "@/components/ui/WalletConnectButtonLite";
 import { web3MultiService as web3Service, MultiMarket as Market } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
 import LogoBrand from "@/components/ui/LogoBrand";
+
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 import html2canvas from "html2canvas";
 import { ShareChartModal } from "@/components/ui/ShareChartModal";
