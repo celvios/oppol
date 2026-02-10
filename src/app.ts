@@ -281,7 +281,6 @@ app.post('/api/bet', async (req, res) => {
     const costFormatted = ethers.formatUnits(actualCost, 6);
     const sharesFormatted = ethers.formatUnits(bestShares, 18);
     console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares`);
-
     if (userBalance < actualCost) {
       return res.status(400).json({
         success: false,
@@ -431,7 +430,8 @@ app.post('/api/multi-bet', async (req, res) => {
     const balanceResult = await rawCall(MULTI_MARKET_ADDR, balanceData);
     const userBalance = iface.decodeFunctionResult('userBalances', balanceResult)[0];
     console.log('🔍 [MULTI-BET DEBUG] Raw balance:', userBalance.toString());
-    const balanceFormatted = ethers.formatUnits(userBalance, 6);
+    // FIX: Contract stores balances in 18 decimals, not 6!
+    const balanceFormatted = ethers.formatUnits(userBalance, 18);
     console.log(`✅ User balance: $${balanceFormatted}`);
 
     // Binary search to find max shares (in wei) for given cost
@@ -471,10 +471,6 @@ app.post('/api/multi-bet', async (req, res) => {
     console.log('  - Current Shares:', currentShares.map((s: any) => ethers.formatUnits(s, 18)).join(', '));
 
     console.log('🔍 [MULTI-BET DEBUG] Search range: low=', low.toString(), 'high=', high.toString());
-
-    // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
-    let iterations = 0;
-    let lastCheckedCost = BigInt(0);
     while (low <= high && iterations < 100) {
       const mid = (low + high) / BigInt(2);
       // mid is already in 18 decimals (wei)
