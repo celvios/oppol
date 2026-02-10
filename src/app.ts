@@ -363,8 +363,31 @@ app.post('/api/multi-bet', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Server wallet not configured' });
     }
 
+    // CRITICAL: Validate RPC URL to prevent network mismatch
+    if (!rpcUrl) {
+      console.error('❌ [MULTI-BET ERROR] RPC_URL is not configured!');
+      return res.status(500).json({ success: false, error: 'RPC URL not configured. Check BNB_RPC_URL environment variable.' });
+    }
+
+    const expectedChainId = parseInt(process.env.CHAIN_ID || '56');
     console.log('🔍 [MULTI-BET DEBUG] Creating provider');
-    const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
+    console.log('🔍 [MULTI-BET DEBUG] RPC URL:', rpcUrl);
+    console.log('🔍 [MULTI-BET DEBUG] Expected Chain ID:', expectedChainId);
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl, expectedChainId);
+
+    // Verify we're connected to the correct network
+    const network = await provider.getNetwork();
+    console.log('🔍 [MULTI-BET DEBUG] Connected to Chain ID:', network.chainId.toString());
+
+    if (network.chainId !== BigInt(expectedChainId)) {
+      console.error(`❌ [MULTI-BET ERROR] Network mismatch! Expected ${expectedChainId}, got ${network.chainId}`);
+      return res.status(500).json({
+        success: false,
+        error: `Network mismatch: Connected to chain ${network.chainId}, expected ${expectedChainId}. Check your RPC_URL configuration.`
+      });
+    }
+
     const signer = new ethers.Wallet(privateKey, provider);
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
