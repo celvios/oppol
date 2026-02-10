@@ -94,27 +94,20 @@ export async function syncAllMarkets(): Promise<void> {
             const pricesResponse = responses[baseIndex + 2];
 
             try {
-                // Decode basic info
-                const basicInfo = basicInfoResponse.success
-                    ? marketInterface.decodeFunctionResult('getMarketBasicInfo', basicInfoResponse.returnData)
-                    : null;
-
-                // Decode outcomes
-                const outcomes = outcomesResponse.success
-                    ? marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0]
-                    : ['Yes', 'No'];
-
-                if (!pricesResponse.success) {
-                    console.warn(`[Indexer] getAllPrices failed for market ${marketId}`);
-                }
-                const prices = pricesResponse.success
-                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0]
-                    : [ethers.parseUnits("0.5", 18), ethers.parseUnits("0.5", 18)];
-
-                if (!basicInfo) {
-                    console.warn(`[Indexer] Market ${marketId}: basicInfo call failed, skipping`);
+                // Check if all calls succeeded
+                if (!basicInfoResponse.success || !outcomesResponse.success || !pricesResponse.success) {
+                    console.warn(`[Indexer] Partial failure for market ${marketId}, skipping update. (Basic: ${basicInfoResponse.success}, Outcomes: ${outcomesResponse.success}, Prices: ${pricesResponse.success})`);
                     continue;
                 }
+
+                // Decode basic info
+                const basicInfo = marketInterface.decodeFunctionResult('getMarketBasicInfo', basicInfoResponse.returnData);
+
+                // Decode outcomes
+                const outcomes = marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0];
+
+                // Decode prices
+                const prices = marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0];
 
                 // Format prices (e.g. 5000 -> 50.00)
                 const pricesFormatted = formatPrices(prices);
