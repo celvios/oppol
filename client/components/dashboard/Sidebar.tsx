@@ -10,7 +10,6 @@ import { useBC400Check } from "@/lib/use-bc400";
 import { PlusCircle } from "lucide-react";
 import LogoBrand from "@/components/ui/LogoBrand";
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
@@ -75,7 +74,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         e.preventDefault();
 
         if (!isConnected) {
-            setShowWalletModal(true);
+            connect();
             return;
         }
 
@@ -214,7 +213,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => setShowWalletModal(true)}
+                            onClick={connect}
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
                                 "text-white/60 hover:text-white hover:bg-white/5",
@@ -234,16 +233,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 {!collapsed && (
                     <div className="pt-4 border-t border-white/10 text-center">
                         <span className="text-[10px] text-white/20">Powered by BNB Chain</span>
-                        {/* Revert verified */}
                     </div>
                 )}
             </div>
-            <ConnectWalletModal
-                isOpen={showWalletModal}
-                onClose={() => setShowWalletModal(false)}
-                onConnect={connect}
-                context="create"
-            />
 
             <BC400PurchaseModal
                 isOpen={showPurchaseModal}
@@ -252,3 +244,4 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </>
     );
 }
+

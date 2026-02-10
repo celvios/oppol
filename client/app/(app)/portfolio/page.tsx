@@ -9,7 +9,6 @@ import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
 import LogoBrand from "@/components/ui/LogoBrand";
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 
 interface Position {
     market: string;
@@ -186,13 +185,7 @@ export default function PortfolioPage() {
     if (!isEffectivelyConnected) {
         return (
             <>
-                <EmptyPortfolioState onConnect={() => setShowWalletModal(true)} />
-                <ConnectWalletModal
-                    isOpen={showWalletModal}
-                    onClose={() => setShowWalletModal(false)}
-                    onConnect={connect}
-                    context="portfolio"
-                />
+                <EmptyPortfolioState onConnect={connect} />
             </>
         );
     }

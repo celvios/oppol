@@ -9,7 +9,6 @@ import { SlideToConfirm } from "@/components/ui/SlideToConfirm";
 import { getContracts, NETWORK } from '@/lib/contracts';
 import { Contract, ethers, isAddress } from 'ethers';
 import { useConnectorClient, useAccount } from 'wagmi';
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import { web3MultiService } from "@/lib/web3-multi";
 
@@ -222,10 +221,9 @@ export default function WithdrawPage() {
                     </div>
                     <h2 className="text-xl font-bold text-white mb-3">Login Required</h2>
                     <p className="text-white/50 mb-6">Connect to manage your funds.</p>
-                    <button onClick={() => setShowConnectModal(true)} className="px-8 py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary/90">
+                    <button onClick={connect} className="px-8 py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary/90">
                         Log In
                     </button>
-                    <ConnectWalletModal isOpen={showConnectModal} onClose={() => setShowConnectModal(false)} onConnect={connect} context="withdraw" />
                 </div>
             </div>
         );

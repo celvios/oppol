@@ -18,7 +18,6 @@ import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 
-import ConnectWalletModal from "@/components/wallet/ConnectWalletModal";
 import BoostButton from "@/components/market/BoostButton";
 import DesktopFeaturedCarousel from "./DesktopFeaturedCarousel";
 import FeaturedCarousel from "@/components/mobile/FeaturedCarousel";
@@ -295,7 +294,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     // --- Trading Logic ---
     const handleTrade = async () => {
         if (!isConnected) {
-            setShowConnectModal(true);
+            connect();
             return;
         }
 
@@ -529,7 +528,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     </div>
                                 </div>
                                 {!isConnected ? (
-                                    <NeonButton onClick={() => setShowConnectModal(true)} variant="cyan" className="w-full py-3">
+                                    <NeonButton onClick={connect} variant="cyan" className="w-full py-3">
                                         CONNECT WALLET
                                     </NeonButton>
                                 ) : (
@@ -780,7 +779,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             <div className="flex justify-between items-center mb-4 z-10 relative">
                                 <h2 className="text-lg font-heading text-white">Chance Wave</h2>
                                 <button
-                                    onClick={handleShareChart}
+                                    onClick={() => handleShareChart(false)}
                                     className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
                                     title="Share Chart"
                                 >
@@ -882,10 +881,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     question={market.question}
                                     endTime={market.endTime}
                                     resolved={market.resolved}
-                                    outcome={market.outcome}
                                     winningOutcomeIndex={market.winningOutcome}
                                     assertionPending={market.assertionPending}
-                                    assertedOutcome={market.assertedOutcome}
                                     assertedOutcomeIndex={market.assertedOutcome}
                                     asserter={market.asserter}
                                 />
@@ -1026,13 +1023,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </div>
             </div >
 
-            <ConnectWalletModal
-                isOpen={showConnectModal}
-                onClose={() => setShowConnectModal(false)}
-                onConnect={connect}
-                context="bet"
-                contextData={{ marketName: market?.question || '' }}
-            />
+
 
             {/* Share Modal */}
             <ShareChartModal
