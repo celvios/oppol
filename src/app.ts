@@ -515,13 +515,27 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     // Execute transaction
+    const maxCostWithSlippage = actualCost * BigInt(110) / BigInt(100); // 10% slippage
+
     console.log('🔍 [MULTI-BET DEBUG] Encoding transaction');
+    console.log('🔍 [TX PARAMS]:', {
+      user: normalizedAddress,
+      marketId,
+      outcomeIndex,
+      shares: ethers.formatUnits(sharesInUnits, 18),
+      sharesRaw: sharesInUnits.toString(),
+      maxCost: ethers.formatUnits(maxCostWithSlippage, 6),
+      maxCostRaw: maxCostWithSlippage.toString(),
+      actualCost: ethers.formatUnits(actualCost, 6),
+      userBalance: ethers.formatUnits(userBalance, 18)
+    });
+
     const buyData = iface.encodeFunctionData('buySharesFor', [
       normalizedAddress,
       marketId,
       outcomeIndex,
       sharesInUnits,
-      actualCost * BigInt(110) / BigInt(100) // 10% slippage
+      maxCostWithSlippage
     ]);
 
     console.log('🔍 [MULTI-BET DEBUG] Sending transaction');
