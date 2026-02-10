@@ -120,9 +120,10 @@ export async function syncAllMarkets(): Promise<void> {
                 // --- Volume Calculation ---
                 let volume = '0';
                 try {
-                    // Look back 50k blocks (~40 hours on BSC)
+                    // Look back 5k blocks (running every 30s means we only need small lookback, but 5k covers restarts)
+                    // QuickNode limit is often 10k
                     const currentBlock = await provider.getBlockNumber();
-                    const fromBlock = Math.max(0, currentBlock - 50000);
+                    const fromBlock = Math.max(0, currentBlock - 5000);
 
                     // We need to query events for this specific market
                     const logs = await marketContract.queryFilter(

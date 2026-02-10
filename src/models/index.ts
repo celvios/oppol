@@ -198,6 +198,8 @@ export const initDatabase = async () => {
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT FALSE;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITH TIME ZONE;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS winning_outcome INTEGER;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity DECIMAL(36, 18) DEFAULT 0;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(36, 18) DEFAULT 0;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(18, 6) DEFAULT 0;
 
       -- Create Comment Likes Table
