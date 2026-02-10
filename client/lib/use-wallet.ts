@@ -1,42 +1,36 @@
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useAccount, useDisconnect } from 'wagmi';
-import { useEffect, useState } from 'react';
 
 export function useWallet() {
-  const { login, logout: privyLogout, ready, authenticated } = usePrivy();
+  const { login, logout, ready, authenticated, user } = usePrivy();
+  const { address, isConnected, isConnecting: isWagmiConnecting } = useAccount();
+  const { disconnect } = useDisconnect();
   const { wallets } = useWallets();
-  const { address, isConnected } = useAccount();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
-  const [isHydrated, setIsHydrated] = useState(false);
 
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  // Unified "isConnected" state
+  // We consider connected if EITHER Privy is authenticated OR Wagmi is connected
+  // This covers both email/social logins (Privy) and direct wallet connections (Wagmi/Privy)
+  const isWalletConnected = authenticated || isConnected;
 
-  const effectivelyConnected = authenticated || isConnected;
-  const effectiveAddress = address || (wallets[0]?.address);
+  // Unified address
+  // Prefer Wagmi address if available (active wallet), otherwise fallback to Privy wallet
+  const walletAddress = address || user?.wallet?.address;
 
   const handleDisconnect = async () => {
     try {
-      if (isConnected) {
-        wagmiDisconnect();
-      }
-      await privyLogout();
+      if (isConnected) disconnect();
+      await logout();
     } catch (e) {
       console.error('Disconnect error:', e);
     }
   };
 
-  // During hydration, preserve last known state to prevent flash
-  const shouldShowConnected = isHydrated ? effectivelyConnected : true;
-
   return {
-    isConnected: shouldShowConnected,
-    address: effectiveAddress || null,
-    isConnecting: !isHydrated || !ready,
-    connect: () => login({ loginMethods: ['email', 'wallet', 'google'] }),
+    isConnected: isWalletConnected,
+    address: walletAddress || null,
+    isConnecting: !ready || isWagmiConnecting,
+    connect: login, // Opens Privy modal
     disconnect: handleDisconnect,
-    connectAsync: login,
     connectors: wallets,
   };
 }

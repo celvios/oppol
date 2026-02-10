@@ -5,8 +5,7 @@ import { Wallet, X, Loader2, Sparkles, Zap, Mail, ChevronLeft } from "lucide-rea
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import Input from "@/components/ui/Input";
-import { usePrivy, useLoginWithEmail, useLoginWithOAuth, useLoginWithSiwe } from "@privy-io/react-auth";
-import { useConnect, useSignMessage, useDisconnect, useAccount } from "wagmi";
+import { usePrivy, useLoginWithEmail, useLoginWithOAuth } from "@privy-io/react-auth";
 import UsernameOnboardingModal from "./UsernameOnboardingModal";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -21,7 +20,7 @@ interface ConnectWalletModalProps {
     };
 }
 
-type ViewState = 'selection' | 'email-input' | 'otp-input' | 'wallet-selection' | 'more-wallets';
+type ViewState = 'selection' | 'email-input' | 'otp-input';
 
 export default function ConnectWalletModal({
     isOpen,
@@ -34,13 +33,6 @@ export default function ConnectWalletModal({
     // Headless Hooks (Privy)
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { initOAuth } = useLoginWithOAuth();
-    const { generateSiweMessage, loginWithSiwe } = useLoginWithSiwe();
-
-    // Headless Hooks (Wagmi) - For Wallet Flow
-    const { connectAsync, connectors } = useConnect();
-    const { signMessageAsync } = useSignMessage();
-    const { disconnectAsync } = useDisconnect();
-    const { isConnected: isWagmiConnected } = useAccount();
 
     const [view, setViewState] = useState<ViewState>('selection');
     const [loadingMethod, setLoadingMethod] = useState<string | null>(null);
@@ -72,42 +64,6 @@ export default function ConnectWalletModal({
         window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
-
-    // Auto-connect for mobile wallet browsers
-    useEffect(() => {
-        const isMobile = typeof window !== 'undefined' && /Mobile|Android|iPhone/i.test(navigator.userAgent);
-
-        if (!isOpen || !isMobile || authenticated || loadingMethod) return;
-
-        // Detect which wallet browser is being used
-        let walletType: string | null = null;
-
-        if (window.ethereum?.isMetaMask) {
-            walletType = 'metamask';
-        } else if (window.ethereum?.isCoinbaseWallet) {
-            walletType = 'coinbase';
-        } else if ((window as any).trustwallet) {
-            walletType = 'trust';
-        } else if ((window as any).okxwallet) {
-            walletType = 'okx';
-        } else if ((window as any).phantom?.ethereum) {
-            walletType = 'phantom';
-        } else if ((window as any).rabby) {
-            walletType = 'rabby';
-        } else if (window.ethereum) {
-            // Generic injected wallet
-            walletType = 'metamask'; // Default fallback
-        }
-
-        if (walletType) {
-            console.log(`Mobile wallet browser detected: ${walletType}, auto-connecting...`);
-            handleWalletConnect(walletType).catch(err => {
-                console.error('Auto-connect failed:', err);
-            });
-        }
-    }, [isOpen, authenticated, loadingMethod]);
-
-
 
     // Handlers
     const handleGoogleLogin = async () => {
@@ -144,7 +100,7 @@ export default function ConnectWalletModal({
         setError(null);
         try {
             await loginWithCode({ code: otp });
-            onClose();
+            // Closure handled by useEffect on authenticated
         } catch (err) {
             console.error("Invalid code", err);
             setError("Invalid code. Please try again.");
@@ -154,69 +110,14 @@ export default function ConnectWalletModal({
         }
     };
 
-    // --- WALLET CONNECTION with fallback to WalletConnect ---
-    const handleWalletConnect = async (walletType: string) => {
-        setLoadingMethod(walletType);
-        setError(null);
-
-        try {
-            // Check if wallet is installed via window.ethereum or other providers
-            const hasMetaMask = typeof window !== 'undefined' && window.ethereum?.isMetaMask;
-            const hasCoinbase = typeof window !== 'undefined' && window.ethereum?.isCoinbaseWallet;
-            const hasOKX = typeof window !== 'undefined' && (window as any).okxwallet;
-            const hasPhantom = typeof window !== 'undefined' && (window as any).phantom?.ethereum;
-            const hasRabby = typeof window !== 'undefined' && (window as any).rabby;
-
-            let isWalletInstalled = false;
-
-            // Check if the specific wallet is installed
-            if (walletType === 'metamask' && hasMetaMask) isWalletInstalled = true;
-            else if (walletType === 'coinbase' && hasCoinbase) isWalletInstalled = true;
-            else if (walletType === 'okx' && hasOKX) isWalletInstalled = true;
-            else if (walletType === 'phantom' && hasPhantom) isWalletInstalled = true;
-            else if (walletType === 'rabby' && hasRabby) isWalletInstalled = true;
-
-            // For WalletConnect and uninstalled wallets, use WalletConnect
-            if (walletType === 'walletconnect' || !isWalletInstalled) {
-                // Use WalletConnect connector for uninstalled wallets
-                const wcConnector = connectors.find(c => c.id === 'walletConnect' || c.name.toLowerCase().includes('walletconnect'));
-                if (wcConnector) {
-                    await connectAsync({ connector: wcConnector });
-                    onClose();
-                } else {
-                    // Fallback to Privy's login which will show WalletConnect option
-                    await login({ loginMethods: ['wallet'] });
-                }
-            } else {
-                // Wallet is installed, use Privy's login to connect directly
-                await login({ loginMethods: ['wallet'] });
-            }
-
-            // Success - modal will auto-close via useEffect when authenticated
-        } catch (err: any) {
-            console.error('Wallet connection failed:', err);
-
-            let errorMessage = 'Connection failed';
-            if (err.message?.includes('User rejected') || err.message?.includes('rejected') || err.message?.includes('User closed modal')) {
-                errorMessage = 'Connection rejected by user';
-            } else if (err.message?.includes('not available') || err.message?.includes('not installed') || err.message?.includes('not detected')) {
-                errorMessage = `${walletType.charAt(0).toUpperCase() + walletType.slice(1)} is connecting via QR code. Please scan with your mobile wallet app.`;
-            } else if (err.code === 4001) {
-                errorMessage = 'Connection rejected by user';
-            } else if (err.message) {
-                errorMessage = err.message;
-            }
-
-            setError(errorMessage);
-        } finally {
-            setLoadingMethod(null);
-        }
-    };
-
-    const handleMoreWallets = async () => {
-        // For "More Wallets", use Privy's standard modal as fallback
-        onClose();
-        await login({ loginMethods: ['wallet'] });
+    // Use Privy's native modal for wallet connection
+    const handleWalletLogin = () => {
+        login({ loginMethods: ['wallet'] });
+        // The Privy modal will open on top.
+        // We might want to close THIS modal, or keep it open in background?
+        // Privy modal usually handles its own overlay.
+        // If we keep this open, we need to make sure we detect when Privy connects.
+        // The `authenticated` effect handles the closing.
     };
 
     const getContextInfo = () => {
@@ -254,17 +155,9 @@ export default function ConnectWalletModal({
 
 
                     <GlassCard className="relative w-full overflow-hidden border-none shadow-2xl">
-                        {view !== 'selection' && view !== 'more-wallets' && (
+                        {view !== 'selection' && (
                             <button
-                                onClick={() => setViewState(view === 'wallet-selection' ? 'selection' : view === 'otp-input' ? 'email-input' : 'selection')}
-                                className="absolute top-4 left-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20"
-                            >
-                                <ChevronLeft className="w-5 h-5" />
-                            </button>
-                        )}
-                        {view === 'more-wallets' && (
-                            <button
-                                onClick={() => setViewState('wallet-selection')}
+                                onClick={() => setViewState(view === 'otp-input' ? 'email-input' : 'selection')}
                                 className="absolute top-4 left-4 p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all z-20"
                             >
                                 <ChevronLeft className="w-5 h-5" />
@@ -327,12 +220,15 @@ export default function ConnectWalletModal({
                                         {loadingMethod === 'google' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
                                     </NeonButton>
 
-                                    {/* Socials Row */}
-
+                                    <div className="flex items-center gap-4 py-2">
+                                        <div className="h-px bg-white/10 flex-1"></div>
+                                        <span className="text-white/30 text-xs uppercase">OR</span>
+                                        <div className="h-px bg-white/10 flex-1"></div>
+                                    </div>
 
                                     <NeonButton
                                         variant="glass"
-                                        onClick={() => setViewState('wallet-selection')}
+                                        onClick={handleWalletLogin}
                                         disabled={!ready}
                                         className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-white hover:bg-white/90 border border-white transition-all group"
                                     >
@@ -341,158 +237,6 @@ export default function ConnectWalletModal({
                                         </div>
                                         <span className="font-bold text-black">Connect Wallet</span>
                                     </NeonButton>
-                                </motion.div>
-                            )}
-
-                            {/* WALLET SELECTION VIEW */}
-                            {view === 'wallet-selection' && (
-                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
-                                    {/* MetaMask */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('metamask')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-orange-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" className="w-6 h-6" alt="MetaMask" />
-                                        </div>
-                                        <span className="font-medium">MetaMask</span>
-                                        {loadingMethod === 'metamask' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* Coinbase */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('coinbase')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://avatars.githubusercontent.com/u/18060234?s=200&v=4" className="w-6 h-6 rounded-full" alt="Coinbase" />
-                                        </div>
-                                        <span className="font-medium">Coinbase Wallet</span>
-                                        {loadingMethod === 'coinbase' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* WalletConnect */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('walletconnect')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-400/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.svg" className="w-6 h-6" alt="WC" />
-                                        </div>
-                                        <span className="font-medium">WalletConnect</span>
-                                        {loadingMethod === 'walletconnect' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* More Wallets */}
-                                    <button
-                                        onClick={() => setViewState('more-wallets')}
-                                        className="w-full py-2 text-sm text-white/40 hover:text-white transition-colors"
-                                    >
-                                        More Wallets...
-                                    </button>
-
-                                    {error && (
-                                        <p className="text-red-400 text-xs mt-2 bg-red-500/10 p-2 rounded">{error}</p>
-                                    )}
-                                </motion.div>
-                            )}
-
-                            {/* MORE WALLETS VIEW */}
-                            {view === 'more-wallets' && (
-                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
-                                    {/* Trust Wallet */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('trust')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://trustwallet.com/assets/images/media/assets/TWT.png" className="w-6 h-6" alt="Trust" />
-                                        </div>
-                                        <span className="font-medium">Trust Wallet</span>
-                                        {loadingMethod === 'trust' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* Rainbow */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('rainbow')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-purple-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://avatars.githubusercontent.com/u/48327834?s=200&v=4" className="w-6 h-6 rounded-full" alt="Rainbow" />
-                                        </div>
-                                        <span className="font-medium">Rainbow</span>
-                                        {loadingMethod === 'rainbow' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* OKX Wallet */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('okx')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-white/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2B7D7.png" className="w-6 h-6" alt="OKX" />
-                                        </div>
-                                        <span className="font-medium">OKX Wallet</span>
-                                        {loadingMethod === 'okx' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* Phantom */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('phantom')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-purple-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://phantom.app/img/phantom-icon-purple.png" className="w-6 h-6" alt="Phantom" />
-                                        </div>
-                                        <span className="font-medium">Phantom</span>
-                                        {loadingMethod === 'phantom' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* Rabby */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('rabby')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-blue-400/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://rabby.io/assets/images/logo-128.png" className="w-6 h-6" alt="Rabby" />
-                                        </div>
-                                        <span className="font-medium">Rabby Wallet</span>
-                                        {loadingMethod === 'rabby' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {/* Brave Wallet */}
-                                    <NeonButton
-                                        variant="glass"
-                                        onClick={() => handleWalletConnect('brave')}
-                                        disabled={!!loadingMethod}
-                                        className="w-full py-4 flex items-center justify-start gap-4 px-6 hover:bg-white/5 border border-white/10 hover:border-orange-500/50 transition-all group"
-                                    >
-                                        <div className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full">
-                                            <img src="https://brave.com/static-assets/images/brave-logo-sans-text.svg" className="w-6 h-6" alt="Brave" />
-                                        </div>
-                                        <span className="font-medium">Brave Wallet</span>
-                                        {loadingMethod === 'brave' && <Loader2 className="w-4 h-4 animate-spin ml-auto" />}
-                                    </NeonButton>
-
-                                    {error && (
-                                        <p className="text-red-400 text-xs mt-2 bg-red-500/10 p-2 rounded">{error}</p>
-                                    )}
                                 </motion.div>
                             )}
 
