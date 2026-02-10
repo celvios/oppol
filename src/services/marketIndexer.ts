@@ -132,12 +132,42 @@ export async function syncAllMarkets(): Promise<void> {
                     //// Reduced from 500k to prevent timeout loops during initialization
                     isFirstRun = true;
                     fetchFromBlock = Math.max(0, currentBlock - 50000);
-                    volume = BigInt(0);
-                    console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
+
+                    // Read existing volume from database instead of resetting to 0
+                    try {
+                        const existingMarket = await query(
+                            'SELECT volume FROM markets WHERE market_id = $1',
+                            [marketId]
+                        );
+                        if (existingMarket.rows.length > 0 && existingMarket.rows[0].volume) {
+                            volume = ethers.parseUnits(existingMarket.rows[0].volume, 18);
+                            console.log(`[Indexer] 🔍 Market ${marketId}: Found existing volume $${existingMarket.rows[0].volume}, scanning ${currentBlock - fetchFromBlock} blocks for new trades...`);
+                        } else {
+                            volume = BigInt(0);
+                            console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
+                        }
+                    } catch (e) {
+                        volume = BigInt(0);
+                        console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
+                    }
                 } else {
                     // Incremental update
                     fetchFromBlock = state.lastBlock + 1;
-                    volume = state.volume;
+
+                    // Always re-fetch volume from DB to respect manual updates/backfills
+                    try {
+                        const existingMarket = await query(
+                            'SELECT volume FROM markets WHERE market_id = $1',
+                            [marketId]
+                        );
+                        if (existingMarket.rows.length > 0 && existingMarket.rows[0].volume) {
+                            volume = ethers.parseUnits(existingMarket.rows[0].volume, 18);
+                        } else {
+                            volume = state.volume;
+                        }
+                    } catch (e) {
+                        volume = state.volume;
+                    }
                 }
 
                 // Only query if new blocks exist
