@@ -102,7 +102,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             setIsShareModalOpen(false);
         }
     };
-    const [amount, setAmount] = useState('100');
+    const [amount, setAmount] = useState('1');
     const [isTradeLoading, setIsTradeLoading] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
