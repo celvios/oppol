@@ -182,7 +182,7 @@ export async function syncAllMarkets(): Promise<void> {
 
                 // Insert or update market
                 await query(
-                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity, outcome_count, volume, last_indexed_at, category)
+                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, volume, last_indexed_at, category)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized')
                      ON CONFLICT (market_id) DO UPDATE 
                      SET question = EXCLUDED.question,
@@ -193,7 +193,7 @@ export async function syncAllMarkets(): Promise<void> {
                          resolved = EXCLUDED.resolved,
                          winning_outcome = EXCLUDED.winning_outcome,
                          end_time = EXCLUDED.end_time,
-                         liquidity = EXCLUDED.liquidity, 
+                         liquidity_param = EXCLUDED.liquidity_param, 
                          outcome_count = EXCLUDED.outcome_count,
                          volume = EXCLUDED.volume,
                          last_indexed_at = NOW()`,

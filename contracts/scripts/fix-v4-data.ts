@@ -42,8 +42,9 @@ async function main() {
                 await tx.wait();
                 console.log("✅ Market Fixed!");
             }
-        } catch (e) {
-            console.log(`Error processing market ${i}:`, e.message);
+        } catch (e: any) {
+            console.error(`❌ Error processing market ${i}:`, e.message);
+            console.error(`Stack:`, e.stack);
         }
     }
 }
