@@ -146,7 +146,8 @@ export async function syncAllMarkets(): Promise<void> {
                             volume = BigInt(0);
                             console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
                         }
-                    } catch (e) {
+                    } catch (e: any) {
+                        console.error(`[Indexer] ❌ Market ${marketId} init error:`, e.message);
                         volume = BigInt(0);
                         console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
                     }
