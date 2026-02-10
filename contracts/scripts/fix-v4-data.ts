@@ -25,8 +25,9 @@ async function main() {
             const outcomeCount = Number(info[3]);
             const currentLiquidity = BigInt(info[5]);
 
-            // Expected: outcomeCount * 100 * 1e6
-            const expectedLiquidity = BigInt(outcomeCount) * 100n * 1000000n;
+            // Calculate expected liquidity (outcomeCount * 100 * 1e18) for correct scaling
+            // Assuming collateral token has 18 decimals standard
+            const expectedLiquidity = BigInt(outcomeCount * 100) * BigInt(1e18);
 
             console.log(`Outcomes: ${outcomeCount}`);
             console.log(`Current Liquidity: ${currentLiquidity}`);
