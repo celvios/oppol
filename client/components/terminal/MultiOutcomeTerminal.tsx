@@ -321,7 +321,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     marketId: market.id,
                     outcome: market.outcomes[selectedOutcome],
                     outcomeIndex: selectedOutcome,
-                    shares: data.transaction?.shares || 0,
+                    shares: parseFloat(data.transaction?.shares || '0'),
                     cost: data.transaction?.cost || amount,
                     question: market.question,
                     newPrice: data.transaction?.newPrice || market.prices[selectedOutcome],

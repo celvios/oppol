@@ -760,15 +760,13 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
 
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            const response = await fetch(`${apiUrl}/api/bet`, {
+            const response = await fetch(`${apiUrl}/api/multi-bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: address,
                     marketId: market.id,
-                    side,
-                    outcomeIndex,
-                    shares: estShares,
+                    outcomeIndex: outcomeIndex, // Using simple outcomeIndex
                     amount: parseFloat(amount)
                 })
             });
@@ -777,13 +775,14 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                 setSuccessData({
                     marketId: market.id,
                     side,
-                    shares: data.transaction?.shares || estShares,
+                    shares: parseFloat(data.transaction?.shares || '0'), // Parse string shares
                     cost: amount,
                     question: market.question,
                     newPrice: data.transaction?.newPrice || currentPrice,
                     hash: data.transaction?.hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
+                onTradeSuccess?.(); // Trigger refresh
             } else {
                 setError(data.error || 'Trade failed');
             }
