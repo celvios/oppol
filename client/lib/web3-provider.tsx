@@ -25,7 +25,6 @@ const config = createConfig({
         [bscTestnet.id]: http(),
     },
     connectors: [
-        injected(), // Enable detection of all injected wallet extensions
         coinbaseWallet({ appName: 'OPoll' }),
         walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c0fec440183577d33d93427181005a74' }),
     ],
@@ -56,14 +55,13 @@ export function Web3Provider({ children }: Web3ProviderProps) {
                     walletList: [
                         'metamask',
                         'coinbase_wallet',
-                        'wallet_connect',
-                        'wallet_connect_qr', // Shows searchable list of 100+ wallets
                         'rainbow',
                         'phantom',
                         'okx_wallet',
                         'rabby_wallet',
                         'zerion',
-                        'uniswap'
+                        'uniswap',
+                        'wallet_connect', // Shows all WalletConnect-compatible wallets
                     ],
                 },
                 // Correct way to set WalletConnect Project ID in Privy
