@@ -409,35 +409,45 @@ app.post('/api/multi-bet', async (req, res) => {
     const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`✅ User balance: $${balanceFormatted}`);
 
-    // Binary search to find max shares for given cost
+    // Binary search to find max shares (in wei) for given cost
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
-    let low = 1;
-    let high = Math.floor(maxCost * 2); // Heuristic start
-    let bestShares = 0;
+    let low = BigInt(1);
+    // Rough estimate: 1 USDC (1e6) ~= 1 Share (1e18) if price is 1.0
+    // So if price is 0.01, 1 USDC ~= 100 Shares
+    // Safety max: maxCost * 1e12 * 100 (assuming min price 1%)
+    // Let's use a safe upper bound: maxCost (USDC units) * 1e12 * 1000
+    const conversionFactor = BigInt(10) ** BigInt(12);
+    let high = BigInt(maxCostInUnits) * conversionFactor * BigInt(100);
 
-    console.log('🔍 [MULTI-BET DEBUG] Starting binary search');
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const sharesInUnits = ethers.parseUnits(mid.toString(), 18); // Shares are 18 decimals
+    let bestShares = BigInt(0);
 
-      const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
+    console.log('🔍 [MULTI-BET DEBUG] Starting binary search (fractional)');
+
+    // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
+    let iterations = 0;
+    while (low <= high && iterations < 100) {
+      const mid = (low + high) / BigInt(2);
+      // mid is already in 18 decimals (wei)
+
+      const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, mid]);
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
-      const cost = iface.decodeFunctionResult('calculateCost', costResult)[0];
+      const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
 
-      if (cost <= maxCostInUnits) {
+      if (cost <= BigInt(maxCostInUnits)) {
         bestShares = mid;
-        low = mid + 1;
+        low = mid + BigInt(1);
       } else {
-        high = mid - 1;
+        high = mid - BigInt(1);
       }
+      iterations++;
     }
 
-    if (bestShares === 0) {
+    if (bestShares === BigInt(0)) {
       return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
     }
 
     // Get final cost
-    const sharesInUnits = ethers.parseUnits(bestShares.toString(), 18); // Shares are 18 decimals
+    const sharesInUnits = bestShares; // Already in units
     const costData = iface.encodeFunctionData('calculateCost', [marketId, outcomeIndex, sharesInUnits]);
     const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
