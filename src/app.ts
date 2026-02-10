@@ -1024,28 +1024,29 @@ app.get('/api/markets', async (req, res) => {
   try {
     console.log('[Markets API] Fetching markets from database (indexed)...');
 
-    // Query all markets from database (already indexed by marketIndexer service)
+    // Query all markets from database
     const result = await query(`
-      SELECT 
-        market_id,
-        question,
-        image as image_url,
-        description,
-        category as category_id,
-        outcome_names,
-        prices,
-        end_time,
-        liquidity_param,
-        outcome_count,
-        resolved,
-        winning_outcome,
-        boost_tier,
-        boost_expires_at,
-        last_indexed_at,
-        created_at
+      SELECT
+    market_id,
+      question,
+      image as image_url,
+      description,
+      category as category_id,
+      outcome_names,
+      prices,
+      end_time,
+      liquidity_param,
+      outcome_count,
+      resolved,
+      winning_outcome,
+      boost_tier,
+      boost_expires_at,
+      last_indexed_at,
+      created_at,
+      volume
       FROM markets
       ORDER BY market_id ASC
-    `);
+      `);
 
     const markets = result.rows.map((row: any) => {
       // Parse outcome names (JSONB or array)
@@ -1095,10 +1096,11 @@ app.get('/api/markets', async (req, res) => {
         boost_expires_at: row.boost_expires_at ? Math.floor(new Date(row.boost_expires_at).getTime() / 1000) : null,
         last_indexed_at: row.last_indexed_at,
         created_at: row.created_at,
+        volume: row.volume || '0',
       };
     });
 
-    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB (0 RPC calls)`);
+    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB(0 RPC calls)`);
 
     return res.json({
       success: true,
@@ -1249,7 +1251,7 @@ app.get('/api/admin/stats', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xA7DEd30e8A292dAA8e75A8d288393f8e290f9717';
 
-    console.log(`[Admin Stats] Using RPC: ${rpcUrl}, Chain: ${chainId}`);
+    console.log(`[Admin Stats] Using RPC: ${rpcUrl}, Chain: ${chainId} `);
 
     const marketABI = [
       'function marketCount() view returns (uint256)',
@@ -1261,9 +1263,9 @@ app.get('/api/admin/stats', async (req, res) => {
     let marketCount = 0;
     try {
       marketCount = Number(await marketContract.marketCount());
-      console.log(`[Admin Stats] marketCount success: ${marketCount}`);
+      console.log(`[Admin Stats]marketCount success: ${marketCount}`);
     } catch (e: any) {
-      console.error(`[Admin Stats] marketCount FAILED: ${e.message}`);
+      console.error(`[Admin Stats]marketCount FAILED: ${e.message}`);
     }
 
     // Count expiring markets (ending in next 48 hours)
@@ -1287,7 +1289,7 @@ app.get('/api/admin/stats', async (req, res) => {
             }
           }
         } catch (e: any) {
-          console.log(`[Admin Stats] Market ${i} info failed: ${e.message?.slice(0, 50)}`);
+          console.log(`[Admin Stats]Market ${i} info failed: ${e.message?.slice(0, 50)}`);
           // Still count it as active if we can't get details
           activeCount++;
         }
@@ -1303,23 +1305,23 @@ app.get('/api/admin/stats', async (req, res) => {
     let liquidityTrend = 'Unknown';
     try {
       const USDC_ADDR = process.env.USDC_CONTRACT || process.env.USDC_ADDRESS || '0x87D45E316f5f1f2faffCb600c97160658B799Ee0';
-      console.log(`[Admin Stats] Fetching USDC balance from ${USDC_ADDR} for market ${MARKET_ADDR}`);
+      console.log(`[Admin Stats]Fetching USDC balance from ${USDC_ADDR} for market ${MARKET_ADDR}`);
       const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
       const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
       const contractBalanceWei = await usdcContract.balanceOf(MARKET_ADDR);
       totalLiquidity = parseFloat(ethers.formatUnits(contractBalanceWei, 6));
       liquidityTrend = totalLiquidity > 0 ? 'Stable' : 'Awaiting deposits';
-      console.log(`[Admin Stats] Total liquidity: $${totalLiquidity}`);
+      console.log(`[Admin Stats] Total liquidity: $${totalLiquidity} `);
     } catch (e: any) {
-      console.error(`[Admin Stats] Liquidity check FAILED: ${e.message}`);
+      console.error(`[Admin Stats] Liquidity check FAILED: ${e.message} `);
       liquidityTrend = 'Error fetching';
     }
 
     return res.json({
       success: true,
       stats: {
-        totalLiquidity: `$${totalLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
-        totalVolume: `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+        totalLiquidity: `$${totalLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2 })} `,
+        totalVolume: `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })} `,
         activeMarkets,
         totalUsers,
         // Trend data
@@ -1347,9 +1349,9 @@ app.post('/api/markets/metadata', async (req, res) => {
     console.log(`[Metadata] Saving metadata for market ${marketId}`);
 
     await query(
-      `INSERT INTO markets (market_id, question, description, image, category, outcome_names)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (market_id) DO UPDATE 
+      `INSERT INTO markets(market_id, question, description, image, category, outcome_names)
+VALUES($1, $2, $3, $4, $5, $6)
+       ON CONFLICT(market_id) DO UPDATE 
        SET question = $2, description = $3, image = $4, category = $5, outcome_names = $6`,
       [marketId, question, description || '', image || '', category || 'General', outcome_names ? JSON.stringify(outcome_names) : null]
     );
@@ -1416,8 +1418,8 @@ app.get('/api/portfolio/:walletAddress', async (req, res) => {
     try {
       // Get user's trades from database
       const tradesResult = await query(
-        `SELECT market_id, side, SUM(shares) as total_shares, 
-                AVG(price_per_share) as avg_price, SUM(total_cost) as total_cost
+        `SELECT market_id, side, SUM(shares) as total_shares,
+  AVG(price_per_share) as avg_price, SUM(total_cost) as total_cost
          FROM trades 
          WHERE LOWER(user_address) = $1 
          GROUP BY market_id, side
@@ -1484,14 +1486,14 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
     // Get weighted average entry price for each market and side
     // Also calculating total volume and accuracy
     const result = await query(
-      `SELECT 
-            t.market_id, 
-            t.side, 
-            SUM(t.total_cost) as total_cost, 
-            SUM(t.shares) as total_shares,
-            SUM(t.total_cost) / NULLIF(SUM(t.shares), 0) as avg_price,
-            m.resolved,
-            m.winning_outcome
+      `SELECT
+t.market_id,
+  t.side,
+  SUM(t.total_cost) as total_cost,
+  SUM(t.shares) as total_shares,
+  SUM(t.total_cost) / NULLIF(SUM(t.shares), 0) as avg_price,
+  m.resolved,
+  m.winning_outcome
          FROM trades t
          LEFT JOIN markets m ON t.market_id = m.market_id
          WHERE LOWER(t.user_address) = LOWER($1) OR LOWER(t.user_address) = 'external_wallet'
@@ -1506,7 +1508,7 @@ app.get('/api/portfolio/:address/stats', async (req, res) => {
 
     result.rows.forEach((row: any) => {
       // Portfolio Stats Key
-      const key = `${row.market_id}-${row.side}`;
+      const key = `${row.market_id} -${row.side} `;
       stats[key] = {
         marketId: row.market_id,
         side: row.side,
@@ -1574,103 +1576,103 @@ app.post('/api/admin/migrate', async (req, res) => {
     }
 
     const migrationQueries = `
-      -- Enable UUID extension
+--Enable UUID extension
       CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-      -- Users Table
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        phone_number VARCHAR(50) UNIQUE NOT NULL,
-        wallet_address VARCHAR(42),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Users Table
+      CREATE TABLE IF NOT EXISTS users(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  phone_number VARCHAR(50) UNIQUE NOT NULL,
+  wallet_address VARCHAR(42),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Wallets Table (for custodial users)
-      CREATE TABLE IF NOT EXISTS wallets (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        public_address VARCHAR(42) NOT NULL,
-        encrypted_private_key TEXT NOT NULL,
-        balance DECIMAL(18, 6) DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Wallets Table(for custodial users)
+      CREATE TABLE IF NOT EXISTS wallets(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  public_address VARCHAR(42) NOT NULL,
+  encrypted_private_key TEXT NOT NULL,
+  balance DECIMAL(18, 6) DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Auth Tokens Table (Magic Links)
-      CREATE TABLE IF NOT EXISTS auth_tokens (
-        token VARCHAR(255) PRIMARY KEY,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        used BOOLEAN DEFAULT FALSE
-      );
+--Auth Tokens Table(Magic Links)
+      CREATE TABLE IF NOT EXISTS auth_tokens(
+  token VARCHAR(255) PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  used BOOLEAN DEFAULT FALSE
+);
 
-      -- User Positions Table (Track bets)
-      CREATE TABLE IF NOT EXISTS positions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        market_id INTEGER NOT NULL,
-        side VARCHAR(3) NOT NULL CHECK (side IN ('YES', 'NO')),
-        shares DECIMAL(18, 6) NOT NULL,
-        cost_basis DECIMAL(18, 6) NOT NULL,
-        tx_hash VARCHAR(66),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--User Positions Table(Track bets)
+      CREATE TABLE IF NOT EXISTS positions(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  market_id INTEGER NOT NULL,
+  side VARCHAR(3) NOT NULL CHECK(side IN('YES', 'NO')),
+  shares DECIMAL(18, 6) NOT NULL,
+  cost_basis DECIMAL(18, 6) NOT NULL,
+  tx_hash VARCHAR(66),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Trades Table (Granular trade history for PnL)
-      CREATE TABLE IF NOT EXISTS trades (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        market_id INTEGER NOT NULL,
-        user_address VARCHAR(42) NOT NULL,
-        side VARCHAR(3) NOT NULL CHECK (side IN ('YES', 'NO')),
-        shares DECIMAL(18, 6) NOT NULL,
-        price_per_share DECIMAL(18, 6) NOT NULL,
-        total_cost DECIMAL(18, 6) NOT NULL,
-        tx_hash VARCHAR(66),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Trades Table(Granular trade history for PnL)
+      CREATE TABLE IF NOT EXISTS trades(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  market_id INTEGER NOT NULL,
+  user_address VARCHAR(42) NOT NULL,
+  side VARCHAR(3) NOT NULL CHECK(side IN('YES', 'NO')),
+  shares DECIMAL(18, 6) NOT NULL,
+  price_per_share DECIMAL(18, 6) NOT NULL,
+  total_cost DECIMAL(18, 6) NOT NULL,
+  tx_hash VARCHAR(66),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Transactions Table (Deposits, Withdrawals, Bets)
-      CREATE TABLE IF NOT EXISTS transactions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        type VARCHAR(20) NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAW', 'BET', 'CLAIM')),
-        amount DECIMAL(18, 6) NOT NULL,
-        tx_hash VARCHAR(66),
-        status VARCHAR(20) DEFAULT 'PENDING',
-        metadata JSONB,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Transactions Table(Deposits, Withdrawals, Bets)
+      CREATE TABLE IF NOT EXISTS transactions(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(20) NOT NULL CHECK(type IN('DEPOSIT', 'WITHDRAW', 'BET', 'CLAIM')),
+  amount DECIMAL(18, 6) NOT NULL,
+  tx_hash VARCHAR(66),
+  status VARCHAR(20) DEFAULT 'PENDING',
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Price History Table (for charts)
-      CREATE TABLE IF NOT EXISTS price_history (
-        id SERIAL PRIMARY KEY,
-        market_id INTEGER NOT NULL,
-        price INTEGER NOT NULL,
-        recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Price History Table(for charts)
+      CREATE TABLE IF NOT EXISTS price_history(
+  id SERIAL PRIMARY KEY,
+  market_id INTEGER NOT NULL,
+  price INTEGER NOT NULL,
+  recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-      -- Comments Table
-      CREATE TABLE IF NOT EXISTS comments (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        market_id INTEGER NOT NULL,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        text TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+--Comments Table
+      CREATE TABLE IF NOT EXISTS comments(
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  market_id INTEGER NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
       CREATE INDEX IF NOT EXISTS idx_comments_market_id ON comments(market_id);
 
-      -- Add columns for Market Indexer
+--Add columns for Market Indexer
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS prices JSONB;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity_param VARCHAR(50);
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS outcome_count INTEGER DEFAULT 2;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
-      -- Add boost columns
+--Add boost columns
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS is_boosted BOOLEAN DEFAULT FALSE;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_expires_at BIGINT DEFAULT 0;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_tier INT DEFAULT 0;
 
-      -- Create indexes for performance
+--Create indexes for performance
       CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
       CREATE INDEX IF NOT EXISTS idx_positions_market_id ON positions(market_id);
       CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
@@ -1678,7 +1680,7 @@ app.post('/api/admin/migrate', async (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_price_history_market_id ON price_history(market_id);
       CREATE INDEX IF NOT EXISTS idx_price_history_recorded_at ON price_history(recorded_at);
 
-    `;
+`;
 
     await query(migrationQueries);
 
@@ -1712,14 +1714,14 @@ app.get('/api/admin/nuke-markets', async (req, res) => {
     console.log('[Admin] Markets nuked successfully.');
 
     res.send(`
-      <h1>✅ Markets Nuked Successfully</h1>
-      <p>The database metadata has been cleared.</p>
-      <p>The Bot and App will now fetch fresh data from the Blockchain.</p>
-      <a href="/">Go Home</a>
-    `);
+  <h1>✅ Markets Nuked Successfully </h1>
+    < p > The database metadata has been cleared.</p>
+      < p > The Bot and App will now fetch fresh data from the Blockchain.</p>
+        < a href = "/" > Go Home </a>
+          `);
   } catch (error: any) {
     console.error('Nuke error:', error);
-    res.status(500).send(`❌ Error: ${error.message}`);
+    res.status(500).send(`❌ Error: ${error.message} `);
   }
 });
 
@@ -1733,7 +1735,7 @@ app.get('/api/admin/db-status', async (req, res) => {
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       ORDER BY table_name;
-    `);
+`);
 
     res.json({
       success: true,

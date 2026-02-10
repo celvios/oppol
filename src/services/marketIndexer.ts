@@ -1,23 +1,14 @@
-/**
- * Market Indexer Service
- * Syncs blockchain market state to PostgreSQL database periodically
- * Reduces RPC calls from O(N * requests) to O(N * interval)
- */
-
 import { ethers } from 'ethers';
-import { getProvider } from '../config/provider';
 import { query } from '../config/database';
-import { CONFIG } from '../config/contracts';
-
-const MARKET_ABI = [
-    'function marketCount() view returns (uint256)',
-    'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
-    'function getMarketOutcomes(uint256) view returns (string[])',
-    'function getAllPrices(uint256) view returns (uint256[])',
-];
+import { CONFIG } from '../config/config';
+import { MARKET_ABI } from '../config/abis';
+import { getProvider } from '../utils/provider';
 
 let isRunning = false;
 let intervalId: NodeJS.Timeout | null = null;
+
+// Helper to format prices
+const formatPrices = (prices: bigint[]) => prices.map((p) => Number(p) / 100);
 
 /**
  * Sync all active markets from blockchain to database using Multicall3
@@ -37,6 +28,11 @@ export async function syncAllMarkets(): Promise<void> {
         // Get total market count from blockchain
         const count = await marketContract.marketCount();
         const marketCount = Number(count);
+
+        if (marketCount === 0) {
+            console.log('[Indexer] No markets found on-chain');
+            return;
+        }
 
         console.log(`[Indexer] Starting sync for ${marketCount} markets...`);
 
@@ -78,7 +74,7 @@ export async function syncAllMarkets(): Promise<void> {
             });
         }
 
-        console.log(`[Indexer] Syncing ${marketCount} markets...`);
+        console.log(`[Indexer] Syncing ${marketIds.length} markets...`);
         console.log(`[Indexer] 📞 Executing Multicall3 with ${calls.length} calls...`);
         const startTime = Date.now();
 
@@ -117,42 +113,80 @@ export async function syncAllMarkets(): Promise<void> {
                     continue;
                 }
 
-                const pricesFormatted = prices.map((p: bigint) => Number(p) / 100);
+                // Format prices (e.g. 5000 -> 50.00)
+                const pricesFormatted = formatPrices(prices);
+
+                // --- Volume Calculation ---
+                let volume = '0';
+                try {
+                    // Look back 50k blocks (~40 hours on BSC)
+                    const currentBlock = await provider.getBlockNumber();
+                    const fromBlock = Math.max(0, currentBlock - 50000);
+
+                    // We need to query events for this specific market
+                    const logs = await marketContract.queryFilter(
+                        marketContract.filters.SharesPurchased(marketId),
+                        fromBlock,
+                        'latest'
+                    );
+
+                    let totalVol = BigInt(0);
+                    logs.forEach((log: any) => {
+                        // event SharesPurchased(..., cost) -> cost is index 4
+                        const cost = log.args[4];
+                        totalVol += cost;
+                    });
+
+                    // Convert 18 decimals (cost) to standard unit string
+                    // Assuming cost is stored as 1e18 on chain, matching formatUnits(18) usage elsewhere
+                    volume = ethers.formatUnits(totalVol, 18);
+
+                } catch (e: any) {
+                    console.error(`[Indexer] Failed to calc volume for market ${marketId}: ${e.message}`);
+                }
 
                 // Insert or update market
+                // Note: 'volume' and 'liquidity' are now in the INSERT/UPDATE
                 await query(
-                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, last_indexed_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity, outcome_count, volume, last_indexed_at, category)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized')
                      ON CONFLICT (market_id) DO UPDATE 
-                     SET prices = $6,
-                         resolved = $7,
-                         winning_outcome = $8,
-                         end_time = $9,
-                         liquidity_param = $10,
-                         outcome_count = $11,
+                     SET question = EXCLUDED.question,
+                         description = EXCLUDED.description,
+                         image = EXCLUDED.image,
+                         outcome_names = EXCLUDED.outcome_names,
+                         prices = EXCLUDED.prices,
+                         resolved = EXCLUDED.resolved,
+                         winning_outcome = EXCLUDED.winning_outcome,
+                         end_time = EXCLUDED.end_time,
+                         liquidity = EXCLUDED.liquidity, 
+                         outcome_count = EXCLUDED.outcome_count,
+                         volume = EXCLUDED.volume,
                          last_indexed_at = NOW()`,
                     [
                         marketId,
                         basicInfo.question,
-                        basicInfo.description,
-                        basicInfo.image,
+                        basicInfo.description || "Imported",
+                        basicInfo.image || "",
                         JSON.stringify(outcomes),
                         JSON.stringify(pricesFormatted),
                         basicInfo.resolved,
                         Number(basicInfo.winningOutcome),
                         new Date(Number(basicInfo.endTime) * 1000),
-                        ethers.formatUnits(basicInfo.liquidityParam, 18),
+                        ethers.formatUnits(basicInfo.liquidityParam, 18), // Liquidity is 1e18 scaled
                         Number(basicInfo.outcomeCount),
+                        volume
                     ]
                 );
 
-                console.log(`[Indexer] Synced market ${marketId}`);
+                console.log(`[Indexer] Synced market ${marketId} (Vol: ${volume})`);
             } catch (error: any) {
                 console.error(`[Indexer] Failed to sync market ${marketId}:`, error.message);
             }
         }
 
-        console.log(`[Indexer] ✅ Sync complete - ${marketCount} markets updated`);
+        console.log(`[Indexer] ✅ Sync complete - ${marketIds.length} markets updated`);
+
     } catch (error: any) {
         console.error('[Indexer] Sync failed:', error.message);
     }
@@ -179,21 +213,11 @@ export function startMarketIndexer(intervalMs: number = 30000): void {
     console.log(`[Indexer] ✅ Running`);
 }
 
-/**
- * Stop the market indexer
- */
 export function stopMarketIndexer(): void {
     if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
     }
     isRunning = false;
-    console.log('[Indexer] ⏹️ Stopped');
-}
-
-/**
- * Check if indexer is running
- */
-export function isIndexerRunning(): boolean {
-    return isRunning;
+    console.log('[Indexer] Stopped');
 }
