@@ -279,7 +279,8 @@ app.post('/api/bet', async (req, res) => {
     const costResult = await rawCall(MARKET_ADDR, costData);
     const actualCost = iface.decodeFunctionResult('calculateCost', costResult)[0];
     const costFormatted = ethers.formatUnits(actualCost, 6);
-    console.log(`✅ Cost: $${costFormatted} for ${bestShares} shares`);
+    const sharesFormatted = ethers.formatUnits(bestShares, 18);
+    console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares`);
 
     if (userBalance < actualCost) {
       return res.status(400).json({
@@ -322,7 +323,7 @@ app.post('/api/bet', async (req, res) => {
       success: true,
       transaction: {
         hash: receipt.hash,
-        shares: bestShares,
+        shares: ethers.formatUnits(bestShares, 18), // Format from wei to decimal
         cost: costFormatted,
         newPrice
       }
