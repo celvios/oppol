@@ -73,19 +73,40 @@ export default function ConnectWalletModal({
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
-    // Auto-connect for MetaMask mobile browser
+    // Auto-connect for mobile wallet browsers
     useEffect(() => {
-        const isMetaMaskMobile = typeof window !== 'undefined' &&
-            window.ethereum?.isMetaMask &&
-            /Mobile|Android|iPhone/i.test(navigator.userAgent);
+        const isMobile = typeof window !== 'undefined' && /Mobile|Android|iPhone/i.test(navigator.userAgent);
 
-        if (isOpen && isMetaMaskMobile && !authenticated && !loadingMethod) {
-            console.log('MetaMask mobile browser detected, auto-connecting...');
-            handleWalletConnect('metamask').catch(err => {
+        if (!isOpen || !isMobile || authenticated || loadingMethod) return;
+
+        // Detect which wallet browser is being used
+        let walletType: string | null = null;
+
+        if (window.ethereum?.isMetaMask) {
+            walletType = 'metamask';
+        } else if (window.ethereum?.isCoinbaseWallet) {
+            walletType = 'coinbase';
+        } else if ((window as any).trustwallet) {
+            walletType = 'trust';
+        } else if ((window as any).okxwallet) {
+            walletType = 'okx';
+        } else if ((window as any).phantom?.ethereum) {
+            walletType = 'phantom';
+        } else if ((window as any).rabby) {
+            walletType = 'rabby';
+        } else if (window.ethereum) {
+            // Generic injected wallet
+            walletType = 'metamask'; // Default fallback
+        }
+
+        if (walletType) {
+            console.log(`Mobile wallet browser detected: ${walletType}, auto-connecting...`);
+            handleWalletConnect(walletType).catch(err => {
                 console.error('Auto-connect failed:', err);
             });
         }
     }, [isOpen, authenticated, loadingMethod]);
+
 
 
     // Handlers
