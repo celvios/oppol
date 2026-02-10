@@ -579,4 +579,23 @@ router.post('/backfill-volume', checkAdminAuth, async (req, res) => {
     }
 });
 
+// Check volume in database
+router.get('/check-volume/:marketId', checkAdminAuth, async (req, res) => {
+    try {
+        const marketId = parseInt(req.params.marketId);
+        const result = await query(
+            'SELECT market_id, liquidity_param, volume FROM markets WHERE market_id = $1',
+            [marketId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: false, error: 'Market not found' });
+        }
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
