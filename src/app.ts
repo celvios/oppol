@@ -501,8 +501,8 @@ app.post('/api/multi-bet', async (req, res) => {
     const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
     const rawActualCost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
 
-    // CRITICAL FIX: Contract returns cost in base units, multiply by 1e6 to get USDC units
-    const actualCost = rawActualCost * BigInt(1e6);
+    // CRITICAL FIX: Contract scales by 1e12 internally, so divide by 1e12 to get USDC units
+    const actualCost = rawActualCost / BigInt(1e12);
     const costFormatted = ethers.formatUnits(actualCost, 6);
     const sharesFormatted = ethers.formatUnits(bestShares, 18);
     console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares (rawCost: ${rawActualCost.toString()})`);
