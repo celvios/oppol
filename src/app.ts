@@ -1967,22 +1967,7 @@ initDatabase().then(async () => {
   // Start price tracker for chart history (every 5 minutes)
   if (process.env.DATABASE_URL) {
     startPriceTracker(5 * 60 * 1000);
-  } else {
-    console.log('ℹ️ Price tracker disabled (no DATABASE_URL configured)');
-  }
-
-  // Start Market Indexer (Syncs blockchain state to DB every 2 minutes for efficient API responses)
-  if (process.env.DATABASE_URL) {
-    const { startMarketIndexer } = await import('./services/marketIndexer');
-    console.log('🔄 Starting market indexer (2min interval)...');
-    startMarketIndexer(120000); // Sync every 2 minutes
-  } else {
-    console.log('ℹ️ Market indexer disabled (no DATABASE_URL configured)');
-  }
-
-
-}).catch(err => {
-  console.error("⚠️ Database Initialization Failed:", err.message);
-  console.log("⚠️ STARTING IN OFFLINE MODE: Database features will check for connectivity or return mock data.");
-  // Do not exit, allow server to run for API endpoints that don't need DB or have fallbacks
-});
+    console.error("⚠️ Database Initialization Failed:", err.message);
+    console.log("⚠️ STARTING IN OFFLINE MODE: Database features will check for connectivity or return mock data.");
+    // Do not exit, allow server to run for API endpoints that don't need DB or have fallbacks
+  });
