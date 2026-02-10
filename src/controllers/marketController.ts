@@ -113,6 +113,8 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         });
 
         console.log(`📞 Executing Multicall3 with ${calls.length} calls (${result.rows.length} markets)`);
+        console.log(`📄 Using contract address: ${MARKET_ADDRESS}`);
+        console.log(`📡 Using RPC: ${CONFIG.RPC_URL}`);
         const startTime = Date.now();
 
         // Execute single multicall batch
@@ -141,6 +143,7 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 const prices = pricesResponse.success
                     ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => {
                         const basisPoints = Number(p);
+                        console.log(`[Market ${row.market_id}] Raw price from contract: ${p.toString()} (${basisPoints} basis points)`);
                         // If prices are suspiciously low (< 1), contract might be returning bad data
                         if (basisPoints < 1 && basisPoints > 0) {
                             console.warn(`[Market ${row.market_id}] Suspiciously low price detected: ${basisPoints}`);
