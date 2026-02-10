@@ -73,6 +73,21 @@ export default function ConnectWalletModal({
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
+    // Auto-connect for MetaMask mobile browser
+    useEffect(() => {
+        const isMetaMaskMobile = typeof window !== 'undefined' &&
+            window.ethereum?.isMetaMask &&
+            /Mobile|Android|iPhone/i.test(navigator.userAgent);
+
+        if (isOpen && isMetaMaskMobile && !authenticated && !loadingMethod) {
+            console.log('MetaMask mobile browser detected, auto-connecting...');
+            handleWalletConnect('metamask').catch(err => {
+                console.error('Auto-connect failed:', err);
+            });
+        }
+    }, [isOpen, authenticated, loadingMethod]);
+
+
     // Handlers
     const handleGoogleLogin = async () => {
         try {
