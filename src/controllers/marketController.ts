@@ -16,7 +16,7 @@ const marketCache: { all?: CacheEntry; single: Map<string, CacheEntry> } = {
     single: new Map()
 };
 
-const CACHE_TTL_MS = 300000; // 5 minutes cache TTL
+const CACHE_TTL_MS = 10000; // 10 seconds cache TTL (reduced from 5 minutes for debugging)
 
 function isCacheValid(entry: CacheEntry | undefined): boolean {
     if (!entry) return false;
@@ -71,13 +71,14 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
         const marketAbi = [
             'function getMarketOutcomes(uint256) view returns (string[])',
             'function getAllPrices(uint256) view returns (uint256[])',
-            'function getMarketBasicInfo(uint256) view returns (string, string, string, uint256, uint256, uint256, bool, uint256)'
+            'function getMarketBasicInfo(uint256) view returns (string, string, string, uint256, uint256, uint256, bool, uint256)',
+            'function getMarketShares(uint256) view returns (uint256[])'
         ];
 
         const marketInterface = new ethers.Interface(marketAbi);
         const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
 
-        // Build multicall batch: 3 calls per market (outcomes, prices, basicInfo)
+        // Build multicall batch: 4 calls per market (outcomes, prices, basicInfo, shares)
         const calls: any[] = [];
         result.rows.forEach((row) => {
             const marketId = row.market_id;
@@ -102,9 +103,18 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 allowFailure: true,
                 callData: marketInterface.encodeFunctionData('getMarketBasicInfo', [marketId])
             });
+
+            // Call 4: getMarketShares
+            calls.push({
+                target: MARKET_ADDRESS,
+                allowFailure: true,
+                callData: marketInterface.encodeFunctionData('getMarketShares', [marketId])
+            });
         });
 
         console.log(`📞 Executing Multicall3 with ${calls.length} calls (${result.rows.length} markets)`);
+        console.log(`📄 Using contract address: ${MARKET_ADDRESS}`);
+        console.log(`📡 Using RPC: ${CONFIG.RPC_URL}`);
         const startTime = Date.now();
 
         // Execute single multicall batch
@@ -114,11 +124,12 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
 
         // Decode responses and map to markets
         const markets = result.rows.map((row, index) => {
-            const baseIndex = index * 3; // Each market has 3 calls
+            const baseIndex = index * 4; // Each market has 4 calls
 
             const outcomesResponse = responses[baseIndex];
             const pricesResponse = responses[baseIndex + 1];
             const basicInfoResponse = responses[baseIndex + 2];
+            const sharesResponse = responses[baseIndex + 3];
 
             let onChainData: any = {};
 
@@ -128,9 +139,20 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     ? marketInterface.decodeFunctionResult('getMarketOutcomes', outcomesResponse.returnData)[0]
                     : ['Yes', 'No'];
 
-                // Decode prices
+                // Decode prices - Contract returns basis points (10000 = 100%)
                 const prices = pricesResponse.success
-                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => Number(p) / 100)
+                    ? marketInterface.decodeFunctionResult('getAllPrices', pricesResponse.returnData)[0].map((p: bigint) => {
+                        const basisPoints = Number(p);
+                        console.log(`[Market ${row.market_id}] Raw price from contract: ${p.toString()} (${basisPoints} basis points)`);
+                        // If prices are suspiciously low (< 1), contract might be returning bad data
+                        if (basisPoints < 1 && basisPoints > 0) {
+                            console.warn(`[Market ${row.market_id}] Suspiciously low price detected: ${basisPoints}`);
+                            // Return equal distribution as fallback
+                            return null;
+                        }
+                        // Convert from basis points to percentage (0-100)
+                        return basisPoints / 100;
+                    })
                     : (() => {
                         // Dynamic fallback
                         const count = outcomes.length; // outcomes derived above
@@ -138,23 +160,40 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                         return Array(count).fill(equalShare);
                     })();
 
+                // Check if any prices are null (bad data) and use fallback
+                const hasBadData = prices.some((p: number | null) => p === null);
+                const finalPrices = hasBadData ? Array(outcomes.length).fill(100 / outcomes.length) : prices;
+
                 // Decode basic info
                 const basicInfo = basicInfoResponse.success
                     ? marketInterface.decodeFunctionResult('getMarketBasicInfo', basicInfoResponse.returnData)
                     : [null, null, null, 2, Math.floor(Date.now() / 1000) + 86400, '0', false, 0];
 
+                // Decode shares
+                const shares = sharesResponse.success
+                    ? marketInterface.decodeFunctionResult('getMarketShares', sharesResponse.returnData)[0]
+                    : [];
+
+                // Calculate total volume from shares (shares are in 6 decimals for USDC)
+                let totalVolume = '0';
+                if (shares.length > 0) {
+                    const volumeSum = shares.reduce((sum: bigint, share: bigint) => sum + share, BigInt(0));
+                    totalVolume = (Number(volumeSum) / 1e6).toFixed(2); // Convert from 6 decimals to readable
+                }
+
                 onChainData = {
                     outcomes: outcomes,
-                    prices: prices,
+                    prices: finalPrices,
                     outcomeCount: Number(basicInfo[3]),
                     endTime: Number(basicInfo[4]),
                     liquidityParam: basicInfo[5].toString(),
                     resolved: basicInfo[6],
-                    winningOutcome: Number(basicInfo[7])
+                    winningOutcome: Number(basicInfo[7]),
+                    totalVolume: totalVolume
                 };
 
-                if (!outcomesResponse.success || !pricesResponse.success || !basicInfoResponse.success) {
-                    console.warn(`[Market ${row.market_id}] Some multicall responses failed (outcomes: ${outcomesResponse.success}, prices: ${pricesResponse.success}, basicInfo: ${basicInfoResponse.success})`);
+                if (!outcomesResponse.success || !pricesResponse.success || !basicInfoResponse.success || !sharesResponse.success) {
+                    console.warn(`[Market ${row.market_id}] Some multicall responses failed (outcomes: ${outcomesResponse.success}, prices: ${pricesResponse.success}, basicInfo: ${basicInfoResponse.success}, shares: ${sharesResponse.success})`);
                 }
             } catch (err: any) {
                 console.error(`[Market ${row.market_id}] Failed to decode multicall response:`, err.message);
@@ -165,7 +204,8 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                     endTime: Math.floor(Date.now() / 1000) + 86400,
                     liquidityParam: '0',
                     resolved: false,
-                    winningOutcome: 0
+                    winningOutcome: 0,
+                    totalVolume: '0'
                 };
             }
 
@@ -229,7 +269,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
             const abi = [
                 'function getPrice(uint256) view returns (uint256)',
-                'function markets(uint256) view returns (string, uint256, uint256, uint256, uint256, bool, bool, uint256)'
+                'function markets(uint256) view returns (string, uint256, uint256, uint256, uint256, bool, bool, uint256)',
+                'function getMarketShares(uint256) view returns (uint256[])'
             ];
             const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
 
@@ -257,6 +298,15 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 prices = Array(count).fill(BigInt(equalShare));
             }
 
+            let shares: bigint[] = [];
+            try {
+                shares = await contract.getMarketShares(marketId);
+                console.log(`[Market ${marketId}] Shares success:`, shares.map((s: bigint) => s.toString()));
+            } catch (e) {
+                console.error(`[Market ${marketId}] getMarketShares failed:`, e);
+                shares = Array(outcomes.length).fill(BigInt(0));
+            }
+
             try {
                 basicInfo = await contract.getMarketBasicInfo(marketId);
                 console.log(`[Market ${marketId}] BasicInfo success:`, basicInfo);
@@ -267,7 +317,12 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
             console.log(`[Market ${marketId}] Raw outcomes:`, outcomes);
             console.log(`[Market ${marketId}] Raw prices:`, prices.map((p: bigint) => p.toString()));
+            console.log(`[Market ${marketId}] Raw shares:`, shares.map((s: bigint) => s.toString()));
             console.log(`[Market ${marketId}] Basic info:`, basicInfo);
+
+            // Calculate total volume from shares
+            const volumeSum = shares.reduce((sum: bigint, share: bigint) => sum + share, BigInt(0));
+            const totalVolume = (Number(volumeSum) / 1e6).toFixed(2); // Convert from 6 decimals
 
             onChainData = {
                 outcomes: outcomes,
@@ -276,7 +331,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 endTime: Number(basicInfo[4]),
                 liquidityParam: basicInfo[5].toString(),
                 resolved: basicInfo[6],
-                winningOutcome: Number(basicInfo[7])
+                winningOutcome: Number(basicInfo[7]),
+                totalVolume: totalVolume
             };
 
             console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
@@ -293,7 +349,8 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
                 endTime: Math.floor(Date.now() / 1000) + 86400, // +24h
                 liquidityParam: '0',
                 resolved: false,
-                winningOutcome: 0
+                winningOutcome: 0,
+                totalVolume: '0'
             };
         }
 
