@@ -15,7 +15,8 @@ const authOptions: AuthOptions = {
 
             // Sync with Backend
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`, {
+                // Modified to use /api/users/sync-google to avoid NextAuth route conflict
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/sync-google`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

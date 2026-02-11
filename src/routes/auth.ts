@@ -18,11 +18,11 @@ router.post('/magic-link', generateMagicLink);
 router.post('/verify', verifyMagicToken);
 
 /**
- * @route POST /api/auth/google
- * @desc Login or Register with Google
+ * @route POST /api/users/sync-google
+ * @desc Login or Register with Google (Synced from Frontend)
  * @access Public
  */
 import { loginWithGoogle } from '../controllers/authController';
-router.post('/google', loginWithGoogle);
+router.post('/sync-google', loginWithGoogle);
 
 export default router;
