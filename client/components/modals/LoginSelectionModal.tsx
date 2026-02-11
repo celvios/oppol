@@ -5,7 +5,7 @@ import { X, Wallet, Mail } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { useAppKit } from "@reown/appkit/react";
-import { signIn } from "next-auth/react";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface LoginSelectionModalProps {
     isOpen: boolean;
@@ -14,6 +14,7 @@ interface LoginSelectionModalProps {
 
 export default function LoginSelectionModal({ isOpen, onClose }: LoginSelectionModalProps) {
     const { open } = useAppKit();
+    const { login } = usePrivy();
 
     const handleWalletLogin = async () => {
         onClose();
@@ -21,8 +22,8 @@ export default function LoginSelectionModal({ isOpen, onClose }: LoginSelectionM
     };
 
     const handleGoogleLogin = async () => {
-        // onClose(); // Optional: close before or after? usually redirects immediately.
-        await signIn('google');
+        // Privy handles the entire OAuth flow
+        login();
     };
 
     return (

@@ -202,6 +202,9 @@ export const initDatabase = async () => {
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(36, 18) DEFAULT 0;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(18, 6) DEFAULT 0;
 
+      -- Add Privy User ID
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS privy_user_id VARCHAR(255) UNIQUE;
+
       -- Create Comment Likes Table
       CREATE TABLE IF NOT EXISTS comment_likes (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

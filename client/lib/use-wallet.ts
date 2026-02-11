@@ -1,32 +1,14 @@
-import { useSession, signOut } from "next-auth/react";
-import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
+import { useAuth } from "@/hooks/useAuth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useUIStore } from "@/lib/store";
 
 export function useWallet() {
-  const { data: session, status: sessionStatus } = useSession();
-  const { address: reownAddress, isConnected: isReownConnected, status: reownStatus } = useAppKitAccount();
+  const { isAuthenticated, user: authUser, walletAddress, loginMethod } = useAuth();
+  const { logout } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
 
   const setLoginModalOpen = useUIStore((state) => state.setLoginModalOpen);
-
-  // Combine Connection States
-  const isConnected = !!session?.user || isReownConnected;
-  const address = session?.user?.address || reownAddress || null;
-  const isConnecting = sessionStatus === "loading" || reownStatus === "connecting" || reownStatus === "reconnecting";
-
-  // Determine User Object
-  const user = session?.user ? {
-    name: session.user.name,
-    email: session.user.email,
-    image: session.user.image,
-    address: session.user.address
-  } : (isReownConnected && reownAddress ? {
-    name: null,
-    email: null,
-    image: null,
-    address: reownAddress
-  } : null);
 
   const handleConnect = async () => {
     // Open the selection modal
@@ -34,18 +16,25 @@ export function useWallet() {
   };
 
   const handleDisconnect = async () => {
-    if (session?.user) {
-      await signOut();
-    }
-    if (isReownConnected) {
+    if (loginMethod === 'privy') {
+      await logout();
+    } else {
       wagmiDisconnect();
     }
   };
 
+  // Map to the shape expected by components
+  const user = isAuthenticated ? {
+    name: authUser?.google?.name || authUser?.email?.address || 'User',
+    email: authUser?.email?.address || null,
+    image: authUser?.google?.picture || null,
+    address: walletAddress
+  } : null;
+
   return {
-    isConnected,
-    address,
-    isConnecting,
+    isConnected: isAuthenticated,
+    address: walletAddress || null,
+    isConnecting: false, // Privy handles loading state internally mostly
     connect: handleConnect, // Opens Global Modal
     disconnect: handleDisconnect,
     user,

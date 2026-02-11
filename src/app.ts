@@ -1022,6 +1022,11 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
 // GET MARKETS ENDPOINT
 app.get('/api/markets', async (req, res) => {
   try {
+    // CRITICAL: Prevent caching - data must be fresh from blockchain
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     console.log('[Markets API] Fetching markets from database (indexed)...');
 
     // Query all markets from database
@@ -1100,7 +1105,7 @@ app.get('/api/markets', async (req, res) => {
       };
     });
 
-    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB(0 RPC calls)`);
+    console.log(`[Markets API] ✅ Returned ${markets.length} markets from DB (0 RPC calls)`);
 
     return res.json({
       success: true,
@@ -1962,12 +1967,18 @@ initDatabase().then(async () => {
   }
 
   // Start Market Indexer (Syncs blockchain state to DB every 30 seconds for efficient API responses)
+  // Start Market Indexer (Syncs blockchain state to DB every 30 seconds for efficient API responses)
   if (process.env.DATABASE_URL) {
-    const { startMarketIndexer } = await import('./services/marketIndexer');
-    console.log('🔄 Starting market indexer (30s interval)...');
-    startMarketIndexer(30000); // Sync every 30 seconds
+    console.log('[Startup] 🔄 initializing market indexer...');
+    try {
+      const { startMarketIndexer } = await import('./services/marketIndexer');
+      console.log('[Startup] ✅ Starting market indexer with 30s interval');
+      startMarketIndexer(30000); // Sync every 30 seconds
+    } catch (e: any) {
+      console.error('[Startup] ❌ Failed to start market indexer:', e.message);
+    }
   } else {
-    console.log('ℹ️ Market indexer disabled (no DATABASE_URL configured)');
+    console.warn('[Startup] ⚠️ Market indexer disabled: DATABASE_URL not set');
   }
 
 }).catch(err => {

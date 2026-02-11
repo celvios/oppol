@@ -13,6 +13,8 @@
     "@coinbase/wallet-sdk": "^4.3.7",
     "@metamask/sdk": "^0.33.1",
     "@okxconnect/universal-provider": "^1.9.1",
+    "@privy-io/react-auth": "^1.99.1",
+    "@privy-io/wagmi": "^0.2.13",
     "@react-three/drei": "^9.108.0",
     "@react-three/fiber": "^8.16.8",
     "@reown/appkit": "^1.8.17",

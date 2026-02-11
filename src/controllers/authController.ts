@@ -101,80 +101,102 @@ export const registerUser = async (req: Request, res: Response) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
-// Step 4: Login with Google
-export const loginWithGoogle = async (req: Request, res: Response) => {
+// Step 4: Login with Google/Email via Privy
+export const authenticatePrivyUser = async (req: Request, res: Response) => {
     try {
-        const { email, googleId, name, avatar } = req.body;
+        const { privyUserId, email, walletAddress } = req.body;
 
-        if (!email || !googleId) {
-            return res.status(400).json({ success: false, error: 'Email and Google ID required' });
+        if (!privyUserId || !walletAddress) {
+            return res.status(400).json({ success: false, error: 'Privy User ID and Wallet Address required' });
         }
 
-        console.log(`[Auth] Google Login: ${email}`);
+        console.log(`[Auth] Privy Auth: ${privyUserId} (${email || 'No Email'})`);
 
-        // Check if user exists by Google ID or Email
-        const existingUser = await query(
-            'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-            [googleId, email]
-        );
+        // Check if user exists by Privy ID OR Wallet Address OR Email (if provided)
+        let queryText = 'SELECT * FROM users WHERE privy_user_id = $1 OR lowered_wallet_address = $2';
+        const queryParams: any[] = [privyUserId, walletAddress.toLowerCase()];
+
+        if (email) {
+            queryText += ' OR email = $3';
+            queryParams.push(email);
+        }
+
+        // We need a way to check lowered_wallet_address efficiently. 
+        // Assuming wallet_address is stored mixed case, we might need to adjust query or ensure storage is consistent.
+        // For now, let's just check wallet_address directly if we enforce lowercase storage, OR usage LOWER()
+        // Updated query to use LOWER() on stored address
+        queryText = 'SELECT * FROM users WHERE privy_user_id = $1 OR LOWER(wallet_address) = $2';
+        // Reset params
+        const params: any[] = [privyUserId, walletAddress.toLowerCase()];
+        if (email) {
+            queryText += ' OR email = $3';
+            params.push(email);
+        }
+
+        const existingUser = await query(queryText, params);
 
         if (existingUser.rows.length > 0) {
             const user = existingUser.rows[0];
 
-            // Update Google ID if missing (for legacy email match)
-            if (!user.google_id) {
-                await query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
+            // Update Privy ID if missing (linking existing account)
+            let updates = [];
+            let updateParams = [];
+            let paramCounter = 1;
+
+            if (!user.privy_user_id) {
+                updates.push(`privy_user_id = $${paramCounter++}`);
+                updateParams.push(privyUserId);
             }
 
-            // Get Wallet
-            const wallet = await query('SELECT public_address FROM wallets WHERE user_id = $1', [user.id]);
-            const walletAddress = wallet.rows[0]?.public_address;
+            // Update email if missing and provided
+            if (!user.email && email) {
+                updates.push(`email = $${paramCounter++}`);
+                updateParams.push(email);
+            }
+
+            if (updates.length > 0) {
+                updateParams.push(user.id);
+                await query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCounter}`, updateParams);
+            }
 
             return res.json({
                 success: true,
-                user: { ...user, wallet_address: walletAddress },
+                user: { ...user },
                 isNew: false
             });
         }
 
-        // New User -> Create Custodial Wallet
-        console.log(`[Auth] Creating new user for ${email}`);
+        // New User
+        console.log(`[Auth] Creating new Privy user`);
 
-        // 1. Create Wallet
-        const { address, privateKey } = createRandomWallet();
-        const encryptedKey = EncryptionService.encrypt(privateKey);
-
-        // 2. Create User
         // Generate unique display name
-        let displayName = name || email.split('@')[0];
-        // Ensure uniqueness (simple append)
+        let displayName = email ? email.split('@')[0] : `User ${walletAddress.slice(0, 6)}`;
+
+        // Ensure uniqueness
         const nameCheck = await query('SELECT id FROM users WHERE display_name = $1', [displayName]);
         if (nameCheck.rows.length > 0) {
             displayName = `${displayName}${Math.floor(Math.random() * 1000)}`;
         }
 
+        const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${walletAddress}`;
+
+        // Create User
         const newUser = await query(
-            'INSERT INTO users (email, google_id, display_name, avatar_url, wallet_address) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [email, googleId, displayName, avatar || '', address]
-        );
-        const userId = newUser.rows[0].id;
-
-        // 3. Save Custodial Wallet
-        await query(
-            'INSERT INTO wallets (user_id, public_address, encrypted_private_key) VALUES ($1, $2, $3)',
-            [userId, address, encryptedKey]
+            'INSERT INTO users (privy_user_id, email, wallet_address, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [privyUserId, email || null, walletAddress, displayName, avatarUrl]
         );
 
-        console.log(`[Auth] Created user ${userId} with wallet ${address}`);
+        console.log(`[Auth] Created user ${newUser.rows[0].id}`);
 
         return res.json({
             success: true,
-            user: { ...newUser.rows[0], wallet_address: address },
+            user: newUser.rows[0],
             isNew: true
         });
 
     } catch (error: any) {
-        console.error('Google login error:', error);
+        console.error('Privy auth error:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+

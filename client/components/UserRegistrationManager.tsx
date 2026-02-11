@@ -1,19 +1,53 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useWallet } from '@/lib/use-wallet';
+import { useAuth } from '@/hooks/useAuth';
 import RegistrationModal from './ui/RegistrationModal';
 
 export default function UserRegistrationManager() {
-    const { address, isConnected } = useWallet();
+    const { isConnected, walletAddress, user, loginMethod } = useAuth();
     const [showModal, setShowModal] = useState(false);
     const [hasChecked, setHasChecked] = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const hasRegisteredRef = useRef(false);
 
+    // Sync Privy User with Backend
+    useEffect(() => {
+        const syncPrivyUser = async () => {
+            if (loginMethod === 'privy' && user && walletAddress) {
+                try {
+                    console.log('Syncing Privy user with backend...', user);
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/privy`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            privyUserId: user.id,
+                            email: user.email?.address,
+                            walletAddress: walletAddress
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        console.log('Privy user synced successfully:', data.user);
+                        setIsRegistered(true);
+                        localStorage.setItem(`user_registered_${walletAddress.toLowerCase()}`, 'true');
+                    }
+                } catch (error) {
+                    console.error('Failed to sync Privy user:', error);
+                }
+            }
+        };
+
+        if (isConnected && loginMethod === 'privy') {
+            syncPrivyUser();
+        }
+    }, [isConnected, loginMethod, user, walletAddress]);
+
+    // Existing check logic for Reown users ...
     useEffect(() => {
         const checkUserStatus = async () => {
-            if (!isConnected || !address) {
+            if (!isConnected || !walletAddress) {
                 setShowModal(false);
                 return;
             }
@@ -24,13 +58,17 @@ export default function UserRegistrationManager() {
             }
 
             // Check localStorage first to avoid unnecessary API calls
-            const safeAddress = (address || "").toLowerCase();
+            const safeAddress = (walletAddress || "").toLowerCase();
             const storageKey = `user_registered_${safeAddress}`;
             const wasRegistered = localStorage.getItem(storageKey);
+
+            // If already registered via Privy sync, skip check
+            if (isRegistered) return;
+
             if (wasRegistered === 'true') {
                 // Still verify with API to ensure user actually exists
                 try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`);
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${walletAddress}`);
                     const data = await res.json();
                     if (data.success && data.user && data.user.display_name) {
                         setIsRegistered(true);
@@ -49,7 +87,7 @@ export default function UserRegistrationManager() {
             }
 
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${walletAddress}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -69,7 +107,7 @@ export default function UserRegistrationManager() {
             } catch (error) {
                 console.error('Failed to check user status:', error);
                 // On error, check localStorage as fallback
-                const storageKey = `user_registered_${address.toLowerCase()}`;
+                const storageKey = `user_registered_${walletAddress.toLowerCase()}`;
                 const wasRegistered = localStorage.getItem(storageKey);
                 if (wasRegistered === 'true') {
                     setIsRegistered(true);
@@ -83,10 +121,10 @@ export default function UserRegistrationManager() {
             }
         };
 
-        if (isConnected && address) {
+        if (isConnected && walletAddress) {
             checkUserStatus();
         }
-    }, [isConnected, address]);
+    }, [isConnected, walletAddress, isRegistered]);
 
     const handleRegisterSuccess = async () => {
         setShowModal(false);
@@ -94,15 +132,15 @@ export default function UserRegistrationManager() {
         setIsRegistered(true);
 
         // Mark as registered in localStorage
-        if (address) {
-            const safeAddress = (address || "").toLowerCase();
+        if (walletAddress) {
+            const safeAddress = (walletAddress || "").toLowerCase();
             const storageKey = `user_registered_${safeAddress}`;
             localStorage.setItem(storageKey, 'true');
         }
 
         // Verify registration was successful
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${walletAddress}`);
             const data = await res.json();
             if (data.success && data.user && data.user.display_name) {
                 console.log('User registered successfully:', data.user.display_name);

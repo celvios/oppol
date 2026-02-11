@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { NextAuthProvider } from "@/lib/auth-provider";
+import { PrivyProvider } from "@/lib/privy-provider";
 import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
@@ -9,7 +9,6 @@ import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
 import { NetworkChecker } from "@/components/NetworkChecker";
 import { RPCMonitorInit } from "@/components/RPCMonitorInit";
-import AuthDebug from "@/components/AuthDebug";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -53,18 +52,17 @@ export default function RootLayout({
       >
         <RPCMonitorInit />
         <div className="min-h-screen" suppressHydrationWarning={true}>
-          <NextAuthProvider>
+          <PrivyProvider>
             <Web3Provider>
               <SettingsProvider>
                 <NetworkChecker />
-                <AuthDebug />
                 <AnimatedBackground />
                 <UserRegistrationManager />
                 <Header />
                 {children}
               </SettingsProvider>
             </Web3Provider>
-          </NextAuthProvider>
+          </PrivyProvider>
         </div>
       </body>
     </html>

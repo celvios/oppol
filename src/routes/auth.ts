@@ -22,7 +22,7 @@ router.post('/verify', verifyMagicToken);
  * @desc Login or Register with Google (Synced from Frontend)
  * @access Public
  */
-import { loginWithGoogle } from '../controllers/authController';
-router.post('/sync-google', loginWithGoogle);
+import { authenticatePrivyUser } from '../controllers/authController';
+router.post('/privy', authenticatePrivyUser);
 
 export default router;
