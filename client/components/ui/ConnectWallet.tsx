@@ -73,11 +73,12 @@ export function ConnectWallet() {
     return (
         <button
             onClick={() => connect()}
-            className="flex items-center gap-2 bg-white text-black hover:bg-white/90 px-4 py-2.5 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-text-secondary hover:bg-white/5 hover:text-white transition-all group w-full"
         >
-            <Wallet className="w-4 h-4" />
-            <span className="hidden sm:inline">Login</span>
-            <span className="sm:hidden">Login</span>
+            <div className="w-5 h-5 flex items-center justify-center opacity-70 group-hover:opacity-100">
+                <Wallet className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Login</span>
         </button>
     );
 }
