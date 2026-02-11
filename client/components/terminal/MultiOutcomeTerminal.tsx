@@ -387,7 +387,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     return (
         <>
             {/* MOBILE VIEW */}
-            <div className="md:hidden h-[calc(100vh-80px)] p-4 flex flex-col gap-4 max-w-[1800px] mx-auto overflow-y-auto pb-32">
+            <div className="md:hidden h-[calc(100vh-80px)] p-4 flex flex-col gap-4 max-w-[1800px] mx-auto overflow-y-auto pb-64">
                 {successData && (
                     <SuccessModal
                         isOpen={isSuccessModalOpen}
