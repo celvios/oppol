@@ -1,22 +1,27 @@
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { useDisconnect } from 'wagmi';
+import { useSession, signIn, signOut } from "next-auth/react";
 
 export function useWallet() {
-  const { open } = useAppKit();
-  const { address, isConnected, status } = useAppKitAccount();
-  const { disconnect } = useDisconnect();
+  const { data: session, status } = useSession();
+
+  const isConnected = !!session?.user;
+  const address = session?.user?.address || null;
+  const isConnecting = status === "loading";
 
   const handleConnect = async () => {
-    await open();
+    await signIn('google');
+  };
+
+  const handleDisconnect = async () => {
+    await signOut();
   };
 
   return {
-    isConnected: isConnected,
-    address: address || null,
-    isConnecting: status === 'connecting' || status === 'reconnecting',
-    connect: handleConnect, // Opens Reown modal
-    disconnect: disconnect,
-    user: null, // Reown doesn't provide a unified user object in the same way. We maintain null to match minimal interface.
-    connectors: [], // Reown handles connectors internally
+    isConnected,
+    address,
+    isConnecting,
+    connect: handleConnect, // Opens Google Sign-In
+    disconnect: handleDisconnect,
+    user: session?.user || null,
+    connectors: [], // Not used for Google Login
   };
 }
