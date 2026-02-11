@@ -13,10 +13,6 @@ const nextConfig: NextConfig = {
     }
     return [
       {
-        source: '/api/auth/:path*',
-        destination: '/api/auth/:path*',
-      },
-      {
         source: '/api/:path((?!auth).*)',
         destination: `${apiUrl}/api/:path*`,
       },
