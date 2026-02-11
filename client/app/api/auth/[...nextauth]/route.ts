@@ -1,7 +1,7 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-console.log("NextAuth App Router Handler Loaded");
+
 
 const authOptions: AuthOptions = {
     providers: [
@@ -64,4 +64,3 @@ const authOptions: AuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
-export const dynamic = 'force-dynamic';
