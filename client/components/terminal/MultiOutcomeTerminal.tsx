@@ -972,9 +972,48 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Chance Distribution (Moved up) */}
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/5 mb-4 mt-4">
+                                        <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
+                                        <div className="flex items-end gap-1 h-16">
+                                            {market.prices.map((price, i) => {
+                                                const color = getOutcomeColor(market.outcomes[i], i);
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
+                                                        style={{
+                                                            height: `${Math.max(price, 5)}%`,
+                                                            backgroundColor: `${color}40`
+                                                        }}
+                                                        onClick={() => setSelectedOutcome(i)}
+                                                    >
+                                                        <div
+                                                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            style={{ backgroundColor: color }}
+                                                        />
+                                                        {selectedOutcome === i && (
+                                                            <div
+                                                                className="absolute inset-0"
+                                                                style={{ backgroundColor: color }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="flex gap-1 mt-2">
+                                            {market.outcomes.map((outcome, i) => (
+                                                <div key={i} className="flex-1 text-center">
+                                                    <div className="text-[8px] text-white/40 truncate">{outcome}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="mt-auto">
+                                <div className="mt-4">
                                     {!isConnected ? (
                                         <NeonButton
                                             onClick={() => setShowConnectModal(true)}
@@ -997,44 +1036,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         )}
                     </GlassCard>
 
-                    {/* Outcome Distribution Mini-Vis */}
-                    <GlassCard className="flex-none p-4">
-                        <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
-                        <div className="flex items-end gap-1 h-16">
-                            {market.prices.map((price, i) => {
-                                const color = getOutcomeColor(market.outcomes[i], i);
-                                return (
-                                    <div
-                                        key={i}
-                                        className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
-                                        style={{
-                                            height: `${Math.max(price, 5)}%`,
-                                            backgroundColor: `${color}40`
-                                        }}
-                                        onClick={() => setSelectedOutcome(i)}
-                                    >
-                                        <div
-                                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            style={{ backgroundColor: color }}
-                                        />
-                                        {selectedOutcome === i && (
-                                            <div
-                                                className="absolute inset-0"
-                                                style={{ backgroundColor: color }}
-                                            />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="flex gap-1 mt-2">
-                            {market.outcomes.map((outcome, i) => (
-                                <div key={i} className="flex-1 text-center">
-                                    <div className="text-[8px] text-white/40 truncate">{outcome}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </GlassCard>
+
                 </div>
             </div >
 
