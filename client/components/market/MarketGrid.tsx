@@ -75,10 +75,10 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
         }
 
         // Standard Category Logic
-        const category = m.category_id || 'General';
-        const matchesCategory = selectedCategory === 'All' || category === selectedCategory;
-        const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
+        const matchesSearch = (m.question || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (m.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === "All" || (m.category_id || "General") === selectedCategory;
+        return matchesSearch && matchesCategory;
     });
 
     // Apply Sorting based on Category

@@ -98,7 +98,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
     const filteredMarkets = (() => {
         // First apply search filter
         let result = markets.filter(m => {
-            const matchesSearch = m.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            const matchesSearch = (m.question || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (m.description || "").toLowerCase().includes(searchQuery.toLowerCase());
             return matchesSearch;
         });

@@ -558,12 +558,12 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                                     <YAxis domain={[0, 100]} hide />
                                     {(market.outcomes || ["YES", "NO"]).map((outcome, index) => {
                                         let color;
-                                        const lower = outcome.toLowerCase();
-                                        if (lower === 'yes') color = '#27E8A7';
-                                        else if (lower === 'no') color = '#FF2E63';
-                                        else color = OUTCOME_COLORS[index % OUTCOME_COLORS.length];
-
-                                        return (
+                                        const getOutcomeColor = (outcome: string, index: number) => {
+                                            const lower = (outcome || "").toLowerCase();
+                                            if (lower === 'yes') return '#27E8A7'; // Neon Green
+                                            if (lower === 'no') return '#FF2E63';  // Neon Coral/Red
+                                            return OUTCOME_COLORS[index % OUTCOME_COLORS.length];
+                                        }; return (
                                             <Area
                                                 key={outcome}
                                                 type="monotone"
