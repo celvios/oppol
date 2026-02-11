@@ -173,7 +173,7 @@ export class Web3Service {
                 pm.getAllPrices(marketId),
             ]);
 
-            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 6));
+            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 18));
             const pricesFormatted = prices.map((p: bigint) => Number(p) / 100); // Convert basis points to percentage
 
             const totalVolume = sharesFormatted.reduce((sum: number, s: string) => sum + parseFloat(s), 0);
@@ -218,7 +218,7 @@ export class Web3Service {
         try {
             // Convert boolean isYes to outcomeIndex (0 = Yes, 1 = No for binary markets)
             const outcomeIndex = isYes ? 0 : 1;
-            const sharesInUnits = ethers.parseUnits(shares.toString(), 6);
+            const sharesInUnits = ethers.parseUnits(shares.toString(), 18);
             const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
 
             // Add 5% Protocol Fee Buffer
@@ -226,7 +226,7 @@ export class Web3Service {
             const fee = (cost * BigInt(500)) / BigInt(10000);
             const totalCost = cost + fee;
 
-            return ethers.formatUnits(totalCost, 6);
+            return ethers.formatUnits(totalCost, 18);
         } catch (error) {
             console.error('Error calculating cost:', error);
             return '0';
@@ -244,10 +244,10 @@ export class Web3Service {
             const shares = position.shares || [];
 
             return {
-                yesShares: shares[0] ? ethers.formatUnits(shares[0], 6) : '0',
-                noShares: shares[1] ? ethers.formatUnits(shares[1], 6) : '0',
+                yesShares: shares[0] ? ethers.formatUnits(shares[0], 18) : '0',
+                noShares: shares[1] ? ethers.formatUnits(shares[1], 18) : '0',
                 claimed: position.claimed,
-                allShares: shares.map((s: bigint) => ethers.formatUnits(s, 6)),
+                allShares: shares.map((s: bigint) => ethers.formatUnits(s, 18)),
             };
         } catch (error) {
             console.error('Error fetching position:', error);
@@ -263,7 +263,7 @@ export class Web3Service {
         if (!usdc) return '0';
         try {
             const balance = await usdc.balanceOf(address);
-            return ethers.formatUnits(balance, 6);
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
             return '0';
