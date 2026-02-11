@@ -43,23 +43,9 @@ const metadata = {
 };
 
 // 4. Create AppKit
-createAppKit({
-    adapters: [wagmiAdapter],
-    networks,
-    projectId,
-    metadata,
-    features: {
-        analytics: true, // Optional - defaults to your Cloud configuration
-        email: true, // default to true
-        socials: ['google', 'x', 'github', 'discord', 'apple'],
-        emailShowWallets: true, // show wallets on email login (optional)
-    },
-    themeMode: 'dark',
-    themeVariables: {
-        '--w3m-accent': '#00E0FF',
-        '--w3m-border-radius-master': '1px'
-    }
-});
+// 4. Create AppKit
+// createAppKit removed - using custom Google Login
+
 
 interface Web3ProviderProps {
     children: ReactNode;

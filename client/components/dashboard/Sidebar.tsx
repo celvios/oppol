@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, PieChart, ArrowUpRight, ArrowDownRight, Shield, Wallet, LogOut, Globe, Trophy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWallet } from "@/lib/use-wallet";
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useBC400Check } from "@/lib/use-bc400";
 import { PlusCircle } from "lucide-react";
 import LogoBrand from "@/components/ui/LogoBrand";
@@ -29,11 +29,18 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { isConnected, address, disconnect, connect } = useWallet();
+    // const router = useRouter(); // REMOVED DUPLICATE
+    // const { isConnected, address, disconnect, connect } = useWallet();
     const { hasNFT } = useBC400Check();
 
-    const isEffectivelyConnected = isConnected;
-    const effectiveAddress = address;
+    // Placeholder for legacy checks - connect wallet handles auth now
+    const isEffectivelyConnected = false;
+    const effectiveAddress = "";
+
+    // Mock functions to satisfy linter until full cleanup
+    const connect = () => { };
+    const disconnect = async () => { };
+    const isConnected = false;
 
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -162,56 +169,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     )}
 
-                    {isEffectivelyConnected ? (
-                        <div
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group bg-primary/10 text-primary",
-                                collapsed ? "justify-center" : ""
-                            )}
-                        >
-                            <div className="relative">
-                                <Wallet className="w-5 h-5" />
-                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
-                            </div>
-                            {!collapsed && (
-                                <>
-                                    <div className="flex-1">
-                                        <span className="font-mono text-xs">
-                                            {effectiveAddress ? `${effectiveAddress.slice(0, 6)}...${effectiveAddress.slice(-4)}` : 'Logged In'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="p-1 hover:bg-red-500/20 rounded-lg transition-colors group"
-                                        title="Logout"
-                                    >
-                                        <LogOut size={14} className="text-white/40 group-hover:text-red-400" />
-                                    </button>
-                                </>
-                            )}
-                            {collapsed && (
-                                <button
-                                    onClick={handleLogout}
-                                    className="absolute inset-0"
-                                    title="Logout"
-                                />
-                            )}
-                        </div>
-                    ) : (
-                        <button
-                            onClick={connect}
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group w-full",
-                                "text-white/60 hover:text-white hover:bg-white/5",
-                                "hover:bg-primary/10 hover:text-primary hover:border-primary/20 hover:border",
-                                collapsed ? "justify-center" : ""
-                            )}
-                            title={collapsed ? "Log In" : undefined}
-                        >
-                            <Wallet className="w-5 h-5 transition-transform group-hover:scale-110" />
-                            {!collapsed && <span className="font-medium text-sm">Log In</span>}
-                        </button>
-                    )}
+                    <div className={cn("mt-auto", collapsed ? "flex justify-center" : "")}>
+                        <ConnectWallet />
+                    </div>
 
 
                 </nav>

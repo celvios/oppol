@@ -1,0 +1,6 @@
+Market ID: 2
+Question: Will SpaceX land humans on Mars by 2030?
+Outcomes: ["Yes","No"]
+Liquidity Param (Wei/Raw): 200000000000000000000
+Prices (bp): 4999, 5000
+Outcome Count: false

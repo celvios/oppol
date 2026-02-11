@@ -17,4 +17,12 @@ router.post('/magic-link', generateMagicLink);
  */
 router.post('/verify', verifyMagicToken);
 
+/**
+ * @route POST /api/auth/google
+ * @desc Login or Register with Google
+ * @access Public
+ */
+import { loginWithGoogle } from '../controllers/authController';
+router.post('/google', loginWithGoogle);
+
 export default router;

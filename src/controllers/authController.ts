@@ -3,6 +3,8 @@ import { query } from '../config/database';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { createWalletInternal } from './walletController';
+import { createRandomWallet } from '../services/web3';
+import { EncryptionService } from '../services/encryption';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
@@ -96,6 +98,83 @@ export const registerUser = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error('Register user error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+// Step 4: Login with Google
+export const loginWithGoogle = async (req: Request, res: Response) => {
+    try {
+        const { email, googleId, name, avatar } = req.body;
+
+        if (!email || !googleId) {
+            return res.status(400).json({ success: false, error: 'Email and Google ID required' });
+        }
+
+        console.log(`[Auth] Google Login: ${email}`);
+
+        // Check if user exists by Google ID or Email
+        const existingUser = await query(
+            'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+            [googleId, email]
+        );
+
+        if (existingUser.rows.length > 0) {
+            const user = existingUser.rows[0];
+
+            // Update Google ID if missing (for legacy email match)
+            if (!user.google_id) {
+                await query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
+            }
+
+            // Get Wallet
+            const wallet = await query('SELECT public_address FROM wallets WHERE user_id = $1', [user.id]);
+            const walletAddress = wallet.rows[0]?.public_address;
+
+            return res.json({
+                success: true,
+                user: { ...user, wallet_address: walletAddress },
+                isNew: false
+            });
+        }
+
+        // New User -> Create Custodial Wallet
+        console.log(`[Auth] Creating new user for ${email}`);
+
+        // 1. Create Wallet
+        const { address, privateKey } = createRandomWallet();
+        const encryptedKey = EncryptionService.encrypt(privateKey);
+
+        // 2. Create User
+        // Generate unique display name
+        let displayName = name || email.split('@')[0];
+        // Ensure uniqueness (simple append)
+        const nameCheck = await query('SELECT id FROM users WHERE display_name = $1', [displayName]);
+        if (nameCheck.rows.length > 0) {
+            displayName = `${displayName}${Math.floor(Math.random() * 1000)}`;
+        }
+
+        const newUser = await query(
+            'INSERT INTO users (email, google_id, display_name, avatar_url, wallet_address) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [email, googleId, displayName, avatar || '', address]
+        );
+        const userId = newUser.rows[0].id;
+
+        // 3. Save Custodial Wallet
+        await query(
+            'INSERT INTO wallets (user_id, public_address, encrypted_private_key) VALUES ($1, $2, $3)',
+            [userId, address, encryptedKey]
+        );
+
+        console.log(`[Auth] Created user ${userId} with wallet ${address}`);
+
+        return res.json({
+            success: true,
+            user: { ...newUser.rows[0], wallet_address: address },
+            isNew: true
+        });
+
+    } catch (error: any) {
+        console.error('Google login error:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
 };

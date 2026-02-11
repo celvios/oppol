@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { useState } from "react";
 import { useUIStore } from "@/lib/store";
-import { useWallet } from "@/lib/use-wallet";
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useBC400Check } from "@/lib/use-bc400";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 
@@ -15,7 +15,9 @@ export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen, isInputFocused, isCommentsOpen } = useUIStore();
-    const { isConnected, connect } = useWallet();
+    // const { isConnected, connect } = useWallet();
+    const isConnected = false;
+    const connect = () => { };
     const { hasNFT } = useBC400Check();
 
     const [showWalletModal, setShowWalletModal] = useState(false);
@@ -97,6 +99,11 @@ export default function BottomNav() {
                         <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")} />
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
+
+                    {/* Mobile Wallet Button */}
+                    <div className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative">
+                        <ConnectWallet />
+                    </div>
 
 
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ReownProvider } from "@/lib/reown-provider";
+import { NextAuthProvider } from "@/lib/auth-provider";
 import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
@@ -52,8 +52,8 @@ export default function RootLayout({
       >
         <RPCMonitorInit />
         <div className="min-h-screen" suppressHydrationWarning={true}>
-          <Web3Provider>
-            <ReownProvider>
+          <NextAuthProvider>
+            <Web3Provider>
               <SettingsProvider>
                 <NetworkChecker />
                 <AnimatedBackground />
@@ -61,8 +61,8 @@ export default function RootLayout({
                 <Header />
                 {children}
               </SettingsProvider>
-            </ReownProvider>
-          </Web3Provider>
+            </Web3Provider>
+          </NextAuthProvider>
         </div>
       </body>
     </html>
