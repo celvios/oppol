@@ -9,6 +9,7 @@ import UserRegistrationManager from "@/components/UserRegistrationManager";
 import Header from "@/components/ui/Header";
 import { NetworkChecker } from "@/components/NetworkChecker";
 import { RPCMonitorInit } from "@/components/RPCMonitorInit";
+import AuthDebug from "@/components/AuthDebug";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -56,6 +57,7 @@ export default function RootLayout({
             <Web3Provider>
               <SettingsProvider>
                 <NetworkChecker />
+                <AuthDebug />
                 <AnimatedBackground />
                 <UserRegistrationManager />
                 <Header />
