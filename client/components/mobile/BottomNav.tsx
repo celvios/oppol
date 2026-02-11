@@ -52,8 +52,7 @@ export default function BottomNav() {
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                     >
                         {pathname === "/" && (
-                            <motion.div
-                                layoutId="nav-active"
+                            <div
                                 className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
@@ -76,8 +75,7 @@ export default function BottomNav() {
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
                     >
                         {pathname === "/admin/create-market" && (
-                            <motion.div
-                                layoutId="nav-active"
+                            <div
                                 className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
@@ -91,8 +89,7 @@ export default function BottomNav() {
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                     >
                         {pathname === "/portfolio" && (
-                            <motion.div
-                                layoutId="nav-active"
+                            <div
                                 className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
@@ -110,8 +107,7 @@ export default function BottomNav() {
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
                     >
                         {pathname === "/menu" && (
-                            <motion.div
-                                layoutId="nav-active"
+                            <div
                                 className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
