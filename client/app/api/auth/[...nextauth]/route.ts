@@ -1,13 +1,14 @@
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const handler = NextAuth({
+const authOptions: AuthOptions = {
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         }),
     ],
+    debug: true, // Enable debug logs in production
     callbacks: {
         async signIn({ user, account, profile }) {
             // console.log('Google Login Attempt:', user.email);
@@ -64,6 +65,9 @@ const handler = NextAuth({
     pages: {
         // signIn: '/auth/signin', // Custom sign-in page if needed
     }
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
+export const dynamic = 'force-dynamic';
