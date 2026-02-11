@@ -100,10 +100,7 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
                     </Link>
 
-                    {/* Mobile Wallet Button */}
-                    <div className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative">
-                        <ConnectWallet />
-                    </div>
+
 
 
 
