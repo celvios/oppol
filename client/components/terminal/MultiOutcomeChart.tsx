@@ -38,7 +38,7 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
         <defs>
             {outcomes.map((outcome, index) => {
                 let color;
-                const lower = outcome.toLowerCase();
+                const lower = (outcome || "").toString().toLowerCase();
                 if (lower === 'yes') color = '#27E8A7'; // Neon Green
                 else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
                 else color = COLORS[index % COLORS.length];
@@ -99,7 +99,7 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
                     />
                     {outcomes.map((outcome, index) => {
                         let color;
-                        const lower = outcome.toLowerCase();
+                        const lower = (outcome || "").toString().toLowerCase();
                         if (lower === 'yes') color = '#27E8A7'; // Neon Green
                         else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
                         else color = COLORS[index % COLORS.length];

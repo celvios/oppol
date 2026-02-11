@@ -24,7 +24,8 @@ export default function UserRegistrationManager() {
             }
 
             // Check localStorage first to avoid unnecessary API calls
-            const storageKey = `user_registered_${address.toLowerCase()}`;
+            const safeAddress = (address || "").toLowerCase();
+            const storageKey = `user_registered_${safeAddress}`;
             const wasRegistered = localStorage.getItem(storageKey);
             if (wasRegistered === 'true') {
                 // Still verify with API to ensure user actually exists
@@ -91,10 +92,11 @@ export default function UserRegistrationManager() {
         setShowModal(false);
         hasRegisteredRef.current = true;
         setIsRegistered(true);
-        
+
         // Mark as registered in localStorage
         if (address) {
-            const storageKey = `user_registered_${address.toLowerCase()}`;
+            const safeAddress = (address || "").toLowerCase();
+            const storageKey = `user_registered_${safeAddress}`;
             localStorage.setItem(storageKey, 'true');
         }
 
