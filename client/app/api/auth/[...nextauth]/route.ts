@@ -1,24 +1,18 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-console.log("NextAuth Handler Loaded");
-console.log("NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "Set" : "Missing");
+console.log("NextAuth App Router Handler Loaded");
 
-
-export const authOptions: AuthOptions = {
+const authOptions: AuthOptions = {
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         }),
     ],
-    debug: true, // Enable debug logs in production
+    debug: true,
     callbacks: {
         async signIn({ user, account, profile }) {
-            // console.log('Google Login Attempt:', user.email);
-
-            // Sync with Backend
             try {
                 // Modified to use /api/users/sync-google to avoid NextAuth route conflict
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/sync-google`, {
@@ -35,7 +29,6 @@ export const authOptions: AuthOptions = {
                 const data = await res.json();
 
                 if (data.success && data.user) {
-                    // Attach backend data to user object for session callback
                     (user as any).wallet_address = data.user.wallet_address;
                     (user as any).id = data.user.id;
                     return true;
@@ -48,7 +41,6 @@ export const authOptions: AuthOptions = {
             }
         },
         async session({ session, token, user }) {
-            // Pass properties from token/user to session
             if (token) {
                 // @ts-ignore
                 session.user.address = token.wallet_address;
@@ -58,7 +50,6 @@ export const authOptions: AuthOptions = {
             return session;
         },
         async jwt({ token, user, account }) {
-            // Initial sign in
             if (user) {
                 // @ts-ignore
                 token.wallet_address = (user as any).wallet_address;
@@ -67,10 +58,10 @@ export const authOptions: AuthOptions = {
             }
             return token;
         }
-    },
-    pages: {
-        // signIn: '/auth/signin', // Custom sign-in page if needed
     }
 };
 
-export default NextAuth(authOptions);
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
+export const dynamic = 'force-dynamic';
