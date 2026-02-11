@@ -875,13 +875,22 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 </div>
 
                 {/* RIGHT COLUMN: Trading Panel (3 cols) */}
-                <div className="col-span-12 lg:col-span-3 flex flex-col h-full overflow-hidden">
-                    <GlassCard className="flex-1 p-4 flex flex-col gap-4 relative overflow-y-auto">
+                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
+                    <GlassCard className="flex-none p-4 bg-gradient-to-br from-white/5 to-transparent border-neon-cyan/20">
+                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Available Balance</div>
+                        <div className="text-2xl font-mono text-white flex items-center gap-2">
+                            <span className="text-neon-cyan">$</span>
+                            {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/deposit'}>DEPOSIT</NeonButton>
+                        </div>
+                    </GlassCard>
+
+                    <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
 
                         {/* Market Resolution or Trade Form */}
                         {((Date.now() / 1000) > (market.endTime || 0) || market.resolved || market.assertionPending) ? (
-                            <div className="flex-none p-4 bg-white/5 border-t border-white/5 rounded-xl">
+                            <div className="flex-none p-6 bg-white/5 border-t border-white/5">
                                 <ResolutionPanel
                                     marketId={market.id}
                                     question={market.question}
@@ -894,43 +903,21 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 />
                             </div>
                         ) : (
-                            selectedOutcome === null ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center p-4 opacity-50">
-                                    <TrendingUp size={48} className="mb-4 text-neon-cyan" />
-                                    <p className="text-sm font-heading text-white mb-2">Select an Outcome</p>
-                                    <p className="text-xs text-text-secondary">Click on a bar in the distribution chart or the list to Place a Trade.</p>
-                                    <div className="mt-8 text-right w-full border-t border-white/5 pt-4">
-                                        <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
-                                        <div className="font-mono text-neon-cyan flex items-center justify-end gap-1">
-                                            <span>${parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                                            <button onClick={() => window.location.href = '/deposit'} className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded hover:bg-white/20 text-white transition-colors">+</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                                        <h3 className="text-md font-heading font-bold text-white">Place Trade</h3>
-                                        <div className="text-right">
-                                            <div className="text-[10px] text-text-secondary uppercase tracking-widest">Balance</div>
-                                            <div className="font-mono text-neon-cyan flex items-center justify-end gap-1">
-                                                <span>${parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                                                <button onClick={() => window.location.href = '/deposit'} className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded hover:bg-white/20 text-white transition-colors">+</button>
-                                            </div>
-                                        </div>
-                                    </div>
+                            <>
+                                <div>
+                                    <h3 className="text-lg font-heading font-bold text-white mb-4">Place Trade</h3>
 
                                     {/* Selected Outcome Display */}
-                                    <div className="p-3 rounded-xl border border-white/10 bg-white/5">
-                                        <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-1">Selected Outcome</div>
+                                    <div className="p-4 rounded-xl border border-white/10 bg-white/5 mb-4">
+                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">Selected Outcome</div>
                                         <div className="flex items-center gap-3">
                                             <div
-                                                className="w-3 h-3 rounded-full"
+                                                className="w-4 h-4 rounded-full"
                                                 style={{ backgroundColor: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
                                             />
-                                            <span className="font-heading text-white text-base truncate">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
+                                            <span className="font-heading text-white text-lg">{market.outcomes[selectedOutcome] || 'Unknown'}</span>
                                             <span
-                                                className="ml-auto font-mono text-lg font-bold"
+                                                className="ml-auto font-mono text-xl font-bold"
                                                 style={{ color: getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome) }}
                                             >
                                                 {(market.prices[selectedOutcome] || 0).toFixed(1)}%
@@ -938,23 +925,23 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         <div>
-                                            <label className="text-[10px] text-text-secondary uppercase tracking-widest mb-1.5 block">Amount (USDC)</label>
+                                            <label className="text-xs text-text-secondary uppercase tracking-widest mb-2 block">Amount (USDC)</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     value={amount}
                                                     onChange={(e) => setAmount(e.target.value)}
-                                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-mono text-base focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white font-mono text-lg focus:outline-none focus:border-neon-cyan/50 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all"
                                                     placeholder="0.00"
                                                 />
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1.5">
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
                                                     {['10', '50', '100'].map(val => (
                                                         <button
                                                             key={val}
                                                             onClick={() => setAmount(val)}
-                                                            className="px-1.5 py-0.5 bg-white/10 rounded text-[10px] text-white/70 hover:bg-white/20 hover:text-white"
+                                                            className="px-2 py-1 bg-white/10 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white"
                                                         >
                                                             ${val}
                                                         </button>
@@ -963,12 +950,12 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                             </div>
                                         </div>
 
-                                        <div className="p-3 bg-white/5 rounded-xl space-y-1.5 border border-white/5 text-xs">
-                                            <div className="flex justify-between">
+                                        <div className="p-4 bg-white/5 rounded-xl space-y-2 border border-white/5">
+                                            <div className="flex justify-between text-sm">
                                                 <span className="text-text-secondary">Price</span>
                                                 <span className="font-mono text-white">{(market.prices[selectedOutcome] || 0).toFixed(1)}¢</span>
                                             </div>
-                                            <div className="flex justify-between">
+                                            <div className="flex justify-between text-sm">
                                                 <span className="text-text-secondary">Est. Shares</span>
                                                 <span className="font-mono text-neon-cyan">
                                                     {(() => {
@@ -979,35 +966,74 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                                     })()}
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between border-t border-white/10 pt-1.5 mt-1.5">
+                                            <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
                                                 <span className="text-text-secondary">Max Spend</span>
                                                 <span className="font-mono text-white">${parseFloat(amount || '0').toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className="mt-auto pt-2">
-                                        {!isConnected ? (
-                                            <NeonButton
-                                                onClick={() => setShowConnectModal(true)}
-                                                variant="cyan"
-                                                className="w-full py-3 text-sm"
-                                            >
-                                                CONNECT WALLET
-                                            </NeonButton>
-                                        ) : (
-                                            <NeonSlider
-                                                onConfirm={handleTrade}
-                                                isLoading={isTradeLoading}
-                                                side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
-                                                color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
-                                                disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
+                                <div className="mt-auto">
+                                    {!isConnected ? (
+                                        <NeonButton
+                                            onClick={() => setShowConnectModal(true)}
+                                            variant="cyan"
+                                            className="w-full py-4"
+                                        >
+                                            CONNECT WALLET TO TRADE
+                                        </NeonButton>
+                                    ) : (
+                                        <NeonSlider
+                                            onConfirm={handleTrade}
+                                            isLoading={isTradeLoading}
+                                            side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
+                                            color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
+                                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
+                                        />
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </GlassCard>
+
+                    {/* Outcome Distribution Mini-Vis */}
+                    <GlassCard className="flex-none p-4">
+                        <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
+                        <div className="flex items-end gap-1 h-16">
+                            {market.prices.map((price, i) => {
+                                const color = getOutcomeColor(market.outcomes[i], i);
+                                return (
+                                    <div
+                                        key={i}
+                                        className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
+                                        style={{
+                                            height: `${Math.max(price, 5)}%`,
+                                            backgroundColor: `${color}40`
+                                        }}
+                                        onClick={() => setSelectedOutcome(i)}
+                                    >
+                                        <div
+                                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            style={{ backgroundColor: color }}
+                                        />
+                                        {selectedOutcome === i && (
+                                            <div
+                                                className="absolute inset-0"
+                                                style={{ backgroundColor: color }}
                                             />
                                         )}
                                     </div>
-                                </>
-                            )
-                        )}
+                                );
+                            })}
+                        </div>
+                        <div className="flex gap-1 mt-2">
+                            {market.outcomes.map((outcome, i) => (
+                                <div key={i} className="flex-1 text-center">
+                                    <div className="text-[8px] text-white/40 truncate">{outcome}</div>
+                                </div>
+                            ))}
+                        </div>
                     </GlassCard>
                 </div>
             </div >
