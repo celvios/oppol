@@ -971,67 +971,72 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                                 <span className="font-mono text-white">${parseFloat(amount || '0').toFixed(2)}</span>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Chance Distribution (Moved up) */}
-                                    <div className="p-4 bg-white/5 rounded-xl border border-white/5 mb-4 mt-4">
-                                        <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
-                                        <div className="flex items-end gap-1 h-16">
-                                            {market.prices.map((price, i) => {
-                                                const color = getOutcomeColor(market.outcomes[i], i);
-                                                return (
-                                                    <div
-                                                        key={i}
-                                                        className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
-                                                        style={{
-                                                            height: `${Math.max(price, 5)}%`,
-                                                            backgroundColor: `${color}40`
-                                                        }}
-                                                        onClick={() => setSelectedOutcome(i)}
-                                                    >
+                                        {/* Slider (Moved inside) */}
+                                        <div className="pt-2">
+                                            {!isConnected ? (
+                                                <NeonButton
+                                                    onClick={() => setShowConnectModal(true)}
+                                                    variant="cyan"
+                                                    className="w-full py-4"
+                                                >
+                                                    CONNECT WALLET TO TRADE
+                                                </NeonButton>
+                                            ) : (
+                                                <NeonSlider
+                                                    onConfirm={handleTrade}
+                                                    isLoading={isTradeLoading}
+                                                    side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
+                                                    color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
+                                                    disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Chance Distribution (Moved inside) */}
+                                        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                            <h4 className="text-xs text-text-secondary uppercase tracking-widest mb-3">Chance Distribution</h4>
+                                            <div className="flex items-end gap-1 h-16">
+                                                {market.prices.map((price, i) => {
+                                                    const color = getOutcomeColor(market.outcomes[i], i);
+                                                    return (
                                                         <div
-                                                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            style={{ backgroundColor: color }}
-                                                        />
-                                                        {selectedOutcome === i && (
+                                                            key={i}
+                                                            className="flex-1 rounded-t relative group overflow-hidden cursor-pointer"
+                                                            style={{
+                                                                height: `${Math.max(price, 5)}%`,
+                                                                backgroundColor: `${color}40`
+                                                            }}
+                                                            onClick={() => setSelectedOutcome(i)}
+                                                        >
                                                             <div
-                                                                className="absolute inset-0"
+                                                                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                                                 style={{ backgroundColor: color }}
                                                             />
-                                                        )}
+                                                            {selectedOutcome === i && (
+                                                                <div
+                                                                    className="absolute inset-0"
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex gap-1 mt-2">
+                                                {market.outcomes.map((outcome, i) => (
+                                                    <div key={i} className="flex-1 text-center">
+                                                        <div className="text-[8px] text-white/40 truncate">{outcome}</div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className="flex gap-1 mt-2">
-                                            {market.outcomes.map((outcome, i) => (
-                                                <div key={i} className="flex-1 text-center">
-                                                    <div className="text-[8px] text-white/40 truncate">{outcome}</div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
+
+
                                 </div>
 
-                                <div className="mt-4">
-                                    {!isConnected ? (
-                                        <NeonButton
-                                            onClick={() => setShowConnectModal(true)}
-                                            variant="cyan"
-                                            className="w-full py-4"
-                                        >
-                                            CONNECT WALLET TO TRADE
-                                        </NeonButton>
-                                    ) : (
-                                        <NeonSlider
-                                            onConfirm={handleTrade}
-                                            isLoading={isTradeLoading}
-                                            side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
-                                            color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
-                                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
-                                        />
-                                    )}
-                                </div>
+
                             </>
                         )}
                     </GlassCard>
