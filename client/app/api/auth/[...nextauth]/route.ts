@@ -1,9 +1,7 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-
-
-const authOptions: AuthOptions = {
+const handler = NextAuth({
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -13,9 +11,9 @@ const authOptions: AuthOptions = {
     secret: process.env.NEXTAUTH_SECRET,
     debug: true,
     callbacks: {
-        async signIn({ user, account, profile }) {
+        async signIn({ user, account }) {
+            // Sync with backend to get/create custodial wallet
             try {
-                // Modified to use /api/users/sync-google to avoid NextAuth route conflict
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/sync-google`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -30,38 +28,35 @@ const authOptions: AuthOptions = {
                 const data = await res.json();
 
                 if (data.success && data.user) {
-                    (user as any).wallet_address = data.user.wallet_address;
-                    (user as any).id = data.user.id;
+                    // Store wallet info for session
+                    user.walletAddress = data.user.wallet_address;
+                    user.userId = data.user.id;
                     return true;
                 }
 
                 return false;
             } catch (error) {
-                console.error('Backend Auth Sync Failed:', error);
+                console.error('Backend sync failed:', error);
                 return false;
             }
         },
-        async session({ session, token, user }) {
-            if (token) {
-                // @ts-ignore
-                session.user.address = token.wallet_address;
-                // @ts-ignore
-                session.user.id = token.id;
+        async jwt({ token, user }) {
+            // On initial sign in, add wallet data to token
+            if (user) {
+                token.walletAddress = user.walletAddress;
+                token.userId = user.userId;
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            // Pass wallet data to session
+            if (session.user) {
+                session.user.address = token.walletAddress;
+                session.user.id = token.userId;
             }
             return session;
         },
-        async jwt({ token, user, account }) {
-            if (user) {
-                // @ts-ignore
-                token.wallet_address = (user as any).wallet_address;
-                // @ts-ignore
-                token.id = (user as any).id;
-            }
-            return token;
-        }
-    }
-};
-
-const handler = NextAuth(authOptions);
+    },
+});
 
 export { handler as GET, handler as POST };
