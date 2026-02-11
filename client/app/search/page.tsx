@@ -25,6 +25,7 @@ interface Market {
     yesOdds: number;
     noOdds: number;
     totalVolume: string;
+    image_url?: string;
 }
 
 interface CategoryFilter {
@@ -57,8 +58,8 @@ export default function SearchPage() {
 
                         data.categories.forEach((cat: any) => {
                             categoryFilters.push({
-                                id: cat.name.toLowerCase(),
-                                label: cat.name,
+                                id: (cat.name || "").toLowerCase(),
+                                label: cat.name || "Unknown",
                                 icon: CATEGORY_ICONS[cat.name] || Tag
                             });
                         });
@@ -88,7 +89,7 @@ export default function SearchPage() {
     }, []);
 
     const filteredMarkets = markets.filter(m => {
-        const matchesSearch = m.question.toLowerCase().includes(query.toLowerCase());
+        const matchesSearch = (m.question || "").toLowerCase().includes(query.toLowerCase());
         let matchesCategory = true;
         if (activeFilter === 'crypto') matchesCategory = /BTC|ETH|Bitcoin|Ethereum|Solana/i.test(m.question);
         if (activeFilter === 'tech') matchesCategory = /AI|GPT|SpaceX|Nvidia|Apple/i.test(m.question);

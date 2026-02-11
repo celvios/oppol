@@ -334,7 +334,7 @@ function TrendingMarketCard({ market, className }: { market: MultiMarket, classN
                         e.preventDefault();
                         e.stopPropagation();
                     }}>
-                        <BoostButton marketId={market.id} isBoosted={market.isBoosted} />
+                        <BoostButton marketId={market.id} isBoosted={!!market.isBoosted} />
                     </div>
                 </GlassCard>
             </Link>
