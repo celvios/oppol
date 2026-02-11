@@ -476,10 +476,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 {/* Outcomes */}
                 <GlassCard className="p-4 relative z-0">
                     <h3 className="text-sm font-heading text-white/70 mb-3">Outcomes</h3>
-                    {/* Debug Info - Remove after fixing */}
-                    <div className="text-xs text-yellow-400 font-mono mb-2 bg-black/20 p-2 rounded">
-                        DEBUG: Outcomes: {market.outcomes?.length || 0}, Prices: {market.prices?.length || 0}
-                    </div>
+
 
                     {(!market.outcomes || market.outcomes.length === 0) && (
                         <div className="text-white/50 text-center py-4 text-sm">
