@@ -366,8 +366,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     }
 
     // Helper to get color for outcome
-    const getOutcomeColor = (outcome: string, index: number) => {
-        const lower = outcome.toLowerCase();
+    const getOutcomeColor = (outcome: string | undefined, index: number) => {
+        const lower = (outcome || '').toLowerCase();
         if (lower === 'yes') return '#27E8A7'; // Neon Green
         if (lower === 'no') return '#FF2E63';  // Neon Coral/Red
         return OUTCOME_COLORS[index % OUTCOME_COLORS.length];
