@@ -31,6 +31,12 @@ class RPCMonitor {
 
     constructor() {
         if (typeof window === 'undefined') return;
+
+        // Double safety: Disable in production
+        if (process.env.NODE_ENV === 'production') {
+            return;
+        }
+
         this.interceptFetch();
         this.startReporting();
     }
