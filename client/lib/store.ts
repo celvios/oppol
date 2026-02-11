@@ -7,6 +7,8 @@ interface UIState {
     setInputFocused: (isFocused: boolean) => void;
     isCommentsOpen: boolean;
     setCommentsOpen: (isOpen: boolean) => void;
+    isLoginModalOpen: boolean;
+    setLoginModalOpen: (isOpen: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -16,5 +18,7 @@ export const useUIStore = create<UIState>((set) => ({
     setInputFocused: (isFocused) => set({ isInputFocused: isFocused }),
     isCommentsOpen: false,
     setCommentsOpen: (isOpen) => set({ isCommentsOpen: isOpen }),
+    isLoginModalOpen: false,
+    setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
 }));
 

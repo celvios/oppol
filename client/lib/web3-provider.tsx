@@ -44,7 +44,23 @@ const metadata = {
 
 // 4. Create AppKit
 // 4. Create AppKit
-// createAppKit removed - using custom Google Login
+createAppKit({
+    adapters: [wagmiAdapter],
+    networks,
+    projectId,
+    metadata,
+    features: {
+        analytics: true,
+        email: false, // Disable Reown Email
+        socials: [],  // Disable Reown Socials (We use NextAuth for Google)
+        emailShowWallets: false,
+    },
+    themeMode: 'dark',
+    themeVariables: {
+        '--w3m-accent': '#00E0FF',
+        '--w3m-border-radius-master': '1px'
+    }
+});
 
 
 interface Web3ProviderProps {

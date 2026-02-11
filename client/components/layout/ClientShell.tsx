@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import DesktopFooter from "./DesktopFooter";
+import LoginSelectionModal from "@/components/modals/LoginSelectionModal";
+import { useUIStore } from "@/lib/store";
 
 export default function ClientShell({
     children,
@@ -13,6 +15,7 @@ export default function ClientShell({
     children: React.ReactNode;
 }) {
     const [collapsed, setCollapsed] = useState(false);
+    const { isLoginModalOpen, setLoginModalOpen } = useUIStore();
 
     return (
         <div className="min-h-screen bg-background text-white flex flex-col md:flex-row">
@@ -47,6 +50,11 @@ export default function ClientShell({
             <div className="md:hidden">
                 <BottomNav />
             </div>
+
+            <LoginSelectionModal
+                isOpen={isLoginModalOpen}
+                onClose={() => setLoginModalOpen(false)}
+            />
         </div>
     );
 }
