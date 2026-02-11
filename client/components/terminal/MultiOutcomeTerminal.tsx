@@ -63,7 +63,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [balance, setBalance] = useState<string>('0');
     const [loading, setLoading] = useState(initialMarkets.length === 0); // No loading if we have initial data!
     const [mounted, setMounted] = useState(false);
-    const [selectedOutcome, setSelectedOutcome] = useState<number>(0);
+    const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
     const chartRef = useRef<HTMLDivElement>(null);
     const mobileChartRef = useRef<HTMLDivElement>(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -288,7 +288,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     // Reset selected outcome when market changes
     useEffect(() => {
-        setSelectedOutcome(0);
+        setSelectedOutcome(null);
     }, [selectedMarketId]);
 
     // --- Trading Logic ---
@@ -298,7 +298,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             return;
         }
 
-        if (!amount || parseFloat(amount) <= 0 || !market) return;
+        if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
         setIsTradeLoading(true);
 
         try {
@@ -508,7 +508,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
                 {/* Trading Panel - Only if market is active */}
                 {
-                    !market.resolved && Date.now() / 1000 < market.endTime && (
+                    selectedOutcome !== null && !market.resolved && Date.now() / 1000 < market.endTime && (
                         <div className="fixed bottom-20 left-0 right-0 p-4 bg-void/95 backdrop-blur-xl border-t border-white/10 z-40">
                             <div className="max-w-md mx-auto space-y-3">
                                 <div className="flex justify-between items-center">
@@ -749,17 +749,17 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 <div className="flex gap-8 items-end mt-4">
                                     <div>
                                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">
-                                            {selectedMarketId === market.id && selectedOutcome !== undefined
+                                            {selectedMarketId === market.id && selectedOutcome !== undefined && selectedOutcome !== null
                                                 ? "Selected"
                                                 : "Leading"}
                                         </div>
                                         <div className="text-3xl font-mono font-bold text-neon-green">
-                                            {selectedMarketId === market.id && selectedOutcome !== undefined
+                                            {selectedMarketId === market.id && selectedOutcome !== undefined && selectedOutcome !== null
                                                 ? market.outcomes[selectedOutcome]
                                                 : market.outcomes[market.prices.indexOf(Math.max(...market.prices))]}
                                         </div>
                                         <div className="text-lg font-mono text-neon-green/70 flex items-baseline gap-2">
-                                            {selectedMarketId === market.id && selectedOutcome !== undefined
+                                            {selectedMarketId === market.id && selectedOutcome !== undefined && selectedOutcome !== null
                                                 ? (market.prices[selectedOutcome] || 0).toFixed(1)
                                                 : Math.max(...market.prices).toFixed(1)}% <span className="text-xs text-white/50 font-sans">Chance</span>
                                         </div>
