@@ -477,7 +477,14 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 <GlassCard className="p-4 relative z-0">
                     <h3 className="text-sm font-heading text-white/70 mb-3">Outcomes</h3>
                     <div className="space-y-2">
-                        {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
+                        {/* Debug Info - Remove after fixing */}
+                        <div className="text-[10px] text-red-500 font-mono hidden">
+                            Outcomes: {market.outcomes?.length || 0}, Prices: {market.prices?.length || 0}
+                        </div>
+
+                        {(market.outcomes || [])?.map((outcome, i) => {
+                            // Safety check for prices
+                            const price = (market.prices && market.prices[i]) ? market.prices[i] : 0;
                             const color = getOutcomeColor(outcome, i);
                             return (
                                 <button
