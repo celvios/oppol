@@ -381,7 +381,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     }));
 
     const filteredMarkets = markets.filter(m =>
-        m.question.toLowerCase().includes(searchQuery.toLowerCase())
+        (m.question || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
