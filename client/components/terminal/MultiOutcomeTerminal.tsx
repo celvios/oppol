@@ -411,9 +411,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 <FeaturedCarousel markets={markets} />
 
                 {/* Mobile Capture Container - Includes Header + Chart for sharing */}
-                <div ref={mobileChartRef}>
+                <div ref={mobileChartRef} className="flex flex-col gap-4">
                     {/* Market Header */}
-                    <GlassCard className="p-4 mb-4">
+                    <GlassCard className="p-4">
                         <div className="flex gap-2 mb-2 flex-wrap">
                             <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono uppercase tracking-wider text-white/50">Market #{market.id}</span>
                             {!market.resolved && Date.now() / 1000 < market.endTime && (
@@ -449,10 +449,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             <div>{market.outcomeCount} outcomes</div>
                             <div>{formatDistanceToNow(market.endTime * 1000)}</div>
                         </div>
-                    </GlassCard >
+                    </GlassCard>
 
                     {/* Chart */}
-                    < GlassCard className="p-4" >
+                    <GlassCard className="p-4">
                         <div className="flex justify-between items-center mb-3">
                             <h2 className="text-sm font-heading text-white">Chance Wave</h2>
                             <button
@@ -469,14 +469,12 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 outcomes={market.outcomes || []}
                             />
                         </div>
-                    </GlassCard >
-
-
+                    </GlassCard>
                 </div>
                 {/* End Mobile Capture Container */}
 
                 {/* Outcomes */}
-                < GlassCard className="p-4" >
+                <GlassCard className="p-4 relative z-0">
                     <h3 className="text-sm font-heading text-white/70 mb-3">Outcomes</h3>
                     <div className="space-y-2">
                         {market.outcomes && market.prices && market.outcomes.map((outcome, i) => {
@@ -504,7 +502,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             );
                         })}
                     </div>
-                </GlassCard >
+                </GlassCard>
 
                 {/* Trading Panel - Only if market is active */}
                 {
@@ -560,10 +558,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 }
 
                 <CommentsSection marketId={market.id} className="w-full" />
-            </div >
+            </div>
 
             {/* DESKTOP VIEW */}
-            <div className="hidden md:grid min-h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 w-full">
+            < div className="hidden md:grid min-h-[calc(100vh-80px)] p-4 md:p-6 grid-cols-12 gap-6 w-full" >
                 {successData && (
                     <SuccessModal
                         isOpen={isSuccessModalOpen}
@@ -581,7 +579,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             hash: successData.hash
                         }}
                     />
-                )}
+                )
+                }
 
                 {/* LEFT COLUMN: Market List (3 cols) */}
                 <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
@@ -1034,7 +1033,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
 
             {/* Share Modal */}
-            <ShareChartModal
+            < ShareChartModal
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 imageSrc={shareImageSrc}
