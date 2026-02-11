@@ -50,7 +50,7 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 15000));
 
         // 3. Simulate Trade (Update Volume)
-        const newVolume = ethers.parseUnits("500", 18).toString(); // $500 volume
+        const newVolume = "500.0"; // $500 volume
 
         await pool.query(
             `UPDATE markets SET volume = $1, last_indexed_at = NOW() WHERE market_id = $2`,
@@ -62,7 +62,7 @@ async function main() {
 
         // 4. Simulate another update
         await new Promise(resolve => setTimeout(resolve, 10000));
-        const newVolume2 = ethers.parseUnits("1250", 18).toString(); // $1250 volume
+        const newVolume2 = "1250.0"; // $1250 volume
 
         await pool.query(
             `UPDATE markets SET volume = $1, last_indexed_at = NOW() WHERE market_id = $2`,
