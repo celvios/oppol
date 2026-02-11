@@ -44,9 +44,9 @@ export default function LoginSelectionModal({ isOpen, onClose }: LoginSelectionM
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed z-[101] w-full max-w-md pointer-events-none flex items-center justify-center inset-0"
+                        className="fixed z-[101] w-full pointer-events-none flex items-center justify-center inset-0"
                     >
-                        <GlassCard className="pointer-events-auto w-full max-w-sm p-6 relative border-neon-cyan/20 shadow-[0_0_50px_rgba(0,224,255,0.1)]">
+                        <GlassCard className="pointer-events-auto w-full max-w-sm p-6 relative border-neon-cyan/20 shadow-[0_0_50px_rgba(0,224,255,0.1)] bg-[#05050A]/95 backdrop-blur-xl">
                             <button
                                 onClick={onClose}
                                 className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
