@@ -36,9 +36,15 @@ export async function getMarketsServer(): Promise<ServerMarket[]> {
     }
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
         const response = await fetch(`${apiUrl}/api/markets`, {
-            cache: 'no-store' // Disable caching
+            cache: 'no-store', // Disable caching
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`API returned ${response.status}`);
