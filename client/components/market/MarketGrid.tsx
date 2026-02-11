@@ -43,13 +43,12 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     }, []);
 
     useEffect(() => {
-        // Skip fetch if we already have initial data
+        // 1. Initial hydration
         if (initialMarkets.length > 0) {
-            // Default sort by volume just for initial state
             setMarkets([...initialMarkets]);
-            return;
         }
 
+        // 2. Fetch fresh data in background
         async function fetchMarkets() {
             try {
                 const data = await web3Service.getMarkets();
@@ -58,7 +57,18 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
                 console.error("Failed to fetch markets", e);
             }
         }
-        fetchMarkets();
+
+        const timer = setTimeout(fetchMarkets, 100);
+
+        // 3. Subscribe to updates
+        const unsubscribe = web3Service.onMarketsUpdate((updatedMarkets) => {
+            setMarkets(updatedMarkets);
+        });
+
+        return () => {
+            clearTimeout(timer);
+            unsubscribe();
+        };
     }, [initialMarkets]);
 
     let filteredMarkets = markets.filter(m => {

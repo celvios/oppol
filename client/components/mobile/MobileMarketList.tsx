@@ -35,20 +35,20 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
 
 
     useEffect(() => {
-        // Skip fetch if we already have initial data
+        // 1. If we have initial data, show it immediately (fast LCP)
         if (initialMarkets.length > 0) {
             const sorted = [...initialMarkets].sort((a, b) =>
                 parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
             );
             setMarkets(sorted);
             setLoading(false);
-            return;
         }
 
+        // 2. ALWAYS fetch fresh data in background to ensure sync
         async function fetchMarkets() {
             try {
+                // This gets cached data first, but triggers revalidation if stale
                 const data = await web3Service.getMarkets();
-                // Sort by volume descending
                 const sorted = [...data].sort((a, b) =>
                     parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
                 );
@@ -59,7 +59,22 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                 setLoading(false);
             }
         }
-        fetchMarkets();
+
+        // Slight delay to let the UI paint first, then fetch fresh
+        const timer = setTimeout(fetchMarkets, 100);
+
+        // 3. Subscribe to real-time updates (e.g. from websocket or other components)
+        const unsubscribe = web3Service.onMarketsUpdate((updatedMarkets) => {
+            const sorted = [...updatedMarkets].sort((a, b) =>
+                parseFloat(b.totalVolume) - parseFloat(a.totalVolume)
+            );
+            setMarkets(sorted);
+        });
+
+        return () => {
+            clearTimeout(timer);
+            unsubscribe();
+        };
     }, [initialMarkets]);
 
 
