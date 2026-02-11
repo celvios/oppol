@@ -885,7 +885,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         </div>
                     </GlassCard>
 
-                    <GlassCard className="flex-1 p-6 flex flex-col gap-6 relative overflow-hidden">
+                    <GlassCard className="p-4 flex flex-col gap-4 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green via-neon-cyan to-neon-coral opacity-50" />
 
                         {/* Market Resolution or Trade Form */}
@@ -901,6 +901,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     assertedOutcomeIndex={market.assertedOutcome}
                                     asserter={market.asserter}
                                 />
+                            </div>
+                        ) : selectedOutcome === null ? (
+                            <div className="flex flex-col items-center justify-center py-6 text-center text-white/40">
+                                <p>Select an outcome to trade</p>
                             </div>
                         ) : (
                             <>
