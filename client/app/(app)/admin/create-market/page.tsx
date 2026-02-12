@@ -612,11 +612,6 @@ export default function CreateMarketPage() {
                                 <div className="p-4 bg-neon-green/10 border border-neon-green/20 rounded-lg text-neon-green text-sm flex items-center gap-2">
                                     <Save size={16} /> {success}
                                 </div>
-                                {createdMarketId !== null && (
-                                    <div className="text-white/60 text-xs text-center px-4">
-                                        Market created! It may take a few minutes to span across the network and appear on the dashboard.
-                                    </div>
-                                )}
                             </div>
                         )}
 
