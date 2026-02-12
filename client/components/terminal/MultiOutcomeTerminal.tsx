@@ -104,12 +104,15 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             setIsShareModalOpen(false);
         }
     };
-    const [amount, setAmount] = useState('1');
+    const [amount, setAmount] = useState(''); // Default to empty string for mobile UX
     const [isTradeLoading, setIsTradeLoading] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
+
+    // Ref for mobile input auto-focus
+    const mobileInputRef = useRef<HTMLInputElement>(null);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
@@ -118,6 +121,22 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
+
+    // Auto-focus and clear input on mobile when outcome is selected
+    useEffect(() => {
+        if (selectedOutcome !== null) {
+            // Note: We don't always clear amount, we focus
+            // But user requested "it should start with , with a blinking cursor" implies clearing
+            setAmount('');
+
+            // Small timeout to allow the input to render if it was hidden
+            setTimeout(() => {
+                if (mobileInputRef.current) {
+                    mobileInputRef.current.focus();
+                }
+            }, 100);
+        }
+    }, [selectedOutcome]);
 
     // Helper to validate image
     const isValidImage = (img: string | undefined): boolean => {
@@ -595,6 +614,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     <div>
                                         <div className="text-[10px] text-text-secondary uppercase">Amount</div>
                                         <input
+                                            ref={mobileInputRef}
                                             type="number"
                                             value={amount}
                                             onChange={(e) => setAmount(e.target.value)}
