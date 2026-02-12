@@ -55,7 +55,7 @@ export function SuccessModal({ isOpen, onClose, data }: SuccessModalProps) {
                 </div>
 
                 <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold text-white mb-2">Bet Placed!</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2">Prediction successful</h2>
                     <p className="text-white/60 text-sm">Your transaction was successfully executed.</p>
                 </div>
 

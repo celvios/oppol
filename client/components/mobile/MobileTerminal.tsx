@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle, Camera } from "lucide-react";
+import { TrendingUp, Wallet, ArrowDown, X, Activity, DollarSign, BarChart2, MessageCircle, Share } from "lucide-react";
 import WalletConnectButtonLite from "@/components/ui/WalletConnectButtonLite";
 import { web3MultiService as web3Service, MultiMarket as Market } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -521,7 +521,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
                             title="Share Chart"
                         >
-                            <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                            <Share className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
                         </button>
                     </div>
                     <div className="h-[220px] w-full relative">

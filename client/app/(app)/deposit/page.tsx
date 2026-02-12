@@ -373,10 +373,10 @@ export default function DepositPage() {
                     {/* Game Balance Display */}
                     <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 mb-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-white/60">Game Balance</span>
+                            <span className="text-sm text-white/60">Balance</span>
                             <span className="text-2xl font-mono font-bold text-green-500">${gameBalance || '0.00'}</span>
                         </div>
-                        <p className="text-xs text-white/40 mt-1">This is your deposited balance. Use this to bet!</p>
+                        <p className="text-xs text-white/40 mt-1">This is your Account Balance , Use it to Predict</p>
                     </div>
 
                     {/* CONTENT AREA */}

@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
-import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Camera } from "lucide-react";
+import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
@@ -495,7 +495,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                 className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
                                 title="Share Chart"
                             >
-                                <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                                <Share className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
                             </button>
                         </div>
                         <div className="h-[200px] w-full">
@@ -837,7 +837,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
                                     title="Share Chart"
                                 >
-                                    <Camera className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                                    <Share className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
                                 </button>
                             </div>
 
