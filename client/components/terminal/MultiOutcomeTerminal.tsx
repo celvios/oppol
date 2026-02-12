@@ -344,6 +344,31 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     hash: data.transaction?.hash || '0x'
                 });
                 setIsSuccessModalOpen(true);
+
+                // Optimistic Update: Update local state immediately
+                setMarkets(prev => prev.map(m => {
+                    if (m.id === market.id) {
+                        const newPrices = [...m.prices];
+                        // Update price of the traded outcome
+                        if (data.transaction?.newPrice) {
+                            newPrices[selectedOutcome] = data.transaction.newPrice;
+                            // Recalculate other prices loosely if needed, but for now just update specific one
+                            // Ideally we'd fetch fresh prices, but this is optimistic
+                        }
+
+                        // Update Volume
+                        const newVol = parseFloat(m.totalVolume) + parseFloat(data.transaction?.cost || amount);
+
+                        return {
+                            ...m,
+                            totalVolume: newVol.toFixed(2),
+                            prices: newPrices
+                        };
+                    }
+                    return m;
+                }));
+
+                // Still fetch fresh data in background
                 fetchData();
             } else {
                 alert(`Trade failed: ${data.error}`);
@@ -390,9 +415,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         color: getOutcomeColor(market.outcomes[i], i)
     }));
 
-    const filteredMarkets = markets.filter(m =>
-        (m.question || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredMarkets = markets
+        .filter(m => (m.question || '').toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
 
     return (
         <>
