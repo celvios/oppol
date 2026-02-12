@@ -24,6 +24,7 @@ export default function CreateMarketPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [createdMarketId, setCreatedMarketId] = useState<number | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -361,10 +362,8 @@ export default function CreateMarketPage() {
             }
 
             setSuccess(`Market created successfully! ID: ${marketId}`);
-            setTimeout(() => {
-                // Redirect to the new market page so user sees their creation
-                window.location.href = `/market/${marketId}`;
-            }, 2000);
+            setCreatedMarketId(marketId);
+            // Auto-redirect disabled per user request
         } catch (e: unknown) {
             console.error("Create market error:", e);
             // Show the actual error message from the blockchain/contract
@@ -609,8 +608,17 @@ export default function CreateMarketPage() {
                         )}
 
                         {success && (
-                            <div className="p-4 bg-neon-green/10 border border-neon-green/20 rounded-lg text-neon-green text-sm flex items-center gap-2">
-                                <Save size={16} /> {success}
+                            <div className="flex flex-col gap-4">
+                                <div className="p-4 bg-neon-green/10 border border-neon-green/20 rounded-lg text-neon-green text-sm flex items-center gap-2">
+                                    <Save size={16} /> {success}
+                                </div>
+                                {createdMarketId !== null && (
+                                    <Link href={`/market/${createdMarketId}`} className="block">
+                                        <NeonButton variant="cyan" className="w-full py-3" type="button">
+                                            VIEW MARKET #{createdMarketId}
+                                        </NeonButton>
+                                    </Link>
+                                )}
                             </div>
                         )}
 
