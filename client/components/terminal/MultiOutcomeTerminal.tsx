@@ -3,10 +3,10 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
-import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share } from "lucide-react";
+import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share, Gift, Loader2 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
-import { web3MultiService, MultiMarket } from '@/lib/web3-multi';
+import { web3MultiService, MultiMarket, MultiPosition } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
 import { SuccessModal } from "@/components/ui/SuccessModal";
@@ -69,6 +69,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const mobileChartRef = useRef<HTMLDivElement>(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [shareImageSrc, setShareImageSrc] = useState<string>("");
+    const [userPosition, setUserPosition] = useState<MultiPosition | null>(null);
+    const [isClaiming, setIsClaiming] = useState(false);
 
     const handleShareChart = async (isMobile = false) => {
         const ref = isMobile ? mobileChartRef : chartRef;
@@ -239,17 +241,22 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             // Fetch markets from API (includes metadata: image_url, description)
             // web3MultiService.getMarkets() now fetches from API automatically
-            const [allMarkets, depositedBalance] = await Promise.all([
+            const [allMarkets, depositedBalance, position] = await Promise.all([
                 web3MultiService.getMarkets(),
                 address ? web3MultiService.getDepositedBalance(address).catch(e => {
                     console.error('[MultiTerminal] Balance fetch error:', e);
                     return '0';
-                }) : Promise.resolve('0')
+                }) : Promise.resolve('0'),
+                (address && selectedMarketId) ? web3MultiService.getUserPosition(selectedMarketId, address).catch(e => {
+                    console.error('[MultiTerminal] Position fetch error:', e);
+                    return null;
+                }) : Promise.resolve(null)
             ]);
 
             console.log('[MultiTerminal] Markets fetched:', allMarkets.length);
             setMarkets(allMarkets);
             setBalance(depositedBalance);
+            if (position) setUserPosition(position);
         } catch (error) {
             console.error('[MultiTerminal] Error in fetchData:', error);
         } finally {
@@ -385,6 +392,31 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             alert('Something went wrong. Please try again soon.');
         } finally {
             setIsTradeLoading(false);
+        }
+    };
+
+    const handleClaim = async () => {
+        if (!market || !address) return;
+        setIsClaiming(true);
+        try {
+            const hash = await web3MultiService.claimWinnings(market.id);
+            setSuccessData({
+                marketId: market.id,
+                outcome: 'Claim Winnings',
+                outcomeIndex: -1,
+                shares: 0,
+                cost: '0',
+                question: market.question,
+                newPrice: 0,
+                hash: hash
+            });
+            setIsSuccessModalOpen(true);
+            fetchData(); // Refresh to update claimed status
+        } catch (e: any) {
+            console.error(e);
+            alert(`Claim failed: ${e.message || 'Unknown error'}`);
+        } finally {
+            setIsClaiming(false);
         }
     };
 
