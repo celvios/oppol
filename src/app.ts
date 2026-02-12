@@ -448,10 +448,9 @@ app.post('/api/multi-bet', async (req, res) => {
     // Contract returns costs in 18 decimals (wei), so parse maxCost as 18 decimals
     const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 18);
 
-    // DEDUCT FEE: Contract adds 5% fee ON TOP of cost.
-    // So Total = Cost * 1.05
-    // We need Cost <= UserAmount / 1.05
-    const FEE_BPS = BigInt(500); // 5%
+    // DEDUCT FEE: Contract adds fee ON TOP of cost.
+    // We assume 10% (1000 bps) to be safe and avoid InsufficientBalance reverts
+    const FEE_BPS = BigInt(1000); // 10% buffer
     const BPS_DIVISOR = BigInt(10000);
     const effectiveMaxCost = BigInt(maxCostInUnits) * BPS_DIVISOR / (BPS_DIVISOR + FEE_BPS);
 
