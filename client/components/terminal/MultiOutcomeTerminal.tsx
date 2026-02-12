@@ -371,11 +371,18 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 // Still fetch fresh data in background
                 fetchData();
             } else {
-                alert(`Trade failed: ${data.error}`);
+                // User-friendly error message
+                const errorMsg = data.error?.includes('Insufficient balance')
+                    ? 'Insufficient balance. Please deposit more funds.'
+                    : data.error?.includes('Market has ended')
+                        ? 'This market has ended and is no longer accepting bets.'
+                        : 'Something went wrong. Please try again soon.';
+                alert(errorMsg);
             }
         } catch (e: any) {
             console.error("Trade failed:", e);
-            alert(`Trade failed: ${e.message}`);
+            // User-friendly error message
+            alert('Something went wrong. Please try again soon.');
         } finally {
             setIsTradeLoading(false);
         }
