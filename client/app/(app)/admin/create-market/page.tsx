@@ -613,11 +613,9 @@ export default function CreateMarketPage() {
                                     <Save size={16} /> {success}
                                 </div>
                                 {createdMarketId !== null && (
-                                    <Link href={`/market/${createdMarketId}`} className="block">
-                                        <NeonButton variant="cyan" className="w-full py-3" type="button">
-                                            VIEW MARKET #{createdMarketId}
-                                        </NeonButton>
-                                    </Link>
+                                    <div className="text-white/60 text-xs text-center px-4">
+                                        Market created! It may take a few minutes to span across the network and appear on the dashboard.
+                                    </div>
                                 )}
                             </div>
                         )}
