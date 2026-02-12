@@ -260,6 +260,9 @@ export class Web3MultiService {
                 boost_tier: m.boost_tier,
                 boost_expires_at: m.boost_expires_at,
                 image: m.image_url || '',
+                // Legacy binary odds mapping
+                yesOdds: (m.prices && m.prices[0]) ? Number(m.prices[0]) / 100 : 0.5,
+                noOdds: (m.prices && m.prices[1]) ? Number(m.prices[1]) / 100 : 0.5,
             }));
         } catch (error: any) {
             console.error('[Web3MultiService] Error fetching markets from API:', error);
