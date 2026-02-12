@@ -445,7 +445,8 @@ app.post('/api/multi-bet', async (req, res) => {
     console.log(`✅ User balance: $${balanceFormatted}`);
 
     // Binary search to find max shares (in wei) for given cost
-    const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
+    // Contract returns costs in 18 decimals (wei), so parse maxCost as 18 decimals
+    const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 18);
 
     // DEDUCT FEE: Contract adds 5% fee ON TOP of cost.
     // So Total = Cost * 1.05
@@ -455,17 +456,15 @@ app.post('/api/multi-bet', async (req, res) => {
     const effectiveMaxCost = BigInt(maxCostInUnits) * BPS_DIVISOR / (BPS_DIVISOR + FEE_BPS);
 
     let low = BigInt(1);
-    // Rough estimate: 1 USDC (1e6) ~= 1 Share (1e18) if price is 1.0
-    // So if price is 0.01, 1 USDC ~= 100 Shares
-    const conversionFactor = BigInt(10) ** BigInt(12);
-    let high = BigInt(maxCostInUnits) * conversionFactor * BigInt(100);
+    // Both shares and costs are in 18 decimals, so high estimate is just maxCost * some multiplier
+    let high = BigInt(maxCostInUnits) * BigInt(100);
 
     let bestShares = BigInt(0);
 
 
     console.log('🔍 [MULTI-BET DEBUG] Starting binary search (fractional)');
     console.log('🔍 [MULTI-BET DEBUG] maxCost:', maxCost, 'maxCostInUnits:', maxCostInUnits.toString());
-    console.log('🔍 [MULTI-BET DEBUG] effectiveMaxCost after fee:', effectiveMaxCost.toString(), 'formatted:', ethers.formatUnits(effectiveMaxCost, 6));
+    console.log('🔍 [MULTI-BET DEBUG] effectiveMaxCost after fee:', effectiveMaxCost.toString(), 'formatted:', ethers.formatUnits(effectiveMaxCost, 18));
     console.log('🔍 [MULTI-BET DEBUG] Search range: low=', low.toString(), 'high=', high.toString());
 
     // Limit iterations to prevent timeouts (log2(high) ~ 60-70 iterations max usually)
