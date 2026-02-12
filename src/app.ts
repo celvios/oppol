@@ -479,13 +479,13 @@ app.post('/api/multi-bet', async (req, res) => {
       const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
       const rawCost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
 
-      // CRITICAL FIX: Contract returns cost in base units, multiply by 1e6 to get USDC units (6 decimals)
-      const cost = rawCost * BigInt(1e6);
+      // Contract returns cost in 18 decimals (wei format), use directly
+      const cost = rawCost;
       lastCheckedCost = cost;
 
       // Log first 5 and last 5 iterations
       if (iterations < 5 || iterations > 68) {
-        console.log(`🔍 [ITER ${iterations}] shares=${ethers.formatUnits(mid, 18)}, rawCost=${rawCost.toString()}, cost=${ethers.formatUnits(cost, 6)} USDC, effectiveMax=${ethers.formatUnits(effectiveMaxCost, 6)}`);
+        console.log(`🔍 [ITER ${iterations}] shares=${ethers.formatUnits(mid, 18)}, rawCost=${rawCost.toString()}, cost=${ethers.formatUnits(cost, 18)} USDC, effectiveMax=${ethers.formatUnits(effectiveMaxCost, 18)}`);
       }
 
       if (cost <= effectiveMaxCost) {
@@ -511,9 +511,9 @@ app.post('/api/multi-bet', async (req, res) => {
     const costResult = await rawCall(MULTI_MARKET_ADDR, costData);
     const rawActualCost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
 
-    // CRITICAL FIX: Contract returns cost in base units, multiply by 1e6 to get USDC units
-    const actualCost = rawActualCost * BigInt(1e6);
-    const costFormatted = ethers.formatUnits(actualCost, 6);
+    // Contract returns cost in 18 decimals (wei format), use directly
+    const actualCost = rawActualCost;
+    const costFormatted = ethers.formatUnits(actualCost, 18);
     const sharesFormatted = ethers.formatUnits(bestShares, 18);
     console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares (rawCost: ${rawActualCost.toString()})`);
 
@@ -525,10 +525,8 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     // Execute transaction
-    // CRITICAL FIX: Contract bug - calculateCost returns 6 decimals, but compares against 18 decimal userBalances
-    // We must pass maxCost in 6 decimals to match totalCost calculation in contract
-    // actualCost is already in 6 decimals (USDC format)
-    const maxCostWithSlippage = actualCost * BigInt(110) / BigInt(100); // 10% slippage, stays in 6 decimals
+    // maxCost should be in 18 decimals to match actualCost and userBalance
+    const maxCostWithSlippage = actualCost * BigInt(110) / BigInt(100); // 10% slippage, stays in 18 decimals
 
     console.log('🔍 [MULTI-BET DEBUG] Encoding transaction');
     console.log('🔍 [TX PARAMS]:', {
@@ -537,9 +535,9 @@ app.post('/api/multi-bet', async (req, res) => {
       outcomeIndex,
       shares: ethers.formatUnits(sharesInUnits, 18),
       sharesRaw: sharesInUnits.toString(),
-      maxCost: ethers.formatUnits(maxCostWithSlippage, 6), // NOW IN 6 DECIMALS
+      maxCost: ethers.formatUnits(maxCostWithSlippage, 18),
       maxCostRaw: maxCostWithSlippage.toString(),
-      actualCost: ethers.formatUnits(actualCost, 6),
+      actualCost: ethers.formatUnits(actualCost, 18),
       userBalance: ethers.formatUnits(userBalance, 18) // 18 decimals (wei)
     });
 
