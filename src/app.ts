@@ -593,12 +593,28 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     console.log('✅ [MULTI-BET DEBUG] Transaction data encoded successfully, length:', buyData.length);
-    console.log('🔍 [MULTI-BET DEBUG] Sending transaction');
-    const tx = await signer.sendTransaction({
+
+    const txRequest = {
       to: MULTI_MARKET_ADDR,
       data: buyData,
       gasLimit: 500000
-    });
+    };
+
+    console.log('🔍 [MULTI-BET DEBUG] Transaction request object:');
+    console.log('  to:', txRequest.to);
+    console.log('  data:', txRequest.data);
+    console.log('  data length:', txRequest.data ? txRequest.data.length : 'NULL');
+    console.log('  gasLimit:', txRequest.gasLimit);
+
+    console.log('🔍 [MULTI-BET DEBUG] Sending transaction');
+    const tx = await signer.sendTransaction(txRequest);
+
+    console.log('🔍 [POST-SEND DEBUG] Transaction sent, inspecting tx object:');
+    console.log('  tx.hash:', tx.hash);
+    console.log('  tx.to:', tx.to);
+    console.log('  tx.data:', tx.data);
+    console.log('  tx.from:', tx.from);
+    console.log('  tx.gasLimit:', tx.gasLimit ? tx.gasLimit.toString() : 'undefined');
 
     const receipt = await tx.wait();
 
