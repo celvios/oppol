@@ -712,7 +712,11 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                             <span className="text-neon-cyan">{m.outcomeCount} outcomes</span>
                                         </div>
                                         <div className="flex gap-2 items-center">
-                                            <span className="text-neon-green">{topOutcome}: {topPrice.toFixed(0)}%</span>
+                                            <span className="text-neon-green">{topOutcome}: {(() => {
+                                                // Format: 50 -> "50", 49.9 -> "49.9"
+                                                if (Math.abs(Math.round(topPrice) - topPrice) < 0.05) return Math.round(topPrice).toString();
+                                                return topPrice.toFixed(1);
+                                            })()}%</span>
                                         </div>
                                     </div>
 
