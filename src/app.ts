@@ -542,6 +542,24 @@ app.post('/api/multi-bet', async (req, res) => {
       maxCostWithSlippage
     ]);
 
+    // CRITICAL: Validate that transaction data was properly encoded
+    if (!buyData || buyData === '0x' || buyData.length <= 10) {
+      console.error('❌ [MULTI-BET ERROR] Failed to encode transaction data!');
+      console.error('❌ [MULTI-BET ERROR] buyData:', buyData);
+      console.error('❌ [MULTI-BET ERROR] Parameters:', {
+        normalizedAddress,
+        marketId,
+        outcomeIndex,
+        sharesInUnits: sharesInUnits.toString(),
+        maxCostWithSlippage: maxCostWithSlippage.toString()
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to encode transaction data. Please try again or contact support.'
+      });
+    }
+
+    console.log('✅ [MULTI-BET DEBUG] Transaction data encoded successfully, length:', buyData.length);
     console.log('🔍 [MULTI-BET DEBUG] Sending transaction');
     const tx = await signer.sendTransaction({
       to: MULTI_MARKET_ADDR,

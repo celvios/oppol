@@ -124,7 +124,7 @@ export function ShareChartModal({ isOpen, onClose, imageSrc, marketQuestion, mar
                         </div>
 
                         {/* Actions Footer */}
-                        <div className="p-4 bg-white/5 border-t border-white/10">
+                        <div className="p-4 pb-24 md:pb-4 bg-white/5 border-t border-white/10">
                             <div className="grid grid-cols-2 gap-3 mb-3">
                                 <button
                                     onClick={handleTwitter}
@@ -153,8 +153,8 @@ export function ShareChartModal({ isOpen, onClose, imageSrc, marketQuestion, mar
                                 <button
                                     onClick={handleCopy}
                                     className={`flex items-center justify-center gap-2 p-3 rounded-xl border active:scale-[0.98] transition-all font-bold text-sm ${copied
-                                            ? "bg-neon-green/20 text-neon-green border-neon-green/30"
-                                            : "bg-white/5 text-white border-white/10 hover:bg-white/10"
+                                        ? "bg-neon-green/20 text-neon-green border-neon-green/30"
+                                        : "bg-white/5 text-white border-white/10 hover:bg-white/10"
                                         }`}
                                 >
                                     {copied ? <Check size={18} /> : <Copy size={18} />}
