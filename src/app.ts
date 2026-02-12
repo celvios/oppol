@@ -405,8 +405,17 @@ app.post('/api/multi-bet', async (req, res) => {
 
     const iface = new ethers.Interface(marketABI);
 
-    // RAW JSON-RPC CALL FUNCTION
+    // RAW JSON-RPC CALL FUNCTION with rate limiting
+    let lastCallTime = 0;
     async function rawCall(to: string, data: string): Promise<string> {
+      // Rate limiting: ensure at least 25ms between calls (max 40 req/sec, safely under 50 limit)
+      const now = Date.now();
+      const timeSinceLastCall = now - lastCallTime;
+      if (timeSinceLastCall < 25) {
+        await new Promise(resolve => setTimeout(resolve, 25 - timeSinceLastCall));
+      }
+      lastCallTime = Date.now();
+
       const response = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
