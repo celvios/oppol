@@ -362,7 +362,12 @@ export default function CreateMarketPage() {
 
             setSuccess(`Market created successfully! ID: ${marketId}`);
             setTimeout(() => {
-                window.location.href = useAdminEndpoint ? "/admin" : "/";
+                if (useAdminEndpoint) {
+                    window.location.href = "/admin";
+                } else {
+                    // Public flow: Redirect to the new market page so user sees their creation
+                    window.location.href = `/market/${marketId}`;
+                }
             }, 2000);
         } catch (e: unknown) {
             console.error("Create market error:", e);
