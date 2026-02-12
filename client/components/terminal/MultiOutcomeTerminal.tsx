@@ -14,6 +14,7 @@ import { ResolutionPanel } from "@/components/ui/ResolutionPanel";
 import GlassCard from "@/components/ui/GlassCard";
 import NeonButton from "@/components/ui/NeonButton";
 import { ShareChartModal } from "@/components/ui/ShareChartModal";
+import { InsufficientBalanceModal } from "@/components/modals/InsufficientBalanceModal";
 import CommentsSection from "@/components/market/CommentsSection";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -107,7 +108,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
+
     const [searchQuery, setSearchQuery] = useState("");
+    const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
 
     const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
 
@@ -299,6 +302,13 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         }
 
         if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
+
+        // Check for insufficient balance
+        if (parseFloat(amount) > parseFloat(balance)) {
+            setShowInsufficientBalance(true);
+            return;
+        }
+
         setIsTradeLoading(true);
 
         try {
@@ -1058,6 +1068,14 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 imageSrc={shareImageSrc}
                 marketQuestion={market.question}
                 marketId={market.id}
+            />
+
+            {/* Insufficient Balance Modal */}
+            <InsufficientBalanceModal
+                isOpen={showInsufficientBalance}
+                onClose={() => setShowInsufficientBalance(false)}
+                needed={amount}
+                balance={balance}
             />
         </>
     );

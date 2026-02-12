@@ -12,6 +12,7 @@ import LogoBrand from "@/components/ui/LogoBrand";
 import SidebarBoostButton from "@/components/market/SidebarBoostButton";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
 import { useState } from "react";
+import { useWallet } from "@/lib/use-wallet";
 
 const navItems = [
     { name: "Markets", href: "/", icon: Globe },
@@ -30,17 +31,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     // const router = useRouter(); // REMOVED DUPLICATE
-    // const { isConnected, address, disconnect, connect } = useWallet();
+    const { isConnected, address, disconnect, connect } = useWallet();
     const { hasNFT } = useBC400Check();
 
-    // Placeholder for legacy checks - connect wallet handles auth now
-    const isEffectivelyConnected = false;
-    const effectiveAddress = "";
 
-    // Mock functions to satisfy linter until full cleanup
-    const connect = () => { };
-    const disconnect = async () => { };
-    const isConnected = false;
 
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
