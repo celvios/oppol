@@ -439,8 +439,9 @@ app.post('/api/multi-bet', async (req, res) => {
     const balanceResult = await rawCall(MULTI_MARKET_ADDR, balanceData);
     const userBalance = iface.decodeFunctionResult('userBalances', balanceResult)[0];
     console.log('🔍 [MULTI-BET DEBUG] Raw balance:', userBalance.toString());
-    // FIX: Contract stores balances in 18 decimals, not 6!
-    const balanceFormatted = ethers.formatUnits(userBalance, 18);
+    // CRITICAL FIX: Contract stores balances in 6 decimals (USDC format), not 18!
+    // The deposit() function adds USDC amounts directly, which are 6 decimals
+    const balanceFormatted = ethers.formatUnits(userBalance, 6);
     console.log(`✅ User balance: $${balanceFormatted}`);
 
     // Binary search to find max shares (in wei) for given cost
@@ -539,7 +540,7 @@ app.post('/api/multi-bet', async (req, res) => {
       maxCost: ethers.formatUnits(maxCostWithSlippage, 6), // NOW IN 6 DECIMALS
       maxCostRaw: maxCostWithSlippage.toString(),
       actualCost: ethers.formatUnits(actualCost, 6),
-      userBalance: ethers.formatUnits(userBalance, 18)
+      userBalance: ethers.formatUnits(userBalance, 6) // FIXED: 6 decimals not 18
     });
 
     // CRITICAL DEBUG: Log parameters BEFORE encoding
