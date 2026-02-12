@@ -534,6 +534,33 @@ app.post('/api/multi-bet', async (req, res) => {
       userBalance: ethers.formatUnits(userBalance, 18)
     });
 
+    // CRITICAL DEBUG: Log parameters BEFORE encoding
+    console.log('🔍 [PRE-ENCODE DEBUG] About to encode transaction with:');
+    console.log('  normalizedAddress:', normalizedAddress, 'type:', typeof normalizedAddress);
+    console.log('  marketId:', marketId, 'type:', typeof marketId);
+    console.log('  outcomeIndex:', outcomeIndex, 'type:', typeof outcomeIndex);
+    console.log('  sharesInUnits:', sharesInUnits.toString(), 'type:', typeof sharesInUnits);
+    console.log('  maxCostWithSlippage:', maxCostWithSlippage.toString(), 'type:', typeof maxCostWithSlippage);
+
+    // Validate parameters before encoding
+    if (!normalizedAddress || typeof normalizedAddress !== 'string') {
+      throw new Error(`Invalid normalizedAddress: ${normalizedAddress}`);
+    }
+    if (marketId === undefined || marketId === null) {
+      throw new Error(`Invalid marketId: ${marketId}`);
+    }
+    if (outcomeIndex === undefined || outcomeIndex === null) {
+      throw new Error(`Invalid outcomeIndex: ${outcomeIndex}`);
+    }
+    if (!sharesInUnits || sharesInUnits <= 0) {
+      throw new Error(`Invalid sharesInUnits: ${sharesInUnits}`);
+    }
+    if (!maxCostWithSlippage || maxCostWithSlippage <= 0) {
+      throw new Error(`Invalid maxCostWithSlippage: ${maxCostWithSlippage}`);
+    }
+
+    console.log('✅ [PRE-ENCODE DEBUG] All parameters validated');
+
     const buyData = iface.encodeFunctionData('buySharesFor', [
       normalizedAddress,
       marketId,
@@ -541,6 +568,12 @@ app.post('/api/multi-bet', async (req, res) => {
       sharesInUnits,
       maxCostWithSlippage
     ]);
+
+    console.log('🔍 [POST-ENCODE DEBUG] buyData result:');
+    console.log('  buyData:', buyData);
+    console.log('  buyData type:', typeof buyData);
+    console.log('  buyData length:', buyData ? buyData.length : 'NULL/UNDEFINED');
+    console.log('  buyData first 66 chars:', buyData ? buyData.substring(0, 66) : 'N/A');
 
     // CRITICAL: Validate that transaction data was properly encoded
     if (!buyData || buyData === '0x' || buyData.length <= 10) {
