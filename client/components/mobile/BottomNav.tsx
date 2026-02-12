@@ -10,14 +10,13 @@ import { useUIStore } from "@/lib/store";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useBC400Check } from "@/lib/use-bc400";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
+import { useWallet } from "@/lib/use-wallet";
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { isTradeModalOpen, isInputFocused, isCommentsOpen } = useUIStore();
-    // const { isConnected, connect } = useWallet();
-    const isConnected = false;
-    const connect = () => { };
+    const { isConnected, connect } = useWallet();
     const { hasNFT } = useBC400Check();
 
     const [showWalletModal, setShowWalletModal] = useState(false);
