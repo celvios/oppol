@@ -4,9 +4,9 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 async function main() {
-    // 1. The address from check-all-contracts.js "LATEST_DEPLOY"
-    const MARKET_ADDRESS_V2 = "0xB6a211822649a61163b94cf46e6fCE46119D3E1b";
-    // 2. The address that definitely responded to owner() calls in Step 1843
+    // 1. The REAL contract confirmed by user
+    const MARKET_ADDRESS_V2 = "0xe3Eb84D7e271A5C44B27578547f69C80c497355B";
+    // 2. Fallback (unused but kept for reference)
     const MARKET_ADDRESS_OLD = "0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6";
 
     // LOAD KEY FROM ENV

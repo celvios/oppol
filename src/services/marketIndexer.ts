@@ -128,10 +128,10 @@ export async function syncAllMarkets(): Promise<void> {
                 let isFirstRun = false;
 
                 if (!state) {
-                    // First run for this market: Look back 50k blocks (~1.5 days on BSC)
-                    //// Reduced from 500k to prevent timeout loops during initialization
+                    // First run for this market: Look back 1M blocks (~35 days on BSC) to ensure deep history coverage
+                    // This prevents missing trades if the service was down for an extended period
                     isFirstRun = true;
-                    fetchFromBlock = Math.max(0, currentBlock - 50000);
+                    fetchFromBlock = Math.max(0, currentBlock - 1000000);
 
                     // Read existing volume from database instead of resetting to 0
                     try {
