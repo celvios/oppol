@@ -286,6 +286,36 @@ export class Web3Service {
             return '0';
         }
     }
+
+    /**
+     * Claim winnings for a resolved market
+     */
+    async claimWinnings(marketId: number): Promise<string> {
+        if (!this.predictionMarket) throw new Error('Market contract not initialized');
+
+        console.log(`[Web3Service] Claiming winnings for market ${marketId}...`);
+
+        try {
+            // Get signer from browser wallet
+            const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+            const signer = await browserProvider.getSigner();
+
+            // Connect contract with signer
+            const contractWithSigner = this.predictionMarket.connect(signer) as ethers.Contract;
+
+            // Send transaction
+            const tx = await contractWithSigner.claimWinnings(marketId);
+            console.log(`[Web3Service] Claim TX sent: ${tx.hash}`);
+
+            const receipt = await tx.wait();
+            console.log(`[Web3Service] Claim TX confirmed: ${receipt.hash}`);
+
+            return receipt.hash;
+        } catch (error: any) {
+            console.error('[Web3Service] Claim failed:', error);
+            throw error;
+        }
+    }
 }
 
 export const web3Service = new Web3Service();
