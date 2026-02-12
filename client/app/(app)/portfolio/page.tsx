@@ -1,6 +1,6 @@
 "use client";
 
-import { PieChart, TrendingUp, Wallet, Plus, Minus, LogOut } from "lucide-react";
+import { PieChart, TrendingUp, Wallet, Plus, Minus, LogOut, Gift, Loader2, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 import { web3Service } from '@/lib/web3';
@@ -19,6 +19,9 @@ interface Position {
     currentValue: string;
     pnl: string;
     pnlRaw: number;
+    claimed: boolean;
+    isWinner: boolean;
+    marketResolved: boolean;
 }
 
 export default function PortfolioPage() {
@@ -27,16 +30,28 @@ export default function PortfolioPage() {
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
+    const [claimingMarketId, setClaimingMarketId] = useState<number | null>(null);
 
     const { isConnected, isConnecting, address, connect, disconnect } = useWallet();
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected;
 
-    // Debug logging
-    useEffect(() => {
-        console.log('[Portfolio] Wallet State:', { isConnected, address });
-    }, [isConnected, address]);
+
+
+    const handleClaim = async (marketId: number) => {
+        setClaimingMarketId(marketId);
+        try {
+            await web3Service.claimWinnings(marketId);
+            alert('Winnings claimed successfully! The page will refresh to update your balances.');
+            window.location.reload();
+        } catch (e: any) {
+            console.error(e);
+            alert(`Claim failed: ${e.message || 'Unknown error'}`);
+        } finally {
+            setClaimingMarketId(null);
+        }
+    };
 
     useEffect(() => {
         // Reset loading state when wallet connection changes
@@ -99,6 +114,9 @@ export default function PortfolioPage() {
 
                     const yesShares = parseFloat(position.yesShares) || 0;
                     const noShares = parseFloat(position.noShares) || 0;
+                    const claimed = position.claimed;
+                    const marketResolved = market.resolved;
+                    const winningOutcome = Number(market.winningOutcome);
 
                     // Process YES position
                     if (yesShares > 0) {
@@ -123,6 +141,10 @@ export default function PortfolioPage() {
                             currentValue: currentValue.toFixed(2),
                             pnl: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
                             pnlRaw: pnl,
+                            claimed,
+                            marketResolved,
+                            isWinner: marketResolved && winningOutcome === 0,
+                            winningOutcome
                         });
                     }
 
@@ -149,6 +171,10 @@ export default function PortfolioPage() {
                             currentValue: currentValue.toFixed(2),
                             pnl: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
                             pnlRaw: pnl,
+                            claimed,
+                            marketResolved,
+                            isWinner: marketResolved && winningOutcome === 1,
+                            winningOutcome
                         });
                     }
                 }
@@ -297,12 +323,13 @@ export default function PortfolioPage() {
                                 <th className="p-4 font-medium">Current Price</th>
                                 <th className="p-4 font-medium">Value</th>
                                 <th className="p-4 font-medium">PnL</th>
+                                <th className="p-4 font-medium text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {positions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="p-12 text-center">
+                                    <td colSpan={8} className="p-12 text-center">
                                         <div className="text-white/40 text-lg">
                                             No active positions. Place a bet to get started!
                                         </div>
@@ -311,7 +338,20 @@ export default function PortfolioPage() {
                             ) : (
                                 positions.map((pos, i) => (
                                     <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-4 font-medium text-white max-w-xs truncate">{pos.market}</td>
+                                        <td className="p-4 font-medium text-white max-w-xs truncate">
+                                            <Link href={`/markets?id=${pos.marketId}`} className="hover:text-neon-cyan transition-colors">
+                                                {pos.market}
+                                            </Link>
+                                            {pos.marketResolved && (
+                                                <div className="mt-1">
+                                                    {pos.isWinner ? (
+                                                        <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded uppercase font-bold">Won</span>
+                                                    ) : (
+                                                        <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">Lost</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="p-4">
                                             <span className={pos.side === "YES" ? "text-success bg-success/10 px-2 py-1 rounded text-xs font-bold" : "text-danger bg-danger/10 px-2 py-1 rounded text-xs font-bold"}>
                                                 {pos.side}
@@ -323,6 +363,32 @@ export default function PortfolioPage() {
                                         <td className="p-4 font-mono text-white">${pos.currentValue}</td>
                                         <td className={`p-4 font-mono font-bold ${pos.pnlRaw >= 0 ? 'text-success' : 'text-danger'}`}>
                                             {pos.pnl}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            {pos.marketResolved && pos.isWinner && !pos.claimed && (
+                                                <button
+                                                    onClick={() => handleClaim(pos.marketId)}
+                                                    disabled={claimingMarketId === pos.marketId}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500 text-black font-bold text-xs rounded hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                                                >
+                                                    {claimingMarketId === pos.marketId ? (
+                                                        <>
+                                                            <Loader2 size={12} className="animate-spin" />
+                                                            Claiming...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Gift size={12} />
+                                                            Claim
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                            {pos.marketResolved && pos.isWinner && pos.claimed && (
+                                                <span className="inline-flex items-center gap-1 text-xs text-green-400/50 font-mono">
+                                                    <CheckCircle size={12} /> Claimed
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
