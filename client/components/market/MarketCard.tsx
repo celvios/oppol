@@ -83,7 +83,7 @@ export default function MarketCard({
     // For multi-outcome: find leading outcome
     let leadingOutcome = outcomeA;
     let leadingPrice = Math.round(probA * 100);
-    let displayOutcomes: { name: string; price: number; color: string }[] = [];
+    let displayOutcomes: { name: string; price: number; displayPrice?: string; color: string }[] = [];
 
     if (isMultiOutcome && outcomes && prices) {
         // Find the leading outcome (highest price)
@@ -106,11 +106,22 @@ export default function MarketCard({
         }));
     } else {
         // Binary market
-        const percentA = Math.round(probA * 100);
-        const percentB = 100 - percentA;
+        // Calculate percentages with 1 decimal precision if needed
+        const rawPercentA = probA * 100;
+        const rawPercentB = 100 - rawPercentA;
+
+        // Helper to format: 50 -> "50", 49.9 -> "49.9"
+        const formatPercent = (n: number) => {
+            if (Math.abs(Math.round(n) - n) < 0.05) return Math.round(n).toString();
+            return n.toFixed(1);
+        };
+
+        const percentA = formatPercent(rawPercentA);
+        const percentB = formatPercent(rawPercentB);
+
         displayOutcomes = [
-            { name: outcomeA, price: percentA, color: OUTCOME_COLORS[0] },
-            { name: outcomeB, price: percentB, color: OUTCOME_COLORS[1] }
+            { name: outcomeA, price: Number(percentA), displayPrice: percentA, color: OUTCOME_COLORS[0] },
+            { name: outcomeB, price: Number(percentB), displayPrice: percentB, color: OUTCOME_COLORS[1] }
         ];
     }
 
@@ -226,10 +237,10 @@ export default function MarketCard({
                         <div className="space-y-2">
                             <div className="flex justify-between text-xs font-mono uppercase tracking-wider">
                                 <span className={`${resolved && winningOutcome === 0 ? 'text-neon-green font-bold' : 'text-outcome-a'}`}>
-                                    {outcomeA} {resolved ? (winningOutcome === 0 ? 'WIN' : '') : `${displayOutcomes[0]?.price}%`}
+                                    {outcomeA} {resolved ? (winningOutcome === 0 ? 'WIN' : '') : `${displayOutcomes[0]?.displayPrice || displayOutcomes[0]?.price}%`}
                                 </span>
                                 <span className={`${resolved && winningOutcome === 1 ? 'text-neon-green font-bold' : 'text-outcome-b'}`}>
-                                    {resolved ? (winningOutcome === 1 ? 'WIN' : '') : `${displayOutcomes[1]?.price}%`} {outcomeB}
+                                    {resolved ? (winningOutcome === 1 ? 'WIN' : '') : `${displayOutcomes[1]?.displayPrice || displayOutcomes[1]?.price}%`} {outcomeB}
                                 </span>
                             </div>
                             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden flex">
@@ -253,6 +264,6 @@ export default function MarketCard({
                     </div>
                 </div>
             </GlassCard>
-        </Link>
+        </Link >
     );
 }
