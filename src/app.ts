@@ -1101,7 +1101,9 @@ app.get('/api/markets', async (req, res) => {
         boost_expires_at: row.boost_expires_at ? Math.floor(new Date(row.boost_expires_at).getTime() / 1000) : null,
         last_indexed_at: row.last_indexed_at,
         created_at: row.created_at,
+        created_at: row.created_at,
         volume: row.volume || '0',
+        totalVolume: parseFloat(row.volume || '0').toFixed(2), // Pre-format for frontend display
       };
     });
 

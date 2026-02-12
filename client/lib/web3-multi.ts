@@ -229,6 +229,7 @@ export class Web3MultiService {
             }
 
             const data = await response.json();
+            console.log('[Web3Multi] API Response:', data); // DEBUG
             if (!data.success) {
                 throw new Error(data.error || 'API returned unsuccessful response');
             }
@@ -251,7 +252,7 @@ export class Web3MultiService {
                 prices: m.prices || [],
                 endTime: m.endTime,
                 liquidityParam: m.liquidityParam || '0',
-                totalVolume: m.volume || m.totalVolume || '0',
+                totalVolume: m.totalVolume || m.volume || '0', // Prefer pre-formatted totalVolume
                 resolved: m.resolved || false,
                 winningOutcome: m.winningOutcome || 0,
                 // Boost fields
