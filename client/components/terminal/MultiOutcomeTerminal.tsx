@@ -628,13 +628,65 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 {/* Resolution Status - Only if truly resolved */}
                 {
                     market.resolved && market.winningOutcome < market.outcomeCount && (
-                        <GlassCard className="p-4">
-                            <h3 className="text-sm font-heading text-white mb-2">Resolution Status</h3>
-                            <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                <div className="text-lg font-heading text-white">
-                                    Winning Outcome: {market.outcomes[market.winningOutcome]}
+                        <GlassCard className="p-4 space-y-4">
+                            <div>
+                                <h3 className="text-sm font-heading text-white mb-2">Resolution Status</h3>
+                                <div className={`p-3 rounded-lg border flex items-center gap-3 ${userPosition?.shares[market.winningOutcome] && parseFloat(userPosition.shares[market.winningOutcome]) > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-white/5 border-white/10'}`}>
+                                    {userPosition?.shares[market.winningOutcome] && parseFloat(userPosition.shares[market.winningOutcome]) > 0 ? (
+                                        <div className="p-2 rounded-full bg-green-500/20 text-green-400">
+                                            <Gift size={20} />
+                                        </div>
+                                    ) : (
+                                        <div className="p-2 rounded-full bg-white/10 text-white/40">
+                                            <CheckCircle size={20} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <div className="text-xs text-white/50 uppercase tracking-wide">Winning Outcome</div>
+                                        <div className="text-lg font-heading text-white">
+                                            {market.outcomes[market.winningOutcome]}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Claim Button for Winners */}
+                            {userPosition && (
+                                <>
+                                    {parseFloat(userPosition.shares[market.winningOutcome] || '0') > 0 && !userPosition.claimed && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <NeonButton
+                                                onClick={handleClaim}
+                                                variant="green"
+                                                className="w-full py-4 font-bold text-lg shadow-[0_0_30px_rgba(39,232,167,0.3)]"
+                                                disabled={isClaiming}
+                                            >
+                                                {isClaiming ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <Loader2 className="animate-spin" /> CLAIMING...
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-2">
+                                                        <Gift /> CLAIM WINNINGS
+                                                    </span>
+                                                )}
+                                            </NeonButton>
+                                            <p className="text-center text-xs text-green-400/70 mt-3 font-mono">
+                                                You won {parseFloat(userPosition.shares[market.winningOutcome]).toFixed(2)} shares!
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {userPosition.claimed && parseFloat(userPosition.shares[market.winningOutcome] || '0') > 0 && (
+                                        <div className="text-center p-4 bg-white/5 rounded-xl border border-white/5">
+                                            <div className="text-green-400 font-bold mb-1 flex items-center justify-center gap-2">
+                                                <CheckCircle size={16} /> PAID OUT
+                                            </div>
+                                            <p className="text-xs text-white/40">Winnings have been sent to your wallet.</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </GlassCard>
                     )
                 }
