@@ -186,6 +186,10 @@ export class Web3MultiService {
      * Get all multi-outcome markets - Stale-While-Revalidate pattern
      * Returns cached data instantly, refreshes in background if stale
      */
+    /**
+     * Get all multi-outcome markets - Stale-While-Revalidate pattern
+     * Returns cached data instantly, refreshes in background if stale
+     */
     async getMarkets(): Promise<MultiMarket[]> {
         const now = Date.now();
 
@@ -207,8 +211,16 @@ export class Web3MultiService {
         // Cache is too old or doesn't exist - must fetch fresh
         console.log('[Web3MultiService] Cache expired or empty, fetching fresh data...');
         const markets = await this.fetchMarketsFromAPI();
-        this.marketsCache = { data: markets, timestamp: Date.now() };
-        this.saveCacheToStorage();
+
+        // Only cache if we actually got data. 
+        // Prevents caching empty lists due to transient API/Network errors.
+        if (markets.length > 0) {
+            this.marketsCache = { data: markets, timestamp: Date.now() };
+            this.saveCacheToStorage();
+        } else {
+            console.warn('[Web3MultiService] fetched 0 markets, skipping cache update to avoid poisoning');
+        }
+
         return markets;
     }
 
@@ -229,7 +241,7 @@ export class Web3MultiService {
             }
 
             const data = await response.json();
-            console.log('[Web3Multi] API Response:', data); // DEBUG
+            // console.log('[Web3Multi] API Response:', data); // DEBUG - Commented out to reduce noise
             if (!data.success) {
                 throw new Error(data.error || 'API returned unsuccessful response');
             }
