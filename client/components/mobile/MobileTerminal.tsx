@@ -894,7 +894,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                                 isLoading={loading}
                                 side={side}
                                 color={outcomeColor}
-                                disabled={loading || !amount || parseFloat(balance) === 0}
+                                disabled={loading || !amount || parseFloat(amount) < 0.5 || parseFloat(balance) === 0}
                             />
                         )}
                     </div>

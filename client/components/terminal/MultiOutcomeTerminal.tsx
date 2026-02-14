@@ -1142,7 +1142,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                                     isLoading={isTradeLoading}
                                                     side={(market.outcomes[selectedOutcome] || 'OUTCOME').toUpperCase()}
                                                     color={getOutcomeColor(market.outcomes[selectedOutcome], selectedOutcome)}
-                                                    disabled={!amount || parseFloat(amount) <= 0 || parseFloat(balance) === 0 || isTradeLoading}
+                                                    disabled={!amount || parseFloat(amount) < 0.5 || parseFloat(balance) === 0 || isTradeLoading}
                                                 />
                                             )}
                                         </div>
