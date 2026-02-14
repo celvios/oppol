@@ -10,7 +10,7 @@ const BC400_ABI = [
 const BC400_NFT_ADDRESS = "0xB929177331De755d7aCc5665267a247e458bCdeC";
 const BC400_TOKEN_ADDRESS = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD";
 const MIN_TOKEN_BALANCE = "10000000"; // 10 Million
-const BC400_DECIMALS = 9; // BC400 has 9 decimals (verified on-chain)
+const BC400_DECIMALS = 18; // BC400 has 18 decimals (verified on-chain)
 
 export function useBC400Check() {
     const { address, isConnected } = useWallet();
@@ -42,7 +42,7 @@ export function useBC400Check() {
                     new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
                 ]).catch(() => BigInt(0));
 
-                // BC400 uses 9 decimals (verified on-chain)
+                // BC400 uses 18 decimals (verified on-chain)
                 const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, BC400_DECIMALS);
 
                 const hasEnoughTokens = tokenBalance >= requiredTokens;
