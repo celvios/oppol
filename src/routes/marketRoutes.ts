@@ -2,7 +2,6 @@ import express from 'express';
 import { ethers } from 'ethers';
 import { CONFIG } from '../config/contracts';
 import { query } from '../config/database';
-import { stringify } from 'querystring';
 
 const router = express.Router();
 
