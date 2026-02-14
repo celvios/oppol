@@ -123,6 +123,16 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
 export const getMarketMetadata = async (req: Request, res: Response) => {
     try {
         const { marketId } = req.params;
+
+        // Check cache first
+        if (marketCache.single.has(marketId)) {
+            const entry = marketCache.single.get(marketId);
+            if (isCacheValid(entry)) {
+                // console.log(`[Market ${marketId}] Returning cached DB data`);
+                return res.json({ success: true, market: entry!.data });
+            }
+        }
+
         const result = await query('select * from markets where market_id = $1', [marketId]);
 
         if (result.rows.length === 0) {
@@ -131,101 +141,18 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
 
         const row = result.rows[0];
 
-        // FETCH ON-CHAIN DATA
-        let onChainData: any = {};
-        try {
-            const { CONFIG } = require('../config/contracts');
-            const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
-            const MARKET_ADDRESS = CONFIG.MARKET_CONTRACT;
-            console.log(`[Market ${marketId}] Fetching from contract: ${MARKET_ADDRESS}`);
-            console.log(`[Market ${marketId}] RPC URL: ${process.env.BNB_RPC_URL}`);
-
-            const abi = [
-                'function getPrice(uint256) view returns (uint256)',
-                'function markets(uint256) view returns (string, uint256, uint256, uint256, uint256, bool, bool, uint256)',
-                'function getMarketShares(uint256) view returns (uint256[])'
-            ];
-            const contract = new ethers.Contract(MARKET_ADDRESS, abi, provider);
-
-            console.log(`[Market ${marketId}] Calling contract methods...`);
-
-            // Try to call each method individually to see which one fails
-            let outcomes, prices, basicInfo;
-
-            try {
-                outcomes = await contract.getMarketOutcomes(marketId);
-                console.log(`[Market ${marketId}] Outcomes success:`, outcomes);
-            } catch (e) {
-                console.error(`[Market ${marketId}] getMarketOutcomes failed:`, e);
-                outcomes = ['Yes', 'No'];
-            }
-
-            try {
-                prices = await contract.getAllPrices(marketId);
-                console.log(`[Market ${marketId}] Prices success:`, prices.map((p: bigint) => p.toString()));
-            } catch (e) {
-                console.error(`[Market ${marketId}] getAllPrices failed:`, e);
-                // Dynamic fallback based on outcome count
-                const count = outcomes.length;
-                const equalShare = Math.floor(10000 / count);
-                prices = Array(count).fill(BigInt(equalShare));
-            }
-
-            let shares: bigint[] = [];
-            try {
-                shares = await contract.getMarketShares(marketId);
-                console.log(`[Market ${marketId}] Shares success:`, shares.map((s: bigint) => s.toString()));
-            } catch (e) {
-                console.error(`[Market ${marketId}] getMarketShares failed:`, e);
-                shares = Array(outcomes.length).fill(BigInt(0));
-            }
-
-            try {
-                basicInfo = await contract.getMarketBasicInfo(marketId);
-                console.log(`[Market ${marketId}] BasicInfo success:`, basicInfo);
-            } catch (e) {
-                console.error(`[Market ${marketId}] getMarketBasicInfo failed:`, e);
-                basicInfo = ['', 0, 1799622939, 600, false, 0];
-            }
-
-            console.log(`[Market ${marketId}] Raw outcomes:`, outcomes);
-            console.log(`[Market ${marketId}] Raw prices:`, prices.map((p: bigint) => p.toString()));
-            console.log(`[Market ${marketId}] Raw shares:`, shares.map((s: bigint) => s.toString()));
-            console.log(`[Market ${marketId}] Basic info:`, basicInfo);
-
-            // Calculate total volume from shares
-            const volumeSum = shares.reduce((sum: bigint, share: bigint) => sum + share, BigInt(0));
-            const totalVolume = (Number(volumeSum) / 1e6).toFixed(2); // Convert from 6 decimals
-
-            onChainData = {
-                outcomes: outcomes,
-                prices: prices.map((p: bigint) => Number(p) / 100),
-                outcomeCount: Number(basicInfo[3]),
-                endTime: Number(basicInfo[4]),
-                liquidityParam: basicInfo[5].toString(),
-                resolved: basicInfo[6],
-                winningOutcome: Number(basicInfo[7]),
-                totalVolume: totalVolume
-            };
-
-            console.log(`[Market ${marketId}] Processed prices:`, onChainData.prices);
-        } catch (err: any) {
-            // Suppress "missing revert data" noise for mismatched markets
-            if (err.code !== 'CALL_EXCEPTION') {
-                console.warn(`[Market ${marketId}] On-chain fetch failed:`, err.message);
-            }
-            // Fallback for outcomes if on-chain fails (default Yes/No)
-            onChainData = {
-                outcomes: ['Yes', 'No'],
-                prices: [0.5, 0.5],
-                outcomeCount: 2,
-                endTime: Math.floor(Date.now() / 1000) + 86400, // +24h
-                liquidityParam: '0',
-                resolved: false,
-                winningOutcome: 0,
-                totalVolume: '0'
-            };
+        // Parse JSON fields
+        let outcomes = row.outcome_names;
+        if (typeof outcomes === 'string') {
+            try { outcomes = JSON.parse(outcomes); } catch (e) { outcomes = ['Yes', 'No']; }
         }
+        if (!outcomes) outcomes = ['Yes', 'No'];
+
+        let prices = row.prices;
+        if (typeof prices === 'string') {
+            try { prices = JSON.parse(prices); } catch (e) { prices = [0.5, 0.5]; }
+        }
+        if (!prices) prices = [0.5, 0.5];
 
         const market = {
             market_id: row.market_id,
@@ -237,8 +164,20 @@ export const getMarketMetadata = async (req: Request, res: Response) => {
             is_boosted: row.is_boosted || false,
             boost_expires_at: row.boost_expires_at ? Number(row.boost_expires_at) : 0,
             creator_fee: 2, // V3 Constant
-            ...onChainData
+
+            // Serve directly from DB (Indexer is Source of Truth)
+            outcomes: outcomes,
+            prices: prices,
+            outcomeCount: Number(row.outcome_count || 2),
+            endTime: row.end_time ? Math.floor(new Date(row.end_time).getTime() / 1000) : Math.floor(Date.now() / 1000) + 86400,
+            liquidityParam: row.liquidity_param || '0',
+            resolved: row.resolved || false,
+            winningOutcome: Number(row.winning_outcome || 0),
+            totalVolume: row.volume || '0'
         };
+
+        // Cache the result
+        marketCache.single.set(marketId, { data: market, timestamp: Date.now() });
 
         res.json({ success: true, market });
     } catch (error) {

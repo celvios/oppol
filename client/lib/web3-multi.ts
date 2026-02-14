@@ -186,10 +186,6 @@ export class Web3MultiService {
      * Get all multi-outcome markets - Stale-While-Revalidate pattern
      * Returns cached data instantly, refreshes in background if stale
      */
-    /**
-     * Get all multi-outcome markets - Stale-While-Revalidate pattern
-     * Returns cached data instantly, refreshes in background if stale
-     */
     async getMarkets(): Promise<MultiMarket[]> {
         const now = Date.now();
 
@@ -211,16 +207,8 @@ export class Web3MultiService {
         // Cache is too old or doesn't exist - must fetch fresh
         console.log('[Web3MultiService] Cache expired or empty, fetching fresh data...');
         const markets = await this.fetchMarketsFromAPI();
-
-        // Only cache if we actually got data. 
-        // Prevents caching empty lists due to transient API/Network errors.
-        if (markets.length > 0) {
-            this.marketsCache = { data: markets, timestamp: Date.now() };
-            this.saveCacheToStorage();
-        } else {
-            console.warn('[Web3MultiService] fetched 0 markets, skipping cache update to avoid poisoning');
-        }
-
+        this.marketsCache = { data: markets, timestamp: Date.now() };
+        this.saveCacheToStorage();
         return markets;
     }
 
@@ -241,7 +229,7 @@ export class Web3MultiService {
             }
 
             const data = await response.json();
-            // console.log('[Web3Multi] API Response:', data); // DEBUG - Commented out to reduce noise
+            console.log('[Web3Multi] API Response:', data); // DEBUG
             if (!data.success) {
                 throw new Error(data.error || 'API returned unsuccessful response');
             }
@@ -295,57 +283,59 @@ export class Web3MultiService {
     /**
      * Get single multi-outcome market
      */
+    /**
+     * Get single multi-outcome market
+     */
     async getMarket(marketId: number): Promise<MultiMarket | null> {
-        if (!this.predictionMarket) return null;
+        // Check cache first if available (though getMarkets usually populates it)
+        if (this.marketsCache) {
+            const cachedMarket = this.marketsCache.data.find(m => m.id === marketId);
+            if (cachedMarket) {
+                // console.log(`[Web3Multi] Returning individual market ${marketId} from cache`);
+                return cachedMarket;
+            }
+        }
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) return null;
+
         try {
-            const [basicInfo, outcomes, shares, prices] = await Promise.all([
-                this.predictionMarket.getMarketBasicInfo(marketId),
-                this.predictionMarket.getMarketOutcomes(marketId),
-                this.predictionMarket.getMarketShares(marketId),
-                this.predictionMarket.getAllPrices(marketId),
-            ]);
+            console.log(`[Web3Multi] Fetching market ${marketId} from API...`);
+            const response = await fetch(`${apiUrl}/api/markets/${marketId}`);
+            if (!response.ok) throw new Error('Market fetch failed');
 
-            const sharesFormatted = shares.map((s: bigint) => ethers.formatUnits(s, 18));
-            const pricesFormatted = prices.map((p: bigint) => Number(p) / 100); // Convert basis points to percentage
+            const data = await response.json();
+            if (!data.success || !data.market) return null;
 
-            const totalVolume = sharesFormatted.reduce((sum: number, s: string) => sum + parseFloat(s), 0);
+            const m = data.market;
 
-            // Legacy binary odds calculation
-            const yesPrice = pricesFormatted[0] || 50;
-            const noPrice = pricesFormatted[1] || 50;
-
+            // Map API response to MultiMarket interface
             return {
-                id: marketId,
-                question: basicInfo.question,
-                image_url: basicInfo.image || '', // Map from contract
-                description: basicInfo.description || '', // Map from contract
-                category_id: '',
-                outcomes: outcomes,
-                outcomeCount: Number(basicInfo.outcomeCount),
-                shares: sharesFormatted,
-                prices: pricesFormatted,
-                endTime: Number(basicInfo.endTime),
-                liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
-                totalVolume: totalVolume.toFixed(2),
-                resolved: basicInfo.resolved,
-                winningOutcome: Number(basicInfo.winningOutcome),
-                assertionPending: basicInfo.assertionPending || false,
-                assertedOutcome: Number(basicInfo.assertedOutcome || 0),
-                asserter: basicInfo.asserter || ethers.ZeroAddress,
-                // Legacy compatibility
-                image: basicInfo.image || '',
-                yesOdds: yesPrice,
-                noOdds: noPrice,
-                yesShares: sharesFormatted[0] || '0',
-                noShares: sharesFormatted[1] || '0',
-                yesPool: ethers.formatUnits(basicInfo.liquidityParam, 18),
-                noPool: '0',
-                outcome: basicInfo.resolved ? Number(basicInfo.winningOutcome) === 0 : undefined,
-                // Boost fields - Consistent with API
-                isBoosted: marketId < 3,
+                id: m.market_id !== undefined ? m.market_id : m.id,
+                question: m.question,
+                image_url: m.image_url || '',
+                description: m.description || '',
+                category_id: m.category_id || '',
+                outcomes: m.outcomes || [],
+                outcomeCount: m.outcomeCount || 2,
+                shares: [], // Individual shares not tracked in detailed view mostly
+                prices: m.prices || [],
+                endTime: m.endTime,
+                liquidityParam: m.liquidityParam || '0',
+                totalVolume: m.totalVolume || m.volume || '0',
+                resolved: m.resolved || false,
+                winningOutcome: m.winningOutcome || 0,
+                // Boost fields
+                isBoosted: m.is_boosted || (m.market_id !== undefined ? m.market_id : m.id) < 3,
+                boost_tier: m.boost_tier,
+                boost_expires_at: m.boost_expires_at,
+                image: m.image_url || '',
+                // Legacy binary odds mapping
+                yesOdds: (m.prices && m.prices[0]) ? Number(m.prices[0]) : 50,
+                noOdds: (m.prices && m.prices[1]) ? Number(m.prices[1]) : 50,
             };
         } catch (error) {
-            console.error('Error fetching multi-market:', error);
+            console.error('Error fetching multi-market via API:', error);
             return null;
         }
     }
