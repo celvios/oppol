@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, X, CheckCircle } from "lucide-react";
+import { AlertCircle, X, Check } from "lucide-react";
 
 interface AlertModalProps {
     isOpen: boolean;
@@ -45,7 +45,7 @@ export function AlertModal({ isOpen, onClose, title, message, type = "error" }: 
 
                         <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center border ${colors[type].replace("text-", "border-")}`}>
                             {type === 'success' ? (
-                                <CheckCircle size={32} className={iconColors[type]} />
+                                <Check size={32} className={iconColors[type]} />
                             ) : (
                                 <AlertCircle size={32} className={iconColors[type]} />
                             )}
