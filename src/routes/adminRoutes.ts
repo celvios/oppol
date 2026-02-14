@@ -71,136 +71,126 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
 // GET /markets - List ALL markets (including deleted ones) for Admin
 router.get('/markets', checkAdminAuth, async (req, res) => {
     try {
-        // Fetch ALL markets from contract (no DB filter)
+        console.log(`[Admin API] Fetching markets from DB (source of truth)...`);
+
+        // 1. Fetch ALL markets from DATABASE (source of truth)
+        const dbResult = await query('SELECT * FROM markets ORDER BY market_id DESC');
+        const dbCount = dbResult.rows.length;
+
+        console.log(`[Admin API] Found ${dbCount} markets in database`);
+
+        if (dbCount === 0) {
+            return res.json({
+                success: true,
+                markets: [],
+                dbCount: 0,
+                dbError: null
+            });
+        }
+
+        // 2. Enrich with on-chain data where available
         const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
         const chainId = Number(process.env.CHAIN_ID) || 56;
         const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
 
-        // USE CORRECT CONTRACT FROM ENV
         const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_ADDRESS || process.env.MARKET_CONTRACT;
         console.log('👮 [ADMIN API] Using contract address:', MARKET_ADDR);
 
         if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS env var");
 
         const marketABI = [
-            'function marketCount() view returns (uint256)',
             'function getMarketBasicInfo(uint256) view returns (string question, string image, string description, uint256 outcomeCount, uint256 endTime, uint256 liquidityParam, bool resolved, uint256 winningOutcome)',
             'function getMarketOutcomes(uint256) view returns (string[])',
             'function getAllPrices(uint256) view returns (uint256[])'
         ];
 
         const marketContract = new ethers.Contract(MARKET_ADDR, marketABI, provider);
-        const count = await marketContract.marketCount();
-        const marketCount = Number(count);
 
-        console.log(`[Admin API] Fetching ${marketCount} total markets...`);
+        // 3. Process each DB market and try to enrich with on-chain data
+        const markets: any[] = [];
+        let onChainSuccessCount = 0;
+        let onChainFailCount = 0;
 
-        // Get DB metadata for enrichment where possible
-        let metadataMap: Record<string, any> = {};
-        let dbCount = 0;
-        let dbError: string | null = null;
+        // Process in batches to avoid rate limits
+        const BATCH_SIZE = 5;
+        const rows = dbResult.rows;
 
-        try {
-            const metadataResult = await query('SELECT * FROM markets');
-            dbCount = metadataResult.rows.length;
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+            const batchRows = rows.slice(i, i + BATCH_SIZE);
+            const batchPromises = batchRows.map(async (dbMarket: any) => {
+                const marketId = Number(dbMarket.market_id);
 
-            metadataResult.rows.forEach((row: any) => {
-                // Try multiple casing variants
-                const rawId = row.market_id ?? row.marketId ?? row.id ?? row.ID;
-                const cleanId = String(rawId).trim();
+                try {
+                    // Try to fetch on-chain data
+                    const [basicInfo, outcomes, prices] = await Promise.all([
+                        marketContract.getMarketBasicInfo(marketId),
+                        marketContract.getMarketOutcomes(marketId),
+                        marketContract.getAllPrices(marketId)
+                    ]);
 
-                // Use the found ID for mapping
-                if (rawId !== undefined && rawId !== null) {
-                    metadataMap[cleanId] = row;
+                    onChainSuccessCount++;
+
+                    return {
+                        market_id: marketId,
+                        question: dbMarket.question || basicInfo.question,
+                        description: dbMarket.description || '',
+                        image: dbMarket.image || '',
+                        category: dbMarket.category || '',
+                        outcomes: JSON.parse(dbMarket.outcome_names || '["YES","NO"]'),
+                        prices: prices.map((p: bigint) => Number(p) / 100),
+                        endTime: Number(basicInfo.endTime),
+                        resolved: basicInfo.resolved,
+                        winningOutcome: Number(basicInfo.winningOutcome),
+                        isHidden: false,
+                        volume: dbMarket.volume || '0',
+                        status: dbMarket.resolved ? 'RESOLVED' : (Date.now() / 1000 > Number(basicInfo.endTime) ? 'ENDED' : 'ACTIVE')
+                    };
+                } catch (error: any) {
+                    onChainFailCount++;
+                    console.log(`[Admin API] ⚠️ Market #${marketId} exists in DB but not on-chain: ${error.message}`);
+
+                    // Fallback to DB data
+                    let prices = [50, 50];
+                    try {
+                        if (dbMarket.prices) prices = JSON.parse(dbMarket.prices);
+                    } catch (e) { }
+
+                    return {
+                        market_id: marketId,
+                        question: dbMarket.question || 'Unknown Market',
+                        description: dbMarket.description || '',
+                        image: dbMarket.image || '',
+                        category: dbMarket.category || '',
+                        outcomes: JSON.parse(dbMarket.outcome_names || '["YES","NO"]'),
+                        prices: prices,
+                        endTime: dbMarket.end_time ? Math.floor(new Date(dbMarket.end_time).getTime() / 1000) : 0,
+                        resolved: dbMarket.resolved || false,
+                        winningOutcome: dbMarket.winning_outcome || 0,
+                        isHidden: true, // Mark as hidden/error since not on-chain
+                        volume: dbMarket.volume || '0',
+                        status: 'DELETED'
+                    };
                 }
             });
 
-            console.log(`[Admin API] Fetched ${dbCount} DB rows`);
+            const batchResults = await Promise.all(batchPromises);
+            markets.push(...batchResults);
 
-        } catch (e: any) {
-            console.error('[Admin API] DB metadata fetch failed:', e.message);
-            dbError = e.message;
-            // We continue, but all markets will appear "Deleted" if this fails
+            // Small delay between batches
+            if (i + BATCH_SIZE < rows.length) await new Promise(r => setTimeout(r, 100));
         }
 
-        const markets: any[] = [];
-        const BATCH_SIZE = 5;
-        const marketIds = Array.from({ length: marketCount }, (_, i) => i);
-
-        let successCount = 0;
-        let failCount = 0;
-        const failedMarkets: number[] = [];
-
-        console.log(`[Admin API] Starting batch fetch of ${marketCount} markets in batches of ${BATCH_SIZE}...`);
-
-        // Fetch all in batches
-        for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
-            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-            const totalBatches = Math.ceil(marketCount / BATCH_SIZE);
-            const batchIds = marketIds.slice(i, i + BATCH_SIZE);
-
-            console.log(`[Admin API] Processing batch ${batchNum}/${totalBatches} (Markets ${i}-${Math.min(i + BATCH_SIZE - 1, marketCount - 1)})`);
-
-            const batchPromises = batchIds.map(id =>
-                Promise.all([
-                    marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
-                    marketContract.getMarketOutcomes(id).catch((e: any) => { throw new Error(`Outcomes ${id}: ${e.message}`) }),
-                    marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
-                ]).then(([basicInfo, outcomes, prices]) => {
-                    const metadata = metadataMap[String(id)];
-                    successCount++;
-                    return {
-                        market_id: id,
-                        question: basicInfo.question,
-                        // Mark as "Deleted" or "Hidden" if not in DB
-                        isHidden: !metadata,
-                        description: metadata?.description || '',
-                        image_url: metadata?.image || '',
-                        category_id: metadata?.category || '',
-                        outcomes: outcomes,
-                        prices: prices.map((p: bigint) => Number(p) / 100),
-                        outcomeCount: Number(basicInfo.outcomeCount),
-                        endTime: Number(basicInfo.endTime),
-                        resolved: basicInfo.resolved,
-                        winningOutcome: Number(basicInfo.winningOutcome)
-                    };
-                }).catch(err => {
-                    failCount++;
-                    failedMarkets.push(id);
-                    console.error(`[Admin API] ❌ Market #${id} failed:`, err.message);
-                    return null;
-                })
-            );
-
-            try {
-                const batchResults = await Promise.all(batchPromises);
-                const successfulInBatch = batchResults.filter(m => m !== null);
-                markets.push(...successfulInBatch);
-                console.log(`[Admin API] ✅ Batch ${batchNum} completed: ${successfulInBatch.length}/${batchIds.length} markets fetched`);
-            } catch (batchError: any) {
-                console.error(`[Admin API] 🔥 Entire batch ${batchNum} failed:`, batchError.message);
-            }
-
-            if (i + BATCH_SIZE < marketIds.length) {
-                await new Promise(r => setTimeout(r, 100)); // Slight delay
-            }
-        }
-
-        console.log(`[Admin API] 📊 Final Summary: ${successCount} succeeded, ${failCount} failed out of ${marketCount} total`);
-        if (failedMarkets.length > 0) {
-            console.log(`[Admin API] ⚠️ Failed market IDs: [${failedMarkets.join(', ')}]`);
-        }
+        console.log(`[Admin API] 📊 Enrichment: ${onChainSuccessCount} on-chain, ${onChainFailCount} DB-only out of ${dbCount} total`);
 
         return res.json({
             success: true,
             markets,
             dbCount,
-            dbError,
+            dbError: null,
             fetchStats: {
-                total: marketCount,
-                fetched: successCount,
-                failed: failCount,
-                failedIds: failedMarkets
+                total: dbCount,
+                onChain: onChainSuccessCount,
+                dbOnly: onChainFailCount
             }
         });
 
@@ -243,12 +233,6 @@ router.post('/delete-market', checkAdminAuth, async (req, res) => {
             global.marketsCache = null;
             console.log('[Admin] Invalidated markets cache');
         }
-
-        return res.json({
-            success: true,
-            marketId,
-            message: 'Market deleted from database'
-        });
 
         return res.json({
             success: true,
