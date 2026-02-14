@@ -136,7 +136,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                         description: dbMarket.description || '',
                         image: dbMarket.image || '',
                         category: dbMarket.category || '',
-                        outcomes: JSON.parse(dbMarket.outcome_names || '["YES","NO"]'),
+                        outcomes: outcomes,
                         prices: prices.map((p: bigint) => Number(p) / 100),
                         endTime: Number(basicInfo.endTime),
                         resolved: basicInfo.resolved,
@@ -152,8 +152,20 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                     // Fallback to DB data
                     let prices = [50, 50];
                     try {
-                        if (dbMarket.prices) prices = JSON.parse(dbMarket.prices);
+                        if (dbMarket.prices) {
+                            if (Array.isArray(dbMarket.prices)) prices = dbMarket.prices;
+                            else prices = JSON.parse(dbMarket.prices);
+                        }
                     } catch (e) { }
+
+                    let outcomes = ["YES", "NO"];
+                    if (dbMarket.outcome_names) {
+                        if (Array.isArray(dbMarket.outcome_names)) outcomes = dbMarket.outcome_names;
+                        else {
+                            try { outcomes = JSON.parse(dbMarket.outcome_names); }
+                            catch (e) { outcomes = String(dbMarket.outcome_names).split(',').map(s => s.trim()); }
+                        }
+                    }
 
                     return {
                         market_id: marketId,
@@ -161,7 +173,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                         description: dbMarket.description || '',
                         image: dbMarket.image || '',
                         category: dbMarket.category || '',
-                        outcomes: JSON.parse(dbMarket.outcome_names || '["YES","NO"]'),
+                        outcomes: outcomes,
                         prices: prices,
                         endTime: dbMarket.end_time ? Math.floor(new Date(dbMarket.end_time).getTime() / 1000) : 0,
                         resolved: dbMarket.resolved || false,
