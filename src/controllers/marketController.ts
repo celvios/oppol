@@ -27,15 +27,33 @@ function isCacheValid(entry: CacheEntry | undefined): boolean {
 
 export const createMarketMetadata = async (req: Request, res: Response) => {
     try {
-        const { marketId, question, description, imageUrl, categoryId, creatorAddress } = req.body;
+        // Fix: Client sends 'category', but we were looking for 'categoryId'
+        const { marketId, question, description, imageUrl, categoryId, category, creatorAddress, outcome_names } = req.body;
+
+        // Use provided category name (support both field names)
+        const categoryName = category || categoryId || '';
 
         if (!marketId || !question) {
             return res.status(400).json({ success: false, message: 'Missing marketId or question' });
         }
 
+        // 1. Ensure category exists in categories table
+        if (categoryName) {
+            await query('INSERT INTO categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [categoryName]);
+        }
+
+        // 2. Insert market with correct category name
         await query(
-            'insert into markets (market_id, question, description, image, category, creator_address) values ($1, $2, $3, $4, $5, $6)',
-            [marketId, question, description || '', imageUrl || '', categoryId || '', creatorAddress || '']
+            'insert into markets (market_id, question, description, image, category, creator_address, outcome_names) values ($1, $2, $3, $4, $5, $6, $7)',
+            [
+                marketId,
+                question,
+                description || '',
+                imageUrl || '',
+                categoryName,
+                creatorAddress || '',
+                outcome_names ? JSON.stringify(outcome_names) : null
+            ]
         );
 
         res.json({ success: true, message: 'Market metadata created' });
