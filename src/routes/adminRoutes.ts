@@ -127,9 +127,20 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
         const BATCH_SIZE = 5;
         const marketIds = Array.from({ length: marketCount }, (_, i) => i);
 
+        let successCount = 0;
+        let failCount = 0;
+        const failedMarkets: number[] = [];
+
+        console.log(`[Admin API] Starting batch fetch of ${marketCount} markets in batches of ${BATCH_SIZE}...`);
+
         // Fetch all in batches
         for (let i = 0; i < marketIds.length; i += BATCH_SIZE) {
+            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+            const totalBatches = Math.ceil(marketCount / BATCH_SIZE);
             const batchIds = marketIds.slice(i, i + BATCH_SIZE);
+
+            console.log(`[Admin API] Processing batch ${batchNum}/${totalBatches} (Markets ${i}-${Math.min(i + BATCH_SIZE - 1, marketCount - 1)})`);
+
             const batchPromises = batchIds.map(id =>
                 Promise.all([
                     marketContract.getMarketBasicInfo(id).catch((e: any) => { throw new Error(`BasicInfo ${id}: ${e.message}`) }),
@@ -137,6 +148,7 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                     marketContract.getAllPrices(id).catch((e: any) => { throw new Error(`Prices ${id}: ${e.message}`) })
                 ]).then(([basicInfo, outcomes, prices]) => {
                     const metadata = metadataMap[String(id)];
+                    successCount++;
                     return {
                         market_id: id,
                         question: basicInfo.question,
@@ -153,24 +165,43 @@ router.get('/markets', checkAdminAuth, async (req, res) => {
                         winningOutcome: Number(basicInfo.winningOutcome)
                     };
                 }).catch(err => {
-                    console.error(`[Admin API] Error fetching market ${id}:`, err.message);
+                    failCount++;
+                    failedMarkets.push(id);
+                    console.error(`[Admin API] ❌ Market #${id} failed:`, err.message);
                     return null;
                 })
             );
 
-            const batchResults = await Promise.all(batchPromises);
-            markets.push(...batchResults.filter(m => m !== null));
+            try {
+                const batchResults = await Promise.all(batchPromises);
+                const successfulInBatch = batchResults.filter(m => m !== null);
+                markets.push(...successfulInBatch);
+                console.log(`[Admin API] ✅ Batch ${batchNum} completed: ${successfulInBatch.length}/${batchIds.length} markets fetched`);
+            } catch (batchError: any) {
+                console.error(`[Admin API] 🔥 Entire batch ${batchNum} failed:`, batchError.message);
+            }
 
             if (i + BATCH_SIZE < marketIds.length) {
                 await new Promise(r => setTimeout(r, 100)); // Slight delay
             }
         }
 
+        console.log(`[Admin API] 📊 Final Summary: ${successCount} succeeded, ${failCount} failed out of ${marketCount} total`);
+        if (failedMarkets.length > 0) {
+            console.log(`[Admin API] ⚠️ Failed market IDs: [${failedMarkets.join(', ')}]`);
+        }
+
         return res.json({
             success: true,
             markets,
             dbCount,
-            dbError
+            dbError,
+            fetchStats: {
+                total: marketCount,
+                fetched: successCount,
+                failed: failCount,
+                failedIds: failedMarkets
+            }
         });
 
     } catch (error: any) {
