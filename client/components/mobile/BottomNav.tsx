@@ -33,7 +33,7 @@ export default function BottomNav() {
         }
 
         if (hasNFT) {
-            router.push('/admin/create-market');
+            router.push('/create-market');
         } else {
             setShowPurchaseModal(true);
         }
@@ -73,13 +73,13 @@ export default function BottomNav() {
                         onClick={handleCreateClick}
                         className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
                     >
-                        {pathname === "/admin/create-market" && (
+                        {pathname === "/create-market" && (
                             <div
                                 className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                             />
                         )}
-                        <PlusCircle className={twMerge("w-6 h-6 transition-colors", pathname === "/admin/create-market" ? "text-white" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/admin/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
+                        <PlusCircle className={twMerge("w-6 h-6 transition-colors", pathname === "/create-market" ? "text-white" : "text-text-secondary")} />
+                        <span className={twMerge("transition-colors", pathname === "/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
                     </div>
 
                     {/* Portfolio */}

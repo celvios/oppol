@@ -66,7 +66,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         }
 
         if (hasNFT) {
-            router.push('/admin/create-market');
+            router.push('/create-market');
         } else {
             setShowPurchaseModal(true);
         }
@@ -144,7 +144,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         onClick={handleCreateClick}
                         className={cn(
                             "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group mt-2 bg-neon-cyan/5 hover:bg-neon-cyan/10 cursor-pointer",
-                            pathname === "/admin/create-market"
+                            pathname === "/create-market"
                                 ? "text-neon-cyan"
                                 : "text-neon-cyan/80",
                             collapsed ? "justify-center" : ""
