@@ -36,31 +36,27 @@ async function verifyStats() {
             log(`   ⚠️ Could not determine column type`);
         }
 
-        log('\n[2] Checking Total Volume from DB...');
-        // Try simple sum (works if numeric)
-        let totalVolumeNum = 0;
+        log('\n[2] Checking Total Volume from DB (Robust Query)...');
+        // Run the EXACT query used in the backend
         try {
-            const volumeRes = await query(`SELECT SUM(volume) as total_volume FROM markets`);
-            totalVolumeNum = volumeRes.rows[0].total_volume || 0;
-            log('   ✅ SUM(volume) success');
-        } catch (e: any) {
-            log(`   ⚠️ SUM(volume) failed: ${e.message}`);
-            log('   Attempting CAST(volume AS NUMERIC)...');
             const volumeRes = await query(`
-                SELECT SUM(CAST(NULLIF(volume, '') AS NUMERIC)) as total_volume 
+                SELECT SUM(CAST(NULLIF(CAST(volume AS TEXT), '') AS NUMERIC)) as total_volume 
                 FROM markets
             `);
-            totalVolumeNum = volumeRes.rows[0].total_volume || 0;
+            const totalVolumeNum = volumeRes.rows[0].total_volume || 0;
+            log('   ✅ Robust Query Success');
+
+            const totalVolumeFormatted = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2
+            }).format(totalVolumeNum);
+
+            log(`   Raw Volume Sum: ${totalVolumeNum}`);
+            log(`   Formatted Volume: ${totalVolumeFormatted}`);
+        } catch (e: any) {
+            log(`   ❌ Robust Query FAILED: ${e.message}`);
         }
-
-        const totalVolumeFormatted = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2
-        }).format(totalVolumeNum);
-
-        log(`   Raw Volume Sum: ${totalVolumeNum}`);
-        log(`   Formatted Volume: ${totalVolumeFormatted}`);
 
 
         // 3. Verify Liquidity Calculation

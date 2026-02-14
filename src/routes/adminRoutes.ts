@@ -322,10 +322,10 @@ router.get('/stats', checkAdminAuth, async (req, res) => {
             parseInt(newTgRes.rows[0].count);
 
         // 3. Calculate Total Volume (Sum from DB)
-        // volume in DB is stored as formatted string (e.g. "123.45")
-        // We handle nulls and empty strings
+        // volume in DB might be numeric or text. 
+        // We cast to TEXT first to handle NULLIF safely, then back to NUMERIC
         const volumeRes = await query(`
-            SELECT SUM(CAST(NULLIF(volume, '') AS NUMERIC)) as total_volume 
+            SELECT SUM(CAST(NULLIF(CAST(volume AS TEXT), '') AS NUMERIC)) as total_volume 
             FROM markets
         `);
         const totalVolumeNum = volumeRes.rows[0].total_volume || 0;
