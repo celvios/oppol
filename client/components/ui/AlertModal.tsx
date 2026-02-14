@@ -1,12 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X, CheckCircle } from "lucide-react";
 
 interface AlertModalProps {
     isOpen: boolean;
     onClose: () => void;
     title: string;
     message: string;
-    type?: "error" | "warning" | "info";
+    type?: "error" | "warning" | "info" | "success";
 }
 
 export function AlertModal({ isOpen, onClose, title, message, type = "error" }: AlertModalProps) {
@@ -16,12 +16,14 @@ export function AlertModal({ isOpen, onClose, title, message, type = "error" }: 
         error: "text-danger border-danger/50 bg-danger/10",
         warning: "text-amber-500 border-amber-500/50 bg-amber-500/10",
         info: "text-primary border-primary/50 bg-primary/10",
+        success: "text-neon-green border-neon-green/50 bg-neon-green/10",
     };
 
     const iconColors = {
         error: "text-danger",
         warning: "text-amber-500",
         info: "text-primary",
+        success: "text-neon-green",
     };
 
     return (
@@ -42,7 +44,11 @@ export function AlertModal({ isOpen, onClose, title, message, type = "error" }: 
                         </button>
 
                         <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center border ${colors[type].replace("text-", "border-")}`}>
-                            <AlertCircle size={32} className={iconColors[type]} />
+                            {type === 'success' ? (
+                                <CheckCircle size={32} className={iconColors[type]} />
+                            ) : (
+                                <AlertCircle size={32} className={iconColors[type]} />
+                            )}
                         </div>
 
                         <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>

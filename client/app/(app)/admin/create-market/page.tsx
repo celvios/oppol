@@ -14,6 +14,7 @@ import { ethers } from "ethers";
 import { useConnectorClient } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import BC400PurchaseModal from "@/components/modals/BC400PurchaseModal";
+import { AlertModal } from "@/components/ui/AlertModal";
 
 export default function CreateMarketPage() {
     const { address, isConnected, connect } = useWallet();
@@ -29,6 +30,7 @@ export default function CreateMarketPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [categories, setCategories] = useState<string[]>([]);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
@@ -363,6 +365,7 @@ export default function CreateMarketPage() {
 
             setSuccess(`Market created successfully! ID: ${marketId}`);
             setCreatedMarketId(marketId);
+            setShowSuccessModal(true);
             // Auto-redirect disabled per user request
         } catch (e: unknown) {
             console.error("Create market error:", e);
@@ -632,6 +635,14 @@ export default function CreateMarketPage() {
                     </GlassCard>
                 </form>
             </div>
+
+            <AlertModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                title="Market Created Successfully"
+                message="Your market has been deployed. It will be live on the platform in approximately 5 minutes."
+                type="success"
+            />
         </div>
     );
 }
