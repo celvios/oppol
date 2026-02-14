@@ -498,7 +498,7 @@ export default function DepositPage() {
                                             className={`py-2 px-3 rounded-lg font-bold transition-all border ${token.comingSoon
                                                 ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
                                                 : selectedToken.symbol === token.symbol
-                                                    ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]'
+                                                    ? 'bg-primary/10 text-white border-primary/30 shadow-[0_0_10px_rgba(82,183,232,0.2)]'
                                                     : 'bg-white/5 text-white/60 hover:bg-white/10 border-white/10 hover:border-white/20'
                                                 }`}
                                         >
@@ -517,7 +517,7 @@ export default function DepositPage() {
                                     ))}
                                 </div>
                                 <div className="text-xs text-white/40 text-center">
-                                    Selected: <span className="text-white font-bold">{selectedToken.symbol}</span>
+                                    Selected: <span className="text-primary font-bold">{selectedToken.symbol}</span>
                                     {selectedToken.direct ? ' (Direct)' : ` (Auto-converted to ${isUSDTDirect ? 'USDT' : 'USDC'})`}
                                 </div>
                             </div>
