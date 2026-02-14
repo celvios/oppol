@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
-import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share, Gift, Loader2 } from "lucide-react";
+import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share, Gift, Loader2, CheckCircle } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
 import { web3MultiService, MultiMarket, MultiPosition } from '@/lib/web3-multi';
