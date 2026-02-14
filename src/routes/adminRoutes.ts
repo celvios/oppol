@@ -321,14 +321,69 @@ router.get('/stats', checkAdminAuth, async (req, res) => {
             parseInt(newWaRes.rows[0].count) +
             parseInt(newTgRes.rows[0].count);
 
+        // 3. Calculate Total Volume (Sum from DB)
+        // volume in DB is stored as formatted string (e.g. "123.45")
+        // We handle nulls and empty strings
+        const volumeRes = await query(`
+            SELECT SUM(CAST(NULLIF(volume, '') AS NUMERIC)) as total_volume 
+            FROM markets
+        `);
+        const totalVolumeNum = volumeRes.rows[0].total_volume || 0;
+
+        // Format with commas and 2 decimals
+        const totalVolume = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2
+        }).format(totalVolumeNum);
+
+
+        // 4. Calculate Total Liquidity (USDC Balance of Market Contract)
+        let totalLiquidity = "$0.00";
+        try {
+            const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-dataseed.binance.org';
+            const chainId = Number(process.env.CHAIN_ID) || 56;
+            const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+
+            const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+            const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || process.env.USDC_CONTRACT;
+
+            if (MARKET_ADDR && USDC_ADDR) {
+                const erc20ABI = [
+                    "function balanceOf(address) view returns (uint256)",
+                    "function decimals() view returns (uint8)"
+                ];
+                const usdcContract = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
+
+                const [balanceWei, decimals] = await Promise.all([
+                    usdcContract.balanceOf(MARKET_ADDR),
+                    usdcContract.decimals()
+                ]);
+
+                // Format using dynamic decimals
+                const balanceNum = parseFloat(ethers.formatUnits(balanceWei, decimals));
+
+                totalLiquidity = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2
+                }).format(balanceNum);
+            } else {
+                console.warn("[Admin Stats] Missing MARKET_ADDR or USDC_ADDR for liquidity check");
+            }
+        } catch (err: any) {
+            console.error("[Admin Stats] Failed to fetch liquidity:", err.message);
+            // Keep default $0.00 on error
+        }
+
         return res.json({
             success: true,
             stats: {
-                totalLiquidity: "$0.00", // TODO: Calculate from contract
-                totalVolume: "$0.00",    // TODO: Sum trade volumes
+                totalLiquidity: totalLiquidity,
+                totalVolume: totalVolume,
                 activeMarkets: Number(activeMarketsRes.rows[0].count),
                 totalUsers: totalUsers,
-                volumeTrend: "Stable",
+                volumeTrend: "Stable", // You could calculate this by comparing to yesterday if needed
                 liquidityTrend: "Stable",
                 expiringMarkets: Number(expiringRes.rows[0].count),
                 newUsersToday: newUsers
