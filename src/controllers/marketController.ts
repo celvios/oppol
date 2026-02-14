@@ -110,7 +110,8 @@ export const getAllMarketMetadata = async (req: Request, res: Response) => {
                 liquidityParam: row.liquidity_param || '0',
                 resolved: row.resolved || false,
                 winningOutcome: Number(row.winning_outcome || 0),
-                totalVolume: row.volume || '0'
+                totalVolume: row.volume || '0',
+                created_at: row.created_at // Add timestamp for "New" filter
             };
         });
 

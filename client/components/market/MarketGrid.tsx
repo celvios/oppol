@@ -75,12 +75,14 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
         // Special Category Logic
         if (selectedCategory === 'Trending') return true; // Will sort by volume later
         if (selectedCategory === 'New') {
-            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-            // Assuming m.createdAt or similar exists, otherwise use ID as proxy or skip
-            // For now, let's assume higher ID = newer if no timestamp
-            // Or if we have endTime, maybe we can infer? 
-            // Better: use ID as proxy for "New" since auto-increment
-            // Or check if we have a createdAt field. 'm.endTime' is available.
+            // "New" = Created within the last 48 hours
+            if (m.created_at) {
+                const createdAtTime = new Date(m.created_at).getTime();
+                const now = Date.now();
+                const MS_IN_48_HOURS = 48 * 60 * 60 * 1000;
+                return (now - createdAtTime) <= MS_IN_48_HOURS;
+            }
+            // Fallback if no timestamp: assume top 12 IDs are new (handled in sort below)
             return true;
         }
 
@@ -95,11 +97,23 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     if (selectedCategory === 'Trending') {
         filteredMarkets.sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
     } else if (selectedCategory === 'New') {
-        // Sort by ID descending (proxy for newest)
-        filteredMarkets.sort((a, b) => Number(b.id) - Number(a.id));
-        // Filter for "New" roughly (top 10 newest or strict 24h if we had timestamps)
-        // Since we don't have explicit createdAt, return top 12 newest
-        filteredMarkets = filteredMarkets.slice(0, 12);
+        // Sort by Created At descending (Newest first)
+        filteredMarkets.sort((a, b) => {
+            if (a.created_at && b.created_at) {
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+            return Number(b.id) - Number(a.id); // Fallback to ID
+        });
+
+        // If we filtered by 48h timestamp, we don't strictly need to slice, 
+        // but let's keep it reasonable or remove slice if "New" means ALL within 48h.
+        // User requested: "new markets that are created within 48 hrs show up"
+        // So no slice limit if they are within 48h.
+        // However, if we fell back to IDs (no timestamp), we should slice.
+        const hasTimestamps = filteredMarkets.some(m => m.created_at);
+        if (!hasTimestamps) {
+            filteredMarkets = filteredMarkets.slice(0, 12);
+        }
     } else {
         // Default sort mechanisms (maybe by volume or ending soon?)
         // Let's keep existing order or volume default
