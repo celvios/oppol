@@ -232,7 +232,7 @@ contract PredictionMarketMultiV2 is
         string memory _description,
         string[] memory _outcomes,
         uint256 _durationDays
-    ) external returns (uint256) {
+    ) external virtual returns (uint256) {
         if (msg.sender != owner()) {
             require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
             if (address(creationToken) != address(0)) {

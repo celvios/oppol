@@ -33,6 +33,7 @@ async function main() {
     console.log("⚙️ Configuring V3 Fees...");
     // 8% = 800, 2% = 200
     // Note: setFees doesn't exist, use individual setters
+
     try {
         const pTx = await v3.setProtocolFee(1000); // 10% total
         await pTx.wait();
@@ -41,11 +42,22 @@ async function main() {
         const cTx = await v3.setCreatorFee(200); // 2% creator
         await cTx.wait();
         console.log("✅ Creator Fee set to 2%");
+
+        // Configure Dual Access
+        const BC400_ADDRESS = "0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD";
+        const MIN_BALANCE = 10000000n * 10n ** 18n; // 10 Million
+
+        console.log("⚙️ Configuring Secondary Creation Access...");
+        const sTx = await v3.setSecondaryCreationSettings(BC400_ADDRESS, MIN_BALANCE);
+        await sTx.wait();
+        console.log(`✅ Secondary Creation Token set to ${BC400_ADDRESS}`);
+        console.log(`✅ Secondary Min Balance set to 10,000,000`);
+
     } catch (e: any) {
-        console.log("⚠️ Error setting fees:", e.message);
+        console.log("⚠️ Error setting configuration:", e.message);
     }
 
-    console.log(`🔍 Verification - Protocol Fee Updated`);
+    console.log(`🔍 Verification - Upgrade Complete`);
 }
 
 main()

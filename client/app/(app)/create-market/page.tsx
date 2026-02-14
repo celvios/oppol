@@ -259,108 +259,37 @@ export default function CreateMarketPage() {
                 marketId = data.marketId;
                 txHash = data.txHash;
             } else {
-                // Public flow: User calls contract directly
-                if (!connectorClient) {
-                    setError("Wallet session stale. Opening connection modal...");
-                    connect();
-                    setIsLoading(false);
-                    return;
-                }
+                // Gasless flow: Direct API call (no signature needed)
+                console.log("Creating market via gasless API...");
 
-                const signer = clientToSigner(connectorClient);
-                const contracts = getContracts();
-                // Fix: Extract marketAddress from contracts object with fallbacks
-                const marketAddress = contracts.predictionMarketMulti || contracts.predictionMarket || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
-
-                if (!marketAddress) {
-                    throw new Error("Market contract address missing in config");
-                }
-
-                const marketABI = [
-                    'function createMarket(string, string, string, string[], uint256) external returns (uint256)',
-                    'function marketCount() view returns (uint256)'
-                ];
-
-                const contract = new ethers.Contract(marketAddress, marketABI, signer);
-
-                console.log("Creating market with:", {
-                    q: formData.question,
-                    img: finalImageUrl ? "Present (URL/Data)" : "Empty",
-                    d: formData.description,
-                    o: formData.outcomes,
-                    dur: formData.durationDays
-                });
-
-                // DEBUG: Run static call first to catch reverts
-                try {
-                    await contract.createMarket.staticCall(
-                        formData.question,
-                        finalImageUrl || "",
-                        formData.description,
-                        formData.outcomes,
-                        parseFloat(formData.durationDays)
-                    );
-                } catch (staticError: any) {
-                    console.error("Static call failed:", staticError);
-
-                    // Robust Error Extraction
-                    let reason = staticError.reason || staticError.message || "Unknown error";
-
-                    // Handle nested error objects from Ethers/Viem
-                    if (staticError.info && staticError.info.error && staticError.info.error.message) {
-                        reason = staticError.info.error.message;
-                    }
-
-                    if (reason.toLowerCase().includes("insufficient creation token")) {
-                        reason = "You do not have enough BFT (Creation Token) to create a market.";
-                    } else if (reason.toLowerCase().includes("public creation disabled")) {
-                        reason = "Public creation is currently disabled by admins.";
-                    } else if (reason.toLowerCase().includes("user rejected")) {
-                        reason = "User rejected the transaction.";
-                    }
-
-                    setError(`Validation Failed: ${reason}`);
-                    setIsLoading(false);
-                    return;
-                }
-
-                // If static call passes, send real transaction
-                const tx = await contract.createMarket(
-                    formData.question,
-                    finalImageUrl || "",
-                    formData.description,
-                    formData.outcomes,
-                    parseFloat(formData.durationDays)
-                );
-
-                console.log("Tx sent:", tx.hash);
-                txHash = tx.hash;
-                await tx.wait();
-
-                // Get market ID
-                const count = await contract.marketCount();
-                marketId = Number(count) - 1;
-
-                // Save metadata via API
-                const metadataRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/markets/metadata`, {
+                // Submit to gasless API
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/market/create`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        marketId,
-                        question: formData.question,
-                        description: formData.description,
-                        image: finalImageUrl,
-                        category: formData.category,
-                        outcome_names: formData.outcomes
+                        marketData: {
+                            question: formData.question,
+                            description: formData.description,
+                            image: finalImageUrl,
+                            category: formData.category,
+                            outcomes: formData.outcomes,
+                            durationDays: parseFloat(formData.durationDays)
+                        },
+                        userAddress: address
                     })
                 });
 
-                const metadataData = await metadataRes.json();
-                if (!metadataData.success) {
-                    console.warn("Market created but metadata save failed:", metadataData.error);
+                const data = await res.json();
+                if (!data.success) {
+                    setError(data.error || "Failed to create market");
+                    setIsLoading(false);
+                    return;
                 }
+
+                marketId = data.marketId;
+                txHash = data.transactionHash;
             }
 
             setSuccess(`Market created successfully! ID: ${marketId}`);

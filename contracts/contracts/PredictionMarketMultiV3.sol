@@ -15,6 +15,15 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
     mapping(address => uint256) public creatorRewards;
     uint256 public creatorFeeBps; // Basis points for creator (e.g., 200 = 2%)
 
+    // === V3.1 DUAL ACCESS STORAGE ===
+    IERC20 public secondaryCreationToken;
+    uint256 public secondaryMinBalance;
+
+    // === V3.2 GASLESS CREATION STORAGE ===
+    address public operator; // Backend wallet that pays gas
+
+    event OperatorUpdated(address indexed newOperator);
+
     event CreatorFeePaid(uint256 indexed marketId, address indexed creator, uint256 amount);
     event CreatorRewardsClaimed(address indexed creator, uint256 amount);
     event CreatorFeeUpdated(uint256 newFeeBps);
@@ -22,6 +31,11 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+    }
+
+    modifier onlyOperatorOrOwner() {
+        require(msg.sender == owner() || msg.sender == operator, "Not operator or owner");
+        _;
     }
 
     /**
@@ -61,9 +75,23 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         
         if (msg.sender != owner()) {
             require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
+            
+            bool hasPrimaryAccess = false;
+            bool hasSecondaryAccess = false;
+
             if (address(creationToken) != address(0)) {
-                require(creationToken.balanceOf(msg.sender) >= minCreationBalance, "Insufficient creation token balance");
+                if (creationToken.balanceOf(msg.sender) >= minCreationBalance) {
+                    hasPrimaryAccess = true;
+                }
             }
+
+            if (address(secondaryCreationToken) != address(0)) {
+                if (secondaryCreationToken.balanceOf(msg.sender) >= secondaryMinBalance) {
+                    hasSecondaryAccess = true;
+                }
+            }
+
+            require(hasPrimaryAccess || hasSecondaryAccess, "Insufficient creation token balance (NFT or BC400)");
         }
         if (_outcomes.length < MIN_OUTCOMES || _outcomes.length > MAX_OUTCOMES) {
             revert InvalidOutcomeCount(_outcomes.length);
@@ -156,6 +184,116 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         require(_bps <= protocolFee, "Creator fee cannot exceed total protocol fee");
         creatorFeeBps = _bps;
         emit CreatorFeeUpdated(_bps);
+    }
+
+    function setSecondaryCreationSettings(address _token, uint256 _minBalance) external onlyOwner {
+        secondaryCreationToken = IERC20(_token);
+        secondaryMinBalance = _minBalance;
+    }
+
+    function setOperator(address _operator) external onlyOwner {
+        operator = _operator;
+        emit OperatorUpdated(_operator);
+    }
+
+    /**
+     * @dev Override V2 createMarket to support dual access check
+     */
+    function createMarket(
+        string memory _question,
+        string memory _image,
+        string memory _description,
+        string[] memory _outcomes,
+        uint256 _durationDays
+    ) external virtual override returns (uint256) {
+        if (msg.sender != owner()) {
+            require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
+            
+            bool hasPrimaryAccess = false;
+            bool hasSecondaryAccess = false;
+
+            if (address(creationToken) != address(0)) {
+                if (creationToken.balanceOf(msg.sender) >= minCreationBalance) {
+                    hasPrimaryAccess = true;
+                }
+            }
+
+            if (address(secondaryCreationToken) != address(0)) {
+                if (secondaryCreationToken.balanceOf(msg.sender) >= secondaryMinBalance) {
+                    hasSecondaryAccess = true;
+                }
+            }
+
+            require(hasPrimaryAccess || hasSecondaryAccess, "Insufficient creation token balance (NFT or BC400)");
+        }
+        if (_outcomes.length < MIN_OUTCOMES || _outcomes.length > MAX_OUTCOMES) {
+            revert InvalidOutcomeCount(_outcomes.length);
+        }
+        
+        uint256 marketId = marketCount++;
+        Market storage market = markets[marketId];
+        
+        market.question = _question;
+        market.image = _image;
+        market.description = _description;
+        market.outcomeCount = _outcomes.length;
+        // V2/V3 logic: Duration in days
+        market.endTime = block.timestamp + (_durationDays * 1 days);
+        
+        // AUTO-CALCULATE liquidity: 100 USDC per outcome
+        market.liquidityParam = _outcomes.length * 100 * 1e6; // Match USDC decimals
+        market.subsidyPool = 0; // No subsidy in V2
+        
+        // Initialize arrays
+        for (uint256 i = 0; i < _outcomes.length; i++) {
+            market.outcomes.push(_outcomes[i]);
+            market.shares.push(0);
+        }
+        
+        // V3: Track creator
+        marketCreators[marketId] = msg.sender;
+        
+        emit MarketCreated(marketId, _question, _image, _description, _outcomes, market.liquidityParam);
+        return marketId;
+    }
+
+    /**
+     * @dev V3.2: Gasless Creation. Allows operator to create market FOR a user.
+     * The user is recorded as the creator (receives fees).
+     */
+    function createMarketFor(
+        address _creator,
+        string memory _question,
+        string memory _image,
+        string memory _description,
+        string[] memory _outcomes,
+        uint256 _durationDays
+    ) external onlyOperatorOrOwner returns (uint256) {
+        if (_outcomes.length < MIN_OUTCOMES || _outcomes.length > MAX_OUTCOMES) {
+            revert InvalidOutcomeCount(_outcomes.length);
+        }
+        
+        uint256 marketId = marketCount++;
+        Market storage market = markets[marketId];
+        
+        market.question = _question;
+        market.image = _image;
+        market.description = _description;
+        market.outcomeCount = _outcomes.length;
+        market.endTime = block.timestamp + (_durationDays * 1 days);
+        market.liquidityParam = _outcomes.length * 100 * 1e6; // Auto-liquidity
+        market.subsidyPool = 0;
+        
+        for (uint256 i = 0; i < _outcomes.length; i++) {
+            market.outcomes.push(_outcomes[i]);
+            market.shares.push(0);
+        }
+        
+        // Record the SPECIFIED creator, not msg.sender (operator)
+        marketCreators[marketId] = _creator;
+        
+        emit MarketCreated(marketId, _question, _image, _description, _outcomes, market.liquidityParam);
+        return marketId;
     }
 
     function claimCreatorRewards() external nonReentrant {
