@@ -16,7 +16,7 @@ const config: Config = {
                 success: "#27E8A7",    // Spring Green
                 "text-primary": "#FFFFFF",
                 "text-secondary": "#94A3B8",
-                primary: "#00F0FF", // Cyan Neon
+                primary: "#52B7E8", // Soft Blue from logo (was #00F0FF)
             },
             fontFamily: {
                 sans: ["var(--font-inter)", "sans-serif"],
@@ -28,7 +28,7 @@ const config: Config = {
                 "glass-hover": "linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04))",
                 "gradient-green": "linear-gradient(135deg, #22c55e 0%, #4ade80 100%)",
                 "gradient-red": "linear-gradient(135deg, #ef4444 0%, #f87171 100%)",
-                "gradient-cyan": "linear-gradient(135deg, #00F0FF 0%, #00C0FF 100%)",
+                "gradient-cyan": "linear-gradient(135deg, #52B7E8 0%, #3A8FCC 100%)",
                 "gradient-coral": "linear-gradient(135deg, #FF2E63 0%, #FF0040 100%)",
             },
             animation: {
@@ -56,8 +56,8 @@ const config: Config = {
                     "50%": { transform: "translateY(-10px)" },
                 },
                 pulseGlow: {
-                    "0%, 100%": { opacity: "1", boxShadow: "0 0 10px rgba(0, 240, 255, 0.2)" },
-                    "50%": { opacity: "0.8", boxShadow: "0 0 20px rgba(0, 240, 255, 0.5)" }
+                    "0%, 100%": { opacity: "1", boxShadow: "0 0 10px rgba(82, 183, 232, 0.2)" },
+                    "50%": { opacity: "0.8", boxShadow: "0 0 20px rgba(82, 183, 232, 0.5)" }
                 }
             },
         },

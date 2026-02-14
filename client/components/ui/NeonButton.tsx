@@ -17,7 +17,7 @@ export default function NeonButton({
     ...props
 }: NeonButtonProps) {
     const variants = {
-        cyan: "bg-gradient-cyan text-void shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:shadow-[0_0_30px_rgba(0,240,255,0.6)]",
+        cyan: "bg-gradient-cyan text-void shadow-[0_0_20px_rgba(82,183,232,0.4)] hover:shadow-[0_0_30px_rgba(82,183,232,0.6)]",
         coral: "bg-gradient-coral text-void shadow-[0_0_20px_rgba(255,46,99,0.4)] hover:shadow-[0_0_30px_rgba(255,46,99,0.6)]",
         green: "bg-outcome-a text-void shadow-[0_0_20px_rgba(74,222,128,0.4)] hover:shadow-[0_0_30px_rgba(74,222,128,0.6)]",
         red: "bg-outcome-b text-void shadow-[0_0_20px_rgba(248,113,113,0.4)] hover:shadow-[0_0_30px_rgba(248,113,113,0.6)]",
