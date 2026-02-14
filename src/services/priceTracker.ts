@@ -68,6 +68,11 @@ export async function recordAllMarketPrices(): Promise<void> {
                 chunk.push(recordMarketPriceWithProvider(i + j, market));
             }
             await Promise.all(chunk);
+
+            // Rate limit: Wait 1 second between chunks to respect QuickNode 50 req/sec limit
+            if (i + CHUNK_SIZE < marketCount) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
 
         console.log(`✅ Recorded prices for ${marketCount} markets`);

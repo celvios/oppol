@@ -194,6 +194,9 @@ export async function syncAllMarkets(): Promise<void> {
                         } catch (e: any) {
                             console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
                         }
+
+                        // Rate limit: Wait 200ms between log queries to respect RPC limits
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     }
 
                     volume += totalNewVolume;
