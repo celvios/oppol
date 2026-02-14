@@ -491,12 +491,23 @@ router.get('/health', checkAdminAuth, async (req, res) => {
 
                 // USDC check
                 let usdcBal = BigInt(0);
+                let usdcDecimals = 18n; // Default to 18 (safe for most tokens)
                 const USDC_ADDR = process.env.USDC_CONTRACT;
                 if (USDC_ADDR) {
                     try {
-                        const erc20ABI = ['function balanceOf(address) view returns (uint256)'];
+                        const erc20ABI = [
+                            'function balanceOf(address) view returns (uint256)',
+                            'function decimals() view returns (uint8)'
+                        ];
                         const usdc = new ethers.Contract(USDC_ADDR, erc20ABI, provider);
-                        usdcBal = await usdc.balanceOf(wallet.address);
+
+                        const [bal, dec] = await Promise.all([
+                            usdc.balanceOf(wallet.address),
+                            usdc.decimals()
+                        ]);
+
+                        usdcBal = bal;
+                        usdcDecimals = BigInt(dec);
                     } catch (e) {
                         console.error('USDC fetch failed', e);
                         walletStatus.usdcError = 'Contract call failed';
@@ -506,7 +517,7 @@ router.get('/health', checkAdminAuth, async (req, res) => {
                 walletStatus = {
                     address: wallet.address,
                     bnb: ethers.formatEther(bnbBal),
-                    usdc: ethers.formatUnits(usdcBal, 6),
+                    usdc: ethers.formatUnits(usdcBal, usdcDecimals),
                     status: 'OK'
                 };
             } catch (e: any) {
