@@ -124,10 +124,10 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
             // Sort by volume descending
             result = [...result].sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
         } else if (selectedCategory === 'New') {
-            // Filter markets created in last 24 hours
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            // Filter markets created in last 48 hours
+            const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
             result = result
-                .filter(m => m.created_at && new Date(m.created_at) > oneDayAgo)
+                .filter(m => m.created_at && new Date(m.created_at) > twoDaysAgo)
                 .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         } else if (selectedCategory !== 'All') {
             // Filter by regular category

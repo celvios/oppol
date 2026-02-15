@@ -97,6 +97,13 @@ export default function MarketGrid({ limit, showFilters = true, initialMarkets =
     if (selectedCategory === 'Trending') {
         filteredMarkets.sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
     } else if (selectedCategory === 'New') {
+        // Filter markets created in last 48 hours
+        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        filteredMarkets = filteredMarkets.filter(m => {
+            if (!m.created_at) return false;
+            return new Date(m.created_at) > twoDaysAgo;
+        });
+
         // Sort by Created At descending (Newest first)
         filteredMarkets.sort((a, b) => {
             if (a.created_at && b.created_at) {
