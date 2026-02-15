@@ -216,10 +216,16 @@ export async function syncAllMarkets(): Promise<void> {
 
                 const finalVolumeStr = ethers.formatUnits(volume, 18);
 
+                // Get block timestamp for market creation estimation
+                // For new markets, use current block timestamp as creation time
+                // For existing markets, preserve the original created_at
+                const block = await provider.getBlock(currentBlock);
+                const blockTimestamp = block ? new Date(block.timestamp * 1000) : new Date();
+
                 // Insert or update market
                 await query(
-                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, volume, last_indexed_at, category)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized')
+                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, volume, last_indexed_at, category, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized', $13)
                      ON CONFLICT (market_id) DO UPDATE 
                      SET question = EXCLUDED.question,
                          description = EXCLUDED.description,
@@ -232,7 +238,8 @@ export async function syncAllMarkets(): Promise<void> {
                          liquidity_param = EXCLUDED.liquidity_param, 
                          outcome_count = EXCLUDED.outcome_count,
                          volume = EXCLUDED.volume,
-                         last_indexed_at = NOW()`,
+                         last_indexed_at = NOW(),
+                         created_at = COALESCE(markets.created_at, EXCLUDED.created_at)`,
                     [
                         marketId,
                         basicInfo.question,
@@ -245,7 +252,8 @@ export async function syncAllMarkets(): Promise<void> {
                         new Date(Number(basicInfo.endTime) * 1000),
                         ethers.formatUnits(basicInfo.liquidityParam, 18),
                         Number(basicInfo.outcomeCount),
-                        finalVolumeStr
+                        finalVolumeStr,
+                        blockTimestamp
                     ]
                 );
 

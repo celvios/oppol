@@ -126,9 +126,17 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
         } else if (selectedCategory === 'New') {
             // Filter markets created in last 48 hours
             const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-            result = result
-                .filter(m => m.created_at && new Date(m.created_at) > twoDaysAgo)
-                .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            const marketsWithTimestamp = result.filter(m => m.created_at && new Date(m.created_at) > twoDaysAgo);
+
+            if (marketsWithTimestamp.length > 0) {
+                // If we have markets with valid timestamps, use them
+                result = marketsWithTimestamp.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            } else {
+                // Fallback: Show most recent markets by ID (assume higher IDs = newer)
+                result = [...result]
+                    .sort((a, b) => Number(b.id) - Number(a.id))
+                    .slice(0, 12);
+            }
         } else if (selectedCategory !== 'All') {
             // Filter by regular category
             const category = (m: MultiMarket) => m.category_id || 'General';
