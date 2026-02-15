@@ -521,7 +521,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             className="p-2 hover:bg-white/10 rounded-lg transition-colors group/btn"
                             title="Share Chart"
                         >
-                            <Share className="w-4 h-4 text-white/40 group-hover/btn:text-neon-cyan transition-colors" />
+                            <Share className="w-4 h-4 text-white/40 group-hover/btn:text-primary transition-colors" />
                         </button>
                     </div>
                     <div className="h-[220px] w-full relative">
@@ -596,7 +596,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                 <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
                     <GlassCard className="p-4 !bg-white/5">
                         <div className="flex items-center gap-2 mb-2">
-                            <Activity size={14} className="text-neon-cyan" />
+                            <Activity size={14} className="text-primary" />
                             <span className="text-[10px] text-text-secondary uppercase tracking-widest">Volume</span>
                         </div>
                         <div className="font-mono text-lg text-white font-medium">${market.totalVolume}</div>
@@ -605,8 +605,8 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                 <Suspense fallback={<div className="p-4 bg-white/5 rounded-lg animate-pulse h-16" />}>
                     <GlassCard className="p-4 !bg-white/5">
                         <div className="flex items-center gap-2 mb-2">
-                            <BarChart2 size={14} className="text-neon-purple" />
-                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Liquidity</span>
+                            <DollarSign size={14} className="text-primary" />
+                            <span className="text-[10px] text-text-secondary uppercase tracking-widest">Your Position</span>
                         </div>
                         <div className="font-mono text-lg text-white font-medium">
                             ${parseFloat(market.liquidityParam || '0').toFixed(0)}
@@ -673,13 +673,13 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             <div className="px-6 mb-8 flex gap-4">
                                 <button
                                     onClick={() => { setTradeSide('YES'); setSelectedOutcomeIndex(0); setIsTradeSheetOpen(true); }}
-                                    className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="flex-1 py-4 rounded-xl bg-outcome-a text-black font-bold text-lg shadow-[0_0_20px_rgba(74,222,128,0.2)] hover:scale-[1.02] active:scale-[0.98] transition-all border border-outcome-a/20"
                                 >
                                     BUY {market.outcomes?.[0] || 'YES'}
                                 </button>
                                 <button
                                     onClick={() => { setTradeSide('NO'); setSelectedOutcomeIndex(1); setIsTradeSheetOpen(true); }}
-                                    className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="flex-1 py-4 rounded-xl bg-outcome-b text-black font-bold text-lg shadow-[0_0_20px_rgba(248,113,113,0.2)] hover:scale-[1.02] active:scale-[0.98] transition-all border border-outcome-b/20"
                                 >
                                     BUY {market.outcomes?.[1] || 'NO'}
                                 </button>

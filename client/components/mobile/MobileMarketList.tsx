@@ -95,6 +95,7 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                     const data = await response.json();
                     if (data.success && data.categories) {
                         const categoryNames = data.categories.map((cat: any) => cat.name);
+                        // Ensure 'New' is always present and properly ordered
                         setCategories(['All', 'Trending', 'New', ...categoryNames]);
                     } else {
                         setCategories(['All', 'Trending', 'New']);
@@ -193,8 +194,8 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${selectedCategory === cat
-                                ? "bg-white text-black"
-                                : "bg-white/5 text-white/60 text-shadow-sm border border-white/5"
+                                ? "bg-primary text-white shadow-[0_0_10px_rgba(82,183,232,0.3)]"
+                                : "bg-white/5 text-white/60 text-shadow-sm border border-white/5 hover:bg-white/10"
                                 }`}
                         >
                             {cat === 'Trending' && <TrendingUp className="w-3 h-3 inline mr-1" />}
@@ -208,11 +209,11 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
             <div className="px-4">
                 <div className="flex items-center gap-2 mb-4 px-4">
                     {selectedCategory === 'Trending' ? (
-                        <TrendingUp className="w-5 h-5 text-neon-cyan" />
+                        <TrendingUp className="w-5 h-5 text-primary" />
                     ) : selectedCategory === 'New' ? (
-                        <Clock className="w-5 h-5 text-neon-green" />
+                        <Clock className="w-5 h-5 text-primary" />
                     ) : (
-                        <Users className="w-5 h-5 text-neon-purple" />
+                        <Users className="w-5 h-5 text-primary" />
                     )}
                     <h2 className="text-xl font-heading font-bold">
                         {searchQuery
