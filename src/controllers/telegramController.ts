@@ -16,6 +16,7 @@ const PREDICTION_MARKET_ABI = [
     'function buyShares(uint256 marketId, uint256 outcomeIndex, uint256 shares, uint256 maxCost) external',
     'function userBalances(address) view returns (uint256)',
     'function deposit(uint256 amount) external',
+    'function withdraw(uint256 amount) external',
     'function calculateCost(uint256 marketId, uint256 outcomeIndex, uint256 shares) view returns (uint256)'
 ];
 
