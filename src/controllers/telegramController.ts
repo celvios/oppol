@@ -371,6 +371,9 @@ export class TelegramController {
                 const tx = await marketContract.withdraw(withdrawAmount);
                 await tx.wait();
                 console.log('[Telegram Withdraw] Contract withdrawal complete');
+
+                // Wait for indexer/RPC to catch up slightly
+                await new Promise(r => setTimeout(r, 2000));
             }
 
             // 2. Transfer from Wallet to Target
@@ -380,6 +383,13 @@ export class TelegramController {
             await CustodialWalletService.fundWallet(wallet.address, '0.0006', provider);
 
             console.log(`[Telegram Withdraw] Transferring to ${toAddress}...`);
+
+            // Re-check USDC balance before transfer
+            const currentUsdcBalance = await usdcContract.balanceOf(wallet.address);
+            if (currentUsdcBalance < amountInWei) {
+                throw new Error(`Insufficient USDC in wallet. Have: ${ethers.formatUnits(currentUsdcBalance, 18)}, Need: ${amount}`);
+            }
+
             const tx = await usdcContract.transfer(toAddress, amountInWei);
             const receipt = await tx.wait();
 
