@@ -49,9 +49,12 @@ export class EncryptionService {
             decrypted += decipher.final('utf8');
 
             return decrypted;
-        } catch (error) {
-            console.error('Decryption error:', error);
-            throw new Error('Unsupported state or unable to authenticate data');
+        } catch (error: any) {
+            console.error('[EncryptionService] Decryption failed:', error.message);
+            // Log key details safely (length only)
+            console.error(`[EncryptionService] Key length: ${KEY.length} bytes`);
+            console.error(`[EncryptionService] Encrypted data format valid: ${encryptedData.split(':').length === 3}`);
+            throw new Error(`Decryption failed: ${error.message}`);
         }
     }
 }

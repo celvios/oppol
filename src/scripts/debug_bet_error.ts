@@ -5,8 +5,12 @@ import { CustodialWalletService } from '../services/custodialWallet';
 import { ethers } from 'ethers';
 import fs from 'fs';
 
-const RPC_URL = process.env.BNB_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com';
-const USDC_ADDRESS = process.env.USDC_CONTRACT || '0x16E4A3d9697D47c61De3bDD1DdDa4148aA09D634';
+import { CONFIG } from '../config/contracts';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const RPC_URL = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+const USDC_ADDRESS = CONFIG.USDC_CONTRACT;
 
 const USDC_ABI = [
     'function balanceOf(address account) external view returns (uint256)'
@@ -44,12 +48,59 @@ async function debugBetFlow() {
         // 2. Try Decrypt
         let privateKey: string;
         try {
-            log('Attempting decryption...');
+            log(`Full Encrypted Data: ${user.encrypted_private_key}`);
+            log('Attempting decryption with standard service...');
             privateKey = EncryptionService.decrypt(user.encrypted_private_key);
             log('✅ Decryption SUCCESS (Key is valid)');
         } catch (e: any) {
             log(`⚠️ Decryption FAILED: ${e.message}`);
+
+            // DIAGNOSTICS
+            const currentEnvKey = process.env.ENCRYPTION_KEY;
+            log(`Current ENV Key: ${currentEnvKey}`);
+
+            const crypto = require('crypto');
+            const ALGORITHM = 'aes-256-gcm';
+
+            const tryDecrypt = (keyBuffer: Buffer, label: string) => {
+                try {
+                    const parts = user.encrypted_private_key.split(':');
+                    const iv = Buffer.from(parts[0], 'hex');
+                    const authTag = Buffer.from(parts[1], 'hex');
+                    const encrypted = parts[2];
+                    const decipher = crypto.createDecipheriv(ALGORITHM, keyBuffer, iv);
+                    decipher.setAuthTag(authTag);
+                    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+                    decrypted += decipher.final('utf8');
+                    log(`✅ SUCCESS with ${label}`);
+                    return true;
+                } catch (err) {
+                    log(`❌ FAILED with ${label}`);
+                    return false;
+                }
+            };
+
+            if (currentEnvKey) {
+                // Try UTF8 direct (if length 32)
+                if (currentEnvKey.length === 32) {
+                    tryDecrypt(Buffer.from(currentEnvKey, 'utf8'), 'UTF8 Direct');
+                }
+                // Try truncated to 32 bytes (UTF8)
+                const truncatedKey = currentEnvKey.substring(0, 32);
+                tryDecrypt(Buffer.from(truncatedKey, 'utf8'), 'UTF8 Truncated (32 chars)');
+
+                // Try SHA256
+                const sha256Key = crypto.createHash('sha256').update(currentEnvKey).digest();
+                tryDecrypt(sha256Key, 'SHA256 Hash');
+
+                // Try as simple Buffer (might be truncated/padded)
+                const buf = Buffer.alloc(32);
+                buf.write(currentEnvKey);
+                tryDecrypt(buf, 'Buffer Write (Truncated/Padded)');
+            }
+
             log('--- Starting Auto-Heal Simulation ---');
+            // ... rest of auto-heal ...
 
             try {
                 if (user.wallet_address) {

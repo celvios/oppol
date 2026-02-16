@@ -86,10 +86,17 @@ export class TelegramController {
             // Decrypt private key
             let privateKey: string;
             try {
+                console.log(`[Telegram Bet] Attempting to decrypt key for user ${telegramId}`);
                 privateKey = EncryptionService.decrypt(user.encrypted_private_key);
             } catch (decryptError: any) {
-                // Auto-healing logic omitted for brevity, assuming working wallet or manual reset needed if failing heavily
-                throw new Error('Wallet decryption failed. Please reset wallet.');
+                console.error(`[Telegram Bet] Decryption failed for user ${telegramId}:`, decryptError.message);
+
+                // Detailed diagnostic log
+                const envKey = process.env.ENCRYPTION_KEY || 'DEFAULT';
+                console.error(`[Telegram Bet] ENV Key Length: ${envKey.length}`);
+                console.error(`[Telegram Bet] Data Length: ${user.encrypted_private_key?.length}`);
+
+                throw new Error('Wallet decryption failed. Please contact support or try /start again to reset.');
             }
 
             const wallet = new ethers.Wallet(privateKey, provider);
@@ -139,12 +146,20 @@ export class TelegramController {
                 }
 
                 // Execute Deposit
-                const userBalanceForDeposit = await provider.getBalance(wallet.address);
-                if (userBalanceForDeposit < ethers.parseEther('0.0008')) {
-                    await CustodialWalletService.fundWallet(wallet.address, '0.001', provider);
+                console.log('[Telegram Bet] Executing deposit...');
+                try {
+                    const userBalanceForDeposit = await provider.getBalance(wallet.address);
+                    if (userBalanceForDeposit < ethers.parseEther('0.0008')) {
+                        console.log('[Telegram Bet] Funding user for gas...');
+                        await CustodialWalletService.fundWallet(wallet.address, '0.001', provider);
+                    }
+                    const depositTx = await marketContractUser.deposit(neededDeposit);
+                    await depositTx.wait();
+                    console.log('[Telegram Bet] Deposit successful');
+                } catch (depositError: any) {
+                    console.error('[Telegram Bet] Deposit failed:', depositError);
+                    throw new Error(`Deposit failed: ${depositError.message || 'Unknown error'}`);
                 }
-                const depositTx = await marketContractUser.deposit(neededDeposit);
-                await depositTx.wait();
             }
 
             // 2. Server Executes Trade (buySharesFor)
@@ -214,7 +229,14 @@ export class TelegramController {
                 transactionHash: receipt.hash
             });
         } catch (error: any) {
-            console.error('Place bet error:', error);
+            console.error('[Telegram Bet] CRITICAL ERROR:', error);
+            console.error('[Telegram Bet] Stack:', error.stack);
+
+            // Return specific 500 error structure if it's a server/rpc issue
+            if (error.message.includes('RPC') || error.message.includes('network') || error.message.includes('connection')) {
+                return res.status(503).json({ success: false, message: 'Blockchain network issue, please try again later.' });
+            }
+
             res.status(400).json({ success: false, message: error.message });
         }
     }
@@ -322,7 +344,15 @@ export class TelegramController {
 
             const user = userResult.rows[0];
             const provider = new ethers.JsonRpcProvider(RPC_URL);
-            const privateKey = EncryptionService.decrypt(user.encrypted_private_key);
+
+            let privateKey: string;
+            try {
+                console.log(`[Telegram Withdraw] Decrypting key for ${telegramId}`);
+                privateKey = EncryptionService.decrypt(user.encrypted_private_key);
+            } catch (decryptError: any) {
+                console.error('[Telegram Withdraw] Decryption failed:', decryptError.message);
+                return res.status(500).json({ success: false, message: 'Wallet security check failed' });
+            }
             const wallet = new ethers.Wallet(privateKey, provider);
             const amountInWei = ethers.parseUnits(amount.toString(), 18);
 

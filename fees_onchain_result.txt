@@ -1,0 +1,9 @@
+
+==========================================
+FULL HISTORY SCAN (76000000 - 81542421)
+------------------------------------------
+Total Trades Found:                22
+Total Traded Volume (Share Value): $13.10
+Protocol Fee Rate:                 10%
+Total Fees Collected:              $1.3096
+==========================================
