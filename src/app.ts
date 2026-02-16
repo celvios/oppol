@@ -1235,11 +1235,8 @@ app.get('/api/markets/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Market not found' });
     }
 
-    const [basicInfo, outcomes, prices] = await Promise.all([
-      marketContract.getMarketBasicInfo(marketId),
-      marketContract.getMarketOutcomes(marketId),
-      marketContract.getAllPrices(marketId)
-    ]);
+    // Fetch only basic info from contract (1 RPC call instead of 3)
+    const basicInfo = await marketContract.getMarketBasicInfo(marketId);
 
     // Get metadata from database - REQUIRED (Acts as deletion check)
     let metadata: any = null;
@@ -1257,6 +1254,30 @@ app.get('/api/markets/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Market not active' });
     }
 
+    // Parse outcome names from DB (JSONB or array)
+    let outcomes = ['Yes', 'No'];
+    if (metadata.outcome_names) {
+      try {
+        outcomes = typeof metadata.outcome_names === 'string'
+          ? JSON.parse(metadata.outcome_names)
+          : metadata.outcome_names;
+      } catch (e) {
+        console.warn(`[Market API] Failed to parse outcome_names for market ${marketId}`);
+      }
+    }
+
+    // Parse prices from DB (indexed from blockchain)
+    let prices = outcomes.map(() => 50); // Default 50/50
+    if (metadata.prices) {
+      try {
+        prices = typeof metadata.prices === 'string'
+          ? JSON.parse(metadata.prices)
+          : metadata.prices;
+      } catch (e) {
+        console.warn(`[Market API] Failed to parse prices for market ${marketId}`);
+      }
+    }
+
     const market = {
       market_id: marketId,
       question: basicInfo.question,
@@ -1264,12 +1285,14 @@ app.get('/api/markets/:id', async (req, res) => {
       image_url: metadata.image || '',
       category_id: metadata.category || '',
       outcomes: outcomes,
-      prices: prices.map((p: bigint) => Number(p) / 100), // Convert to percentage
+      prices: prices, // Already in percentage format from database
       outcomeCount: Number(basicInfo.outcomeCount),
       endTime: Number(basicInfo.endTime),
       liquidityParam: ethers.formatUnits(basicInfo.liquidityParam, 18),
       resolved: basicInfo.resolved,
-      winningOutcome: Number(basicInfo.winningOutcome)
+      winningOutcome: Number(basicInfo.winningOutcome),
+      volume: metadata.volume || '0',
+      totalVolume: parseFloat(metadata.volume || '0').toFixed(2) // Pre-format for frontend display
     };
 
     return res.json({ success: true, market });
