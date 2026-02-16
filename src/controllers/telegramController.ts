@@ -357,9 +357,26 @@ export class TelegramController {
             const wallet = new ethers.Wallet(privateKey, provider);
             const amountInWei = ethers.parseUnits(amount.toString(), 18);
 
-            // 1. Withdraw from Market Contract (if funds are there)
+            // 0. Pre-check Total Balance
             const marketContract = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, wallet);
-            const depositedBalance = await marketContract.userBalances(wallet.address);
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+
+            const [walletBalance, depositedBalance] = await Promise.all([
+                usdcContract.balanceOf(wallet.address),
+                marketContract.userBalances(wallet.address)
+            ]);
+
+            const totalAvailable = walletBalance + depositedBalance;
+
+            if (totalAvailable < amountInWei) {
+                const availableFormatted = ethers.formatUnits(totalAvailable, 18);
+                return res.status(400).json({
+                    success: false,
+                    message: `Insufficient funds. You only have ${availableFormatted} USDC available (Wallet + Deposited).`
+                });
+            }
+
+            // 1. Withdraw from Market Contract (if funds are there)
 
             if (depositedBalance > 0) {
                 const withdrawAmount = depositedBalance > amountInWei ? amountInWei : depositedBalance;
@@ -377,7 +394,7 @@ export class TelegramController {
             }
 
             // 2. Transfer from Wallet to Target
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, wallet);
+            // usdcContract is already instantiated above
 
             // Gas for transfer
             await CustodialWalletService.fundWallet(wallet.address, '0.0006', provider);
@@ -387,7 +404,12 @@ export class TelegramController {
             // Re-check USDC balance before transfer
             const currentUsdcBalance = await usdcContract.balanceOf(wallet.address);
             if (currentUsdcBalance < amountInWei) {
-                throw new Error(`Insufficient USDC in wallet. Have: ${ethers.formatUnits(currentUsdcBalance, 18)}, Need: ${amount}`);
+                const have = ethers.formatUnits(currentUsdcBalance, 18);
+                // Fallback error if gas/transfer consumed slightly more or sync failed
+                return res.status(400).json({
+                    success: false,
+                    message: `Withdrawal partial failure. Contract withdrawn, but wallet has insufficient USDC (${have}) to send to external address. Please try again or contact support.`
+                });
             }
 
             const tx = await usdcContract.transfer(toAddress, amountInWei);
