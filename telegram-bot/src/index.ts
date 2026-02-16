@@ -355,7 +355,7 @@ bot.on('callback_query', async (query) => {
                     if (market.outcomes && market.prices) {
                         text += `📈 *Current Odds:*\n`;
                         market.outcomes.forEach((outcome, i) => {
-                            const price = Math.round(market.prices![i] || 50);
+                            const price = (market.prices![i] || 50).toFixed(1);
                             const emoji = i === 0 ? '🟢' : i === 1 ? '🔴' : '🔵';
                             text += `${emoji} ${outcome}: *${price}%*\n`;
                         });
@@ -372,7 +372,7 @@ bot.on('callback_query', async (query) => {
 
                     // Build buttons for each outcome with current prices
                     const outcomeButtons = (market.outcomes || ['Yes', 'No']).map((outcome, i) => {
-                        const price = Math.round(market.prices?.[i] || 50);
+                        const price = (market.prices?.[i] || 50).toFixed(1);
                         return [{ text: `${outcome} (${price}%)`, callback_data: `bet_${marketId}_${i}` }];
                     });
 
