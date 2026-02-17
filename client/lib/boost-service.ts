@@ -9,7 +9,7 @@ export const BOOST_TIERS = [
 ];
 
 // Admin Wallet for Receiving Payments
-const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET || "0xa4B1B886f955b2342bC9bB4f77B80839357378b7";
+const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET || "0xfc8c540e7d3912458b36189f325f7f6d520be71d";
 
 export const BoostService = {
     async verifyBoost(marketId: number | string, txHash: string, tierId: number) {
