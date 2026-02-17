@@ -384,6 +384,31 @@ export default function DepositPage() {
                         // --- EMBEDDED WALLET FLOW ---
                         <div className="space-y-6">
 
+                            {/* Auto-Detection: Funds Already in Wallet */}
+                            {parseFloat(tokenBalance || '0') > 0.01 && fundingStep === 'input' && (
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <h4 className="text-white font-bold mb-1">Funds Detected!</h4>
+                                            <p className="text-white/60 text-sm mb-3">
+                                                We found <strong className="text-white">{tokenBalance} USDC</strong> in your wallet.
+                                                Ready to deposit?
+                                            </p>
+                                            <button
+                                                onClick={async () => {
+                                                    setFundingStep('verifying');
+                                                    await checkAndAutoDeposit();
+                                                }}
+                                                className="w-full py-2.5 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition-colors"
+                                            >
+                                                Complete Deposit
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Step Indicator */}
                             {fundingStep !== 'input' && (
                                 <div className="text-center mb-4">
