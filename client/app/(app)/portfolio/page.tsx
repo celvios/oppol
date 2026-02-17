@@ -8,6 +8,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
 import LogoBrand from "@/components/ui/LogoBrand";
+import SmartDepositCard from "@/components/wallet/SmartDepositCard";
 
 interface Position {
     market: string;
@@ -256,10 +257,6 @@ export default function PortfolioPage() {
                     </button>
                 </div>
             </div>
-
-            import SmartDepositCard from "@/components/wallet/SmartDepositCard";
-
-            // ...
 
             {/* Smart Deposit Prompt */}
             {parseFloat(walletBalance) > 0 && (
