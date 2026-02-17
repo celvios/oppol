@@ -271,7 +271,8 @@ export class TelegramController {
                 '0xe450d38c': 'ERC20InsufficientBalance(address,uint256,uint256)', // ERC20 Standard
                 '0x9811e0c7': 'ZeroShares()',
                 '0x76c6c93a': 'NotOperator(address)',
-                '0x3d0aa6bc': 'MarketAlreadyResolved(uint256)'
+                '0x3d0aa6bc': 'MarketAlreadyResolved(uint256)',
+                '0xf0a78225': 'CostExceedsMax(uint256,uint256)'
             };
 
             for (const [sig, abiInfo] of Object.entries(signatures)) {
@@ -280,6 +281,24 @@ export class TelegramController {
                     // Etherjs abi coder needs the data strictly.
                     // If data is embedded in a larger string, we might need to exact it.
                     // But usually ethers error includes the Revert data.
+
+                    if (sig === '0xf0a78225') { // CostExceedsMax(uint256 cost, uint256 maxCost)
+                        try {
+                            const selectorIndex = data.indexOf(sig);
+                            // Ensure 0x prefix
+                            const rawData = '0x' + data.substring(selectorIndex + 10);
+
+                            const abiCoder = new ethers.AbiCoder();
+                            const decoded = abiCoder.decode(['uint256', 'uint256'], rawData);
+
+                            const cost = ethers.formatUnits(decoded[0], 18);
+                            const max = ethers.formatUnits(decoded[1], 18);
+
+                            return `Slippage Error: Cost (${cost} USDC) exceeds max allowed (${max} USDC). Try increasing the limit or trying again later.`;
+                        } catch (e) {
+                            return "Cost exceeds max limit (Slippage)";
+                        }
+                    }
 
                     if (sig === '0xdb42144d') { // InsufficientBalance
                         try {
