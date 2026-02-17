@@ -205,7 +205,10 @@ export class TelegramController {
                 bestShares = ethers.parseUnits((parseFloat(amount) * 0.9).toString(), 18);
             }
 
-            const limitCost = maxCostInUnits * BigInt(110) / BigInt(100); // 10% slippage
+            // FIXED: Limit cost must not exceed amountInWei (User's deposit)
+            // If we want slippage, we must deposit more or checking balance first.
+            // Here we treat amount as "Max Spend".
+            const limitCost = maxCostInUnits;
 
             console.log(`[Gasless Bet] Buying ${ethers.formatUnits(bestShares, 18)} shares...`);
             const betTx = await marketContractOperator.buySharesFor(
