@@ -183,14 +183,23 @@ export class TelegramController {
             // Reduce to max 8 iterations for speed/rate-limits
             const marketContractReader = new ethers.Contract(MARKET_CONTRACT_ADDRESS, PREDICTION_MARKET_ABI, provider);
 
+            // PROTOCOL_FEE is 5% (500 basis points)
+            // TotalCost = Cost + (Cost * Fee / 10000)
+            // We need TotalCost <= amountInWei
+
             for (let i = 0; i < 8; i++) {
                 const mid = (low + high) / BigInt(2);
                 try {
                     const cost = await marketContractReader.calculateCost(marketId, outcome, mid);
-                    if (cost <= maxCostInUnits) {
+                    const fee = (cost * BigInt(500)) / BigInt(10000); // 5% Fee
+                    const totalCost = cost + fee;
+
+                    if (totalCost <= maxCostInUnits) {
                         bestShares = mid;
+                        // Try to get more shares
                         low = mid + BigInt(1);
                     } else {
+                        // Too expensive
                         high = mid - BigInt(1);
                     }
                 } catch (e) {
@@ -201,13 +210,14 @@ export class TelegramController {
             }
 
             if (bestShares === BigInt(0)) {
-                // If search failed, try a conservative fall back: 1:1 shares
-                bestShares = ethers.parseUnits((parseFloat(amount) * 0.9).toString(), 18);
+                // If search failed, try a conservative fall back (80% to be safe with fees)
+                bestShares = ethers.parseUnits((parseFloat(amount) * 0.8).toString(), 18);
             }
 
             // FIXED: Limit cost must not exceed amountInWei (User's deposit)
-            // If we want slippage, we must deposit more or checking balance first.
-            // Here we treat amount as "Max Spend".
+            // This is the HARD LIMIT passed to contract.
+            // buySharesFor will revert if (cost + fee) > limitCost.
+            // Our binary search above now properly accounts for this fee.
             const limitCost = maxCostInUnits;
 
             console.log(`[Gasless Bet] Buying ${ethers.formatUnits(bestShares, 18)} shares...`);
