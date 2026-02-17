@@ -27,6 +27,7 @@ interface Position {
 export default function PortfolioPage() {
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [balance, setBalance] = useState<string>('0');
+    const [walletBalance, setWalletBalance] = useState<string>('0');
     const [positions, setPositions] = useState<Position[]>([]);
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -59,6 +60,7 @@ export default function PortfolioPage() {
             setLoading(false);
             setPositions([]);
             setBalance('0');
+            setWalletBalance('0');
             setTotalPnL(0);
             return;
         }
@@ -79,7 +81,11 @@ export default function PortfolioPage() {
             try {
                 // Fetch user DEPOSITED balance (Polymarket-style)
                 const userBalance = await web3Service.getDepositedBalance(effectiveAddress!);
+
                 setBalance(userBalance);
+
+                const getWalletBalance = await web3Service.getUSDCBalance(effectiveAddress!);
+                setWalletBalance(getWalletBalance);
 
                 // Fetch all markets and user positions
                 const markets = await web3Service.getMarkets();
@@ -135,7 +141,7 @@ export default function PortfolioPage() {
                             market: market.question,
                             marketId: market.id,
                             side: 'YES',
-                            shares: Math.floor(yesShares),
+                            shares: parseFloat(yesShares.toFixed(2)),
                             avgPrice: avgPrice.toFixed(2),
                             currentPrice,
                             currentValue: currentValue.toFixed(2),
@@ -165,7 +171,7 @@ export default function PortfolioPage() {
                             market: market.question,
                             marketId: market.id,
                             side: 'NO',
-                            shares: Math.floor(noShares),
+                            shares: parseFloat(noShares.toFixed(2)),
                             avgPrice: avgPrice.toFixed(2),
                             currentPrice,
                             currentValue: currentValue.toFixed(2),
@@ -251,14 +257,38 @@ export default function PortfolioPage() {
                 </div>
             </div>
 
+            import SmartDepositCard from "@/components/wallet/SmartDepositCard";
+
+            // ...
+
+            {/* Smart Deposit Prompt */}
+            {parseFloat(walletBalance) > 0 && (
+                <div className="mb-8">
+                    <SmartDepositCard
+                        walletBalance={walletBalance}
+                        onDepositSuccess={() => {
+                            // Simple reload to refresh balances
+                            window.location.reload();
+                        }}
+                    />
+                </div>
+            )}
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface/40 border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Total Balance</p>
+                    <p className="text-white/40 text-sm uppercase tracking-widest mb-2">Deposited Balance</p>
                     <p className="text-4xl font-mono text-white">${parseFloat(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <div className="mt-4 flex items-center gap-2 text-white/40 text-sm">
-                        <TrendingUp size={16} />
-                        <span>USDC Balance</span>
+                    <div className="mt-4 flex items-center gap-4 text-white/40 text-sm">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp size={16} />
+                            <span>Protocol</span>
+                        </div>
+                        <div className="h-4 w-[1px] bg-white/10"></div>
+                        <div className="flex items-center gap-2 text-white/80">
+                            <Wallet size={16} />
+                            <span>Wallet: ${parseFloat(walletBalance).toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -276,7 +306,7 @@ export default function PortfolioPage() {
                     <p className={`text-4xl font-mono ${totalPnL >= 0 ? 'text-success' : 'text-danger'}`}>
                         {pnlDisplay}
                     </p>
-                    <p className="text-white/30 text-xs mt-2">Based on 50% avg entry</p>
+                    <p className="text-white/30 text-xs mt-2">Based on trade history</p>
                 </div>
             </div>
 
