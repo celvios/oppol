@@ -126,8 +126,11 @@ export default function DepositPage() {
                 formattedBalance = ethers.formatEther(balance);
             } else {
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-                const balance = await tokenContract.balanceOf(effectiveAddress);
-                formattedBalance = ethers.formatUnits(balance, selectedToken.decimals);
+                const [balance, decimals] = await Promise.all([
+                    tokenContract.balanceOf(effectiveAddress),
+                    tokenContract.decimals().catch(() => 18)
+                ]);
+                formattedBalance = ethers.formatUnits(balance, decimals);
             }
 
             setTokenBalance(parseFloat(formattedBalance).toFixed(4));
