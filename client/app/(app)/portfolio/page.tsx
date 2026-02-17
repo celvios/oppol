@@ -233,7 +233,7 @@ export default function PortfolioPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-mono font-bold text-white">PORTFOLIO</h1>
                 <div className="flex items-center gap-3">
-                    {(address || authenticated) && (
+                    {(address || isConnected) && (
                         <div className="text-xs text-white/40 bg-white/5 px-3 py-1 rounded-full">
                             🔗 Wallet Connected
                         </div>
