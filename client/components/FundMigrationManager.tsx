@@ -31,16 +31,34 @@ export default function FundMigrationManager() {
     const [txHash, setTxHash] = useState('');
     const [error, setError] = useState('');
     const [isCompleted, setIsCompleted] = useState(false);
+
     // Ref to prevent double checking
     const hasChecked = useRef(false);
 
     useEffect(() => {
         const checkMigrationStatus = async () => {
-            if (!user || !legacyAddress || hasChecked.current) return;
+            console.log('[Migration] Checking status...', {
+                user: user?.id,
+                legacyAddress,
+                loginMethod,
+                hasChecked: hasChecked.current
+            });
+
+            if (!user || !legacyAddress) {
+                console.log('[Migration] Missing user or legacy address. Skipping.');
+                return;
+            }
+            if (hasChecked.current) {
+                console.log('[Migration] Already checked. Skipping.');
+                return;
+            }
 
             try {
                 // Fetch user by Privy ID + Wallet Address tuple to find the backend record
-                const syncRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/privy`, {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                console.log(`[Migration] Fetching user from ${apiUrl}/api/auth/privy...`);
+
+                const syncRes = await fetch(`${apiUrl}/api/auth/privy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -51,16 +69,25 @@ export default function FundMigrationManager() {
                 });
 
                 const syncData = await syncRes.json();
-                if (!syncData.success || !syncData.user) return;
+                console.log('[Migration] API Response:', syncData);
+
+                if (!syncData.success || !syncData.user) {
+                    console.log('[Migration] API failed or no user returned.');
+                    return;
+                }
 
                 const dbUser = syncData.user;
+                console.log(`[Migration] DB User Wallet: ${dbUser.wallet_address}`);
 
                 // Compare Addresses: If DB has a different address, and we are logged in via Privy
                 if (dbUser.wallet_address && legacyAddress.toLowerCase() !== dbUser.wallet_address.toLowerCase()) {
-                    console.log(`🔍 [Migration] Mismatch! Connected: ${legacyAddress}, DB: ${dbUser.wallet_address}`);
+                    console.log(`🔍 [Migration] Mismatch detected! Connected: ${legacyAddress}, DB: ${dbUser.wallet_address}`);
 
                     // Check Balance of Legacy Wallet using Privy Provider
-                    if (!legacyWallet) return;
+                    if (!legacyWallet) {
+                        console.log('[Migration] No legacy wallet object found.');
+                        return;
+                    }
 
                     const provider = await legacyWallet.getEthersProvider();
                     const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
@@ -70,11 +97,16 @@ export default function FundMigrationManager() {
 
                     console.log(`💰 [Migration] Legacy Balance: ${balanceFormatted}`);
 
-                    if (parseFloat(balanceFormatted) > 0.1) {
+                    if (parseFloat(balanceFormatted) > 0.01) { // Lowered threshold for testing
+                        console.log('[Migration] Balance sufficient. Triggering modal.');
                         setBalance(balanceFormatted);
                         setCustodialAddress(dbUser.wallet_address);
                         setNeedsMigration(true);
+                    } else {
+                        console.log('[Migration] Balance too low to migrate.');
                     }
+                } else {
+                    console.log('[Migration] Addresses match. No migration needed.');
                 }
 
                 hasChecked.current = true;
