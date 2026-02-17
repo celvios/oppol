@@ -1612,7 +1612,7 @@ t.market_id,
 
     result.rows.forEach((row: any) => {
       // Portfolio Stats Key
-      const key = `${row.market_id} -${row.side} `;
+      const key = `${row.market_id}-${row.side}`;
       stats[key] = {
         marketId: row.market_id,
         side: row.side,
