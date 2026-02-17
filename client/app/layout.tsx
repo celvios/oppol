@@ -6,6 +6,7 @@ import { Web3Provider } from "@/lib/web3-provider";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { SettingsProvider } from "@/lib/settings-context";
 import UserRegistrationManager from "@/components/UserRegistrationManager";
+import FundMigrationManager from "@/components/FundMigrationManager";
 import Header from "@/components/ui/Header";
 import { NetworkChecker } from "@/components/NetworkChecker";
 import { RPCMonitorInit } from "@/components/RPCMonitorInit";
@@ -58,6 +59,7 @@ export default function RootLayout({
                 <NetworkChecker />
                 <AnimatedBackground />
                 <UserRegistrationManager />
+                <FundMigrationManager />
                 <Header />
                 {children}
               </SettingsProvider>
