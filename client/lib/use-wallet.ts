@@ -39,5 +39,6 @@ export function useWallet() {
     disconnect: handleDisconnect,
     user,
     connectors: [], // Not exposed for hybrid
+    loginMethod // Expose for UI logic
   };
 }

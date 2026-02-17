@@ -57,7 +57,7 @@ const getTokens = () => {
 
 export default function DepositPage() {
     const tokens = getTokens();
-    const { isConnecting, address, isConnected, disconnect, connect } = useWallet();
+    const { isConnecting, address, isConnected, disconnect, connect, loginMethod } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
 
@@ -66,8 +66,8 @@ export default function DepositPage() {
     const effectiveAddress = address;
 
     // Detect Embedded Wallet (Reown Email/Social)
-    // Reown usually names its email connector 'auth' or similar, but for now we treat all connected wallets same
-    const isEmbeddedWallet = connector?.id === 'w3m-email' || connector?.id === 'auth';
+    // reliable detection using loginMethod from Privy/Auth hook
+    const isEmbeddedWallet = loginMethod === 'privy';
 
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
