@@ -238,8 +238,75 @@ export class TelegramController {
                 return res.status(503).json({ success: false, message: 'Blockchain network issue, please try again later.' });
             }
 
+
+            // Try explicit decoding first
+            const decodedError = TelegramController.decodeContractError(error);
+            if (decodedError) {
+                return res.status(400).json({ success: false, message: decodedError });
+            }
+
             res.status(400).json({ success: false, message: error.message });
         }
+    }
+
+    private static decodeContractError(error: any): string | null {
+        try {
+            // 1. Extract error data
+            let data = error.data || error.error?.data || error.payload?.data;
+            if (!data && error.message) {
+                // Try to find hex string in message
+                const match = error.message.match(/0x[a-fA-F0-9]{8,}/);
+                if (match) data = match[0];
+            }
+
+            if (!data || typeof data !== 'string') return null;
+
+            // 2. Check Signatures
+            const signatures = {
+                '0xdb42144d': 'InsufficientBalance(address,uint256,uint256)',
+                '0xe48960f0': 'MarketHasEnded(uint256)',
+                '0xe450d38c': 'ERC20InsufficientBalance(address,uint256,uint256)', // ERC20 Standard
+                '0x9811e0c7': 'ZeroShares()',
+                '0x76c6c93a': 'NotOperator(address)',
+                '0x3d0aa6bc': 'MarketAlreadyResolved(uint256)'
+            };
+
+            for (const [sig, abiInfo] of Object.entries(signatures)) {
+                if (data.includes(sig)) {
+                    // Normalize data (remove selector if needed, or handle full string)
+                    // Etherjs abi coder needs the data strictly.
+                    // If data is embedded in a larger string, we might need to exact it.
+                    // But usually ethers error includes the Revert data.
+
+                    if (sig === '0xdb42144d') { // InsufficientBalance
+                        try {
+                            // Extract args: we need to Slice the selector (4 bytes = 10 chars usually 0x + 8 hex)
+                            // But data might vary. Let's assume data starts with selector.
+                            const selectorIndex = data.indexOf(sig);
+                            const rawData = '0x' + data.substring(selectorIndex + 10);
+
+                            const abiCoder = new ethers.AbiCoder();
+                            const decoded = abiCoder.decode(['address', 'uint256', 'uint256'], rawData);
+
+                            const required = ethers.formatUnits(decoded[1], 18);
+                            const available = ethers.formatUnits(decoded[2], 18);
+                            const missing = (parseFloat(required) - parseFloat(available)).toFixed(4);
+
+                            return `Insufficient Balance. You have ${available} USDC but need ${required} USDC. Please deposit ${missing} more USDC.`;
+                        } catch (e) {
+                            return "Insufficient Balance (Error decoding details)";
+                        }
+                    }
+
+                    if (sig === '0xe48960f0') return "Market has ended";
+                    if (sig === '0x3d0aa6bc') return "Market already resolved";
+                    if (sig === '0x9811e0c7') return "Cannot buy 0 shares";
+                }
+            }
+        } catch (e) {
+            console.error('Error decoding failed:', e);
+        }
+        return null; // Fallback to original message
     }
 
     static async getPositions(req: Request, res: Response) {
@@ -423,6 +490,12 @@ export class TelegramController {
             res.json({ success: true, message: 'Withdrawal successful', transactionHash: receipt.hash });
         } catch (error: any) {
             console.error('Withdraw error:', error);
+
+            const decodedError = TelegramController.decodeContractError(error);
+            if (decodedError) {
+                return res.status(400).json({ success: false, message: decodedError });
+            }
+
             res.status(500).json({ success: false, message: error.message || 'Server error' });
         }
     }
