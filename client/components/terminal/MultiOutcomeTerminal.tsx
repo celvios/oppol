@@ -115,6 +115,16 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const mobileInputRef = useRef<HTMLInputElement>(null);
 
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Pagination (Moved up to avoid conditional hook violation)
+    const ITEMS_PER_PAGE = 10;
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
 
     const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
@@ -476,15 +486,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     const filteredMarkets = markets
         .filter(m => (m.question || '').toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
-
-    // Pagination
-    const ITEMS_PER_PAGE = 10;
-    const [currentPage, setCurrentPage] = useState(1);
-
-    // Reset to page 1 when search changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery]);
 
     const totalPages = Math.ceil(filteredMarkets.length / ITEMS_PER_PAGE);
     const paginatedMarkets = filteredMarkets.slice(
