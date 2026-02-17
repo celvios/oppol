@@ -5,6 +5,7 @@ import { MARKET_ABI } from '../config/abis';
 import { getProvider } from '../config/provider';
 
 let isRunning = false;
+let isSyncing = false;
 let intervalId: NodeJS.Timeout | null = null;
 
 // Helper to format prices
@@ -22,6 +23,12 @@ const marketCache: Map<number, MarketState> = new Map();
  * Sync all active markets from blockchain to database using Multicall3
  */
 export async function syncAllMarkets(): Promise<void> {
+    if (isSyncing) {
+        console.log('[Indexer] Sync in progress, skipping...');
+        return;
+    }
+    isSyncing = true;
+
     try {
         const provider = getProvider();
         const MARKET_ADDR = CONFIG.MARKET_CONTRACT;
@@ -195,8 +202,8 @@ export async function syncAllMarkets(): Promise<void> {
                             console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
                         }
 
-                        // Rate limit: Wait 200ms between log queries to respect RPC limits
-                        await new Promise(resolve => setTimeout(resolve, 200));
+                        // Rate limit: Wait 500ms between log queries (reduced from 5 req/s to 2 req/s)
+                        await new Promise(resolve => setTimeout(resolve, 500));
                     }
 
                     volume += totalNewVolume;
@@ -267,6 +274,8 @@ export async function syncAllMarkets(): Promise<void> {
 
     } catch (error: any) {
         console.error('[Indexer] Sync failed:', error.message);
+    } finally {
+        isSyncing = false;
     }
 }
 
@@ -283,11 +292,23 @@ export function startMarketIndexer(intervalMs: number = 30000): void {
     console.log(`[Indexer] Starting with ${intervalMs / 1000}s interval...`);
     isRunning = true;
 
-    // Run immediately on start
-    syncAllMarkets();
+    // Random startup jitter (0-10s) to prevent thundering herd if multiple instances restart
+    const jitter = Math.floor(Math.random() * 10000);
+    console.log(`[Indexer] Waiting ${jitter}ms before first sync...`);
 
-    // Then run periodically
-    intervalId = setInterval(syncAllMarkets, intervalMs);
+    setTimeout(() => {
+        if (!isSyncing) syncAllMarkets();
+
+        // Then run periodically
+        intervalId = setInterval(() => {
+            if (!isSyncing) {
+                syncAllMarkets();
+            } else {
+                console.log('[Indexer] Skipping interval, previous sync still running');
+            }
+        }, intervalMs);
+    }, jitter);
+
     console.log(`[Indexer] ✅ Running`);
 }
 

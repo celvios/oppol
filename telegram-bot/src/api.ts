@@ -131,6 +131,11 @@ export class API {
             return data;
         } catch (error: any) {
             console.error('Failed to withdraw:', error.message);
+            // Extract the error message from the API response if available
+            const apiMessage = error.response?.data?.message;
+            if (apiMessage) {
+                throw new Error(apiMessage);
+            }
             throw error;
         }
     }
