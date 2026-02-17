@@ -24,9 +24,9 @@ Transform your prediction market platform into a BC400-powered ecosystem that cr
 
 - [x] BC400 or NFT required for market creation (DONE)
 - [ ] **Tiered creation limits** based on BC400 holdings
-  - 10M BC400: 5 markets/week
-  - 50M BC400: 15 markets/week
-  - 100M BC400: Unlimited markets
+  - 10M BC400: 5 markets
+  - 50M BC400: 15 markets
+  - 100M BC400: 50 markets
 - [ ] **Staked BC400 benefits** - Lock tokens for enhanced limits
 - [ ] **Market boost fees** - Pay BC400 to feature markets on homepage
 

@@ -104,41 +104,35 @@ export const registerUser = async (req: Request, res: Response) => {
 // Step 4: Login with Google/Email via Privy
 export const authenticatePrivyUser = async (req: Request, res: Response) => {
     try {
-        const { privyUserId, email, walletAddress } = req.body;
+        const { privyUserId, email, walletAddress, loginMethod } = req.body;
 
-        if (!privyUserId || !walletAddress) {
-            return res.status(400).json({ success: false, error: 'Privy User ID and Wallet Address required' });
+        if (!privyUserId) {
+            return res.status(400).json({ success: false, error: 'Privy User ID required' });
         }
 
-        console.log(`[Auth] Privy Auth: ${privyUserId} (${email || 'No Email'})`);
+        console.log(`[Auth] Privy Auth: ${privyUserId} (${email || 'No Email'}) Method: ${loginMethod || 'Unknown'}`);
 
-        // Check if user exists by Privy ID OR Wallet Address OR Email (if provided)
-        let queryText = 'SELECT * FROM users WHERE privy_user_id = $1 OR lowered_wallet_address = $2';
-        const queryParams: any[] = [privyUserId, walletAddress.toLowerCase()];
+        // Check if user exists by Privy ID
+        let queryText = 'SELECT * FROM users WHERE privy_user_id = $1';
+        let queryParams: any[] = [privyUserId];
 
+        // Secondary check by email if available
         if (email) {
-            queryText += ' OR email = $3';
+            queryText += ' OR email = $2';
             queryParams.push(email);
         }
 
-        // We need a way to check lowered_wallet_address efficiently. 
-        // Assuming wallet_address is stored mixed case, we might need to adjust query or ensure storage is consistent.
-        // For now, let's just check wallet_address directly if we enforce lowercase storage, OR usage LOWER()
-        // Updated query to use LOWER() on stored address
-        queryText = 'SELECT * FROM users WHERE privy_user_id = $1 OR LOWER(wallet_address) = $2';
-        // Reset params
-        const params: any[] = [privyUserId, walletAddress.toLowerCase()];
-        if (email) {
-            queryText += ' OR email = $3';
-            params.push(email);
-        }
+        const existingUserResult = await query(queryText, queryParams);
+        let user = existingUserResult.rows[0];
 
-        const existingUser = await query(queryText, params);
+        // LOGIC FOR CUSTODIAL WALLETS (Google/Email users)
+        // If login method is social/email, we want to control the keys.
+        const isCustodial = loginMethod === 'google' || loginMethod === 'email' || loginMethod === 'twitter' || loginMethod === 'discord';
 
-        if (existingUser.rows.length > 0) {
-            const user = existingUser.rows[0];
+        let custodialWalletAddress = null;
 
-            // Update Privy ID if missing (linking existing account)
+        if (user) {
+            // User exists, update fields
             let updates = [];
             let updateParams = [];
             let paramCounter = 1;
@@ -147,8 +141,6 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                 updates.push(`privy_user_id = $${paramCounter++}`);
                 updateParams.push(privyUserId);
             }
-
-            // Update email if missing and provided
             if (!user.email && email) {
                 updates.push(`email = $${paramCounter++}`);
                 updateParams.push(email);
@@ -159,39 +151,72 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                 await query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCounter}`, updateParams);
             }
 
-            return res.json({
-                success: true,
-                user: { ...user },
-                isNew: false
-            });
+            // Check if they need a custodial wallet (if they are a custodial user type)
+            if (isCustodial) {
+                // Check wallets table
+                const walletCheck = await query('SELECT public_address FROM wallets WHERE user_id = $1', [user.id]);
+                if (walletCheck.rows.length > 0) {
+                    custodialWalletAddress = walletCheck.rows[0].public_address;
+                } else {
+                    // Create one
+                    console.log(`[Auth] Generating Custodial Wallet for existing user ${user.id}`);
+                    const newWallet = await createWalletInternal(user.id);
+                    custodialWalletAddress = newWallet.public_address;
+
+                    // CRITICAL: Update the user's main wallet_address to be the custodial one
+                    // This ensures the frontend uses this address for all checks
+                    await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
+                    user.wallet_address = custodialWalletAddress;
+                }
+            }
+
+        } else {
+            // New User
+            console.log(`[Auth] Creating new Privy user`);
+
+            // Generate unique display name
+            let displayName = email ? email.split('@')[0] : `User ${walletAddress?.slice(0, 6) || 'Anon'}`;
+            const nameCheck = await query('SELECT id FROM users WHERE display_name = $1', [displayName]);
+            if (nameCheck.rows.length > 0) {
+                displayName = `${displayName}${Math.floor(Math.random() * 1000)}`;
+            }
+
+            // IF Custodial: Generate wallet FIRST to use as their main address
+            // IF Not: Use provided walletAddress
+            let finalWalletAddress = walletAddress;
+
+            if (isCustodial || !walletAddress) {
+                // We will create the user first with a placeholder or the provided address, then update with custodial
+                // Actually better to just use provided address initially if available, then override?
+                // Let's use provided address as placeholder if exists, else random
+                if (!finalWalletAddress) finalWalletAddress = '0x0000000000000000000000000000000000000000';
+            }
+
+            const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${displayName}`;
+
+            const newUserResult = await query(
+                'INSERT INTO users (privy_user_id, email, wallet_address, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [privyUserId, email || null, finalWalletAddress, displayName, avatarUrl]
+            );
+            user = newUserResult.rows[0];
+
+            if (isCustodial) {
+                console.log(`[Auth] Generating Custodial Wallet for new user ${user.id}`);
+                const newWallet = await createWalletInternal(user.id);
+                custodialWalletAddress = newWallet.public_address;
+
+                // Update user record with custodial address
+                await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
+                user.wallet_address = custodialWalletAddress;
+            }
         }
-
-        // New User
-        console.log(`[Auth] Creating new Privy user`);
-
-        // Generate unique display name
-        let displayName = email ? email.split('@')[0] : `User ${walletAddress.slice(0, 6)}`;
-
-        // Ensure uniqueness
-        const nameCheck = await query('SELECT id FROM users WHERE display_name = $1', [displayName]);
-        if (nameCheck.rows.length > 0) {
-            displayName = `${displayName}${Math.floor(Math.random() * 1000)}`;
-        }
-
-        const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${walletAddress}`;
-
-        // Create User
-        const newUser = await query(
-            'INSERT INTO users (privy_user_id, email, wallet_address, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [privyUserId, email || null, walletAddress, displayName, avatarUrl]
-        );
-
-        console.log(`[Auth] Created user ${newUser.rows[0].id}`);
 
         return res.json({
             success: true,
-            user: newUser.rows[0],
-            isNew: true
+            user: user,
+            isNew: !existingUserResult.rows.length,
+            isCustodial: !!custodialWalletAddress,
+            custodialAddress: custodialWalletAddress
         });
 
     } catch (error: any) {

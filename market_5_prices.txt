@@ -1,0 +1,10 @@
+
+On-Chain Data:
+Shares YES: 23.427199999999999999
+Shares NO: 5.774199999999999999
+Liquidity Param: 200.0
+Price YES: 50%
+Price NO: 49.99%
+
+Database Data:
+DB Prices: [50,49.99]

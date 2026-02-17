@@ -80,6 +80,8 @@ app.use('/api/admin', updateBalanceRoutes);
 
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
+import authRoutes from './routes/auth';
+app.use('/api/auth', authRoutes);
 app.use('/api/comments', commentsRoutes);
 app.use('/api/boost', boostRoutes);
 app.use('/api/market', marketRoutes);
@@ -391,6 +393,110 @@ app.post('/api/multi-bet', async (req, res) => {
     }
 
     const signer = new ethers.Wallet(privateKey, provider);
+
+    // ==================================================================================
+    // 🚀 AUTO-DEPOSIT LOGIC FOR CUSTODIAL USERS
+    // ==================================================================================
+
+    // Check if this is a custodial user (has key in DB)
+    const walletQuery = await query('SELECT encrypted_private_key FROM wallets WHERE LOWER(public_address) = $1', [normalizedAddress.toLowerCase()]);
+    const isCustodial = walletQuery.rows.length > 0;
+
+    if (isCustodial) {
+      console.log(`✨ [MULTI-BET] Custodial User Detected: ${normalizedAddress}`);
+
+      try {
+        const { EncryptionService } = await import('./services/encryption');
+        const { CustodialWalletService } = await import('./services/custodialWallet');
+
+        const userEncryptedKey = walletQuery.rows[0].encrypted_private_key;
+        const userPrivateKey = EncryptionService.decrypt(userEncryptedKey);
+        const userWallet = new ethers.Wallet(userPrivateKey, provider);
+
+        // 1. Check BNB Balance (Gas)
+        const userBnbBalance = await provider.getBalance(userWallet.address);
+        const minGas = ethers.parseEther('0.002'); // Minimum to be safe
+
+        if (userBnbBalance < minGas) {
+          console.log(`⛽ [MULTI-BET] Low Gas (${ethers.formatEther(userBnbBalance)} BNB). Funding user...`);
+          // Fund 0.003 BNB
+          await CustodialWalletService.fundWallet(userWallet.address, '0.003', provider);
+          console.log('✅ [MULTI-BET] User funded with gas.');
+        }
+
+        // 2. Check Contract Balance vs Cost
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+        // Note: We use MARKET_CONTRACT in CONFIG, but maintaining local var for safety
+        if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS");
+
+        const marketContract = new ethers.Contract(MARKET_ADDR, [
+          'function userBalances(address) view returns (uint256)',
+          'function deposit(uint256 amount) external'
+        ], userWallet);
+
+        const depositedBalance = await marketContract.userBalances(userWallet.address);
+        const costInWei = ethers.parseUnits(maxCost.toString(), 18); // Max willingness to pay
+
+        // We need to ensure they have enough deposited. 
+        // NOTE: 'maxCost' is loosely what they want to spend. Real cost might be less.
+        // But we should ensure they have at least 'maxCost' deposited to be safe.
+
+        if (depositedBalance < costInWei) {
+          const needed = costInWei - depositedBalance;
+          console.log(`💰 [MULTI-BET] Insufficient Internal Balance. Need to deposit: ${ethers.formatUnits(needed, 18)} USDC`);
+
+          // 3. Check Wallet USDC Balance
+          const USDC_ADDR = CONFIG.USDC_CONTRACT;
+          const usdcContract = new ethers.Contract(USDC_ADDR, [
+            'function balanceOf(address) view returns (uint256)',
+            'function approve(address, uint256) external returns (bool)',
+            'function allowance(address, address) view returns (uint256)'
+          ], userWallet);
+
+          const walletUsdcBalance = await usdcContract.balanceOf(userWallet.address);
+
+          if (walletUsdcBalance < needed) {
+            // Fail early if they simply don't have the funds anywhere
+            throw new Error(`Insufficient funds. Wallet: ${ethers.formatUnits(walletUsdcBalance, 18)}, Deposited: ${ethers.formatUnits(depositedBalance, 18)}, Needed Total: ${amount}`);
+          }
+
+          // 4. Approve if needed
+          const allowance = await usdcContract.allowance(userWallet.address, MARKET_ADDR);
+          if (allowance < needed) {
+            console.log('🔓 [MULTI-BET] Approving USDC...');
+            const approveTx = await usdcContract.approve(MARKET_ADDR, ethers.MaxUint256);
+            await approveTx.wait();
+            console.log('✅ [MULTI-BET] Approved.');
+          }
+
+          // 5. Deposit
+          console.log(`💸 [MULTI-BET] Depositing ${ethers.formatUnits(needed, 18)} USDC...`);
+          const depositTx = await marketContract.deposit(needed);
+          await depositTx.wait();
+          console.log('✅ [MULTI-BET] Deposit successful.');
+
+          // Short wait for consistency
+          await new Promise(r => setTimeout(r, 1000));
+        } else {
+          console.log('✅ [MULTI-BET] User has sufficient internal balance.');
+        }
+
+      } catch (custodialError: any) {
+        console.error('❌ [MULTI-BET] Custodial Auto-Deposit Failed:', custodialError);
+        return res.status(500).json({
+          success: false,
+          error: `Auto-Deposit Failed: ${custodialError.message}`
+        });
+      }
+    } else {
+      console.log(`ℹ️ [MULTI-BET] Standard User (Non-Custodial): ${normalizedAddress}`);
+      // Standard users must have manually deposited before calling this.
+    }
+
+    // ==================================================================================
+    // END AUTO-DEPOSIT LOGIC
+    // ==================================================================================
+
     console.log('🔍 [MULTI-BET DEBUG] Signer address:', signer.address);
 
     // Multi-outcome contract address
@@ -517,6 +623,8 @@ app.post('/api/multi-bet', async (req, res) => {
     const sharesFormatted = ethers.formatUnits(bestShares, 18);
     console.log(`✅ Cost: $${costFormatted} for ${sharesFormatted} shares (rawCost: ${rawActualCost.toString()})`);
 
+    // RE-CHECK BALANCE if not custodial (Custodial logic handled above)
+    // Even if custodial, we want to double check here to catch race conditions or failures
     if (userBalance < actualCost) {
       return res.status(400).json({
         success: false,

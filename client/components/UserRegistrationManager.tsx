@@ -23,7 +23,8 @@ export default function UserRegistrationManager() {
                         body: JSON.stringify({
                             privyUserId: user.id,
                             email: user.email?.address,
-                            walletAddress: walletAddress
+                            walletAddress: walletAddress,
+                            loginMethod: loginMethod // Pass login method to trigger custodial wallet creation for social logins
                         })
                     });
 

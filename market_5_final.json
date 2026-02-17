@@ -1,0 +1,16 @@
+{
+  "marketId": 5,
+  "outcomes": [
+    "Yes",
+    "No"
+  ],
+  "volumePerOutcome": {
+    "Yes": "6.99908",
+    "No": "0.99704"
+  },
+  "sharesPerOutcome": {
+    "Yes": "12.7256",
+    "No": "1.8128"
+  },
+  "totalVolume": "7.99612"
+}
