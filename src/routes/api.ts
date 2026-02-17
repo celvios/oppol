@@ -53,6 +53,10 @@ router.post('/upload', uploadImage);
 
 router.get('/debug/contract', checkContractMarkets);
 
+// Faucet Route
+import { claimFaucet } from '../controllers/faucetController';
+router.post('/faucet/claim', claimFaucet);
+
 router.get('/health', (req, res) => {
     res.json({ status: 'API Operational' });
 });

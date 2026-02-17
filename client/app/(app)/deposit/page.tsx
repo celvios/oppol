@@ -220,6 +220,41 @@ export default function DepositPage() {
                     throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
                 }
             } else {
+                // Check if user has enough gas (BNB)
+                const bnbBalance = await publicProvider.getBalance(effectiveAddress);
+                const minGas = ethers.parseEther("0.001"); // Minimal gas for approval + deposit
+
+                if (bnbBalance < minGas) {
+                    setStatusMessage('Requesting gas...');
+                    console.log('Low Gas. Requesting from faucet...');
+
+                    try {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        const res = await fetch(`${apiUrl}/api/faucet/claim`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ address: effectiveAddress })
+                        });
+
+                        const data = await res.json();
+                        if (data.success) {
+                            console.log('Gas claimed!', data.txHash);
+                            setStatusMessage('Gas received! Proceeding...');
+                            // Wait for block confirmation (approx 3s)
+                            await new Promise(r => setTimeout(r, 4000));
+                        } else {
+                            console.error('Faucet error:', data.error);
+                            // If faucet fails, user might still have enough if our check was too conservative?
+                            // But usually it means they really don't have enough.
+                            // We throw specific error
+                            throw new Error(`Insufficient BNB for gas. Please deposit BNB.`);
+                        }
+                    } catch (e) {
+                        console.error('Faucet call failed', e);
+                        throw new Error(`Insufficient Gas & Faucet Failed. Please deposit BNB.`);
+                    }
+                }
+
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
                 currentBalance = await tokenContract.balanceOf(address);
                 if (currentBalance < amountInWei) {
