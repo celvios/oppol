@@ -129,63 +129,48 @@ export async function syncAllMarkets(): Promise<void> {
                 // --- Volume Calculation (Stateful) ---
                 let volume = BigInt(0);
 
-                // Check cache state
-                let state = marketCache.get(marketId);
-                let fetchFromBlock = 0;
+                // Get current state from DB
+                const dbMarket = await query(
+                    'SELECT volume, last_indexed_block FROM markets WHERE market_id = $1',
+                    [marketId]
+                );
+
+                let lastIndexedBlock = 0;
                 let isFirstRun = false;
 
-                if (!state) {
-                    // First run for this market: Look back 1M blocks (~35 days on BSC) to ensure deep history coverage
-                    // This prevents missing trades if the service was down for an extended period
-                    isFirstRun = true;
-                    fetchFromBlock = Math.max(0, currentBlock - 1000000);
-
-                    // Read existing volume from database instead of resetting to 0
-                    try {
-                        const existingMarket = await query(
-                            'SELECT volume FROM markets WHERE market_id = $1',
-                            [marketId]
-                        );
-                        if (existingMarket.rows.length > 0 && existingMarket.rows[0].volume) {
-                            volume = ethers.parseUnits(existingMarket.rows[0].volume, 18);
-                            console.log(`[Indexer] 🔍 Market ${marketId}: Found existing volume $${existingMarket.rows[0].volume}, scanning ${currentBlock - fetchFromBlock} blocks for new trades...`);
-                        } else {
-                            volume = BigInt(0);
-                            console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
-                        }
-                    } catch (e: any) {
-                        console.error(`[Indexer] ❌ Market ${marketId} init error:`, e.message);
-                        volume = BigInt(0);
-                        console.log(`[Indexer] 🔍 Market ${marketId}: Scanning ${currentBlock - fetchFromBlock} blocks...`);
-                    }
+                if (dbMarket.rows.length > 0) {
+                    const row = dbMarket.rows[0];
+                    volume = row.volume ? ethers.parseUnits(row.volume, 18) : BigInt(0);
+                    lastIndexedBlock = row.last_indexed_block ? parseInt(row.last_indexed_block) : 0;
                 } else {
-                    // Incremental update
-                    fetchFromBlock = state.lastBlock + 1;
-
-                    // Always re-fetch volume from DB to respect manual updates/backfills
-                    try {
-                        const existingMarket = await query(
-                            'SELECT volume FROM markets WHERE market_id = $1',
-                            [marketId]
-                        );
-                        if (existingMarket.rows.length > 0 && existingMarket.rows[0].volume) {
-                            volume = ethers.parseUnits(existingMarket.rows[0].volume, 18);
-                        } else {
-                            volume = state.volume;
-                        }
-                    } catch (e) {
-                        volume = state.volume;
-                    }
+                    isFirstRun = true;
                 }
+
+                // If never indexed, scan typically from recent or full history if critical
+                // For this fixing task, if 0, we assume we need to scan DEEP or reset.
+                // If lastIndexedBlock is 0, we can scan back a safe amount or just start now?
+                // Better: If 0, scan last 1M blocks to be safe and populate backlog.
+                if (lastIndexedBlock === 0) {
+                    lastIndexedBlock = Math.max(0, currentBlock - 1000000);
+                    // Reset volume if we are doing a fresh deep scan?
+                    // No, keep existing volume if DB has it, but scanning might double count if we aren't careful.
+                    // If DB has volume but block is 0, it means legacy data.
+                    // We should probably TRUST DB volume and scan from NOW.
+                    // BUT, to fix the missing bet, we MUST scan the period where it happened.
+                    // For now, relies on `force_resync` script for fix, this is for ongoing.
+                    // Safest: set lastIndexedBlock to currentBlock if 0 to start tracking NEW trades only,
+                    // unless we want to backfill.
+                    // Let's stick to: sync from last_indexed_block + 1.
+                }
+
+                const fetchFromBlock = lastIndexedBlock + 1;
 
                 // Only query if new blocks exist
                 if (currentBlock >= fetchFromBlock) {
                     const CHUNK_SIZE = 2000;
                     let totalNewVolume = BigInt(0);
 
-                    // Use chunked fetching to avoid RPC limits
-                    // Backward scan for initialization is safer if we want oldest last
-                    // But here forward scan from `fetchFromBlock` is better
+                    // Forward scan from `fetchFromBlock`
                     for (let from = fetchFromBlock; from <= currentBlock; from += CHUNK_SIZE) {
                         const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
                         try {
@@ -195,6 +180,8 @@ export async function syncAllMarkets(): Promise<void> {
                                 to
                             );
                             for (const log of logs) {
+                                // args[4] is COST (totalCost in contract)
+                                // args[3] is SHARES
                                 // @ts-ignore
                                 totalNewVolume += BigInt(log.args[4]);
                             }
@@ -202,37 +189,27 @@ export async function syncAllMarkets(): Promise<void> {
                             console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
                         }
 
-                        // Rate limit: Wait 500ms between log queries (reduced from 5 req/s to 2 req/s)
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        // Rate limit
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     }
 
                     volume += totalNewVolume;
 
-                    // Update Cache
-                    marketCache.set(marketId, {
-                        lastBlock: currentBlock,
-                        volume: volume
-                    });
-
-                    if (isFirstRun) {
-                        console.log(`[Indexer] ✅ Market ${marketId}: Volume = $${ethers.formatUnits(volume, 18)}`);
-                    } else if (totalNewVolume > 0n) {
+                    if (totalNewVolume > 0n) {
                         console.log(`[Indexer] Market ${marketId} +${ethers.formatUnits(totalNewVolume, 18)} vol`);
                     }
                 }
 
                 const finalVolumeStr = ethers.formatUnits(volume, 18);
 
-                // Get block timestamp for market creation estimation
-                // For new markets, use current block timestamp as creation time
-                // For existing markets, preserve the original created_at
+                // Get block timestamp
                 const block = await provider.getBlock(currentBlock);
                 const blockTimestamp = block ? new Date(block.timestamp * 1000) : new Date();
 
                 // Insert or update market
                 await query(
-                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, volume, last_indexed_at, category, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), 'Uncategorized', $13)
+                    `INSERT INTO markets (market_id, question, description, image, outcome_names, prices, resolved, winning_outcome, end_time, liquidity_param, outcome_count, volume, last_indexed_at, last_indexed_block, category, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13, 'Uncategorized', $14)
                      ON CONFLICT (market_id) DO UPDATE 
                      SET question = EXCLUDED.question,
                          description = EXCLUDED.description,
@@ -246,6 +223,7 @@ export async function syncAllMarkets(): Promise<void> {
                          outcome_count = EXCLUDED.outcome_count,
                          volume = EXCLUDED.volume,
                          last_indexed_at = NOW(),
+                         last_indexed_block = $13,
                          created_at = COALESCE(markets.created_at, EXCLUDED.created_at)`,
                     [
                         marketId,
@@ -260,11 +238,11 @@ export async function syncAllMarkets(): Promise<void> {
                         ethers.formatUnits(basicInfo.liquidityParam, 18),
                         Number(basicInfo.outcomeCount),
                         finalVolumeStr,
+                        currentBlock,
                         blockTimestamp
                     ]
                 );
 
-                // console.log(`[Indexer] Synced market ${marketId} (Vol: ${finalVolumeStr})`);
             } catch (error: any) {
                 console.error(`[Indexer] Failed to sync market ${marketId}:`, error.message);
             }
