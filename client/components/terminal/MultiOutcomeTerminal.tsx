@@ -477,6 +477,21 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         .filter(m => (m.question || '').toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume));
 
+    // Pagination
+    const ITEMS_PER_PAGE = 10;
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
+    const totalPages = Math.ceil(filteredMarkets.length / ITEMS_PER_PAGE);
+    const paginatedMarkets = filteredMarkets.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
     return (
         <>
             {/* MOBILE VIEW */}
@@ -766,8 +781,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                     </GlassCard>
 
 
-                    <div className="flex-1 space-y-3 pr-2">
-                        {filteredMarkets.map((m) => {
+                    <div className="flex-1 space-y-3 pr-2 flex flex-col">
+                        {paginatedMarkets.map((m) => {
                             if (!m.outcomes || !m.prices || m.outcomes.length === 0 || m.prices.length === 0) return null;
                             const maxPrice = Math.max(...m.prices);
                             const maxIndex = m.prices.indexOf(maxPrice);
@@ -848,6 +863,35 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                             );
                         })}
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-between items-center px-2 py-2 mt-auto">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className={`text-xs px-3 py-1.5 rounded-lg border ${currentPage === 1
+                                    ? 'text-white/20 border-white/5 cursor-not-allowed'
+                                    : 'text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                                    } transition-colors`}
+                            >
+                                Previous
+                            </button>
+                            <span className="text-xs text-white/40 font-mono">
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className={`text-xs px-3 py-1.5 rounded-lg border ${currentPage === totalPages
+                                    ? 'text-white/20 border-white/5 cursor-not-allowed'
+                                    : 'text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                                    } transition-colors`}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* CENTER COLUMN: Chart & Info (6 cols) */}
