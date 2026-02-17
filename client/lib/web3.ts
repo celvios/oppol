@@ -23,6 +23,7 @@ const USDC_ABI = [
     'function balanceOf(address) view returns (uint256)',
     'function approve(address spender, uint256 amount) returns (bool)',
     'function allowance(address owner, address spender) view returns (uint256)',
+    'function decimals() view returns (uint8)',
 ];
 
 export interface Market {
@@ -262,8 +263,11 @@ export class Web3Service {
         const usdc = this.usdc;
         if (!usdc) return '0';
         try {
-            const balance = await usdc.balanceOf(address);
-            return ethers.formatUnits(balance, 18);
+            const [balance, decimals] = await Promise.all([
+                usdc.balanceOf(address),
+                usdc.decimals().catch(() => 18) // Fallback to 18 if decimals() fails
+            ]);
+            return ethers.formatUnits(balance, decimals);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
             return '0';
