@@ -31,7 +31,8 @@ export function useCreationAccess() {
 
             try {
                 setChecking(true);
-                const provider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
+                // Don't enforce CHAIN_ID here to avoid Vercel env mismatch issues (e.g. RPC is Mainnet but ID is 97)
+                const provider = new ethers.JsonRpcProvider(RPC_URL);
 
                 // Check NFT Balance
                 const nftContract = new ethers.Contract(BC400_NFT_ADDRESS, ERC20_ABI, provider);
@@ -49,6 +50,7 @@ export function useCreationAccess() {
 
                 const requiredTokens = ethers.parseUnits(MIN_TOKEN_BALANCE, BC400_DECIMALS);
                 const hasEnoughTokens = tokenBalance >= requiredTokens;
+
                 const hasNft = Number(nftBalance) > 0;
 
                 console.log('[CreationAccess Check]', {

@@ -43,7 +43,7 @@ router.post('/create', async (req, res) => {
 
         // 2. Verify Holdings (Access Control)
         // We act as the gatekeeper off-chain to save gas on reverts
-        const nftAddress = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '0xB929F588A6FfC35E3E723326F9233077e69F7628';
+        const nftAddress = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '0xB929177331De755d7aCc5665267a247e458bCdeC';
         const bc400Address = process.env.NEXT_PUBLIC_BC400_ADDRESS || '0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD';
         const minBc400 = BigInt('10000000000000000000000000'); // 10M * 1e18
 
@@ -64,7 +64,7 @@ router.post('/create', async (req, res) => {
             console.log(`[Gasless Create] Denied: NFT=${nftBal}, BC400=${bc400Bal}`);
             return res.status(403).json({
                 success: false,
-                error: 'Insufficient holdings (Need 1 NFT or 10M BC400)'
+                error: 'Insufficient holdings (Need 1 BC400 NFT or 10M BC400 Tokens)'
             });
         }
 
