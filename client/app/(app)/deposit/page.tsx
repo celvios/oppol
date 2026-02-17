@@ -195,6 +195,7 @@ export default function DepositPage() {
         if (!effectiveAddress || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
         setStatusMessage('Preparing transaction...');
+        console.log('[Deposit] Starting deposit flow...', { amount: depositAmount, token: selectedToken.symbol });
 
         try {
             if (!connectorClient) {
@@ -223,6 +224,7 @@ export default function DepositPage() {
                 // Check if user has enough gas (BNB)
                 const bnbBalance = await publicProvider.getBalance(effectiveAddress);
                 const minGas = ethers.parseEther("0.001"); // Minimal gas for approval + deposit
+                console.log(`[Deposit] BNB Balance check: ${ethers.formatEther(bnbBalance)} BNB (Min: ${ethers.formatEther(minGas)})`);
 
                 if (bnbBalance < minGas) {
                     setStatusMessage('Requesting gas...');
@@ -230,6 +232,7 @@ export default function DepositPage() {
 
                     try {
                         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        console.log(`[Deposit] Calling faucet API: ${apiUrl}/api/faucet/claim`);
                         const res = await fetch(`${apiUrl}/api/faucet/claim`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -237,6 +240,8 @@ export default function DepositPage() {
                         });
 
                         const data = await res.json();
+                        console.log('[Deposit] Faucet Response:', data);
+
                         if (data.success) {
                             console.log('Gas claimed!', data.txHash);
                             setStatusMessage('Gas received! Proceeding...');
@@ -247,11 +252,11 @@ export default function DepositPage() {
                             // If faucet fails, user might still have enough if our check was too conservative?
                             // But usually it means they really don't have enough.
                             // We throw specific error
-                            throw new Error(`Insufficient BNB for gas. Please deposit BNB.`);
+                            throw new Error(`Insufficient BNB for gas. Faucet: ${data.error}`);
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error('Faucet call failed', e);
-                        throw new Error(`Insufficient Gas & Faucet Failed. Please deposit BNB.`);
+                        throw new Error(`Insufficient Gas & Faucet Failed: ${e.message}`);
                     }
                 }
 
@@ -276,15 +281,23 @@ export default function DepositPage() {
                 const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
                 const currentAllowance = await tokenContractRead.allowance(address, MARKET_CONTRACT);
+                console.log(`[Deposit] Allowance check: ${ethers.formatUnits(currentAllowance, selectedToken.decimals)} (Required: ${depositAmount})`);
+
                 if (currentAllowance < amountInWei) {
                     setStatusMessage('Approving token...');
+                    console.log('[Deposit] Requesting approval...');
                     const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
+                    console.log('[Deposit] Approval Tx sent:', approveTx.hash);
                     await approveTx.wait();
+                    console.log('[Deposit] Approval confirmed.');
                 }
 
                 setStatusMessage('Depositing...');
+                console.log('[Deposit] Sending deposit tx...');
                 const depositTx = await marketContract.deposit(amountInWei);
+                console.log('[Deposit] Deposit Tx sent:', depositTx.hash);
                 await depositTx.wait();
+                console.log('[Deposit] Deposit confirmed.');
 
             } else {
                 // Zap Logic
