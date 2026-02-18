@@ -158,8 +158,36 @@ export default function FundMigrationManager() {
             // Get Signer from Privy Wallet
             const provider = await legacyWallet.getEthersProvider();
             const signer = await provider.getSigner();
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
 
+            // 1. Check BNB Gas Balance logic
+            const bnbBalance = await provider.getBalance(legacyAddress);
+            console.log(`[Migration] BNB Balance: ${ethers.formatEther(bnbBalance)}`);
+
+            if (bnbBalance < ethers.parseEther("0.002")) {
+                console.log('[Migration] Insufficient gas. Requesting faucet...');
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+                try {
+                    const faucetRes = await fetch(`${apiUrl}/api/faucet`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address: legacyAddress })
+                    });
+
+                    const faucetData = await faucetRes.json();
+                    if (!faucetData.success) {
+                        console.warn('[Migration] Faucet failed:', faucetData.error);
+                        // Don't throw here, maybe they have mostly enough? Let it fail naturally if so.
+                    } else {
+                        console.log('[Migration] Faucet success! Waiting 3s for propagation...');
+                        await new Promise(r => setTimeout(r, 3000));
+                    }
+                } catch (faucetErr) {
+                    console.error('[Migration] Faucet error:', faucetErr);
+                }
+            }
+
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
             const balanceWei = await usdcContract.balanceOf(legacyAddress);
 
             // Send entire balance to new custodial address
