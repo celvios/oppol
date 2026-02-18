@@ -119,10 +119,11 @@ export default function DepositPage() {
         let interval: NodeJS.Timeout;
         if (fundingStep === 'verifying' && effectiveAddress) {
             if (isEmbeddedWallet) {
-                // Social users: backend handles the sweep.
-                // Just poll game balance and show success when it increases.
+                // Social users: Poll for *both* game balance increase OR funds arrival in wallet
                 interval = setInterval(async () => {
                     const { web3Service } = await import('@/lib/web3');
+
+                    // 1. Check if funds already arrived in game (backend auto-sweep)
                     const newBal = await web3Service.getDepositedBalance(effectiveAddress);
                     const newBalNum = parseFloat(newBal);
                     const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
@@ -135,7 +136,13 @@ export default function DepositPage() {
                             setFundingStep('input');
                             setDepositAmount('');
                         }, 2000);
+                        return;
                     }
+
+                    // 2. Check if funds arrived in wallet but not yet deposited (Frontend trigger)
+                    // This fixes the "buffering" hang if backend sweep is slow/missed
+                    await checkAndAutoDeposit();
+
                 }, 3000);
             } else {
                 // External wallet users: poll token balance then call handleDeposit
@@ -255,24 +262,27 @@ export default function DepositPage() {
     }
 
     async function checkAndAutoDeposit() {
-        if (!effectiveAddress || !depositAmount) return;
+        if (!effectiveAddress || !depositAmount || isProcessing) return;
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
+            // Determine which address to check: Custodial (if embedded) or Effective (External)
+            const checkAddress = (isEmbeddedWallet && custodialWalletAddress) ? custodialWalletAddress : effectiveAddress;
+
             // Check current balance
             let currentBal = 0;
             if (selectedToken.isNative) {
-                const bal = await provider.getBalance(effectiveAddress);
+                const bal = await provider.getBalance(checkAddress);
                 currentBal = parseFloat(ethers.formatEther(bal));
             } else {
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-                const bal = await tokenContract.balanceOf(effectiveAddress);
+                const bal = await tokenContract.balanceOf(checkAddress);
                 currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
             }
 
-            console.log(`[Polling] Current: ${currentBal}, Required: ${parseFloat(depositAmount)}`);
+            console.log(`[Polling] Checking ${checkAddress.slice(0, 6)}... Current: ${currentBal}, Required: ${parseFloat(depositAmount)}`);
 
             // If we have enough funds (current balance >= amount requested)
             if (currentBal >= parseFloat(depositAmount)) {
