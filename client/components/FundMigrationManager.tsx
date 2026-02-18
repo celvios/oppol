@@ -212,24 +212,33 @@ export default function FundMigrationManager() {
                         console.log('[Migration] Gas requested. Polling for arrival...');
                         setStatus('waiting-for-gas');
 
-                        // Poll for up to 20s for BNB balance to increase
+                        // Poll for up to 30s for BNB balance to increase
                         let attempts = 0;
-                        while (attempts < 10) {
-                            await new Promise(r => setTimeout(r, 2000));
+                        let gasArrived = false;
+                        while (attempts < 30) {
+                            await new Promise(r => setTimeout(r, 1000));
                             const newBal = await provider.getBalance(legacyAddress);
                             if (newBal > bnbBalance) {
                                 console.log('[Migration] Gas confirmed!');
                                 bnbBalance = newBal;
+                                gasArrived = true;
                                 break;
                             }
                             attempts++;
+                        }
+
+                        if (!gasArrived) {
+                            throw new Error('Gas requested but not detected on-chain. Check your internet or try again later.');
                         }
                     } else {
                         throw new Error(faucetData.error || 'Faucet failed to send gas');
                     }
                 } catch (faucetErr: any) {
-                    console.error('[Migration] Faucet failed:', faucetErr);
-                    // Continue anyway, maybe they have enough
+                    console.error('[Migration] Gas flow failed:', faucetErr);
+                    setError(`Unable to get gas: ${faucetErr.message}`);
+                    setIsMigrating(false);
+                    setStatus('idle');
+                    return; // STOP HERE
                 }
             }
 
