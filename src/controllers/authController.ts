@@ -39,7 +39,38 @@ export const registerUser = async (req: Request, res: Response) => {
             );
 
             if (existingUser.rows.length > 0) {
-                console.log(`[Auth] User exists: ${existingUser.rows[0].id}`);
+                console.log(`[Auth] User exists: ${existingUser.rows[0].id}. Checking for profile update...`);
+
+                // Allow profile update for existing users (fixing the "infinite prompt" loop)
+                const { username, customUsername } = req.body;
+                const requestedName = username || customUsername;
+
+                if (requestedName) {
+                    // Check uniqueness for the NEW name (excluding self)
+                    const nameCheck = await query(
+                        'SELECT id FROM users WHERE LOWER(display_name) = LOWER($1) AND id != $2',
+                        [requestedName, existingUser.rows[0].id]
+                    );
+
+                    if (nameCheck.rows.length > 0) {
+                        console.log(`[Auth] Username taken: ${requestedName}`);
+                        return res.status(409).json({
+                            success: false,
+                            error: 'Username taken. Please choose another.',
+                            usernameTaken: true
+                        });
+                    }
+
+                    // Update the user
+                    const updatedUser = await query(
+                        'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING *',
+                        [requestedName, existingUser.rows[0].id]
+                    );
+
+                    console.log(`[Auth] Updated existing user with new name: ${requestedName}`);
+                    return res.json({ success: true, user: updatedUser.rows[0], isNew: false, updated: true });
+                }
+
                 return res.json({ success: true, user: existingUser.rows[0], isNew: false });
             }
 
