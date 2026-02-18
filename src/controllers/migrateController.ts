@@ -138,7 +138,24 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         console.log(`[Migrate] Gas estimate: ${gasEstimate}, Gas price: ${gasPrice}, Nonce: ${nonce}`);
 
         // 6. Sign and send via Privy REST API
-        console.log('[Migrate] Sending transaction via Privy API...');
+        console.log('[Migrate] Sending transaction via Privy API (signAndSendTransaction)...');
+
+        // Privy API requires 'caip2' for chain identification (EIP155:56 for BSC)
+        // Method must be 'signAndSendTransaction'
+        // Transaction params should not include gas/nonce manually if not needed, or let Privy handle it.
+        // Based on error: gasLimit, gasPrice, chainId are NOT allowed in 'transaction' object.
+
+        const rpcPayload = {
+            method: 'signAndSendTransaction',
+            caip2: 'eip155:56', // BSC Mainnet
+            params: {
+                transaction: {
+                    to: USDC_ADDRESS,
+                    data: transferData,
+                    value: '0' // 0 ETH value
+                }
+            }
+        };
 
         const rpcRes = await fetch(`https://api.privy.io/v1/wallets/${walletId}/rpc`, {
             method: 'POST',
@@ -147,20 +164,7 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
                 'privy-app-id': PRIVY_APP_ID,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                method: 'eth_sendTransaction',
-                params: {
-                    transaction: {
-                        to: USDC_ADDRESS,
-                        data: transferData,
-                        gasLimit: `0x${gasEstimate.toString(16)}`,
-                        gasPrice: `0x${gasPrice.toString(16)}`,
-                        nonce: `0x${nonce.toString(16)}`,
-                        chainId: 56,
-                        value: '0x0'
-                    }
-                }
-            })
+            body: JSON.stringify(rpcPayload)
         });
 
         const rpcData = await rpcRes.json();
