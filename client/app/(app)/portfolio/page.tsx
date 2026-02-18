@@ -330,6 +330,7 @@ export default function PortfolioPage() {
                                 });
                                 const data = await res.json();
                                 if (data.success) {
+                                    if (data.txHash) console.log('Deposit TX:', data.txHash);
                                     setCustodialDepositDone(true);
                                     // Reload after a few seconds to show updated balance
                                     setTimeout(() => window.location.reload(), 5000);

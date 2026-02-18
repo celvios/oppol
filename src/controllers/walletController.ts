@@ -136,6 +136,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const receipt = await txDeposit.wait();
 
         console.log(`✅ [Deposit] Sweep complete! User ${userId} now has on-chain balance.`);
+        return txDeposit.hash;
 
     } catch (error: any) {
         console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error.message);
@@ -200,12 +201,13 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 
         // Trigger the deposit synchronously to return result to user
         try {
-            await processCustodialDeposit(userId, amountStr, 'manual-trigger');
+            const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
             return res.json({
                 success: true,
                 message: `Successfully deposited ${usdcBalance.toFixed(6)} USDC into market contract`,
                 amount: usdcBalance,
-                custodialAddress
+                custodialAddress,
+                txHash
             });
         } catch (err: any) {
             console.error('[TriggerDeposit] Deposit process failed:', err);
