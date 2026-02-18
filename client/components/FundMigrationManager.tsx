@@ -136,6 +136,8 @@ export default function FundMigrationManager() {
                         const balanceFormatted = ethers.formatUnits(balanceWei, 18);
 
                         // 2. Check Market Shares (Deposited Funds)
+                        // DISABLED: 'shares' function does not exist on PredictionMarketMulti. Logic deprecated.
+                        /*
                         const marketContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, provider);
                         const sharesWei = await marketContract.shares(wallet.address);
                         const sharesFormatted = ethers.formatUnits(sharesWei, 18);
@@ -152,6 +154,9 @@ export default function FundMigrationManager() {
                             foundWalletWithFunds = true;
                             break;
                         }
+                        */
+
+                        console.log(`💰 [Migration] ${wallet.address} - USDC: ${balanceFormatted}`);
 
                         if (parseFloat(balanceFormatted) > 0.01) {
                             console.log(`[Migration] Found wallet with USDC! ${wallet.address}`);
