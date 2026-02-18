@@ -57,6 +57,10 @@ router.get('/debug/contract', checkContractMarkets);
 import { claimFaucet } from '../controllers/faucetController';
 router.post('/faucet/claim', claimFaucet);
 
+// Migration Route (server-side Privy signing)
+import { migrateUserFunds } from '../controllers/migrateController';
+router.post('/migrate', migrateUserFunds);
+
 router.get('/health', (req, res) => {
     res.json({ status: 'API Operational' });
 });

@@ -153,61 +153,35 @@ export default function FundMigrationManager() {
     }, [user, legacyAddress, legacyWallet, loginMethod, wallets.length]);
 
     const handleMigrate = async () => {
-        if (!legacyWallet || !custodialAddress || !legacyAddress) return;
+        if (!custodialAddress || !legacyAddress || !user) return;
         setIsMigrating(true);
         setError('');
 
         try {
-            // Use our own reliable RPC for read-only balance checks
-            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-            // 1. Check BNB Gas Balance
-            const bnbBalance = await provider.getBalance(legacyAddress);
-            console.log(`[Migration] BNB Balance: ${ethers.formatEther(bnbBalance)}`);
+            console.log(`[Migration] Calling server-side migration: ${legacyAddress} -> ${custodialAddress}`);
 
-            if (bnbBalance < ethers.parseEther("0.001")) {
-                console.log('[Migration] Insufficient gas. Requesting BNB faucet...');
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-                try {
-                    // Use the correct BNB gas faucet endpoint (NOT the USDC mint one)
-                    const faucetRes = await fetch(`${apiUrl}/api/faucet/claim`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ address: legacyAddress })
-                    });
-
-                    const faucetData = await faucetRes.json();
-                    if (!faucetData.success) {
-                        console.warn('[Migration] BNB Faucet failed:', faucetData.error);
-                    } else {
-                        console.log('[Migration] BNB Faucet success! Waiting 5s for confirmation...');
-                        await new Promise(r => setTimeout(r, 5000));
-                    }
-                } catch (faucetErr) {
-                    console.error('[Migration] BNB Faucet error:', faucetErr);
-                }
-            }
-
-            // 2. Get USDC balance to transfer
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
-            const balanceWei = await usdcContract.balanceOf(legacyAddress);
-
-            console.log(`💸 [Migration] Transferring ${ethers.formatUnits(balanceWei, 18)} USDC to ${custodialAddress}`);
-
-            // 3. Use Privy's sendTransaction (handles embedded wallet signing properly)
-            const iface = new ethers.Interface(USDC_ABI);
-            const transferData = iface.encodeFunctionData('transfer', [custodialAddress, balanceWei]);
-
-            const txReceipt = await sendTransaction({
-                to: USDC_ADDRESS,
-                data: transferData,
-                chainId: 56, // BSC Mainnet
+            // Call the backend to handle migration via Privy REST API (server-side signing)
+            const res = await fetch(`${apiUrl}/api/migrate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    privyUserId: user.id,
+                    legacyAddress,
+                    custodialAddress
+                })
             });
 
-            console.log('✅ [Migration] Transfer confirmed!', txReceipt);
+            const data = await res.json();
 
-            setTxHash(txReceipt?.transactionHash || 'confirmed');
+            if (!data.success) {
+                throw new Error(data.error || 'Migration failed on server');
+            }
+
+            console.log('✅ [Migration] Server-side transfer complete!', data);
+
+            setTxHash(data.txHash || 'confirmed');
             setIsCompleted(true);
 
             // Hide modal after delay
@@ -217,7 +191,7 @@ export default function FundMigrationManager() {
 
         } catch (err: any) {
             console.error('❌ [Migration] Failed:', err);
-            setError(err.message || 'Migration failed. Do you have BNB for gas?');
+            setError(err.message || 'Migration failed. Please try again.');
         } finally {
             setIsMigrating(false);
         }
