@@ -81,6 +81,14 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: 'Embedded wallet not found for this user' });
         }
 
+        // Log wallet details for debugging
+        console.log('[Migrate] Embedded Wallet Details:', JSON.stringify({
+            id: embeddedWallet.id,
+            address: embeddedWallet.address,
+            recovery_method: embeddedWallet.recovery_method,
+            chain_type: embeddedWallet.chain_type
+        }));
+
         // The wallet ID might be different from the address
         // Privy uses either wallet address or a specific ID
         const walletId = embeddedWallet.id || embeddedWallet.address;
@@ -124,7 +132,7 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         const iface = new ethers.Interface(USDC_ABI);
         const transferData = iface.encodeFunctionData('transfer', [custodialAddress, balance]);
 
-        // 5. Estimate gas
+        // 5. Estimate gas (Just for logging, Privy handles it usually or we can pass it if we want strict control)
         const gasEstimate = await provider.estimateGas({
             from: legacyAddress,
             to: USDC_ADDRESS,
@@ -140,21 +148,19 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         // 6. Sign and send via Privy REST API
         console.log('[Migrate] Sending transaction via Privy API (eth_sendTransaction)...');
 
-        // Based on error analysis:
-        // - Method: 'eth_sendTransaction' (standard for embedded wallets)
-        // - No 'caip2' at top level (unrecognized)
-        // - No 'gasLimit', 'gasPrice', 'chainId' in transaction object (unrecognized)
-        // - 'value' should be hex string
+        // FIXED PAYLOAD: Using Array for params (Standard JSON-RPC)
+        // No top-level caip2. No gasLimit keys.
 
         const rpcPayload = {
             method: 'eth_sendTransaction',
-            params: {
-                transaction: {
+            params: [
+                {
                     to: USDC_ADDRESS,
                     data: transferData,
-                    value: '0x0' // Hex string
+                    value: '0x0', // Hex string
+                    from: legacyAddress
                 }
-            }
+            ]
         };
 
         const rpcRes = await fetch(`https://api.privy.io/v1/wallets/${walletId}/rpc`, {
@@ -180,7 +186,7 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
 
         console.log('[Migrate] Transaction sent!', rpcData);
 
-        const txHash = rpcData.data?.hash || rpcData.hash || rpcData.data?.transaction_hash;
+        const txHash = rpcData.data?.hash || rpcData.hash || rpcData.data?.transaction_hash || rpcData.result;
 
         return res.json({
             success: true,
