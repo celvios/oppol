@@ -184,19 +184,39 @@ export default function FundMigrationManager() {
         try {
             console.log(`[Migration] Attempting client-side migration: ${legacyAddress} -> ${custodialAddress}`);
 
-            // 1. Prepare transaction
-            const amountWei = ethers.parseUnits(balance, 18); // Balance from state is already formatted string? 
-            // Wait, balance state is string formatted units.
-            // USDC defaults to 18 decimals in this codebase? 
-            // Standard USDC is 6, but BSC-USDC (0x8AC7...) is 18. Verified in code.
-
             const provider = new ethers.JsonRpcProvider(RPC_URL);
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-            // Encode transfer data
+            // 1. Check for BNB Gas
+            const bnbBalance = await provider.getBalance(legacyAddress);
+            const minGas = ethers.parseEther("0.001");
+
+            if (bnbBalance < minGas) {
+                console.log('[Migration] Low Gas. Requesting from faucet...');
+                try {
+                    const res = await fetch(`${apiUrl}/api/faucet/claim`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address: legacyAddress })
+                    });
+                    const faucetData = await res.json();
+                    if (faucetData.success) {
+                        console.log('[Migration] Gas received! Waiting for confirmation...');
+                        await new Promise(r => setTimeout(r, 4000)); // Wait for block
+                    } else {
+                        console.warn('[Migration] Faucet failed:', faucetData.error);
+                    }
+                } catch (faucetErr) {
+                    console.error('[Migration] Faucet call failed:', faucetErr);
+                }
+            }
+
+            // 2. Prepare transaction
+            const amountWei = ethers.parseUnits(balance, 18);
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
             const transferData = usdcContract.interface.encodeFunctionData("transfer", [custodialAddress, amountWei]);
 
-            // 2. Send transaction via Privy Embedded Wallet
+            // 3. Send transaction via Privy Embedded Wallet
             // We use the simpler signature: sendTransaction({ to, data, value })
             // Privy handles gas and chain switching if needed.
             const txReceipt = await sendTransaction({
