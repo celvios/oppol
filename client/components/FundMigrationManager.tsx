@@ -68,13 +68,30 @@ export default function FundMigrationManager() {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
                 console.log(`[Migration] Fetching user from ${apiUrl}/api/auth/privy...`);
 
+                // Determine login method more robustly
+                let effectiveLoginMethod = loginMethod as any;
+
+                if ((!effectiveLoginMethod || effectiveLoginMethod === 'privy') && user.linkedAccounts) {
+                    const google = user.linkedAccounts.find((a: any) => a.type === 'google_oauth');
+                    const twitter = user.linkedAccounts.find((a: any) => a.type === 'twitter_oauth');
+                    const discord = user.linkedAccounts.find((a: any) => a.type === 'discord_oauth');
+                    const email = user.linkedAccounts.find((a: any) => a.type === 'email');
+
+                    if (google) effectiveLoginMethod = 'google';
+                    else if (twitter) effectiveLoginMethod = 'twitter';
+                    else if (discord) effectiveLoginMethod = 'discord';
+                    else if (email) effectiveLoginMethod = 'email';
+                }
+
+                console.log(`[Migration] Effective Login Method: ${effectiveLoginMethod}`);
+
                 const syncRes = await fetch(`${apiUrl}/api/auth/privy`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         privyUserId: user.id,
                         walletAddress: legacyAddress,
-                        loginMethod: loginMethod || 'privy'
+                        loginMethod: effectiveLoginMethod || 'privy'
                     })
                 });
 
