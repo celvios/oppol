@@ -101,11 +101,11 @@ export default function DepositPage() {
 
     useEffect(() => {
         if (effectiveAddress) {
-            // For social/embedded users, fetch their custodial wallet address first
             if (isEmbeddedWallet) {
-                fetchCustodialAddress().then(() => {
-                    fetchBalance();
-                    fetchGameBalance();
+                // For social/embedded users, fetch custodial address FIRST, then check its balance
+                fetchCustodialAddress().then((custodialAddr) => {
+                    fetchBalance(custodialAddr || undefined);
+                    fetchGameBalance(custodialAddr || undefined);
                 });
             } else {
                 fetchBalance();
@@ -147,14 +147,15 @@ export default function DepositPage() {
         return () => clearInterval(interval);
     }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance]);
 
-    async function fetchCustodialAddress() {
-        if (!effectiveAddress) return;
+    // Returns the custodial address so callers can use it immediately (avoids state async delay)
+    async function fetchCustodialAddress(): Promise<string | null> {
+        if (!effectiveAddress) return null;
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
             const privyUserId = privyUser?.id;
             if (!privyUserId) {
                 console.warn('[Deposit] No Privy user ID available, cannot fetch custodial address');
-                return;
+                return null;
             }
             const res = await fetch(`${apiUrl}/api/auth/privy`, {
                 method: 'POST',
@@ -166,29 +167,31 @@ export default function DepositPage() {
                 })
             });
             const data = await res.json();
-            if (data.success && data.custodialAddress) {
-                console.log('[Deposit] Custodial wallet:', data.custodialAddress);
-                setCustodialWalletAddress(data.custodialAddress);
-            } else if (data.success && data.user?.wallet_address) {
-                setCustodialWalletAddress(data.user.wallet_address);
+            const addr = (data.success && data.custodialAddress)
+                ? data.custodialAddress
+                : (data.success && data.user?.wallet_address ? data.user.wallet_address : null);
+            if (addr) {
+                console.log('[Deposit] Custodial wallet:', addr);
+                setCustodialWalletAddress(addr);
             }
+            return addr;
         } catch (e) {
             console.error('[Deposit] Failed to fetch custodial address:', e);
+            return null;
         }
     }
 
-    async function fetchBalance() {
+    async function fetchBalance(overrideAddress?: string) {
         if (!effectiveAddress) return;
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-            // console.log('[Deposit] Fetching balance for:', { address: effectiveAddress, token: selectedToken.symbol });
-
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
             let formattedBalance = '0.00';
-            // For embedded/social users: check the custodial wallet balance (where migrated funds land)
-            const balanceAddress = (isEmbeddedWallet && custodialWalletAddress) ? custodialWalletAddress : effectiveAddress;
+            // Use override address (custodial) if provided, otherwise fall back to state or effectiveAddress
+            const balanceAddress = overrideAddress || (isEmbeddedWallet && custodialWalletAddress ? custodialWalletAddress : effectiveAddress);
+            console.log('[Deposit] Checking balance for:', balanceAddress);
             if (selectedToken.isNative) {
                 const balance = await provider.getBalance(balanceAddress);
                 formattedBalance = ethers.formatEther(balance);
@@ -214,15 +217,19 @@ export default function DepositPage() {
         }
     }
 
-    async function fetchGameBalance() {
+    async function fetchGameBalance(overrideAddress?: string) {
         if (!effectiveAddress) return;
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const { web3Service } = await import('@/lib/web3');
 
+            // Use custodial address if provided (for social/embedded users)
+            const checkAddress = overrideAddress || (isEmbeddedWallet && custodialWalletAddress ? custodialWalletAddress : effectiveAddress);
+            console.log('[Deposit] Checking game balance for:', checkAddress);
+
             // Get contract deposited balance
-            const contractBalance = await web3Service.getDepositedBalance(effectiveAddress);
+            const contractBalance = await web3Service.getDepositedBalance(checkAddress);
 
             // Also get raw USDC wallet balance (shows immediately after migration, before auto-deposit)
             const { ethers: eth } = await import('ethers');
@@ -231,7 +238,7 @@ export default function DepositPage() {
             const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
             const usdc = new eth.Contract(usdcAddress, usdcAbi, provider);
             const [rawBal, decimals] = await Promise.all([
-                usdc.balanceOf(effectiveAddress),
+                usdc.balanceOf(checkAddress),
                 usdc.decimals().catch(() => 18)
             ]);
             const rawWalletBalance = parseFloat(eth.formatUnits(rawBal, decimals));
@@ -239,6 +246,7 @@ export default function DepositPage() {
             // Show the higher of the two (contract balance takes precedence once deposited)
             const contractNum = parseFloat(contractBalance);
             const total = contractNum > 0 ? contractNum : rawWalletBalance;
+            console.log(`[Deposit] Game balance: contract=${contractNum}, raw=${rawWalletBalance}, showing=${total}`);
             setGameBalance(total.toFixed(2));
         } catch (error: any) {
             console.error('[Deposit] Failed to fetch game balance:', error);
