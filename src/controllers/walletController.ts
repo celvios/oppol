@@ -138,6 +138,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
 
     } catch (error: any) {
         console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error.message);
+        throw error;
     }
 };
 
@@ -196,17 +197,22 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // Format with correct decimals
         const amountStr = ethers.formatUnits(rawBal, decimals);
 
-        // Trigger the deposit asynchronously (don't block the response)
-        processCustodialDeposit(userId, amountStr, '').catch(err => {
-            console.error('[TriggerDeposit] Deposit failed:', err.message);
-        });
-
-        return res.json({
-            success: true,
-            message: `Depositing ${usdcBalance.toFixed(6)} USDC into market contract for user ${userId}`,
-            amount: usdcBalance,
-            custodialAddress
-        });
+        // Trigger the deposit synchronously to return result to user
+        try {
+            await processCustodialDeposit(userId, amountStr, 'manual-trigger');
+            return res.json({
+                success: true,
+                message: `Successfully deposited ${usdcBalance.toFixed(6)} USDC into market contract`,
+                amount: usdcBalance,
+                custodialAddress
+            });
+        } catch (err: any) {
+            console.error('[TriggerDeposit] Deposit process failed:', err);
+            return res.status(500).json({
+                success: false,
+                error: `Deposit failed: ${err.message || 'Unknown error during processing'}`
+            });
+        }
 
     } catch (error: any) {
         console.error('[TriggerDeposit] Error:', error);
