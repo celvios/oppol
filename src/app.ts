@@ -1227,6 +1227,7 @@ app.get('/api/markets', async (req, res) => {
       outcome_count,
       resolved,
       winning_outcome,
+      is_boosted,
       boost_tier,
       boost_expires_at,
       last_indexed_at,
@@ -1261,9 +1262,9 @@ app.get('/api/markets', async (req, res) => {
         }
       }
 
-      // Check if boosted
+      // Check if boosted (use DB flag + expiry check)
       const now = Date.now();
-      const isBoosted = row.boost_tier && row.boost_expires_at && (new Date(row.boost_expires_at).getTime() > now);
+      const isBoosted = row.is_boosted === true && row.boost_expires_at && (Number(row.boost_expires_at) > now);
 
       return {
         id: row.market_id,

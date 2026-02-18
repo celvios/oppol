@@ -44,6 +44,8 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
             if (res.success) {
                 setStatus("success");
                 setMessage("Market Boosted Successfully! 🚀");
+                // Clear frontend cache so carousel updates immediately
+                try { localStorage.removeItem('opoll_markets_cache'); } catch (e) { }
                 setTimeout(() => {
                     window.location.reload(); // Refresh to show boost
                 }, 2000);

@@ -73,7 +73,11 @@ router.post('/verify', async (req, res) => {
 
         await pool.query('COMMIT');
 
-        res.json({ success: true, message: `Market boosted! Active for ${tier.hours} hours.` });
+        res.json({
+            success: true,
+            message: `Market boosted! Active for ${tier.hours} hours.`,
+            clearCache: true  // Signal frontend to clear its markets cache
+        });
 
     } catch (error: any) {
         await pool.query('ROLLBACK');
