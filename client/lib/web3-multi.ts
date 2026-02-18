@@ -393,7 +393,8 @@ export class Web3MultiService {
         if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            return ethers.formatUnits(balance, 18);
+            // USDC on BSC has 6 decimals
+            return ethers.formatUnits(balance, 6);
         } catch (error) {
             console.error('Error fetching deposited balance:', error);
             return '0';
@@ -407,7 +408,8 @@ export class Web3MultiService {
         if (!this.usdc) return '0';
         try {
             const balance = await this.usdc.balanceOf(address);
-            return ethers.formatUnits(balance, 18);
+            // USDC on BSC has 6 decimals
+            return ethers.formatUnits(balance, 6);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
             return '0';

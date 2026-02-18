@@ -85,7 +85,7 @@ export default function WithdrawPage() {
                 const signer = clientToSigner(connectorClient);
                 const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
                 const balWei = await usdcContract.balanceOf(effectiveAddress);
-                setWalletBalance(ethers.formatUnits(balWei, 18));
+                setWalletBalance(ethers.formatUnits(balWei, 6));
             } else {
                 setWalletBalance('0.00');
             }
@@ -109,7 +109,7 @@ export default function WithdrawPage() {
         try {
             if (!connectorClient) throw new Error('Wallet not ready');
             const signer = clientToSigner(connectorClient);
-            const amountInWei = ethers.parseUnits(amount, 18);
+            const amountInWei = ethers.parseUnits(amount, 6);
 
             // --- SMART CASH OUT (Embedded Wallet) ---
             if (isEmbeddedWallet) {
@@ -117,8 +117,8 @@ export default function WithdrawPage() {
 
                 // Logic: 
                 // 1. Check if we need to withdraw from game first
-                const contractBalanceWei = ethers.parseUnits(contractBalance || '0', 18);
-                const walletBalanceWei = ethers.parseUnits(walletBalance || '0', 18);
+                const contractBalanceWei = ethers.parseUnits(contractBalance || '0', 6);
+                const walletBalanceWei = ethers.parseUnits(walletBalance || '0', 6);
 
                 // If asking for more than total available
                 if (amountInWei > (contractBalanceWei + walletBalanceWei)) {
@@ -132,7 +132,7 @@ export default function WithdrawPage() {
                     // Add a small buffer/check to ensure we don't try to withdraw 0
                     if (neededFromGameWei > BigInt(0)) {
                         setProcessingStep('Withdrawing funds from Game...');
-                        console.log(`Smart Withdraw: Need ${ethers.formatUnits(neededFromGameWei, 18)} from game.`);
+                        console.log(`Smart Withdraw: Need ${ethers.formatUnits(neededFromGameWei, 6)} from game.`);
 
                         const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
                         const withdrawTx = await marketContract.withdraw(neededFromGameWei);
@@ -188,14 +188,14 @@ export default function WithdrawPage() {
     }
 
     // Use BigInt for precise math
-    const contractBalanceWei = contractBalance ? ethers.parseUnits(contractBalance, 18) : BigInt(0);
-    const walletBalanceWei = walletBalance ? ethers.parseUnits(walletBalance, 18) : BigInt(0);
+    const contractBalanceWei = contractBalance ? ethers.parseUnits(contractBalance, 6) : BigInt(0);
+    const walletBalanceWei = walletBalance ? ethers.parseUnits(walletBalance, 6) : BigInt(0);
 
     const availableBalanceWei = isEmbeddedWallet
         ? contractBalanceWei + walletBalanceWei
         : (activeTab === 'withdraw' ? contractBalanceWei : walletBalanceWei);
 
-    const availableBalance = ethers.formatUnits(availableBalanceWei, 18);
+    const availableBalance = ethers.formatUnits(availableBalanceWei, 6);
 
     const canProceed = availableBalanceWei > BigInt(0);
 

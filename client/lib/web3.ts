@@ -282,9 +282,8 @@ export class Web3Service {
         if (!pm) return '0';
         try {
             const balance = await pm.userBalances(address);
-            // IMPORTANT: Using 18 decimals because users deposited USDT (18 decimals)
-            // Even though contract expects USDC (6 decimals), the actual deposits are USDT
-            return ethers.formatUnits(balance, 18);
+            // USDC on BSC has 6 decimals.
+            return ethers.formatUnits(balance, 6);
         } catch (error: any) {
             console.error('Error fetching deposited balance:', error);
             return '0';
