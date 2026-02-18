@@ -20,7 +20,7 @@ const queryClient = new QueryClient();
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
     return (
         <PrivyProviderBase
-            appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+            appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cl_dummy_id_for_build'}
             config={{
                 loginMethods: ['email', 'google'],
                 appearance: {

@@ -120,10 +120,12 @@ export default function DepositPage() {
         if (fundingStep === 'verifying' && effectiveAddress) {
             if (isEmbeddedWallet) {
                 // Social users: Poll for *both* game balance increase OR funds arrival in wallet
+                console.log(`[Polling] Starting verification loop for embedded wallet... (${effectiveAddress})`);
                 interval = setInterval(async () => {
                     const { web3Service } = await import('@/lib/web3');
 
                     // 1. Check if funds already arrived in game (backend auto-sweep)
+                    console.log('[Polling] Checking game balance...');
                     const newBal = await web3Service.getDepositedBalance(effectiveAddress);
                     const newBalNum = parseFloat(newBal);
                     const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
