@@ -366,3 +366,4 @@ export async function checkAndSwitchNetwork(ethereumProvider: any): Promise<bool
         return false;
     }
 }
+// Force redeploy (fix 1T bug)
