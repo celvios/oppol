@@ -282,13 +282,19 @@ export default function DepositPage() {
                 currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
             }
 
-            console.log(`[Polling] Checking ${checkAddress.slice(0, 6)}... Current: ${currentBal}, Required: ${parseFloat(depositAmount)}`);
+            console.log(`[Polling] Checking ${checkAddress}... Current: ${currentBal}, Required: ${parseFloat(depositAmount)}`);
 
-            // If we have enough funds (current balance >= amount requested)
+            // Debug Log for User
             if (currentBal >= parseFloat(depositAmount)) {
-                console.log('Funds Detected! Auto-depositing...');
-                setFundingStep('depositing');
-                handleDeposit(); // Trigger normal deposit
+                console.log('✅ Funds Detected! Triggering Auto-Deposit...');
+                try {
+                    setFundingStep('depositing');
+                    await handleDeposit();
+                } catch (depositErr) {
+                    console.error("❌ Auto-Deposit Failed:", depositErr);
+                }
+            } else {
+                console.log(`⏳ Waiting for confirmed funds... (${currentBal} / ${depositAmount})`);
             }
 
         } catch (e) {

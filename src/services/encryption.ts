@@ -3,8 +3,15 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 
 // Use a consistent encryption key from environment or generate a default one
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '1ef5d56bb056a08019ea2f34e6540211eacfd3fff109bcf98d483da21db2b3c5';
-const KEY = Buffer.from(ENCRYPTION_KEY, 'hex');
+// Use a consistent encryption key from environment or generate a default one
+const DEFAULT_KEY_HEX = '1ef5d56bb056a08019ea2f34e6540211eacfd3fff109bcf98d483da21db2b3c5';
+let encryptEnv = process.env.ENCRYPTION_KEY || DEFAULT_KEY_HEX;
+let KEY = Buffer.from(encryptEnv, 'hex');
+
+if (KEY.length !== 32) {
+    console.warn(`[EncryptionService] ⚠️ Configured ENCRYPTION_KEY produces invalid key length (${KEY.length} bytes). Falling back to default.`);
+    KEY = Buffer.from(DEFAULT_KEY_HEX, 'hex');
+}
 
 export class EncryptionService {
     /**

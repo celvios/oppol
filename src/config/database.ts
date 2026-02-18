@@ -19,7 +19,7 @@ const pool = new Pool({
     ssl: sslConfig,
     max: 20, // Increased from default 10
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 60000,
 });
 
 pool.on('error', (err, client) => {
