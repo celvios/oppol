@@ -1234,7 +1234,7 @@ app.get('/api/markets', async (req, res) => {
       created_at,
       volume
       FROM markets
-      ORDER BY is_boosted DESC, market_id ASC
+      ORDER BY (is_boosted = TRUE AND boost_expires_at > EXTRACT(EPOCH FROM NOW()) * 1000) DESC, market_id ASC
       `);
 
     const markets = result.rows.map((row: any) => {
