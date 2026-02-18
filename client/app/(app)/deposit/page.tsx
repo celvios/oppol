@@ -263,7 +263,15 @@ export default function DepositPage() {
     }
 
     async function checkAndAutoDeposit() {
-        if (!effectiveAddress || !depositAmount || isProcessing) return;
+        // Debug early return conditions
+        if (!effectiveAddress || !depositAmount || isProcessing) {
+            console.log('[Polling] Skipping auto-deposit check:', {
+                hasAddress: !!effectiveAddress,
+                amount: depositAmount,
+                isProcessing
+            });
+            return;
+        }
 
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
