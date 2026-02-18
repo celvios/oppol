@@ -175,6 +175,17 @@ const createTablesQuery = `
   CREATE INDEX IF NOT EXISTS idx_telegram_wallet ON telegram_users(wallet_address);
   CREATE INDEX IF NOT EXISTS idx_telegram_tx_user ON telegram_transactions(telegram_id);
   CREATE INDEX IF NOT EXISTS idx_telegram_tx_hash ON telegram_transactions(tx_hash);
+
+  -- Boost Requests Table
+  CREATE TABLE IF NOT EXISTS boost_requests (
+    id SERIAL PRIMARY KEY,
+    market_id INTEGER NOT NULL,
+    tx_hash VARCHAR(66) UNIQUE NOT NULL,
+    tier_id INTEGER NOT NULL,
+    amount DECIMAL(18, 6) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
 `;
 
 export const initDatabase = async () => {
@@ -201,6 +212,11 @@ export const initDatabase = async () => {
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS liquidity DECIMAL(36, 18) DEFAULT 0;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(36, 18) DEFAULT 0;
       ALTER TABLE markets ADD COLUMN IF NOT EXISTS volume DECIMAL(18, 6) DEFAULT 0;
+
+      -- Boost Columns for Markets
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS is_boosted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_expires_at BIGINT;
+      ALTER TABLE markets ADD COLUMN IF NOT EXISTS boost_tier INTEGER;
 
       -- Add Privy User ID
       ALTER TABLE users ADD COLUMN IF NOT EXISTS privy_user_id VARCHAR(255) UNIQUE;
