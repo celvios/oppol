@@ -116,11 +116,8 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
         let queryText = 'SELECT * FROM users WHERE privy_user_id = $1';
         let queryParams: any[] = [privyUserId];
 
-        // Secondary check by email if available
-        if (email) {
-            queryText += ' OR email = $2';
-            queryParams.push(email);
-        }
+        // Secondary check by email REMOVED as column does not exist
+        // if (email) { ... } 
 
         const existingUserResult = await query(queryText, queryParams);
         let user = existingUserResult.rows[0];
@@ -141,10 +138,7 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                 updates.push(`privy_user_id = $${paramCounter++}`);
                 updateParams.push(privyUserId);
             }
-            if (!user.email && email) {
-                updates.push(`email = $${paramCounter++}`);
-                updateParams.push(email);
-            }
+            // Email update REMOVED
 
             if (updates.length > 0) {
                 updateParams.push(user.id);
@@ -195,8 +189,8 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
             const avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${displayName}`;
 
             const newUserResult = await query(
-                'INSERT INTO users (privy_user_id, email, wallet_address, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-                [privyUserId, email || null, finalWalletAddress, displayName, avatarUrl]
+                'INSERT INTO users (privy_user_id, wallet_address, display_name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
+                [privyUserId, finalWalletAddress, displayName, avatarUrl]
             );
             user = newUserResult.rows[0];
 
