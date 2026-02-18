@@ -151,6 +151,8 @@ export default function DepositPage() {
                     // 2. Check if funds arrived in wallet but not yet deposited (Frontend trigger)
                     // This fixes the "buffering" hang if backend sweep is slow/missed
                     console.log(`[Polling] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
+                    // We can reuse checkAndAutoDeposit, but we need it to actually DO something if funds are found.
+                    // If we change checkAndAutoDeposit to call backend, it updates everywhere.
                     await checkAndAutoDeposit();
 
                 }, 3000);
@@ -308,7 +310,21 @@ export default function DepositPage() {
             // Debug Log for User
             if (currentBal >= parseFloat(effectiveAmount)) {
                 console.log('✅ Funds Detected! Triggering Auto-Deposit...');
+
+                // TRIGGER BACKEND SWEEP AUTOMATICALLY
                 try {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                    console.log(`[Polling] Calling Backend Sweep for ${privyUser?.id}...`);
+
+                    // Fire and forget - don't block UI waiting for full sweep, but trigger it
+                    fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ privyUserId: privyUser?.id })
+                    }).then(res => res.json())
+                        .then(data => console.log('[Polling] Backend Sweep Triggered:', data))
+                        .catch(err => console.error('[Polling] Backend Trigger Failed:', err));
+
                     setFundingStep('depositing');
                     await handleDeposit();
                 } catch (depositErr) {

@@ -89,10 +89,19 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const minGas = ethers.parseEther("0.0006");
 
         if (bal < minGas) {
+            // Check Relayer Balance first
+            const relayerBal = await provider.getBalance(relayer.address);
+            const neededForRelay = minGas - bal + ethers.parseEther("0.0002");
+
+            if (relayerBal < neededForRelay) {
+                console.error(`❌ [Deposit] CRITICAL: Relayer Wallet (${relayer.address}) is Empty! Balance: ${ethers.formatEther(relayerBal)} BNB`);
+                throw new Error("Relayer System Out of Gas - Please contact support.");
+            }
+
             console.log(`[Deposit] Low BNB (${ethers.formatEther(bal)}). Funding gas from Relayer...`);
             const tx = await relayer.sendTransaction({
                 to: custodialAddress,
-                value: minGas - bal + ethers.parseEther("0.0001") // Top up to ~0.0007
+                value: neededForRelay
             });
             await tx.wait();
             console.log(`[Deposit] Gas funded: ${tx.hash}`);
