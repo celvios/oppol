@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PrivyProvider as PrivyProviderBase } from '@privy-io/react-auth';
