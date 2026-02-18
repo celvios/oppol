@@ -263,11 +263,14 @@ export default function DepositPage() {
     }
 
     async function checkAndAutoDeposit() {
+        // Use local state amount OR fallback to lastDeposit if we are in verifying mode
+        const effectiveAmount = depositAmount || lastDeposit.amount;
+
         // Debug early return conditions
-        if (!effectiveAddress || !depositAmount || isProcessing) {
+        if (!effectiveAddress || !effectiveAmount || parseFloat(effectiveAmount) <= 0 || isProcessing) {
             console.log('[Polling] Skipping auto-deposit check:', {
                 hasAddress: !!effectiveAddress,
-                amount: depositAmount,
+                amount: effectiveAmount,
                 isProcessing
             });
             return;
@@ -291,10 +294,10 @@ export default function DepositPage() {
                 currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
             }
 
-            console.log(`[Polling] Checking ${checkAddress}... Current: ${currentBal}, Required: ${parseFloat(depositAmount)}`);
+            console.log(`[Polling] Checking ${checkAddress}... Current: ${currentBal}, Required: ${parseFloat(effectiveAmount)}`);
 
             // Debug Log for User
-            if (currentBal >= parseFloat(depositAmount)) {
+            if (currentBal >= parseFloat(effectiveAmount)) {
                 console.log('✅ Funds Detected! Triggering Auto-Deposit...');
                 try {
                     setFundingStep('depositing');
@@ -611,6 +614,8 @@ export default function DepositPage() {
                                             if (parseFloat(depositAmount) > 0) {
                                                 // Capture current game balance as baseline before waiting
                                                 setInitialGameBalance(gameBalance);
+                                                // Save amount to backup state in case input is cleared
+                                                setLastDeposit({ amount: depositAmount, symbol: selectedToken.symbol, hash: '' });
                                                 setFundingStep('payment');
                                             }
                                         }}
