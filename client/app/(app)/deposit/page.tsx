@@ -65,9 +65,10 @@ export default function DepositPage() {
     const isEffectivelyConnected = isConnected;
     const effectiveAddress = address;
 
-    // Detect Embedded Wallet (Reown Email/Social)
-    // reliable detection using loginMethod from Privy/Auth hook
-    const isEmbeddedWallet = loginMethod === 'privy';
+    // Detect Custodial/Social users (Google, Email, Privy social)
+    // These users have a backend-managed custodial wallet and cannot sign transactions directly.
+    // They should see the "send to address" UI, not the "Approve & Deposit" wallet UI.
+    const isEmbeddedWallet = loginMethod === 'privy' || loginMethod === 'google' || loginMethod === 'email';
 
     const [copied, setCopied] = useState(false);
     const [selectedToken, setSelectedToken] = useState(tokens[0]);
