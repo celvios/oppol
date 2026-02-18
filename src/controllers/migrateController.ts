@@ -138,21 +138,21 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         console.log(`[Migrate] Gas estimate: ${gasEstimate}, Gas price: ${gasPrice}, Nonce: ${nonce}`);
 
         // 6. Sign and send via Privy REST API
-        console.log('[Migrate] Sending transaction via Privy API (signAndSendTransaction)...');
+        console.log('[Migrate] Sending transaction via Privy API (eth_sendTransaction)...');
 
-        // Privy API requires 'caip2' for chain identification (EIP155:56 for BSC)
-        // Method must be 'signAndSendTransaction'
-        // Transaction params should not include gas/nonce manually if not needed, or let Privy handle it.
-        // Based on error: gasLimit, gasPrice, chainId are NOT allowed in 'transaction' object.
+        // Based on error analysis:
+        // - Method: 'eth_sendTransaction' (standard for embedded wallets)
+        // - No 'caip2' at top level (unrecognized)
+        // - No 'gasLimit', 'gasPrice', 'chainId' in transaction object (unrecognized)
+        // - 'value' should be hex string
 
         const rpcPayload = {
-            method: 'signAndSendTransaction',
-            caip2: 'eip155:56', // BSC Mainnet
+            method: 'eth_sendTransaction',
             params: {
                 transaction: {
                     to: USDC_ADDRESS,
                     data: transferData,
-                    value: '0' // 0 ETH value
+                    value: '0x0' // Hex string
                 }
             }
         };
