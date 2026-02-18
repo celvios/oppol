@@ -83,6 +83,7 @@ export default function DepositPage() {
     // Seamless Flow State
     const [fundingStep, setFundingStep] = useState<'input' | 'payment' | 'verifying' | 'depositing'>('input');
     const [initialBalance, setInitialBalance] = useState('0.00');
+    const [initialGameBalance, setInitialGameBalance] = useState<string | null>(null);
 
     // Modal State
     const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -105,12 +106,34 @@ export default function DepositPage() {
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if (fundingStep === 'verifying' && effectiveAddress) {
-            interval = setInterval(async () => {
-                await checkAndAutoDeposit();
-            }, 3000); // Poll every 3s
+            if (isEmbeddedWallet) {
+                // Social users: backend handles the sweep.
+                // Just poll game balance and show success when it increases.
+                interval = setInterval(async () => {
+                    const { web3Service } = await import('@/lib/web3');
+                    const newBal = await web3Service.getDepositedBalance(effectiveAddress);
+                    const newBalNum = parseFloat(newBal);
+                    const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
+                    if (newBalNum > oldBalNum + 0.001) {
+                        setGameBalance(newBal);
+                        setFundingStep('depositing');
+                        setTimeout(() => {
+                            setSuccessModalOpen(true);
+                            setLastDeposit({ amount: depositAmount, symbol: 'USDC', hash: '' });
+                            setFundingStep('input');
+                            setDepositAmount('');
+                        }, 2000);
+                    }
+                }, 3000);
+            } else {
+                // External wallet users: poll token balance then call handleDeposit
+                interval = setInterval(async () => {
+                    await checkAndAutoDeposit();
+                }, 3000);
+            }
         }
         return () => clearInterval(interval);
-    }, [fundingStep, effectiveAddress, initialBalance, depositAmount]);
+    }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance]);
 
     async function fetchBalance() {
         if (!effectiveAddress) return;
@@ -489,7 +512,11 @@ export default function DepositPage() {
                                     </div>
                                     <button
                                         onClick={() => {
-                                            if (parseFloat(depositAmount) > 0) setFundingStep('payment');
+                                            if (parseFloat(depositAmount) > 0) {
+                                                // Capture current game balance as baseline before waiting
+                                                setInitialGameBalance(gameBalance);
+                                                setFundingStep('payment');
+                                            }
                                         }}
                                         disabled={!depositAmount || parseFloat(depositAmount) <= 0}
                                         className="w-full py-4 bg-green-500 text-black font-bold rounded-xl hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
