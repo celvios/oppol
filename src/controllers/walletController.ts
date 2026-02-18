@@ -183,29 +183,44 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
         const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+        // 3. Get USDC Balance
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
-        const [rawBal, decimals] = await Promise.all([
-            usdc.balanceOf(custodialAddress),
-            usdc.decimals().catch(() => 6)
-        ]);
+        const usdcBalanceWei = await usdc.balanceOf(custodialAddress);
 
-        const usdcBalance = parseFloat(ethers.formatUnits(rawBal, decimals));
-        console.log(`[TriggerDeposit] Custodial ${custodialAddress} has ${usdcBalance} USDC`);
+        // Use BigInt directly to avoid floating point errors
+        let amountBN: bigint;
 
-        if (usdcBalance < 0.01) {
-            return res.json({ success: false, error: 'No USDC balance to deposit', balance: usdcBalance });
+        // The original `amountStr` was derived from `rawBal` and `decimals`.
+        // We need to decide if `amountStr` should be passed to `processCustodialDeposit`
+        // or if `processCustodialDeposit` should calculate it from `amountBN`.
+        // For now, let's assume `amountStr` is still needed for `processCustodialDeposit`
+        // and derive it from `amountBN`.
+        const USDC_DECIMALS = 6; // Assuming USDC has 6 decimals as per processCustodialDeposit
+        const amountStr = ethers.formatUnits(usdcBalanceWei, USDC_DECIMALS); // Derive amountStr from usdcBalanceWei
+
+        if (amountStr) {
+            // If amount provided manually, parse it (assuming 6 decimals)
+            amountBN = ethers.parseUnits(amountStr, USDC_DECIMALS);
+        } else {
+            // Sweep entire balance
+            amountBN = usdcBalanceWei;
         }
 
-        // Format with correct decimals
-        const amountStr = ethers.formatUnits(rawBal, decimals);
+        // Check minimum (0.01 USDC = 10000 units)
+        if (amountBN < 10000n) {
+            console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, 6)} USDC). Skipping.`);
+            return res.json({ success: false, error: 'No USDC balance to deposit', balance: parseFloat(ethers.formatUnits(amountBN, 6)) });
+        }
+
+        console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, 6)} USDC for ${userId}`);
 
         // Trigger the deposit synchronously to return result to user
         try {
             const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
             return res.json({
                 success: true,
-                message: `Successfully deposited ${usdcBalance.toFixed(6)} USDC into market contract`,
-                amount: usdcBalance,
+                message: `Successfully deposited ${ethers.formatUnits(amountBN, 6)} USDC into market contract`,
+                amount: parseFloat(ethers.formatUnits(amountBN, 6)),
                 custodialAddress,
                 txHash
             });
