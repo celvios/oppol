@@ -14,7 +14,8 @@ const USDC_ABI = [
     "function transfer(address to, uint256 amount) returns (bool)"
 ];
 
-const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83xE1Ad6d0430571F6'; // Default to BSC Mainnet if missing
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
 
 export default function FundMigrationManager() {
     const { user, loginMethod } = useAuth(); // Privacy/Backend User info
@@ -117,9 +118,8 @@ export default function FundMigrationManager() {
                         return;
                     }
 
-                    // Use getEthereumProvider (EIP-1193) and wrap with v6 BrowserProvider
-                    const ethereumProvider = await legacyWallet.getEthereumProvider();
-                    const provider = new ethers.BrowserProvider(ethereumProvider);
+                    // Use our own RPC for reliable read-only calls (Privy defaults to unreliable Thirdweb)
+                    const provider = new ethers.JsonRpcProvider(RPC_URL);
                     const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
 
                     const balanceWei = await usdcContract.balanceOf(legacyAddress);
@@ -158,9 +158,8 @@ export default function FundMigrationManager() {
         setError('');
 
         try {
-            // Get provider to check balances (read-only)
-            const ethereumProvider = await legacyWallet.getEthereumProvider();
-            const provider = new ethers.BrowserProvider(ethereumProvider);
+            // Use our own reliable RPC for read-only balance checks
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
 
             // 1. Check BNB Gas Balance
             const bnbBalance = await provider.getBalance(legacyAddress);
