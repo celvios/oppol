@@ -20,7 +20,6 @@ const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance
 export default function FundMigrationManager() {
     const { user, loginMethod } = useAuth(); // Privacy/Backend User info
     const { wallets } = useWallets(); // Get all connected wallets from Privy
-    const { sendTransaction } = usePrivy(); // For signing from embedded wallet
 
     // Debugging: Log all wallets
     useEffect(() => {
@@ -281,22 +280,31 @@ export default function FundMigrationManager() {
                                 )}
 
                                 {!showExport ? (
-                                    <NeonButton
-                                        onClick={handleMigrate}
-                                        disabled={isMigrating}
-                                        variant="cyan"
-                                        className="w-full py-4 text-lg"
-                                    >
-                                        {isMigrating ? (
-                                            <span className="flex items-center justify-center gap-2">
-                                                <Loader2 className="animate-spin" /> Moving Funds...
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center justify-center gap-2">
-                                                Migrate Funds <ArrowRight size={18} />
-                                            </span>
-                                        )}
-                                    </NeonButton>
+                                    <>
+                                        <NeonButton
+                                            onClick={handleMigrate}
+                                            disabled={isMigrating}
+                                            variant="cyan"
+                                            className="w-full py-4 text-lg"
+                                        >
+                                            {isMigrating ? (
+                                                <span className="flex items-center justify-center gap-2">
+                                                    <Loader2 className="animate-spin" /> Moving Funds...
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center justify-center gap-2">
+                                                    Migrate Funds <ArrowRight size={18} />
+                                                </span>
+                                            )}
+                                        </NeonButton>
+
+                                        <button
+                                            onClick={() => setShowExport(true)}
+                                            className="text-xs text-gray-500 hover:text-white underline mt-4 block mx-auto"
+                                        >
+                                            Having trouble? Export Private Key Manually
+                                        </button>
+                                    </>
                                 ) : (
                                     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
                                         <p className="text-sm text-yellow-500 bg-yellow-500/10 p-2 rounded">
@@ -304,7 +312,7 @@ export default function FundMigrationManager() {
                                         </p>
                                         <NeonButton
                                             onClick={handleExport}
-                                            variant="secondary"
+                                            variant="glass"
                                             className="w-full py-3"
                                         >
                                             Export Private Key
