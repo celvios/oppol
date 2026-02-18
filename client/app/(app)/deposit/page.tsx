@@ -11,6 +11,7 @@ import { AlertModal } from "@/components/ui/AlertModal";
 import { DepositSuccessModal } from "@/components/ui/DepositSuccessModal";
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import { QRCodeSVG } from 'qrcode.react';
+import { usePrivy } from '@privy-io/react-auth';
 
 const ERC20_ABI = [
     { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -60,6 +61,7 @@ export default function DepositPage() {
     const { isConnecting, address, isConnected, disconnect, connect, loginMethod } = useWallet();
     const { data: connectorClient } = useConnectorClient();
     const { connector } = useAccount();
+    const { user: privyUser } = usePrivy();
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected;
@@ -79,6 +81,8 @@ export default function DepositPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    // For social/embedded users: the backend custodial wallet address (where migrated funds land)
+    const [custodialWalletAddress, setCustodialWalletAddress] = useState<string | null>(null);
 
     // Seamless Flow State
     const [fundingStep, setFundingStep] = useState<'input' | 'payment' | 'verifying' | 'depositing'>('input');
@@ -97,8 +101,16 @@ export default function DepositPage() {
 
     useEffect(() => {
         if (effectiveAddress) {
-            fetchBalance();
-            fetchGameBalance();
+            // For social/embedded users, fetch their custodial wallet address first
+            if (isEmbeddedWallet) {
+                fetchCustodialAddress().then(() => {
+                    fetchBalance();
+                    fetchGameBalance();
+                });
+            } else {
+                fetchBalance();
+                fetchGameBalance();
+            }
         }
     }, [effectiveAddress, selectedToken]);
 
@@ -135,6 +147,36 @@ export default function DepositPage() {
         return () => clearInterval(interval);
     }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance]);
 
+    async function fetchCustodialAddress() {
+        if (!effectiveAddress) return;
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            const privyUserId = privyUser?.id;
+            if (!privyUserId) {
+                console.warn('[Deposit] No Privy user ID available, cannot fetch custodial address');
+                return;
+            }
+            const res = await fetch(`${apiUrl}/api/auth/privy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    privyUserId,
+                    walletAddress: effectiveAddress,
+                    loginMethod: loginMethod || 'google'
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.custodialAddress) {
+                console.log('[Deposit] Custodial wallet:', data.custodialAddress);
+                setCustodialWalletAddress(data.custodialAddress);
+            } else if (data.success && data.user?.wallet_address) {
+                setCustodialWalletAddress(data.user.wallet_address);
+            }
+        } catch (e) {
+            console.error('[Deposit] Failed to fetch custodial address:', e);
+        }
+    }
+
     async function fetchBalance() {
         if (!effectiveAddress) return;
 
@@ -145,13 +187,15 @@ export default function DepositPage() {
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
             let formattedBalance = '0.00';
+            // For embedded/social users: check the custodial wallet balance (where migrated funds land)
+            const balanceAddress = (isEmbeddedWallet && custodialWalletAddress) ? custodialWalletAddress : effectiveAddress;
             if (selectedToken.isNative) {
-                const balance = await provider.getBalance(effectiveAddress);
+                const balance = await provider.getBalance(balanceAddress);
                 formattedBalance = ethers.formatEther(balance);
             } else {
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
                 const [balance, decimals] = await Promise.all([
-                    tokenContract.balanceOf(effectiveAddress),
+                    tokenContract.balanceOf(balanceAddress),
                     tokenContract.decimals().catch(() => 18)
                 ]);
                 formattedBalance = ethers.formatUnits(balance, decimals);
@@ -552,22 +596,30 @@ export default function DepositPage() {
                                     <p className="text-white/40 text-sm mb-6">to your personal address below (BNB Chain)</p>
 
                                     {/* QR Code */}
-                                    <div className="bg-white p-4 rounded-xl mb-4 inline-block">
-                                        <QRCodeSVG
-                                            value={effectiveAddress || ''}
-                                            size={200}
-                                            level="H"
-                                            includeMargin={true}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-white/40 mb-6">Scan with your wallet app</p>
+                                    {/* For embedded users, show custodial wallet address (where funds land) */}
+                                    {(() => {
+                                        const depositAddr = (isEmbeddedWallet && custodialWalletAddress) ? custodialWalletAddress : effectiveAddress;
+                                        return (
+                                            <>
+                                                <div className="bg-white p-4 rounded-xl mb-4 inline-block">
+                                                    <QRCodeSVG
+                                                        value={depositAddr || ''}
+                                                        size={200}
+                                                        level="H"
+                                                        includeMargin={true}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-white/40 mb-6">Scan with your wallet app</p>
 
-                                    <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 flex items-center justify-between gap-2 overflow-hidden">
-                                        <code className="text-sm font-mono text-white truncate">{effectiveAddress}</code>
-                                        <button onClick={() => effectiveAddress && copyToClipboard(effectiveAddress)} className="p-2 hover:bg-white/10 rounded-lg text-green-500">
-                                            <Copy className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                                <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 flex items-center justify-between gap-2 overflow-hidden">
+                                                    <code className="text-sm font-mono text-white truncate">{depositAddr}</code>
+                                                    <button onClick={() => depositAddr && copyToClipboard(depositAddr)} className="p-2 hover:bg-white/10 rounded-lg text-green-500">
+                                                        <Copy className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
 
                                     <div className="bg-white/5 border border-white/10 p-3 rounded-lg mb-6 text-xs text-white/60">
                                         Send from Binance, Coinbase, or any external wallet on <strong>BNB Smart Chain (BEP20)</strong>.
