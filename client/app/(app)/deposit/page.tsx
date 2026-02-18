@@ -152,7 +152,7 @@ export default function DepositPage() {
             }
         }
         return () => clearInterval(interval);
-    }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance]);
+    }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance, custodialWalletAddress, selectedToken]);
 
     // Returns the custodial address so callers can use it immediately (avoids state async delay)
     async function fetchCustodialAddress(): Promise<string | null> {
