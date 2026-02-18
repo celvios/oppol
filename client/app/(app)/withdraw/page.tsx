@@ -24,19 +24,26 @@ const ERC20_ABI = [
 
 export default function WithdrawPage() {
     const { isConnected, address, connect, isConnecting, loginMethod } = useWallet();
-    const { user } = useUIStore();
+    const { user, custodialAddress } = useUIStore();
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
 
+    // Fix for Google Users seeing standard wallet UI
+    // If loginMethod is social, we treat it as embedded/custodial
+    const isSocialLogin = loginMethod === 'google' || loginMethod === 'email' || loginMethod === 'twitter' || loginMethod === 'discord';
+    const isEmbeddedWallet = connector?.id === 'privy' || isSocialLogin || connector?.id === 'w3m-email' || connector?.id === 'auth';
+
+    console.log('[WithdrawPage] DEBUG STATE:', {
+        loginMethod,
+        isEmbeddedWallet,
+        connectorId: connector?.id,
+        address, // This IS the effective address (Custodial if set)
+        custodialAddress,
+        storeUser: user
+    });
+
     // Effective connection state
     const isEffectivelyConnected = isConnected;
-
-    // Detect Embedded Wallet (Reown Email/Social)
-    // Reown usually names its email connector 'auth' or similar, but for now we treat all connected wallets same
-    // unless we need specific handling. 'isEmbeddedWallet' was used to disable manual transfer tab?
-    // Let's assume false or check connector name if needed.
-    // For Reown, email wallet is an EOA via wagmi.
-    const isEmbeddedWallet = connector?.id === 'w3m-email' || connector?.id === 'auth';
 
     // Tab State (Only for Standard Wallets)
     const [activeTab, setActiveTab] = useState<'withdraw' | 'transfer'>('withdraw');

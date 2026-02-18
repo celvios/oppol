@@ -131,18 +131,37 @@ export default function FundMigrationManager() {
                     console.log(`[Migration] Checking balance for potential wallet: ${wallet.address}`);
 
                     try {
+                        // 1. Check USDC Balance
                         const balanceWei = await usdcContract.balanceOf(wallet.address);
                         const balanceFormatted = ethers.formatUnits(balanceWei, 18);
-                        console.log(`💰 [Migration] Balance for ${wallet.address}: ${balanceFormatted}`);
+
+                        // 2. Check Market Shares (Deposited Funds)
+                        const marketContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, provider);
+                        const sharesWei = await marketContract.shares(wallet.address);
+                        const sharesFormatted = ethers.formatUnits(sharesWei, 18);
+
+                        console.log(`💰 [Migration] ${wallet.address} - USDC: ${balanceFormatted}, Shares: ${sharesFormatted}`);
+
+                        if (parseFloat(sharesFormatted) > 0.01) {
+                            console.log(`[Migration] Found wallet with Shares! ${wallet.address}`);
+                            setActiveLegacyWallet(wallet);
+                            setBalance(sharesFormatted);
+                            setCustodialAddress(dbUser.wallet_address);
+                            setMigrationType('shares');
+                            setNeedsMigration(true);
+                            foundWalletWithFunds = true;
+                            break;
+                        }
 
                         if (parseFloat(balanceFormatted) > 0.01) {
-                            console.log(`[Migration] Found wallet with funds! ${wallet.address}`);
+                            console.log(`[Migration] Found wallet with USDC! ${wallet.address}`);
                             setActiveLegacyWallet(wallet);
                             setBalance(balanceFormatted);
                             setCustodialAddress(dbUser.wallet_address);
+                            setMigrationType('usdc');
                             setNeedsMigration(true);
                             foundWalletWithFunds = true;
-                            break; // Stop after finding the first valid wallet
+                            break;
                         }
                     } catch (e) {
                         console.error(`[Migration] Error checking balance for ${wallet.address}:`, e);
@@ -175,6 +194,13 @@ export default function FundMigrationManager() {
 
     // ... (checkMigrationStatus logic stays same) ...
 
+    const [migrationType, setMigrationType] = useState<'usdc' | 'shares'>('usdc');
+    const MARKET_ADDRESS = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0x...';
+    const MARKET_ABI = [
+        "function shares(address) view returns (uint256)",
+        "function withdraw(uint256) returns (void)"
+    ];
+
     const handleMigrate = async () => {
         if (!custodialAddress || !legacyAddress || !user) return;
         setIsMigrating(true);
@@ -183,17 +209,18 @@ export default function FundMigrationManager() {
         setShowExport(false);
 
         try {
-            console.log(`[Migration] Attempting client-side migration: ${legacyAddress} -> ${custodialAddress}`);
+            console.log(`[Migration] Attempting ${migrationType} migration: ${legacyAddress} -> ${custodialAddress}`);
 
             const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const signer = await sendTransaction ? null : new ethers.BrowserProvider((window as any).ethereum).getSigner(); // Fallback if no Privy hooks? No we use sendTransaction.
 
             // Fix API URL for production
             const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
                 (typeof window !== 'undefined' && window.location.origin.includes('localhost')
                     ? 'http://localhost:3001'
-                    : 'https://oppol-api.onrender.com'); // Updated fallback
+                    : 'https://oppol-api.onrender.com');
 
-            // 1. Check for BNB Gas
+            // 1. Check for BNB Gas (Required for BOTH types)
             let bnbBalance = await provider.getBalance(legacyAddress);
             const minGas = ethers.parseEther("0.001");
 
@@ -209,10 +236,8 @@ export default function FundMigrationManager() {
                     const faucetData = await res.json();
 
                     if (faucetData.success) {
-                        console.log('[Migration] Gas requested. Polling for arrival...');
+                        console.log('[Migration] Gas requested. Polling...');
                         setStatus('waiting-for-gas');
-
-                        // Poll for up to 30s for BNB balance to increase
                         let attempts = 0;
                         let gasArrived = false;
                         while (attempts < 30) {
@@ -226,60 +251,65 @@ export default function FundMigrationManager() {
                             }
                             attempts++;
                         }
-
-                        if (!gasArrived) {
-                            throw new Error('Gas requested but not detected on-chain. Check your internet or try again later.');
-                        }
+                        if (!gasArrived) throw new Error('Gas requested but not detected.');
                     } else {
-                        throw new Error(faucetData.error || 'Faucet failed to send gas');
+                        throw new Error(faucetData.error || 'Faucet failed');
                     }
                 } catch (faucetErr: any) {
-                    console.error('[Migration] Gas flow failed:', faucetErr);
                     setError(`Unable to get gas: ${faucetErr.message}`);
                     setIsMigrating(false);
                     setStatus('idle');
-                    return; // STOP HERE
+                    return;
                 }
             }
 
             setStatus('preparing-tx');
-            // 2. Prepare transaction
-            const amountWei = ethers.parseUnits(balance, 18);
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
-            const transferData = usdcContract.interface.encodeFunctionData("transfer", [custodialAddress, amountWei]);
+            const amountWei = ethers.parseUnits(balance, 18); // Both USDC and Shares are 18 decimals (Wait, USDC is 18 on BSC? Yes. Check contracts.) 
+            // Wait, previous code used 18 for USDC. Yes BSC-USDC is 18.
+
+            let txData;
+            let toAddress;
+
+            if (migrationType === 'shares') {
+                const marketContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, provider);
+                txData = marketContract.interface.encodeFunctionData("withdraw", [amountWei]);
+                toAddress = MARKET_ADDRESS;
+            } else {
+                const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+                txData = usdcContract.interface.encodeFunctionData("transfer", [custodialAddress, amountWei]);
+                toAddress = USDC_ADDRESS;
+            }
 
             setStatus('signing');
-            // 3. Send transaction via Privy Embedded Wallet
-            // We use the simpler signature: sendTransaction({ to, data, value })
-            // Privy handles gas and chain switching if needed.
             const txReceipt = await sendTransaction({
-                to: USDC_ADDRESS,
-                data: transferData,
-                value: '0x0', // Must be hex string for Privy
-                chainId: 56 // BSC
+                to: toAddress,
+                data: txData,
+                value: '0x0',
+                chainId: 56
             });
 
-            console.log('✅ [Migration] Client-side transfer complete!', txReceipt);
+            console.log('✅ [Migration] Transfer complete!', txReceipt);
             setTxHash(txReceipt.transactionHash);
             setIsCompleted(true);
 
-            setTimeout(() => {
-                setNeedsMigration(false);
-            }, 5000);
+            // If we just withdrew shares, we need to refresh to find the USDC
+            if (migrationType === 'shares') {
+                setTimeout(() => {
+                    window.location.reload(); // Hard refresh to trigger re-scan for USDC
+                }, 3000);
+            } else {
+                setTimeout(() => {
+                    setNeedsMigration(false);
+                }, 5000);
+            }
 
         } catch (err: any) {
             console.error('❌ [Migration] Failed:', err);
-            // Check for specific "Recovery method not supported" or similar errors
             const errorMessage = err.message || JSON.stringify(err);
-
-            setError('Migration failed. Your wallet may require manual export.');
-
-            // ALWAYS show export option on failure, as server-side is also dead.
+            setError('Migration failed. ' + (errorMessage.includes('rejected') ? 'User rejected.' : 'Try creating a manual recovery.'));
             setShowExport(true);
 
-            if (errorMessage.includes('Recovery method not supported') ||
-                errorMessage.includes('user-passcode') ||
-                errorMessage.includes('google-drive')) {
+            if (errorMessage.includes('Recovery method not supported')) {
                 setError('Automated migration not supported for this wallet type.');
             }
         } finally {
@@ -334,7 +364,7 @@ export default function FundMigrationManager() {
                             <>
                                 <p className="text-gray-400 mb-6">
                                     We've upgraded our system for <b>Instant Betting</b>! <br />
-                                    We found <b>{parseFloat(balance).toFixed(2)} USDC</b> in your old wallet.
+                                    We found <b>{parseFloat(balance).toFixed(2)} {migrationType === 'shares' ? 'Deposited Shares' : 'USDC'}</b> in your old wallet.
                                     <br /><br />
                                     Please migrate them to your new secure wallet to continue playing.
                                 </p>
