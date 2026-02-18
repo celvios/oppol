@@ -1,13 +1,19 @@
 import { Router } from 'express';
 import pool from '../config/database';
 import { ethers } from 'ethers';
-// Use explicit config import
 import { CONFIG } from '../config/contracts';
 
 const router = Router();
 const RPC_URL = CONFIG.RPC_URL;
-// "Admin Wallet" receiving the boost payments
-const ADMIN_WALLET = process.env.ADMIN_WALLET || "0xa4B1B886f955b2342bC9bB4f77B80839357378b76";
+
+// Admin wallet that receives boost payments
+const ADMIN_WALLET = (process.env.ADMIN_WALLET || '0xfc8c540e7d3912458b36189f325f7f6d520be71d').toLowerCase();
+
+// USDC contract on BSC (BEP20) - 18 decimals
+const USDC_ADDRESS = (process.env.USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d').toLowerCase();
+
+// ERC-20 transfer(address,uint256) function selector
+const TRANSFER_SELECTOR = '0xa9059cbb';
 
 interface BoostTier {
     id: number;
@@ -30,33 +36,65 @@ router.post('/verify', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid tier' });
         }
 
-        // 1. Check if TX already used
+        const tier = TIERS[tierId];
+
+        // 1. Reject already-used TX hashes (prevent double-spending)
         const existing = await pool.query('SELECT id FROM boost_requests WHERE tx_hash = $1', [txHash]);
         if (existing.rows.length > 0) {
-            return res.status(400).json({ success: false, message: 'Transaction hash already used' });
+            return res.status(400).json({ success: false, message: 'Transaction hash already used for a boost' });
         }
 
-        // 2. Verify on-chain
+        // 2. Fetch transaction from chain
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const tx = await provider.getTransaction(txHash);
 
         if (!tx) {
-            return res.status(404).json({ success: false, message: 'Transaction not found on chain' });
+            return res.status(404).json({ success: false, message: 'Transaction not found on chain. Please wait for confirmation and try again.' });
         }
 
-        // Check recipient (Admin Wallet) 
-        // Note: Simplification. In production, check inputs strictly.
-        // Assuming USDC transfer or Native BNB transfer? 
-        // User request said "Send payment to a static wallet". 
-        // If native BNB: tx.to == ADMIN_WALLET, tx.value >= price
-        // If USDC: we need to decode input data. For MVP, let's assume Native BNB or simple verification.
-        // Let's assume Native BNB for simplicity first, or check for USDC transfer logs if complex.
+        // 3. Verify the transaction is to the USDC contract (not any other token or wallet)
+        if (!tx.to || tx.to.toLowerCase() !== USDC_ADDRESS) {
+            return res.status(400).json({
+                success: false,
+                message: `Transaction is not a USDC (BEP20) transfer. Please send USDC on BSC.`
+            });
+        }
 
-        // For this MVP, we will trust the user sent *something* to the wallet if we find the TX.
-        // REAL VERIFICATION: Check tx.to === ADMIN_WALLET and Value matches Tier Price.
+        // 4. Decode the ERC-20 transfer(address recipient, uint256 amount) calldata
+        const data = tx.data;
+        if (!data || data.length < 10 || data.slice(0, 10).toLowerCase() !== TRANSFER_SELECTOR) {
+            return res.status(400).json({
+                success: false,
+                message: 'Transaction is not a standard ERC-20 transfer.'
+            });
+        }
 
-        // 3. Record & Boost
-        const tier = TIERS[tierId];
+        // Decode: 4 bytes selector + 32 bytes address + 32 bytes amount
+        const abiCoder = new ethers.AbiCoder();
+        const decoded = abiCoder.decode(['address', 'uint256'], '0x' + data.slice(10));
+        const recipient: string = (decoded[0] as string).toLowerCase();
+        const amountRaw: bigint = decoded[1] as bigint;
+
+        // 5. Verify recipient is exactly the admin wallet
+        if (recipient !== ADMIN_WALLET) {
+            return res.status(400).json({
+                success: false,
+                message: `Payment sent to wrong wallet. Please send to: ${ADMIN_WALLET}`
+            });
+        }
+
+        // 6. Verify amount matches tier price EXACTLY (not less, not more)
+        // USDC on BSC has 18 decimals
+        const expectedAmount = ethers.parseUnits(tier.price.toString(), 18);
+        if (amountRaw !== expectedAmount) {
+            const actualFormatted = parseFloat(ethers.formatUnits(amountRaw, 18)).toFixed(2);
+            return res.status(400).json({
+                success: false,
+                message: `Incorrect payment amount. Expected exactly $${tier.price} USDC, got $${actualFormatted} USDC.`
+            });
+        }
+
+        // 7. All checks passed — record & activate boost
         const boostExpiresAt = Date.now() + (tier.hours * 60 * 60 * 1000);
 
         await pool.query('BEGIN');
@@ -76,11 +114,11 @@ router.post('/verify', async (req, res) => {
         res.json({
             success: true,
             message: `Market boosted! Active for ${tier.hours} hours.`,
-            clearCache: true  // Signal frontend to clear its markets cache
+            clearCache: true
         });
 
     } catch (error: any) {
-        await pool.query('ROLLBACK');
+        await pool.query('ROLLBACK').catch(() => { });
         console.error('Boost Verify Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
