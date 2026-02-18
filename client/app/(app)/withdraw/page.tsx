@@ -109,7 +109,8 @@ export default function WithdrawPage() {
         try {
             if (!connectorClient) throw new Error('Wallet not ready');
             const signer = clientToSigner(connectorClient);
-            const amountInWei = ethers.parseUnits(amount, 6);
+            const amountInUSDC = ethers.parseUnits(amount, 6);     // 6 decimals for USDC transfer
+            const amountInShares = ethers.parseUnits(amount, 18);  // 18 decimals for Market withdraw
 
             // --- SMART CASH OUT (Embedded Wallet) ---
             if (isEmbeddedWallet) {
@@ -117,25 +118,38 @@ export default function WithdrawPage() {
 
                 // Logic: 
                 // 1. Check if we need to withdraw from game first
-                const contractBalanceWei = ethers.parseUnits(contractBalance || '0', 6);
-                const walletBalanceWei = ethers.parseUnits(walletBalance || '0', 6);
+                // contractBalance and walletBalance strings represent value (e.g. "1.0")
+                const contractBalanceValue = contractBalance ? parseFloat(contractBalance) : 0;
+                const walletBalanceValue = walletBalance ? parseFloat(walletBalance) : 0;
+                const totalAvailable = contractBalanceValue + walletBalanceValue;
+
+                const requestedAmount = parseFloat(amount);
 
                 // If asking for more than total available
-                if (amountInWei > (contractBalanceWei + walletBalanceWei)) {
-                    throw new Error("Insufficient total funds.");
+                if (requestedAmount > totalAvailable) {
+                    // small epsilon check?
+                    if (requestedAmount > totalAvailable + 0.000001) {
+                        throw new Error("Insufficient total funds.");
+                    }
                 }
+
+                const walletBalanceUSDC = walletBalance ? ethers.parseUnits(walletBalance, 6) : 0n;
 
                 // Step 1: Withdraw from Game if needed
                 // If wallet balance is NOT enough to cover the transfer, we must withdraw from game
-                if (walletBalanceWei < amountInWei) {
-                    const neededFromGameWei = amountInWei - walletBalanceWei;
-                    // Add a small buffer/check to ensure we don't try to withdraw 0
-                    if (neededFromGameWei > BigInt(0)) {
+                if (walletBalanceUSDC < amountInUSDC) {
+                    const neededFromGameUSDC = amountInUSDC - walletBalanceUSDC;
+                    // Convert needed USDC amount to Shares (6 -> 18 decimals)
+                    // We can parse the string representation of the needed amount
+                    const neededValueStr = ethers.formatUnits(neededFromGameUSDC, 6);
+                    const neededFromGameShares = ethers.parseUnits(neededValueStr, 18);
+
+                    if (neededFromGameShares > 0n) {
                         setProcessingStep('Withdrawing funds from Game...');
-                        console.log(`Smart Withdraw: Need ${ethers.formatUnits(neededFromGameWei, 6)} from game.`);
+                        console.log(`Smart Withdraw: Need ${neededValueStr} from game.`);
 
                         const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-                        const withdrawTx = await marketContract.withdraw(neededFromGameWei);
+                        const withdrawTx = await marketContract.withdraw(neededFromGameShares);
                         await withdrawTx.wait();
 
                         // Refresh balance locally or wait?
@@ -145,7 +159,7 @@ export default function WithdrawPage() {
                 // Step 2: Transfer to External
                 setProcessingStep('Sending funds to external wallet...');
                 const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-                const tx = await usdcContract.transfer(destinationAddress, amountInWei);
+                const tx = await usdcContract.transfer(destinationAddress, amountInUSDC);
 
                 console.log('Transfer sent:', tx.hash);
                 const receipt = await tx.wait();
@@ -156,14 +170,15 @@ export default function WithdrawPage() {
                 if (activeTab === 'withdraw') {
                     setProcessingStep('Withdrawing to wallet...');
                     const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-                    const tx = await marketContract.withdraw(amountInWei);
+                    // Standard withdraw uses Shares (18 decimals)
+                    const tx = await marketContract.withdraw(amountInShares);
                     await tx.wait();
                     setTxHash(tx.hash);
                 } else {
                     // Transfer (Hidden for normal users usually, but logic remains)
                     setProcessingStep('Transferring...');
                     const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-                    const tx = await usdcContract.transfer(destinationAddress, amountInWei);
+                    const tx = await usdcContract.transfer(destinationAddress, amountInUSDC);
                     await tx.wait();
                     setTxHash(tx.hash);
                 }

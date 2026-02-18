@@ -393,8 +393,8 @@ export class Web3MultiService {
         if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            // USDC on BSC has 6 decimals
-            return ethers.formatUnits(balance, 6);
+            // Market contract normalizes to 18 decimals
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching deposited balance:', error);
             return '0';
