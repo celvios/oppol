@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { generateMagicLink, registerUser } from '../controllers/authController';
-import { getWallet, linkWallet } from '../controllers/walletController';
+import { getWallet, linkWallet, triggerCustodialDeposit } from '../controllers/walletController';
 import { WhatsAppController } from '../controllers/whatsappController';
 import { TelegramController } from '../controllers/telegramController';
 import { placeBet, estimateBetCost } from '../controllers/betController';
@@ -14,6 +14,7 @@ router.post('/register', registerUser);
 
 // Wallet Routes
 router.get('/wallet/:userId', getWallet);
+router.post('/wallet/deposit-custodial', triggerCustodialDeposit);
 // router.post('/wallet/link', linkWallet); // Removed: Distinct auth
 
 // Balance Routes
