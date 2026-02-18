@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useWallets } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
 import { motion, AnimatePresence } from 'framer-motion';
 import NeonButton from '@/components/ui/NeonButton';
@@ -19,6 +19,7 @@ const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9
 export default function FundMigrationManager() {
     const { user, loginMethod } = useAuth(); // Privacy/Backend User info
     const { wallets } = useWallets(); // Get all connected wallets from Privy
+    const { sendTransaction } = usePrivy(); // For signing from embedded wallet
 
     // Debugging: Log all wallets
     useEffect(() => {
@@ -152,26 +153,26 @@ export default function FundMigrationManager() {
     }, [user, legacyAddress, legacyWallet, loginMethod, wallets.length]);
 
     const handleMigrate = async () => {
-        if (!legacyWallet || !custodialAddress) return;
+        if (!legacyWallet || !custodialAddress || !legacyAddress) return;
         setIsMigrating(true);
         setError('');
 
         try {
-            // Get Signer from Privy Wallet (v6 compatible way)
+            // Get provider to check balances (read-only)
             const ethereumProvider = await legacyWallet.getEthereumProvider();
             const provider = new ethers.BrowserProvider(ethereumProvider);
-            const signer = await provider.getSigner();
 
-            // 1. Check BNB Gas Balance logic
+            // 1. Check BNB Gas Balance
             const bnbBalance = await provider.getBalance(legacyAddress);
             console.log(`[Migration] BNB Balance: ${ethers.formatEther(bnbBalance)}`);
 
-            if (bnbBalance < ethers.parseEther("0.002")) {
-                console.log('[Migration] Insufficient gas. Requesting faucet...');
+            if (bnbBalance < ethers.parseEther("0.001")) {
+                console.log('[Migration] Insufficient gas. Requesting BNB faucet...');
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
                 try {
-                    const faucetRes = await fetch(`${apiUrl}/api/faucet`, {
+                    // Use the correct BNB gas faucet endpoint (NOT the USDC mint one)
+                    const faucetRes = await fetch(`${apiUrl}/api/faucet/claim`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ address: legacyAddress })
@@ -179,30 +180,35 @@ export default function FundMigrationManager() {
 
                     const faucetData = await faucetRes.json();
                     if (!faucetData.success) {
-                        console.warn('[Migration] Faucet failed:', faucetData.error);
-                        // Don't throw here, maybe they have mostly enough? Let it fail naturally if so.
+                        console.warn('[Migration] BNB Faucet failed:', faucetData.error);
                     } else {
-                        console.log('[Migration] Faucet success! Waiting 3s for propagation...');
-                        await new Promise(r => setTimeout(r, 3000));
+                        console.log('[Migration] BNB Faucet success! Waiting 5s for confirmation...');
+                        await new Promise(r => setTimeout(r, 5000));
                     }
                 } catch (faucetErr) {
-                    console.error('[Migration] Faucet error:', faucetErr);
+                    console.error('[Migration] BNB Faucet error:', faucetErr);
                 }
             }
 
-            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
+            // 2. Get USDC balance to transfer
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
             const balanceWei = await usdcContract.balanceOf(legacyAddress);
 
-            // Send entire balance to new custodial address
             console.log(`💸 [Migration] Transferring ${ethers.formatUnits(balanceWei, 18)} USDC to ${custodialAddress}`);
 
-            const tx = await usdcContract.transfer(custodialAddress, balanceWei);
-            console.log('⏳ [Migration] Tx sent:', tx.hash);
+            // 3. Use Privy's sendTransaction (handles embedded wallet signing properly)
+            const iface = new ethers.Interface(USDC_ABI);
+            const transferData = iface.encodeFunctionData('transfer', [custodialAddress, balanceWei]);
 
-            await tx.wait();
-            console.log('✅ [Migration] Transfer confirmed!');
+            const txReceipt = await sendTransaction({
+                to: USDC_ADDRESS,
+                data: transferData,
+                chainId: 56, // BSC Mainnet
+            });
 
-            setTxHash(tx.hash);
+            console.log('✅ [Migration] Transfer confirmed!', txReceipt);
+
+            setTxHash(txReceipt?.transactionHash || 'confirmed');
             setIsCompleted(true);
 
             // Hide modal after delay
