@@ -2166,6 +2166,20 @@ initDatabase().then(async () => {
 
     try {
       await startDepositWatcher(wssUrl);
+
+      // Load all existing custodial wallets from DB into the watcher
+      // This ensures deposits are detected even after server restarts
+      const wallets = await query(
+        `SELECT w.public_address, w.user_id, u.phone_number
+         FROM wallets w
+         JOIN users u ON u.id = w.user_id`,
+        []
+      );
+      for (const row of wallets.rows) {
+        watchAddress(row.public_address, row.user_id, row.phone_number || '');
+      }
+      console.log(`✅ Loaded ${wallets.rows.length} custodial wallets into deposit watcher`);
+
     } catch (error) {
       console.warn('⚠️ Deposit watcher failed to start (non-fatal):', error);
     }
