@@ -330,6 +330,14 @@ export default function DepositPage() {
         console.log('[Deposit] Starting deposit flow...', { amount: depositAmount, token: selectedToken.symbol });
 
         try {
+            // For embedded wallets, we DO NOT transact (no gas). We just wait for backend sweeper.
+            if (isEmbeddedWallet) {
+                console.log('[Deposit] Embedded wallet detecting... waiting for sweep.');
+                setStatusMessage('Detecting funds... please wait.');
+                await checkAndAutoDeposit();
+                return;
+            }
+
             if (!connectorClient) {
                 throw new Error('Wallet not ready. Please verify your connection.');
             }
@@ -580,12 +588,14 @@ export default function DepositPage() {
                                             </p>
                                             <button
                                                 onClick={async () => {
-                                                    setFundingStep('verifying');
-                                                    await checkAndAutoDeposit();
+                                                    // For embedded wallets, this just triggers a backend check/wait
+                                                    // It will NOT pop up a signature request (no gas)
+                                                    setFundingStep('depositing');
+                                                    await handleDeposit();
                                                 }}
                                                 className="w-full py-2.5 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition-colors"
                                             >
-                                                Complete Deposit
+                                                Process Deposit
                                             </button>
                                         </div>
                                     </div>
