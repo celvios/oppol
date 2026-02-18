@@ -237,3 +237,118 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+
+/**
+ * Handle Custodial Withdrawal
+ * 1. Withdraw from Market (if shares provided)
+ * 2. Transfer USDC to External Address (if destination provided)
+ */
+export const handleCustodialWithdraw = async (req: Request, res: Response) => {
+    try {
+        const { privyUserId, amount, destinationAddress } = req.body;
+        // amount is string (USDC amount, e.g. "10.5")
+
+        if (!privyUserId || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing parameters' });
+        }
+
+        console.log(`[Withdraw] Processing custodial withdraw for ${privyUserId}, Amount: ${amount}`);
+
+        // 1. Get User
+        const userResult = await query('SELECT id FROM users WHERE privy_user_id = $1', [privyUserId]);
+        if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+        const userId = userResult.rows[0].id;
+
+        // 2. Get Wallet
+        const walletResult = await query('SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1', [userId]);
+        if (walletResult.rows.length === 0) return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+
+        const wallet = walletResult.rows[0];
+        const custodialAddress = wallet.public_address;
+        const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
+
+        // 3. Setup Providers
+        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const custodialSigner = new ethers.Wallet(privateKey, provider);
+
+        // Check GAS
+        const bal = await provider.getBalance(custodialAddress);
+        const minGas = ethers.parseEther("0.0006");
+        if (bal < minGas) {
+            // Fund from Relayer
+            const relayerKey = process.env.PRIVATE_KEY;
+            if (relayerKey) {
+                const relayer = new ethers.Wallet(relayerKey, provider);
+                console.log(`[Withdraw] Funding gas for withdrawal...`);
+                const tx = await relayer.sendTransaction({
+                    to: custodialAddress,
+                    value: minGas - bal + ethers.parseEther("0.0002")
+                });
+                await tx.wait();
+            }
+        }
+
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const USDC_ADDR = CONFIG.USDC_CONTRACT;
+        if (!MARKET_ADDR || !USDC_ADDR) throw new Error("Missing Contract Config");
+
+        const amountUSDC = ethers.parseUnits(amount, 6); // 6 decimals
+        const amountShares = ethers.parseUnits(amount, 18); // 18 decimals
+
+        // Step A: Withdraw from Market (if funds are in market)
+        // We assume user wants to withdraw user-specified amount.
+        // But for "Cash Out", logic in frontend checks breakdown.
+        // Simplification: Always try to withdraw requested amount from Market FIRST?
+        // OR: Frontend should specify if it wants "withdraw" or "transfer".
+        // Let's support a flag or inferred logic.
+        // For now, let's assume we withdraw the FULL amount from Market, THEN transfer.
+        // Wait, if user already has USDC in wallet, we shouldn't fail market withdraw.
+
+        // Let's implement robust "Cash Out":
+        // 1. Check Wallet USDC Balance.
+        // 2. If Wallet USDC < Amount, withdraw difference from Market.
+        // 3. Transfer Total Amount to Destination.
+
+        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)'];
+        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
+        const walletBalance = await usdc.balanceOf(custodialAddress);
+
+        let neededFromGame = 0n;
+        if (walletBalance < amountUSDC) {
+            neededFromGame = amountUSDC - walletBalance;
+        }
+
+        if (neededFromGame > 0n) {
+            const marketAbi = ['function withdraw(uint256 amount)'];
+            const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
+
+            // Convert USDC needed to Shares
+            const neededUSDCStr = ethers.formatUnits(neededFromGame, 6);
+            const neededShares = ethers.parseUnits(neededUSDCStr, 18);
+
+            console.log(`[Withdraw] Withdrawing ${neededUSDCStr} from Market...`);
+            const txWithdraw = await market.withdraw(neededShares);
+            await txWithdraw.wait();
+        }
+
+        // Step B: Transfer to Destination (if provided)
+        let finalTx = '';
+        if (destinationAddress) {
+            console.log(`[Withdraw] Transferring ${amount} USDC to ${destinationAddress}...`);
+            const txTransfer = await usdc.transfer(destinationAddress, amountUSDC);
+            await txTransfer.wait();
+            finalTx = txTransfer.hash;
+        }
+
+        return res.json({
+            success: true,
+            message: 'Withdrawal successful',
+            txHash: finalTx
+        });
+
+    } catch (error: any) {
+        console.error('[CustodialWithdraw] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};

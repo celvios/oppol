@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import RegistrationModal from './ui/RegistrationModal';
+import { useUIStore } from '@/lib/store';
 
 export default function UserRegistrationManager() {
-    const { isConnected, walletAddress, user, loginMethod } = useAuth();
+    const { isAuthenticated: isConnected, walletAddress, user, loginMethod } = useAuth();
     const [showModal, setShowModal] = useState(false);
     const [hasChecked, setHasChecked] = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const hasRegisteredRef = useRef(false);
+
+    // Store access
+    const { setUser, setCustodialAddress } = useUIStore();
 
     // Sync Privy User with Backend
     useEffect(() => {
@@ -32,6 +36,17 @@ export default function UserRegistrationManager() {
                     if (data.success) {
                         console.log('Privy user synced successfully:', data.user);
                         setIsRegistered(true);
+
+                        // SYNC TO STORE
+                        setUser(data.user);
+                        if (data.custodialAddress) {
+                            console.log('Setting Custodial Address in Store:', data.custodialAddress);
+                            setCustodialAddress(data.custodialAddress);
+                        } else {
+                            // Clear it if not present (e.g. standard wallet user)
+                            setCustodialAddress(null);
+                        }
+
                         localStorage.setItem(`user_registered_${walletAddress.toLowerCase()}`, 'true');
                     }
                 } catch (error) {
@@ -43,7 +58,7 @@ export default function UserRegistrationManager() {
         if (isConnected && loginMethod === 'privy') {
             syncPrivyUser();
         }
-    }, [isConnected, loginMethod, user, walletAddress]);
+    }, [isConnected, loginMethod, user, walletAddress, setUser, setCustodialAddress]);
 
     // Existing check logic for Reown users ...
     useEffect(() => {

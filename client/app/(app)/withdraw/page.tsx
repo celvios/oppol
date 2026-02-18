@@ -11,6 +11,7 @@ import { Contract, ethers, isAddress } from 'ethers';
 import { useConnectorClient, useAccount } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import { web3MultiService } from "@/lib/web3-multi";
+import { useUIStore } from "@/lib/store";
 
 const MARKET_ABI = [
     { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
@@ -22,7 +23,8 @@ const ERC20_ABI = [
 ];
 
 export default function WithdrawPage() {
-    const { isConnected, address, connect, isConnecting } = useWallet();
+    const { isConnected, address, connect, isConnecting, loginMethod } = useWallet();
+    const { user } = useUIStore();
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
 
@@ -94,7 +96,8 @@ export default function WithdrawPage() {
             // Fallback to 0 on error so we don't stick on loading forever
             if (contractBalance === null) setContractBalance('0.00');
             if (walletBalance === null) setWalletBalance('0.00');
-        } finally {
+        }
+        finally {
             setIsLoading(false);
         }
     }
@@ -107,6 +110,36 @@ export default function WithdrawPage() {
         setTxHash('');
 
         try {
+            // Check for Custodial User (Google/Email)
+            const isCustodialUser = loginMethod === 'google' || loginMethod === 'email' || loginMethod === 'twitter' || loginMethod === 'discord';
+
+            if (isCustodialUser) {
+                setProcessingStep('Processing secure withdrawal...');
+                console.log("Custodial Withdrawal initiated for:", user?.privy_user_id);
+
+                if (!user?.privy_user_id) {
+                    throw new Error("User session not fully synced. Please wait or refresh.");
+                }
+
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/wallet/custodial-withdraw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        privyUserId: user.privy_user_id,
+                        amount: amount,
+                        destinationAddress: isEmbeddedWallet ? destinationAddress : undefined
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Withdrawal failed');
+
+                setTxHash(data.txHash);
+                setStep('complete');
+                setTimeout(fetchAllBalances, 2000);
+                return;
+            }
+
             if (!connectorClient) throw new Error('Wallet not ready');
             const signer = clientToSigner(connectorClient);
             const amountInUSDC = ethers.parseUnits(amount, 6);     // 6 decimals for USDC transfer
@@ -133,7 +166,7 @@ export default function WithdrawPage() {
                     }
                 }
 
-                const walletBalanceUSDC = walletBalance ? ethers.parseUnits(walletBalance, 6) : 0n;
+                const walletBalanceUSDC = walletBalance ? ethers.parseUnits(walletBalance, 6) : BigInt(0);
 
                 // Step 1: Withdraw from Game if needed
                 // If wallet balance is NOT enough to cover the transfer, we must withdraw from game
@@ -144,7 +177,7 @@ export default function WithdrawPage() {
                     const neededValueStr = ethers.formatUnits(neededFromGameUSDC, 6);
                     const neededFromGameShares = ethers.parseUnits(neededValueStr, 18);
 
-                    if (neededFromGameShares > 0n) {
+                    if (neededFromGameShares > BigInt(0)) {
                         setProcessingStep('Withdrawing funds from Game...');
                         console.log(`Smart Withdraw: Need ${neededValueStr} from game.`);
 

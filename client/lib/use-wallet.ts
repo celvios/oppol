@@ -9,6 +9,7 @@ export function useWallet() {
   const { disconnect: wagmiDisconnect } = useDisconnect();
 
   const setLoginModalOpen = useUIStore((state) => state.setLoginModalOpen);
+  const custodialAddress = useUIStore((state) => state.custodialAddress);
 
   const handleConnect = async () => {
     // Open the selection modal
@@ -23,17 +24,23 @@ export function useWallet() {
     }
   };
 
+  // Determine effective address (Custodial > Privy/Wagmi)
+  // Check if custodialAddress is valid before using it
+  const effectiveAddress = (custodialAddress && custodialAddress !== '0x0000000000000000000000000000000000000000')
+    ? custodialAddress
+    : (walletAddress || null);
+
   // Map to the shape expected by components
   const user = isAuthenticated ? {
     name: authUser?.google?.name || authUser?.email?.address || 'User',
     email: authUser?.email?.address || null,
     image: authUser?.google?.picture || null,
-    address: walletAddress
+    address: effectiveAddress
   } : null;
 
   return {
     isConnected: isAuthenticated,
-    address: walletAddress || null,
+    address: effectiveAddress, // Use custodial address if available
     isConnecting: false, // Privy handles loading state internally mostly
     connect: handleConnect, // Opens Global Modal
     disconnect: handleDisconnect,
