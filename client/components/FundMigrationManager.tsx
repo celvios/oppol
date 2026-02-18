@@ -62,8 +62,8 @@ export default function FundMigrationManager() {
                 walletsLength: wallets.length
             });
 
-            if (!user || !legacyAddress) {
-                console.log('[Migration] Missing user or legacy address. Skipping.');
+            if (!user) {
+                console.log('[Migration] Missing user. Skipping.');
                 return;
             }
             if (hasChecked.current) {
