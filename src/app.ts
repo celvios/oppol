@@ -8,6 +8,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { initDatabase } from './models';
 import { startDepositWatcher, watchAddress, setDepositCallback } from './services/depositWatcher';
+import { processCustodialDeposit } from './controllers/walletController';
 import { sendDepositNotification } from './services/whatsappNotifications';
 import { recordMarketPrice, getPriceHistory, startPriceTracker } from './services/priceTracker';
 import { query } from './config/database';
@@ -2152,8 +2153,15 @@ initDatabase().then(async () => {
     // Set callback for deposit notifications
     setDepositCallback(async (userId, phoneNumber, amount, txHash) => {
       console.log(`💰 Crediting ${amount} USDC to user ${userId}`);
-      // TODO: Update user balance in database
-      await sendDepositNotification(phoneNumber, amount, txHash);
+
+      // 1. Notify User
+      if (phoneNumber) {
+        await sendDepositNotification(phoneNumber, amount, txHash);
+      }
+
+      // 2. Process Custodial Sweep (Fund Gas -> Approve -> Deposit)
+      // This ensures the user has on-chain balance to bet with
+      await processCustodialDeposit(userId, amount, txHash);
     });
 
     try {

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { createWalletInternal } from './walletController';
 import { createRandomWallet } from '../services/web3';
 import { EncryptionService } from '../services/encryption';
+import { watchAddress } from '../services/depositWatcher';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
@@ -161,6 +162,9 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                     // This ensures the frontend uses this address for all checks
                     await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
                     user.wallet_address = custodialWalletAddress;
+
+                    // Start watching for deposits
+                    watchAddress(custodialWalletAddress, user.id, '');
                 }
             }
 
@@ -202,6 +206,9 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                 // Update user record with custodial address
                 await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
                 user.wallet_address = custodialWalletAddress;
+
+                // Start watching for deposits
+                watchAddress(custodialWalletAddress, user.id, '');
             }
         }
 

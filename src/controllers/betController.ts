@@ -11,110 +11,125 @@ const RPC_URL = process.env.RPC_URL || 'https://bsc-rpc.publicnode.com';
 const MARKET_ABI = [
     'function buySharesFor(address user, uint256 marketId, uint256 outcomeIndex, uint256 shares, uint256 maxCost)',
     'function userBalances(address) view returns (uint256)',
+    'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)',
+    'function getPrice(uint256 _marketId, uint256 _outcomeIndex) view returns (uint256)'
 ];
 
 /**
- * Place a bet for a user (custodial trading)
+ * Place a bet for a user (custodial/relayer trading)
  * POST /api/bet
  */
 export const placeBet = async (req: Request, res: Response) => {
     try {
-        const { walletAddress, marketId, outcomeIndex, side, shares, amount } = req.body;
+        const { walletAddress, marketId, outcomeIndex, side, amount } = req.body;
 
         if (!walletAddress) {
             return res.status(400).json({ success: false, error: 'Wallet address required' });
         }
 
-        if (marketId === undefined) {
-            return res.status(400).json({ success: false, error: 'Missing marketId' });
+        if (marketId === undefined || (!side && outcomeIndex === undefined) || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing marketId, side/outcomeIndex, or amount' });
         }
+
+        // Validate and normalize address
+        // Simple normalization
+        const normalizedAddress = walletAddress.toLowerCase();
 
         // Determine outcome index
         let targetOutcome = 0;
         if (outcomeIndex !== undefined) {
             targetOutcome = parseInt(outcomeIndex);
         } else if (side) {
-            // Fallback for binary markets: assume NO=0, YES=1 or similar. 
-            // For V2 multi-outcome, explicit outcomeIndex is preferred.
-            targetOutcome = side === 'YES' ? 1 : 0;
-        } else {
-            return res.status(400).json({ success: false, error: 'Missing outcomeIndex or side' });
+            targetOutcome = side.toUpperCase() === 'YES' ? 0 : 1;
         }
 
-        const sharesAmount = shares || 100; // Default shares if not provided
-
-        // Look up user by wallet address
-        const userResult = await query(
-            'SELECT id FROM users WHERE LOWER(wallet_address) = $1',
-            [walletAddress.toLowerCase()]
-        );
-
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'User not found. Please link wallet first.' });
+        // Server wallet (operator) configuration
+        const privateKey = process.env.PRIVATE_KEY;
+        if (!privateKey) {
+            return res.status(500).json({ success: false, error: 'Server wallet not configured' });
         }
-
-        const userId = userResult.rows[0].id;
-
-        // Get user's custodial wallet
-        const walletResult = await query(
-            'SELECT id, public_address, encrypted_private_key, balance FROM wallets WHERE user_id = $1',
-            [userId]
-        );
-
-        if (walletResult.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Custodial wallet (Operator) not found' });
-        }
-
-        const custodialWallet = walletResult.rows[0];
-
-        // Decrypt private key (This is the OPERATOR wallet)
-        const privateKey = EncryptionService.decrypt(custodialWallet.encrypted_private_key);
 
         // Connect to blockchain
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const signer = new ethers.Wallet(privateKey, provider);
         const marketContract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-        // Check deposited balance of the USER (not the operator)
-        // usage: userBalances(userAddress)
-        // Wait, the custodial wallet IS the user's wallet in some designs?
-        // NO, in this design, the "custodial wallet" in DB is likely the one holding the keys?
-        // If the user "deposited", they deposited into the contract and got credit on the contract.
-        // The contract tracks `userBalances[userAddress]`.
-        // If the user's wallet address is `walletAddress` (from request), check that.
+        // Check deposited balance of the USER (Contract Balance)
+        // USDC uses 6 decimals (typically) or 18? app.ts used 6. Let's use 6 for safety check.
+        // If contract actually uses 18, this check might be off.
+        // We'll trust contract failure if we are wrong, but let's try 6.
+        const balanceFormattedCheck = await marketContract.userBalances(normalizedAddress);
+        // const balanceReadable = ethers.formatUnits(balanceFormattedCheck, 6); 
 
-        const balanceFormattedCheck = await marketContract.userBalances(walletAddress);
-        const balanceReadable = ethers.formatUnits(balanceFormattedCheck, 18); // USDC is 18 decimals on BSC
+        const maxCost = parseFloat(amount);
+        const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
 
-        // Calculate cost (approximate for check)
-        // In V2, price is dynamic. We'll use a safe estimate or allow transaction failure if insufficient.
-        // Frontend should have validated, but we double check.
-        // Assuming ~0.99 max price p/share for safety check if price info missing
-        const estimatedCost = amount || (sharesAmount * 0.5); // Very rough
+        if (balanceFormattedCheck < maxCostInUnits) {
+            const bal = ethers.formatUnits(balanceFormattedCheck, 6);
+            console.log(`[Bet] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount}`);
+            return res.status(400).json({ success: false, error: `Insufficient balance. Have: $${bal}, Need: $${amount}` });
+        }
 
-        if (parseFloat(balanceReadable) < 0.0001) { // Basic dust check
-            // stricter check can be done if we fetch price
+        // Binary search to find max shares for the given amount
+        // Shares are 18 decimals
+        let low = BigInt(1);
+        let high = BigInt(Math.floor(maxCost * 2)) * BigInt(10 ** 18); // Rough upper bound? Or just search
+        // Amount = Cost ~ Shares * Price. Max Price = 1. So Shares <= Amount.
+        // But Shares are 1e18. Amount is 1e6 (USDC).
+        // 1 Share (1e18 units) costs ~0.5 USDC (0.5 * 1e6 units).
+        // So Shares ~ Amount / Price.
+        // Upper bound: Amount (6 dec) * 1e12 / 0.01 (min price) ?
+        // Let's use a safe high number: Amount * 2 in 1e18 scale (assuming price ~0.5)
+
+        let bestShares = BigInt(0);
+
+        // Simplified search range
+        // We try to buy 'amount' worth of shares.
+        // If price is 0.5, we get amount * 2 shares.
+
+        // Iterating is expensive on RPC.
+        // Optimization: Get current price, calculate shares, then adjust.
+        const price = await marketContract.getPrice(marketId, targetOutcome);
+        // Price is 100 prob? Or 1e18?
+        // app.ts Line 323: `newPrice = iface...[0] / 100`. So price is 0-100?
+
+        // Let's rely on `calculateCost` like app.ts did
+        low = BigInt(1);
+        high = ethers.parseUnits((maxCost * 4).toString(), 18); // 4x leverage limit just in case
+
+        // Perform Binary Search (limited iterations)
+        for (let i = 0; i < 20; i++) { // 20 iterations is precise enough
+            const mid = (low + high) / BigInt(2);
+            if (mid === BigInt(0)) break;
+
+            const cost = await marketContract.calculateCost(marketId, targetOutcome, mid);
+            // Cost is 6 decimals?
+
+            if (cost <= maxCostInUnits) {
+                bestShares = mid;
+                low = mid + BigInt(1);
+            } else {
+                high = mid - BigInt(1);
+            }
+        }
+
+        if (bestShares === BigInt(0)) {
+            return res.status(400).json({ success: false, error: 'Amount too small' });
         }
 
         // Execute trade via Operator
-        const sharesInUnits = ethers.parseUnits(sharesAmount.toString(), 18); // 18 decimals for shares too? 
-        // V2 internal math uses 1e18 precision. Shares are strictly tracked as integers in V2 or 1e18?
-        // Looking at V2 contract: `market.shares[_outcomeIndex] += _shares`
-        // It's likely 1e18 if we treat them as fractional shares.
-        // But usually shares are 1:1 with tokens in outcome. 
-        // Let's assume 18 decimals for consistency with USDC/V2 math.
+        // Add 2% buffer to cost for slippage protection during block time
+        const finalCost = await marketContract.calculateCost(marketId, targetOutcome, bestShares);
+        const maxCostWithBuffer = finalCost * BigInt(105) / BigInt(100);
 
-        // Max cost: allow some slippage
-        const maxCost = ethers.parseUnits((estimatedCost * 1.5).toString(), 18);
-
-        console.log(`Placing bet for ${walletAddress}: Market ${marketId}, Outcome ${targetOutcome}, Shares ${sharesAmount}`);
+        console.log(`[Bet] Relayer ${signer.address} buying ${ethers.formatUnits(bestShares, 18)} shares for ${normalizedAddress}`);
 
         const tx = await marketContract.buySharesFor(
-            walletAddress,
+            normalizedAddress,
             marketId,
             targetOutcome,
-            sharesInUnits,
-            maxCost
+            bestShares,
+            maxCostWithBuffer
         );
 
         const receipt = await tx.wait();
@@ -125,7 +140,7 @@ export const placeBet = async (req: Request, res: Response) => {
                 hash: receipt.hash,
                 marketId,
                 outcomeIndex: targetOutcome,
-                shares: sharesAmount,
+                shares: ethers.formatUnits(bestShares, 18),
                 user: walletAddress
             }
         });
