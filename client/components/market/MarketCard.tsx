@@ -160,6 +160,13 @@ export default function MarketCard({
                     )}
 
                     {/* Resolved / Ended Badges */}
+                    {isBoosted && (
+                        <span className="px-2 py-1 bg-amber-500/20 backdrop-blur-md rounded-lg text-[10px] font-mono text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            BOOSTED
+                        </span>
+                    )}
+
                     {resolved ? (
                         <span className="px-2 py-1 bg-neon-green/20 backdrop-blur-md rounded-lg text-[10px] font-mono text-neon-green border border-neon-green/30 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />

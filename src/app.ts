@@ -1233,7 +1233,7 @@ app.get('/api/markets', async (req, res) => {
       created_at,
       volume
       FROM markets
-      ORDER BY market_id ASC
+      ORDER BY is_boosted DESC, market_id ASC
       `);
 
     const markets = result.rows.map((row: any) => {
@@ -1401,7 +1401,10 @@ app.get('/api/markets/:id', async (req, res) => {
       resolved: basicInfo.resolved,
       winningOutcome: Number(basicInfo.winningOutcome),
       volume: metadata.volume || '0',
-      totalVolume: parseFloat(metadata.volume || '0').toFixed(2) // Pre-format for frontend display
+      totalVolume: parseFloat(metadata.volume || '0').toFixed(2), // Pre-format for frontend display
+      is_boosted: metadata.is_boosted || (metadata.boost_tier && metadata.boost_expires_at && (new Date(metadata.boost_expires_at).getTime() > Date.now())),
+      boost_tier: metadata.boost_tier,
+      boost_expires_at: metadata.boost_expires_at ? Math.floor(new Date(metadata.boost_expires_at).getTime() / 1000) : null
     };
 
     return res.json({ success: true, market });
