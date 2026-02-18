@@ -110,8 +110,9 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
 
         // Convert amount
-        // depositWatcher sends amount as string (e.g. "10.5"). Assuming 18 decimals from watcher logic.
-        const amountBN = ethers.parseUnits(amountRaw, 18);
+        // USDC on BSC has 6 decimals
+        const USDC_DECIMALS = 6;
+        const amountBN = ethers.parseUnits(amountRaw, USDC_DECIMALS);
 
         const allowance = await usdc.allowance(custodialAddress, MARKET_ADDR);
         if (allowance < amountBN) {
@@ -137,5 +138,78 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
 
     } catch (error: any) {
         console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error.message);
+    }
+};
+
+/**
+ * HTTP handler: POST /api/wallet/deposit-custodial
+ * Reads the actual USDC balance from the user's custodial wallet and deposits it into the market contract.
+ * Body: { privyUserId: string }
+ */
+export const triggerCustodialDeposit = async (req: Request, res: Response) => {
+    try {
+        const { privyUserId } = req.body;
+        if (!privyUserId) {
+            return res.status(400).json({ success: false, error: 'privyUserId required' });
+        }
+
+        // Look up user by privy_user_id
+        const userResult = await query(
+            'SELECT id FROM users WHERE privy_user_id = $1',
+            [privyUserId]
+        );
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = userResult.rows[0].id;
+
+        // Get custodial wallet
+        const walletResult = await query(
+            'SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
+            [userId]
+        );
+        if (walletResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+        }
+        const custodialAddress = walletResult.rows[0].public_address;
+
+        // Check actual USDC balance on-chain
+        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const USDC_ADDR = CONFIG.USDC_CONTRACT;
+        if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
+
+        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
+        const [rawBal, decimals] = await Promise.all([
+            usdc.balanceOf(custodialAddress),
+            usdc.decimals().catch(() => 6)
+        ]);
+
+        const usdcBalance = parseFloat(ethers.formatUnits(rawBal, decimals));
+        console.log(`[TriggerDeposit] Custodial ${custodialAddress} has ${usdcBalance} USDC`);
+
+        if (usdcBalance < 0.01) {
+            return res.json({ success: false, error: 'No USDC balance to deposit', balance: usdcBalance });
+        }
+
+        // Format with correct decimals
+        const amountStr = ethers.formatUnits(rawBal, decimals);
+
+        // Trigger the deposit asynchronously (don't block the response)
+        processCustodialDeposit(userId, amountStr, '').catch(err => {
+            console.error('[TriggerDeposit] Deposit failed:', err.message);
+        });
+
+        return res.json({
+            success: true,
+            message: `Depositing ${usdcBalance.toFixed(6)} USDC into market contract for user ${userId}`,
+            amount: usdcBalance,
+            custodialAddress
+        });
+
+    } catch (error: any) {
+        console.error('[TriggerDeposit] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 };

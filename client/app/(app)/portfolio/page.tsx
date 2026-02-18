@@ -8,7 +8,7 @@ import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import EmptyPortfolioState from "@/components/wallet/EmptyPortfolioState";
 import LogoBrand from "@/components/ui/LogoBrand";
-import SmartDepositCard from "@/components/wallet/SmartDepositCard";
+import { usePrivy } from '@privy-io/react-auth';
 
 interface Position {
     market: string;
@@ -33,8 +33,15 @@ export default function PortfolioPage() {
     const [totalPnL, setTotalPnL] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [claimingMarketId, setClaimingMarketId] = useState<number | null>(null);
+    // Custodial wallet state (for social/embedded users)
+    const [custodialAddress, setCustodialAddress] = useState<string | null>(null);
+    const [custodialUsdcBalance, setCustodialUsdcBalance] = useState<string>('0');
+    const [isDepositingCustodial, setIsDepositingCustodial] = useState(false);
+    const [custodialDepositDone, setCustodialDepositDone] = useState(false);
 
-    const { isConnected, isConnecting, address, connect, disconnect } = useWallet();
+    const { isConnected, isConnecting, address, connect, disconnect, loginMethod } = useWallet();
+    const { user: privyUser } = usePrivy();
+    const isEmbeddedWallet = loginMethod === 'privy' || loginMethod === 'google' || loginMethod === 'email';
 
     // Effective connection state (Standard OR Embedded)
     const isEffectivelyConnected = isConnected;
@@ -80,8 +87,43 @@ export default function PortfolioPage() {
 
         async function fetchData() {
             try {
-                // Fetch user DEPOSITED balance (Polymarket-style)
-                const userBalance = await web3Service.getDepositedBalance(effectiveAddress!);
+                // For social/embedded users: fetch custodial wallet address and its USDC balance
+                let checkAddress = effectiveAddress!;
+                if (isEmbeddedWallet && privyUser?.id) {
+                    try {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        const authRes = await fetch(`${apiUrl}/api/auth/privy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                privyUserId: privyUser.id,
+                                walletAddress: effectiveAddress,
+                                loginMethod: loginMethod || 'google'
+                            })
+                        });
+                        const authData = await authRes.json();
+                        const custAddr = authData.custodialAddress || authData.user?.wallet_address;
+                        if (custAddr) {
+                            setCustodialAddress(custAddr);
+                            checkAddress = custAddr;
+                            // Check USDC balance in custodial wallet
+                            const { ethers } = await import('ethers');
+                            const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
+                            const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+                            const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+                            const usdc = new ethers.Contract(usdcAddr, usdcAbi, provider);
+                            const [rawBal, decimals] = await Promise.all([usdc.balanceOf(custAddr), usdc.decimals().catch(() => 6)]);
+                            const custodialBal = parseFloat(ethers.formatUnits(rawBal, decimals));
+                            console.log('[Portfolio] Custodial USDC balance:', custodialBal);
+                            setCustodialUsdcBalance(custodialBal.toFixed(6));
+                        }
+                    } catch (e) {
+                        console.warn('[Portfolio] Failed to fetch custodial address:', e);
+                    }
+                }
+
+                // Fetch user DEPOSITED balance (from market contract)
+                const userBalance = await web3Service.getDepositedBalance(checkAddress);
 
                 setBalance(userBalance);
 
@@ -258,16 +300,66 @@ export default function PortfolioPage() {
                 </div>
             </div>
 
-            {/* Smart Deposit Prompt */}
-            {parseFloat(walletBalance) > 0 && (
-                <div className="mb-8">
-                    <SmartDepositCard
-                        walletBalance={walletBalance}
-                        onDepositSuccess={() => {
-                            // Simple reload to refresh balances
-                            window.location.reload();
+            {/* Custodial Deposit Prompt: for social/embedded users with USDC in their custodial wallet */}
+            {isEmbeddedWallet && parseFloat(custodialUsdcBalance) > 0.01 && !custodialDepositDone && (
+                <div className="mb-8 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                            <Wallet className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-bold text-white">Funds Ready to Play</h3>
+                                <span className="px-2 py-0.5 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full">Detected</span>
+                            </div>
+                            <p className="text-white/60 text-sm">
+                                We found <span className="text-white font-mono font-bold">{parseFloat(custodialUsdcBalance).toFixed(2)} USDC</span> in your wallet ready to deposit.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            if (!privyUser?.id) return;
+                            setIsDepositingCustodial(true);
+                            try {
+                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                                const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ privyUserId: privyUser.id })
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                    setCustodialDepositDone(true);
+                                    // Reload after a few seconds to show updated balance
+                                    setTimeout(() => window.location.reload(), 5000);
+                                } else {
+                                    alert(data.error || 'Deposit failed');
+                                }
+                            } catch (e: any) {
+                                alert('Deposit failed: ' + e.message);
+                            } finally {
+                                setIsDepositingCustodial(false);
+                            }
                         }}
-                    />
+                        disabled={isDepositingCustodial}
+                        className="w-full md:w-auto px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isDepositingCustodial ? (
+                            <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                        ) : (
+                            <>Add to Game Balance</>
+                        )}
+                    </button>
+                </div>
+            )}
+            {isEmbeddedWallet && custodialDepositDone && (
+                <div className="mb-8 bg-green-500/10 border border-green-500/20 rounded-2xl p-6 flex items-center gap-4 animate-fadeIn">
+                    <CheckCircle className="w-8 h-8 text-green-500 shrink-0" />
+                    <div>
+                        <h3 className="text-white font-bold">Deposit Submitted!</h3>
+                        <p className="text-white/60 text-sm">Your balance will update in ~10 seconds. Refreshing...</p>
+                    </div>
                 </div>
             )}
 
