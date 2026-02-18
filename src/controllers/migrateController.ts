@@ -86,7 +86,8 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
             id: embeddedWallet.id,
             address: embeddedWallet.address,
             recovery_method: embeddedWallet.recovery_method,
-            chain_type: embeddedWallet.chain_type
+            chain_type: embeddedWallet.chain_type,
+            client_type: embeddedWallet.wallet_client_type
         }));
 
         // The wallet ID might be different from the address
@@ -132,7 +133,7 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         const iface = new ethers.Interface(USDC_ABI);
         const transferData = iface.encodeFunctionData('transfer', [custodialAddress, balance]);
 
-        // 5. Estimate gas (Just for logging, Privy handles it usually or we can pass it if we want strict control)
+        // 5. Estimate gas (Just for logging)
         const gasEstimate = await provider.estimateGas({
             from: legacyAddress,
             to: USDC_ADDRESS,
@@ -148,19 +149,15 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         // 6. Sign and send via Privy REST API
         console.log('[Migrate] Sending transaction via Privy API (eth_sendTransaction)...');
 
-        // FIXED PAYLOAD: Using Array for params (Standard JSON-RPC)
-        // No top-level caip2. No gasLimit keys.
-
+        // FIXED PAYLOAD: Flattened object for params (Based on 'params: Expected object' and 'transaction key unrecognized')
         const rpcPayload = {
             method: 'eth_sendTransaction',
-            params: [
-                {
-                    to: USDC_ADDRESS,
-                    data: transferData,
-                    value: '0x0', // Hex string
-                    from: legacyAddress
-                }
-            ]
+            params: {
+                to: USDC_ADDRESS,
+                data: transferData,
+                value: '0x0', // Hex string
+                from: legacyAddress
+            }
         };
 
         const rpcRes = await fetch(`https://api.privy.io/v1/wallets/${walletId}/rpc`, {
