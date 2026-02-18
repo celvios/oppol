@@ -31,8 +31,14 @@ export default function FundMigrationManager() {
 
     // The "Legacy" wallet is the connected embedded wallet
     // IMPROVED LOGIC: Match by type OR if it matches user.wallet.address (which comes from Privy auth)
-    const legacyWallet = wallets.find(w => w.walletClientType === 'privy' || (user?.wallet?.address && w.address.toLowerCase() === user.wallet.address.toLowerCase()));
-    const legacyAddress = legacyWallet?.address;
+    // We now filter ALL potential wallets and check which one has funds
+    const potentialWallets = wallets.filter(w =>
+        w.walletClientType === 'privy' ||
+        (user?.wallet?.address && w.address.toLowerCase() === user.wallet.address.toLowerCase())
+    );
+
+    const [activeLegacyWallet, setActiveLegacyWallet] = useState<any>(null);
+    const legacyAddress = activeLegacyWallet?.address;
 
     const [needsMigration, setNeedsMigration] = useState(false);
     const [balance, setBalance] = useState('0');
@@ -108,35 +114,44 @@ export default function FundMigrationManager() {
                 const dbUser = syncData.user;
                 console.log(`[Migration] DB User Wallet: ${dbUser.wallet_address}`);
 
-                // Compare Addresses: If DB has a different address, and we are logged in via Privy
-                if (dbUser.wallet_address && legacyAddress.toLowerCase() !== dbUser.wallet_address.toLowerCase()) {
-                    console.log(`🔍 [Migration] Mismatch detected! Connected: ${legacyAddress}, DB: ${dbUser.wallet_address}`);
+                // Compare Addresses: If DB has a different address, check if ANY potential wallet needs migration
 
-                    // Check Balance of Legacy Wallet using Privy Provider
-                    if (!legacyWallet) {
-                        console.log('[Migration] No legacy wallet object found.');
-                        return;
+                // Iterate through all potential wallets to find one with funds
+                let foundWalletWithFunds = false;
+
+                // Use our own RPC for reliable read-only calls
+                const provider = new ethers.JsonRpcProvider(RPC_URL);
+                const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+
+                for (const wallet of potentialWallets) {
+                    if (dbUser.wallet_address && wallet.address.toLowerCase() === dbUser.wallet_address.toLowerCase()) {
+                        console.log(`[Migration] Wallet ${wallet.address} matches DB custodial address. Skipping.`);
+                        continue;
                     }
 
-                    // Use our own RPC for reliable read-only calls (Privy defaults to unreliable Thirdweb)
-                    const provider = new ethers.JsonRpcProvider(RPC_URL);
-                    const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+                    console.log(`[Migration] Checking balance for potential wallet: ${wallet.address}`);
 
-                    const balanceWei = await usdcContract.balanceOf(legacyAddress);
-                    const balanceFormatted = ethers.formatUnits(balanceWei, 18);
+                    try {
+                        const balanceWei = await usdcContract.balanceOf(wallet.address);
+                        const balanceFormatted = ethers.formatUnits(balanceWei, 18);
+                        console.log(`💰 [Migration] Balance for ${wallet.address}: ${balanceFormatted}`);
 
-                    console.log(`💰 [Migration] Legacy Balance: ${balanceFormatted}`);
-
-                    if (parseFloat(balanceFormatted) > 0.01) {
-                        console.log('[Migration] Balance sufficient. Triggering modal.');
-                        setBalance(balanceFormatted);
-                        setCustodialAddress(dbUser.wallet_address);
-                        setNeedsMigration(true);
-                    } else {
-                        console.log('[Migration] Balance too low to migrate.');
+                        if (parseFloat(balanceFormatted) > 0.01) {
+                            console.log(`[Migration] Found wallet with funds! ${wallet.address}`);
+                            setActiveLegacyWallet(wallet);
+                            setBalance(balanceFormatted);
+                            setCustodialAddress(dbUser.wallet_address);
+                            setNeedsMigration(true);
+                            foundWalletWithFunds = true;
+                            break; // Stop after finding the first valid wallet
+                        }
+                    } catch (e) {
+                        console.error(`[Migration] Error checking balance for ${wallet.address}:`, e);
                     }
-                } else {
-                    console.log('[Migration] Addresses match. No migration needed.');
+                }
+
+                if (!foundWalletWithFunds) {
+                    console.log('[Migration] No eligible wallets with funds found.');
                 }
 
                 hasChecked.current = true;
@@ -146,11 +161,11 @@ export default function FundMigrationManager() {
             }
         };
 
-        // Only run check if we actually have a legacy address
-        if (legacyAddress) {
+        // Only run check if we have potential wallets and haven't checked yet
+        if (potentialWallets.length > 0 && !hasChecked.current) {
             checkMigrationStatus();
         }
-    }, [user, legacyAddress, legacyWallet, loginMethod, wallets.length]);
+    }, [user, potentialWallets.length, loginMethod]);
 
     const handleMigrate = async () => {
         if (!custodialAddress || !legacyAddress || !user) return;
