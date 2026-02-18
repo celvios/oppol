@@ -20,8 +20,16 @@ export default function FundMigrationManager() {
     const { user, loginMethod } = useAuth(); // Privacy/Backend User info
     const { wallets } = useWallets(); // Get all connected wallets from Privy
 
+    // Debugging: Log all wallets
+    useEffect(() => {
+        if (wallets.length > 0) {
+            console.log('[Migration] Wallets State:', wallets.map(w => ({ type: w.walletClientType, address: w.address })));
+        }
+    }, [wallets]);
+
     // The "Legacy" wallet is the connected embedded wallet
-    const legacyWallet = wallets.find(w => w.walletClientType === 'privy');
+    // IMPROVED LOGIC: Match by type OR if it matches user.wallet.address (which comes from Privy auth)
+    const legacyWallet = wallets.find(w => w.walletClientType === 'privy' || (user?.wallet?.address && w.address.toLowerCase() === user.wallet.address.toLowerCase()));
     const legacyAddress = legacyWallet?.address;
 
     const [needsMigration, setNeedsMigration] = useState(false);
@@ -38,10 +46,12 @@ export default function FundMigrationManager() {
     useEffect(() => {
         const checkMigrationStatus = async () => {
             console.log('[Migration] Checking status...', {
-                user: user?.id,
+                userId: user?.id,
+                userWalletAddress: user?.wallet?.address,
                 legacyAddress,
                 loginMethod,
-                hasChecked: hasChecked.current
+                hasChecked: hasChecked.current,
+                walletsLength: wallets.length
             });
 
             if (!user || !legacyAddress) {
@@ -97,7 +107,7 @@ export default function FundMigrationManager() {
 
                     console.log(`💰 [Migration] Legacy Balance: ${balanceFormatted}`);
 
-                    if (parseFloat(balanceFormatted) > 0.01) { // Lowered threshold for testing
+                    if (parseFloat(balanceFormatted) > 0.01) {
                         console.log('[Migration] Balance sufficient. Triggering modal.');
                         setBalance(balanceFormatted);
                         setCustodialAddress(dbUser.wallet_address);
@@ -116,8 +126,11 @@ export default function FundMigrationManager() {
             }
         };
 
-        checkMigrationStatus();
-    }, [user, legacyAddress, legacyWallet, loginMethod]);
+        // Only run check if we actually have a legacy address
+        if (legacyAddress) {
+            checkMigrationStatus();
+        }
+    }, [user, legacyAddress, legacyWallet, loginMethod, wallets.length]);
 
     const handleMigrate = async () => {
         if (!legacyWallet || !custodialAddress) return;
