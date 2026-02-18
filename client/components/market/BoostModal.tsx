@@ -127,7 +127,7 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
                     {/* Payment Instructions */}
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3">
                         <div className="text-sm text-text-secondary text-center">
-                            Send <span className="text-white font-bold">${selectedTier.price} USDT (BEP20)</span> to this address:
+                            Send <span className="text-white font-bold">${selectedTier.price} USDT or USDC (BEP20)</span> to this address:
                         </div>
 
                         <div

@@ -12,6 +12,9 @@ const ADMIN_WALLET = (process.env.ADMIN_WALLET || '0xfc8c540e7d3912458b36189f325
 // USDC contract on BSC (BEP20) - 18 decimals
 const USDC_ADDRESS = (process.env.USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d').toLowerCase();
 
+// USDT contract on BSC (BEP20) - 18 decimals
+const USDT_ADDRESS = (process.env.USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955').toLowerCase();
+
 // ERC-20 transfer(address,uint256) function selector
 const TRANSFER_SELECTOR = '0xa9059cbb';
 
@@ -52,11 +55,12 @@ router.post('/verify', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Transaction not found on chain. Please wait for confirmation and try again.' });
         }
 
-        // 3. Verify the transaction is to the USDC contract (not any other token or wallet)
-        if (!tx.to || tx.to.toLowerCase() !== USDC_ADDRESS) {
+        // 3. Verify the transaction is to the USDC OR USDT contract
+        const toAddress = tx.to?.toLowerCase();
+        if (!toAddress || (toAddress !== USDC_ADDRESS && toAddress !== USDT_ADDRESS)) {
             return res.status(400).json({
                 success: false,
-                message: `Transaction is not a USDC (BEP20) transfer. Please send USDC on BSC.`
+                message: `Transaction is not a USDC or USDT (BEP20) transfer. Please send USDC or USDT on BSC.`
             });
         }
 
