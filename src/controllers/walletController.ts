@@ -82,16 +82,17 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         // Custodial Signer
         const custodialSigner = new ethers.Wallet(privateKey, provider);
 
-        // 2. Check Gas (BNB)
-        // We need gas to Approve + Deposit. ~0.001 BNB is safe.
+        // We need gas to Approve + Deposit. ~0.001 BNB is ideal, but for low-balance relayers:
+        // Approve ~45k gas. Deposit ~100k gas. Total ~150k gas.
+        // @ 3 Gwei = 0.00045 BNB. So 0.0006 is safe minimum.
         const bal = await provider.getBalance(custodialAddress);
-        const minGas = ethers.parseEther("0.002");
+        const minGas = ethers.parseEther("0.0006");
 
         if (bal < minGas) {
             console.log(`[Deposit] Low BNB (${ethers.formatEther(bal)}). Funding gas from Relayer...`);
             const tx = await relayer.sendTransaction({
                 to: custodialAddress,
-                value: minGas - bal + ethers.parseEther("0.0005") // Top up to ~0.0025
+                value: minGas - bal + ethers.parseEther("0.0001") // Top up to ~0.0007
             });
             await tx.wait();
             console.log(`[Deposit] Gas funded: ${tx.hash}`);
