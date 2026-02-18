@@ -34,8 +34,11 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         }
 
         if (!PRIVY_APP_ID || !PRIVY_APP_SECRET) {
-            console.error('[Migrate] Missing Privy credentials');
-            return res.status(500).json({ success: false, error: 'Server not configured for migration (missing Privy credentials)' });
+            console.error(`[Migrate] Missing Privy credentials. App ID: ${!!PRIVY_APP_ID}, Secret: ${!!PRIVY_APP_SECRET}`);
+            return res.status(500).json({
+                success: false,
+                error: `Server not configured. Missing: ${!PRIVY_APP_ID ? 'App ID' : ''} ${!PRIVY_APP_SECRET ? 'App Secret' : ''}`
+            });
         }
 
         // 1. Get user's embedded wallets from Privy API
