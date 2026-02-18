@@ -178,6 +178,7 @@ export default function FundMigrationManager() {
     const handleMigrate = async () => {
         if (!custodialAddress || !legacyAddress || !user) return;
         setIsMigrating(true);
+        setStatus('starting');
         setError('');
         setShowExport(false);
 
@@ -185,14 +186,20 @@ export default function FundMigrationManager() {
             console.log(`[Migration] Attempting client-side migration: ${legacyAddress} -> ${custodialAddress}`);
 
             const provider = new ethers.JsonRpcProvider(RPC_URL);
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+            // Fix API URL for production
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
+                (typeof window !== 'undefined' && window.location.origin.includes('localhost')
+                    ? 'http://localhost:3001'
+                    : 'https://oppol-api.onrender.com'); // Updated fallback
 
             // 1. Check for BNB Gas
-            const bnbBalance = await provider.getBalance(legacyAddress);
+            let bnbBalance = await provider.getBalance(legacyAddress);
             const minGas = ethers.parseEther("0.001");
 
             if (bnbBalance < minGas) {
                 console.log('[Migration] Low Gas. Requesting from faucet...');
+                setStatus('faucet');
                 try {
                     const res = await fetch(`${apiUrl}/api/faucet/claim`, {
                         method: 'POST',
@@ -200,22 +207,39 @@ export default function FundMigrationManager() {
                         body: JSON.stringify({ address: legacyAddress })
                     });
                     const faucetData = await res.json();
+
                     if (faucetData.success) {
-                        console.log('[Migration] Gas received! Waiting for confirmation...');
-                        await new Promise(r => setTimeout(r, 4000)); // Wait for block
+                        console.log('[Migration] Gas requested. Polling for arrival...');
+                        setStatus('waiting-for-gas');
+
+                        // Poll for up to 20s for BNB balance to increase
+                        let attempts = 0;
+                        while (attempts < 10) {
+                            await new Promise(r => setTimeout(r, 2000));
+                            const newBal = await provider.getBalance(legacyAddress);
+                            if (newBal > bnbBalance) {
+                                console.log('[Migration] Gas confirmed!');
+                                bnbBalance = newBal;
+                                break;
+                            }
+                            attempts++;
+                        }
                     } else {
-                        console.warn('[Migration] Faucet failed:', faucetData.error);
+                        throw new Error(faucetData.error || 'Faucet failed to send gas');
                     }
-                } catch (faucetErr) {
-                    console.error('[Migration] Faucet call failed:', faucetErr);
+                } catch (faucetErr: any) {
+                    console.error('[Migration] Faucet failed:', faucetErr);
+                    // Continue anyway, maybe they have enough
                 }
             }
 
+            setStatus('preparing-tx');
             // 2. Prepare transaction
             const amountWei = ethers.parseUnits(balance, 18);
             const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
             const transferData = usdcContract.interface.encodeFunctionData("transfer", [custodialAddress, amountWei]);
 
+            setStatus('signing');
             // 3. Send transaction via Privy Embedded Wallet
             // We use the simpler signature: sendTransaction({ to, data, value })
             // Privy handles gas and chain switching if needed.
@@ -251,6 +275,20 @@ export default function FundMigrationManager() {
             }
         } finally {
             setIsMigrating(false);
+            setStatus('idle');
+        }
+    };
+
+    const [status, setStatus] = useState<'idle' | 'starting' | 'faucet' | 'waiting-for-gas' | 'preparing-tx' | 'signing'>('idle');
+
+    const getStatusMessage = () => {
+        switch (status) {
+            case 'starting': return 'Starting migration...';
+            case 'faucet': return 'Requesting gas from faucet...';
+            case 'waiting-for-gas': return 'Waiting for gas to arrive (2-5s)...';
+            case 'preparing-tx': return 'Preparing transfer...';
+            case 'signing': return 'Please sign in the popup';
+            default: return 'Moving Funds...';
         }
     };
 
@@ -309,7 +347,7 @@ export default function FundMigrationManager() {
                                         >
                                             {isMigrating ? (
                                                 <span className="flex items-center justify-center gap-2">
-                                                    <Loader2 className="animate-spin" /> Moving Funds...
+                                                    <Loader2 className="animate-spin" /> {getStatusMessage()}
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center justify-center gap-2">
