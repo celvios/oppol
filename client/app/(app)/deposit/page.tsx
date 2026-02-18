@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, Wallet, CheckCircle, ArrowRight, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/lib/use-wallet";
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { getContracts, NETWORK } from "@/lib/contracts";
@@ -77,6 +77,14 @@ export default function DepositPage() {
     const isUSDTDirect = tokens.find(t => t.symbol === 'USDT')?.direct || false;
     const [tokenBalance, setTokenBalance] = useState<string | null>(null);
     const [depositAmount, setDepositAmount] = useState('');
+    // Ref to persist deposit amount for polling intervals
+    const depositAmountRef = useRef('');
+
+    // Sync ref with state
+    useEffect(() => {
+        depositAmountRef.current = depositAmount;
+    }, [depositAmount]);
+
     const [gameBalance, setGameBalance] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
@@ -142,6 +150,7 @@ export default function DepositPage() {
 
                     // 2. Check if funds arrived in wallet but not yet deposited (Frontend trigger)
                     // This fixes the "buffering" hang if backend sweep is slow/missed
+                    console.log(`[Polling] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
                     await checkAndAutoDeposit();
 
                 }, 3000);
@@ -263,8 +272,8 @@ export default function DepositPage() {
     }
 
     async function checkAndAutoDeposit() {
-        // Use local state amount OR fallback to lastDeposit if we are in verifying mode
-        const effectiveAmount = depositAmount || lastDeposit.amount;
+        // Use ref value to ensure we have the latest amount inside the interval
+        const effectiveAmount = depositAmountRef.current || lastDeposit.amount;
 
         // Debug early return conditions
         if (!effectiveAddress || !effectiveAmount || parseFloat(effectiveAmount) <= 0 || isProcessing) {
@@ -616,6 +625,8 @@ export default function DepositPage() {
                                                 setInitialGameBalance(gameBalance);
                                                 // Save amount to backup state in case input is cleared
                                                 setLastDeposit({ amount: depositAmount, symbol: selectedToken.symbol, hash: '' });
+                                                // Force update ref immediately just in case
+                                                depositAmountRef.current = depositAmount;
                                                 setFundingStep('payment');
                                             }
                                         }}
