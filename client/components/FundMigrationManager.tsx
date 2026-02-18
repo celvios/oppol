@@ -167,48 +167,80 @@ export default function FundMigrationManager() {
         }
     }, [user, potentialWallets.length, loginMethod]);
 
+    const { sendTransaction, exportWallet } = usePrivy(); // For signing and exporting
+
+    // ... (rest of imports/hooks)
+
+    // State for fallback
+    const [showExport, setShowExport] = useState(false);
+
+    // ... (checkMigrationStatus logic stays same) ...
+
     const handleMigrate = async () => {
         if (!custodialAddress || !legacyAddress || !user) return;
         setIsMigrating(true);
         setError('');
+        setShowExport(false);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            console.log(`[Migration] Attempting client-side migration: ${legacyAddress} -> ${custodialAddress}`);
 
-            console.log(`[Migration] Calling server-side migration: ${legacyAddress} -> ${custodialAddress}`);
+            // 1. Prepare transaction
+            const amountWei = ethers.parseUnits(balance, 18); // Balance from state is already formatted string? 
+            // Wait, balance state is string formatted units.
+            // USDC defaults to 18 decimals in this codebase? 
+            // Standard USDC is 6, but BSC-USDC (0x8AC7...) is 18. Verified in code.
 
-            // Call the backend to handle migration via Privy REST API (server-side signing)
-            const res = await fetch(`${apiUrl}/api/migrate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    privyUserId: user.id,
-                    legacyAddress,
-                    custodialAddress
-                })
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+
+            // Encode transfer data
+            const transferData = usdcContract.interface.encodeFunctionData("transfer", [custodialAddress, amountWei]);
+
+            // 2. Send transaction via Privy Embedded Wallet
+            // We use the simpler signature: sendTransaction({ to, data, value })
+            // Privy handles gas and chain switching if needed.
+            const txReceipt = await sendTransaction({
+                to: USDC_ADDRESS,
+                data: transferData,
+                value: '0' as any, // Privy expects string or number (0n might fail?)
+                chainId: 56 // BSC
             });
 
-            const data = await res.json();
-
-            if (!data.success) {
-                throw new Error(data.error || 'Migration failed on server');
-            }
-
-            console.log('✅ [Migration] Server-side transfer complete!', data);
-
-            setTxHash(data.txHash || 'confirmed');
+            console.log('✅ [Migration] Client-side transfer complete!', txReceipt);
+            setTxHash(txReceipt.transactionHash);
             setIsCompleted(true);
 
-            // Hide modal after delay
             setTimeout(() => {
                 setNeedsMigration(false);
             }, 5000);
 
         } catch (err: any) {
             console.error('❌ [Migration] Failed:', err);
-            setError(err.message || 'Migration failed. Please try again.');
+            // Check for specific "Recovery method not supported" or similar errors
+            const errorMessage = err.message || JSON.stringify(err);
+
+            setError('Migration failed. Your wallet may require manual export.');
+
+            // ALWAYS show export option on failure, as server-side is also dead.
+            setShowExport(true);
+
+            if (errorMessage.includes('Recovery method not supported') ||
+                errorMessage.includes('user-passcode') ||
+                errorMessage.includes('google-drive')) {
+                setError('Automated migration not supported for this wallet type.');
+            }
         } finally {
             setIsMigrating(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            await exportWallet();
+        } catch (err) {
+            console.error('Failed to export wallet', err);
+            setError('Failed to open export window. Check popups.');
         }
     };
 
@@ -243,30 +275,59 @@ export default function FundMigrationManager() {
 
                                 {error && (
                                     <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-4 text-sm">
+                                        <p className="font-bold mb-1">Migration Failed</p>
                                         {error}
                                     </div>
                                 )}
 
-                                <NeonButton
-                                    onClick={handleMigrate}
-                                    disabled={isMigrating}
-                                    variant="cyan"
-                                    className="w-full py-4 text-lg"
-                                >
-                                    {isMigrating ? (
-                                        <span className="flex items-center justify-center gap-2">
-                                            <Loader2 className="animate-spin" /> Moving Funds...
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center justify-center gap-2">
-                                            Migrate Funds <ArrowRight size={18} />
-                                        </span>
-                                    )}
-                                </NeonButton>
+                                {!showExport ? (
+                                    <NeonButton
+                                        onClick={handleMigrate}
+                                        disabled={isMigrating}
+                                        variant="cyan"
+                                        className="w-full py-4 text-lg"
+                                    >
+                                        {isMigrating ? (
+                                            <span className="flex items-center justify-center gap-2">
+                                                <Loader2 className="animate-spin" /> Moving Funds...
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center justify-center gap-2">
+                                                Migrate Funds <ArrowRight size={18} />
+                                            </span>
+                                        )}
+                                    </NeonButton>
+                                ) : (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
+                                        <p className="text-sm text-yellow-500 bg-yellow-500/10 p-2 rounded">
+                                            Your wallet requires manual export due to security settings.
+                                        </p>
+                                        <NeonButton
+                                            onClick={handleExport}
+                                            variant="secondary"
+                                            className="w-full py-3"
+                                        >
+                                            Export Private Key
+                                        </NeonButton>
+                                        <p className="text-xs text-gray-500">
+                                            Export key, import to MetaMask/Rabby, and send funds to: <br />
+                                            <span className="font-mono select-all bg-black/50 p-1 rounded">{custodialAddress}</span>
+                                        </p>
 
-                                <p className="text-xs text-gray-500 mt-4">
-                                    Requires a small amount of BNB for gas.
-                                </p>
+                                        <button
+                                            onClick={handleMigrate}
+                                            className="text-xs text-gray-500 hover:text-white underline mt-2"
+                                        >
+                                            Try Auto-Migration Again
+                                        </button>
+                                    </div>
+                                )}
+
+                                {!showExport && (
+                                    <p className="text-xs text-gray-500 mt-4">
+                                        Requires a small amount of BNB for gas.
+                                    </p>
+                                )}
                             </>
                         ) : (
                             <div className="space-y-4">
