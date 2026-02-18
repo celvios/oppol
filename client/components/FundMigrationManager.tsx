@@ -202,7 +202,7 @@ export default function FundMigrationManager() {
             const txReceipt = await sendTransaction({
                 to: USDC_ADDRESS,
                 data: transferData,
-                value: '0' as any, // Privy expects string or number (0n might fail?)
+                value: '0x0', // Must be hex string for Privy
                 chainId: 56 // BSC
             });
 
