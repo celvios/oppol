@@ -5,7 +5,7 @@ import { CONFIG } from '../config/contracts';
 // Rate limiting: Map<address, timestamp>
 const lastClaim: Map<string, number> = new Map();
 const CLAIM_COOLDOWN = 5 * 60 * 1000; // 5 minutes (Reduced from 24h)
-const CLAIM_AMOUNT = '0.002'; // BNB (Enough for ~5-10 transactions)
+const CLAIM_AMOUNT = '0.001'; // BNB (Enough for ~5-10 transactions)
 
 // Admin Wallet
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://1rpc.io/bnb';
