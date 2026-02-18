@@ -116,7 +116,9 @@ export default function FundMigrationManager() {
                         return;
                     }
 
-                    const provider = await legacyWallet.getEthersProvider();
+                    // Use getEthereumProvider (EIP-1193) and wrap with v6 BrowserProvider
+                    const ethereumProvider = await legacyWallet.getEthereumProvider();
+                    const provider = new ethers.BrowserProvider(ethereumProvider);
                     const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
 
                     const balanceWei = await usdcContract.balanceOf(legacyAddress);
@@ -155,8 +157,9 @@ export default function FundMigrationManager() {
         setError('');
 
         try {
-            // Get Signer from Privy Wallet
-            const provider = await legacyWallet.getEthersProvider();
+            // Get Signer from Privy Wallet (v6 compatible way)
+            const ethereumProvider = await legacyWallet.getEthereumProvider();
+            const provider = new ethers.BrowserProvider(ethereumProvider);
             const signer = await provider.getSigner();
 
             // 1. Check BNB Gas Balance logic
