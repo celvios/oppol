@@ -174,9 +174,28 @@ export default function DepositPage() {
         if (!effectiveAddress) return;
 
         try {
+            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const { web3Service } = await import('@/lib/web3');
-            const balance = await web3Service.getDepositedBalance(effectiveAddress);
-            setGameBalance(parseFloat(balance).toFixed(2));
+
+            // Get contract deposited balance
+            const contractBalance = await web3Service.getDepositedBalance(effectiveAddress);
+
+            // Also get raw USDC wallet balance (shows immediately after migration, before auto-deposit)
+            const { ethers: eth } = await import('ethers');
+            const provider = new eth.JsonRpcProvider(rpcUrl);
+            const usdcAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+            const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+            const usdc = new eth.Contract(usdcAddress, usdcAbi, provider);
+            const [rawBal, decimals] = await Promise.all([
+                usdc.balanceOf(effectiveAddress),
+                usdc.decimals().catch(() => 18)
+            ]);
+            const rawWalletBalance = parseFloat(eth.formatUnits(rawBal, decimals));
+
+            // Show the higher of the two (contract balance takes precedence once deposited)
+            const contractNum = parseFloat(contractBalance);
+            const total = contractNum > 0 ? contractNum : rawWalletBalance;
+            setGameBalance(total.toFixed(2));
         } catch (error: any) {
             console.error('[Deposit] Failed to fetch game balance:', error);
             setGameBalance('0.00');

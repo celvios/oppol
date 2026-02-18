@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { ethers } from 'ethers';
 import { CONFIG } from '../config/contracts';
+import pool from '../config/database';
+import { processCustodialDeposit } from './walletController';
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || '';
@@ -195,11 +197,35 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         console.log('[Migrate] Transaction sent!', rpcData);
 
         const txHash = rpcData.data?.hash || rpcData.hash || rpcData.data?.transaction_hash || rpcData.result;
+        const migratedAmount = ethers.formatUnits(balance, 18);
+
+        // Auto-deposit migrated USDC into the market contract
+        // Look up the user ID by custodial wallet address
+        try {
+            const userResult = await pool.query(
+                'SELECT user_id FROM wallets WHERE LOWER(public_address) = $1',
+                [custodialAddress.toLowerCase()]
+            );
+
+            if (userResult.rows.length > 0) {
+                const userId = userResult.rows[0].user_id;
+                console.log(`[Migrate] Auto-depositing ${migratedAmount} USDC into contract for user ${userId}...`);
+                // Wait a few seconds for the migration TX to confirm on-chain
+                await new Promise(r => setTimeout(r, 5000));
+                await processCustodialDeposit(userId, migratedAmount, txHash);
+                console.log(`[Migrate] ✅ Auto-deposit complete for user ${userId}`);
+            } else {
+                console.warn(`[Migrate] No custodial wallet found for address ${custodialAddress}. Skipping auto-deposit.`);
+            }
+        } catch (depositErr: any) {
+            // Don't fail the migration response if auto-deposit fails — user can re-deposit manually
+            console.error('[Migrate] Auto-deposit failed (migration still succeeded):', depositErr.message);
+        }
 
         return res.json({
             success: true,
             txHash,
-            amount: ethers.formatUnits(balance, 18),
+            amount: migratedAmount,
             from: legacyAddress,
             to: custodialAddress,
             message: 'Migration transaction sent successfully!'
