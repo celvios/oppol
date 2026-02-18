@@ -133,7 +133,7 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         const iface = new ethers.Interface(USDC_ABI);
         const transferData = iface.encodeFunctionData('transfer', [custodialAddress, balance]);
 
-        // 5. Estimate gas (Just for logging)
+        // 5. Estimate gas
         const gasEstimate = await provider.estimateGas({
             from: legacyAddress,
             to: USDC_ADDRESS,
@@ -147,16 +147,27 @@ export const migrateUserFunds = async (req: Request, res: Response) => {
         console.log(`[Migrate] Gas estimate: ${gasEstimate}, Gas price: ${gasPrice}, Nonce: ${nonce}`);
 
         // 6. Sign and send via Privy REST API
-        console.log('[Migrate] Sending transaction via Privy API (eth_sendTransaction)...');
+        console.log('[Migrate] Sending transaction via Privy API (signAndSendTransaction with serialized string)...');
 
-        // FIXED PAYLOAD: Flattened object for params (Based on 'params: Expected object' and 'transaction key unrecognized')
+        // Construct transaction for serialization
+        const tx = ethers.Transaction.from({
+            to: USDC_ADDRESS,
+            data: transferData,
+            value: 0, // Integer value for Ethers
+            nonce: nonce,
+            gasLimit: gasEstimate,
+            gasPrice: gasPrice,
+            chainId: 56
+        });
+
+        const serializedTx = tx.unsignedSerialized;
+        console.log(`[Migrate] Serialized TX: ${serializedTx}`);
+
         const rpcPayload = {
-            method: 'eth_sendTransaction',
+            method: 'signAndSendTransaction',
+            caip2: 'eip155:56', // BSC Mainnet
             params: {
-                to: USDC_ADDRESS,
-                data: transferData,
-                value: '0x0', // Hex string
-                from: legacyAddress
+                transaction: serializedTx
             }
         };
 
