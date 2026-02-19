@@ -17,7 +17,8 @@ export const CONTRACTS = {
     mockUSDC: getEnv('NEXT_PUBLIC_USDC_CONTRACT'),
     usdc: getEnv('NEXT_PUBLIC_USDC_CONTRACT'),
     zap: getEnv('NEXT_PUBLIC_ZAP_ADDRESS'),
-    oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS')
+    oracle: getEnv('NEXT_PUBLIC_ORACLE_ADDRESS'),
+    // usdc key is already defined above at line 18
 };
 
 export const NETWORK = {
