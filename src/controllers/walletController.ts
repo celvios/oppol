@@ -332,12 +332,13 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             const marketAbi = ['function withdraw(uint256 amount)'];
             const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-            // Convert USDC needed to Shares
-            const neededUSDCStr = ethers.formatUnits(neededFromGame, 6);
-            const neededShares = ethers.parseUnits(neededUSDCStr, 18);
+            // Convert USDC needed to Shares (Correction: Withdraw takes USDC decimals, not 18)
+            // const neededUSDCStr = ethers.formatUnits(neededFromGame, 6);
+            // const neededShares = ethers.parseUnits(neededUSDCStr, 18); 
+            // FIX: Use neededFromGame directly (which is already BigInt 6 decimals) or ensure 6 decimals
 
-            console.log(`[Withdraw] Withdrawing ${neededUSDCStr} from Market...`);
-            const txWithdraw = await market.withdraw(neededShares);
+            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, 6)} USDC from Market...`);
+            const txWithdraw = await market.withdraw(neededFromGame);
             await txWithdraw.wait();
         }
 
