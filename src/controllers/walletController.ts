@@ -425,10 +425,26 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         // Step B: Transfer to Destination (if provided)
         let finalTx = '';
         if (destinationAddress) {
-            console.log(`[Withdraw] Transferring ${amount} USDC to ${destinationAddress}...`);
-            const txTransfer = await usdc.transfer(destinationAddress, amountUSDC);
-            await txTransfer.wait();
-            finalTx = txTransfer.hash;
+            // Re-check balance to account for any fees or rounding during withdraw
+            const finalBalance = await usdc.balanceOf(custodialAddress);
+            console.log(`[Withdraw] Final Wallet Balance: ${ethers.formatUnits(finalBalance, decimals)}`);
+
+            // Use the lesser of requested amount or available balance
+            // (To prevent "transfer amount exceeds balance" error)
+            let transferAmount = amountUSDC;
+            if (finalBalance < amountUSDC) {
+                console.warn(`[Withdraw] Balance (${finalBalance}) < Requested (${amountUSDC}). Adjusting to available balance.`);
+                transferAmount = finalBalance;
+            }
+
+            if (transferAmount > 0n) {
+                console.log(`[Withdraw] Transferring ${ethers.formatUnits(transferAmount, decimals)} USDC to ${destinationAddress}...`);
+                const txTransfer = await usdc.transfer(destinationAddress, transferAmount);
+                await txTransfer.wait();
+                finalTx = txTransfer.hash;
+            } else {
+                console.warn('[Withdraw] No funds to transfer after withdrawal.');
+            }
         }
 
         return res.json({
