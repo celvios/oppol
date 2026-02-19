@@ -107,7 +107,32 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
             console.log(`[Deposit] Gas funded: ${tx.hash}`);
         }
 
-        // 3. Approve USDC
+        // 3. Approve USDC: ~45k gas
+        // 4. Deposit: ~100k gas
+        // Total Gas ~150k.
+        // Calculate Fee in USDC
+        const { gasService } = require('../services/gasService');
+        const estGas = 150000n;
+        const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
+
+        console.log(`[Deposit] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 6)} USDC`);
+
+        // Convert amount
+        // USDC on BSC has 6 decimals
+        const USDC_DECIMALS = 6;
+        const amountBN = ethers.parseUnits(amountRaw, USDC_DECIMALS);
+
+        let depositAmount = amountBN;
+
+        // Deduct Fee
+        if (amountBN > gasFeeUSDC) {
+            depositAmount = amountBN - gasFeeUSDC;
+            console.log(`[Deposit] Deducting Fee. Net Deposit: ${ethers.formatUnits(depositAmount, 6)} USDC`);
+        } else {
+            console.warn(`[Deposit] Amount too low to cover gas. Proceeding without deduction (platform absorbs cost).`);
+            // Optional: fail here if you want to enforce user pays
+        }
+
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
 
@@ -115,17 +140,13 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
 
         const usdcAbi = [
             'function approve(address spender, uint256 amount) returns (bool)',
+            'function transfer(address, uint256) returns (bool)',
             'function allowance(address owner, address spender) view returns (uint256)'
         ];
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
 
-        // Convert amount
-        // USDC on BSC has 6 decimals
-        const USDC_DECIMALS = 6;
-        const amountBN = ethers.parseUnits(amountRaw, USDC_DECIMALS);
-
         const allowance = await usdc.allowance(custodialAddress, MARKET_ADDR);
-        if (allowance < amountBN) {
+        if (allowance < depositAmount) {
             console.log(`[Deposit] Approving USDC for Market...`);
             const txApprove = await usdc.approve(MARKET_ADDR, ethers.MaxUint256);
             await txApprove.wait();
@@ -136,13 +157,25 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const marketAbi = ['function deposit(uint256 amount)'];
         const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-        console.log(`[Deposit] Depositing ${amountRaw} USDC to Market...`);
+        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 6)} USDC to Market...`);
         // Check balance again just in case (USDC balance)
         // We assume watcher was triggered by transfer, so balance is there.
 
-        const txDeposit = await market.deposit(amountBN);
+        const txDeposit = await market.deposit(depositAmount);
         console.log(`[Deposit] Deposit TX Sent: ${txDeposit.hash}`);
         const receipt = await txDeposit.wait();
+
+        // 5. Transfer Fee to Relayer (Revenue)
+        if (depositAmount < amountBN && gasFeeUSDC > 0n) {
+            console.log(`[Deposit] Transferring Gas Fee (${ethers.formatUnits(gasFeeUSDC, 6)} USDC) to Relayer...`);
+            try {
+                const txFee = await usdc.transfer(relayer.address, gasFeeUSDC);
+                await txFee.wait();
+                console.log(`[Deposit] Fee Transferred: ${txFee.hash}`);
+            } catch (e: any) {
+                console.error(`[Deposit] Failed to transfer fee: ${e.message}`);
+            }
+        }
 
         console.log(`✅ [Deposit] Sweep complete! User ${userId} now has on-chain balance.`);
         return txDeposit.hash;
@@ -422,6 +455,22 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             await txWithdraw.wait();
         }
 
+        // Calculate Gas Fee for Withdrawal
+        const { gasService } = require('../services/gasService');
+        // Est: Withdraw (50k) + Transfer (50k) = 100k
+        const estGas = 100000n;
+        const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
+        console.log(`[Withdraw] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, Number(decimals))} USDC`);
+
+        // Deduct from requested amount for transfer
+        let netTransferAmount = amountUSDC;
+        if (amountUSDC > gasFeeUSDC) {
+            netTransferAmount = amountUSDC - gasFeeUSDC;
+            console.log(`[Withdraw] Deducting Fee. Net Transfer to User: ${ethers.formatUnits(netTransferAmount, Number(decimals))} USDC`);
+        } else {
+            console.warn(`[Withdraw] Amount too low to cover gas. Proceeding without deduction (platform absorbs cost).`);
+        }
+
         // Step B: Transfer to Destination (if provided)
         let finalTx = '';
         if (destinationAddress) {
@@ -429,11 +478,10 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             const finalBalance = await usdc.balanceOf(custodialAddress);
             console.log(`[Withdraw] Final Wallet Balance: ${ethers.formatUnits(finalBalance, decimals)}`);
 
-            // Use the lesser of requested amount or available balance
-            // (To prevent "transfer amount exceeds balance" error)
-            let transferAmount = amountUSDC;
-            if (finalBalance < amountUSDC) {
-                console.warn(`[Withdraw] Balance (${finalBalance}) < Requested (${amountUSDC}). Adjusting to available balance.`);
+            // Use the lesser of requested NET amount or available balance
+            let transferAmount = netTransferAmount;
+            if (finalBalance < transferAmount) {
+                console.warn(`[Withdraw] Balance (${finalBalance}) < Net Requested (${transferAmount}). Adjusting to available balance.`);
                 transferAmount = finalBalance;
             }
 
@@ -442,6 +490,24 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
                 const txTransfer = await usdc.transfer(destinationAddress, transferAmount);
                 await txTransfer.wait();
                 finalTx = txTransfer.hash;
+
+                // Transfer Fee to Relayer (if we deducted it)
+                // The fee should be remaining in the wallet (Balance - TransferAmount)
+                const remainingBal = await usdc.balanceOf(custodialAddress);
+                if (remainingBal > 0n && amountUSDC > gasFeeUSDC) {
+                    console.log(`[Withdraw] Sweeping Fee (${ethers.formatUnits(remainingBal, decimals)} USDC) to Relayer...`);
+                    const relayerKey = process.env.PRIVATE_KEY;
+                    if (relayerKey) {
+                        const relayer = new ethers.Wallet(relayerKey, provider);
+                        try {
+                            const txFee = await usdc.transfer(relayer.address, remainingBal);
+                            await txFee.wait();
+                            console.log(`[Withdraw] Fee Swept: ${txFee.hash}`);
+                        } catch (e: any) {
+                            console.error(`[Withdraw] Failed to sweep fee: ${e.message}`);
+                        }
+                    }
+                }
             } else {
                 console.warn('[Withdraw] No funds to transfer after withdrawal.');
             }
