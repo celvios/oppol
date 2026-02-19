@@ -1092,6 +1092,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                     endTime={market.endTime}
                                     resolved={market.resolved}
                                     winningOutcomeIndex={market.winningOutcome}
+                                    outcomes={market.outcomes}
                                     assertionPending={market.assertionPending}
                                     assertedOutcomeIndex={market.assertedOutcome}
                                     asserter={market.asserter}

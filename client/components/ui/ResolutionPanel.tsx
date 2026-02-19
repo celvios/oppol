@@ -75,6 +75,7 @@ interface ResolutionPanelProps {
     resolved: boolean;
     outcome?: boolean; // Legacy prop (implies binary)
     winningOutcomeIndex?: number; // New prop for multi-outcome
+    outcomes?: string[]; // Outcomes list for correct display
     assertionPending?: boolean;
     assertedOutcome?: boolean; // Legacy
     assertedOutcomeIndex?: number; // New
@@ -88,6 +89,7 @@ export function ResolutionPanel({
     resolved,
     outcome, // Legacy binary support
     winningOutcomeIndex,
+    outcomes,
     assertionPending = false,
     assertedOutcome,
     assertedOutcomeIndex,
@@ -299,7 +301,9 @@ export function ResolutionPanel({
                             <p className={`text-3xl font-bold ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
                                 }`}>
                                 {finalWinnerIndex !== null && finalWinnerIndex !== undefined
-                                    ? (finalWinnerIndex === 0 ? 'YES' : (finalWinnerIndex === 1 ? 'NO' : `Option ${finalWinnerIndex}`))
+                                    ? (outcomes && outcomes[finalWinnerIndex]
+                                        ? outcomes[finalWinnerIndex]
+                                        : (finalWinnerIndex === 0 ? 'YES' : (finalWinnerIndex === 1 ? 'NO' : `Option ${finalWinnerIndex}`)))
                                     : 'Pending'
                                 }
                             </p>
