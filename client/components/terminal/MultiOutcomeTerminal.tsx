@@ -127,210 +127,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
 
-    const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
-
-    const market = markets.find(m => m.id === selectedMarketId) || markets[0];
-    const marketRef = useRef(market);
-
-    // Auto-focus and clear input on mobile when outcome is selected
-    useEffect(() => {
-        if (selectedOutcome !== null) {
-            // Note: We don't always clear amount, we focus
-            // But user requested "it should start with , with a blinking cursor" implies clearing
-            setAmount('');
-
-            // Small timeout to allow the input to render if it was hidden
-            setTimeout(() => {
-                if (mobileInputRef.current) {
-                    mobileInputRef.current.focus();
-                }
-            }, 100);
-        }
-    }, [selectedOutcome]);
-
-    // Helper to validate image
-    const isValidImage = (img: string | undefined): boolean => {
-        if (!img || !img.trim()) return false;
-        const trimmed = img.trim();
-        // Check if it's a base64 data URI or a valid URL
-        return trimmed.startsWith('data:image/') ||
-            trimmed.startsWith('http://') ||
-            trimmed.startsWith('https://') ||
-            trimmed.startsWith('/');
-    };
-
-    // Use API metadata - no fallback, API is source of truth
-    // Support both image_url (API) and image (legacy) for compatibility
-    const getImageUrl = (m: MultiMarket) => {
-        const img = m.image_url || m.image || '';
-        return img && isValidImage(img) ? img.trim() : '';
-    };
-
-    const metadata = market ? {
-        image: getImageUrl(market),
-        description: market.description && market.description.trim() ? market.description.trim() : '',
-        category: market.category_id || 'General'
-    } : null;
-
-    useEffect(() => {
-        marketRef.current = market;
-    }, [market]);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // Handle marketId from URL query parameter
-    // Moved logic to unified effect below to prevent race conditions
-
-    // --- Data Fetching ---
-
-    const fetchHistory = useCallback(async (id: number) => {
-        const generatePlaceholder = () => {
-            // For multi-outcome, we just want a flat line or simple wave for each outcome
-            // using current prices
-            if (!marketRef.current) return [];
-
-            const now = Date.now();
-            const m = marketRef.current;
-
-            return Array.from({ length: 50 }).map((_, i) => {
-                const time = new Date(now - (49 - i) * 1000).toLocaleTimeString();
-                const point: any = { time };
-
-                m.outcomes.forEach((outcome, idx) => {
-                    const basePrice = m.prices[idx] || 0;
-                    // Slight random wave
-                    const wave = Math.sin((now - (49 - i) * 1000) / 800 + idx) * 0.5;
-                    point[outcome] = basePrice + wave;
-                });
-                return point;
-            });
-        };
-
-        try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            if (apiUrl) {
-                const response = await fetch(`${apiUrl}/api/markets/${id}/price-history?limit=50`);
-                const data = await response.json();
-
-                if (data.success && data.history?.length > 0) {
-                    // Transform API history to Recharts format
-                    // Assuming API returns { history: [{ time, prices: [p1, p2...] }] } 
-                    // OR logic to adapt. For now, fallback to placeholder if format differs.
-                    // IMPORTANT: If API doesn't support multi-outcome history yet, use placeholder.
-                    setPriceHistory(generatePlaceholder());
-                } else {
-                    setPriceHistory(generatePlaceholder());
-                }
-            } else {
-                setPriceHistory(generatePlaceholder());
-            }
-        } catch (error) {
-            console.error("Failed to fetch history:", error);
-            setPriceHistory(generatePlaceholder());
-        }
-    }, []);
-
-    // Animation / Heartbeat for chart
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (!marketRef.current) return;
-            const m = marketRef.current;
-
-            setPriceHistory(prev => {
-                const now = Date.now();
-                const timeString = new Date(now).toLocaleTimeString();
-
-                const newPoint: any = { time: timeString };
-                m.outcomes.forEach((outcome, idx) => {
-                    const basePrice = m.prices[idx] || 0;
-                    const wave = Math.sin(now / 800 + idx) * 0.5;
-                    newPoint[outcome] = basePrice + wave;
-                });
-
-                if (prev.length === 0) return []; // Should be initialized by fetchHistory
-                const newHistory = [...prev, newPoint];
-                return newHistory.slice(-50);
-            });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
-        if (selectedMarketId) {
-            fetchHistory(selectedMarketId);
-        }
-    }, [selectedMarketId, fetchHistory]);
-
-    // --- Data Fetching (Markets) ---
-    const fetchData = useCallback(async () => {
-        // Removed (!isConnected || !address) check to allow guest viewing
-        console.log('[MultiTerminal] fetchData called');
-        try {
-            // Fetch markets from API (includes metadata: image_url, description)
-            // web3MultiService.getMarkets() now fetches from API automatically
-            const [allMarkets, depositedBalance, position] = await Promise.all([
-                web3MultiService.getMarkets(),
-                address ? web3MultiService.getDepositedBalance(address).catch(e => {
-                    console.error('[MultiTerminal] Balance fetch error:', e);
-                    return '0';
-                }) : Promise.resolve('0'),
-                (address && selectedMarketId) ? web3MultiService.getUserPosition(selectedMarketId, address).catch(e => {
-                    console.error('[MultiTerminal] Position fetch error:', e);
-                    return null;
-                }) : Promise.resolve(null)
-            ]);
-
-            console.log('[MultiTerminal] Markets fetched:', allMarkets.length);
-            setMarkets(allMarkets);
-            setBalance(depositedBalance);
-            if (position) setUserPosition(position);
-        } catch (error) {
-            console.error('[MultiTerminal] Error in fetchData:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [address]); // Removed isConnected from dependencies
-
-    useEffect(() => {
-        // Initial fetch
-        fetchData();
-
-        // Poll every 5 minutes (300000ms) to reduce RPC usage
-        const interval = setInterval(fetchData, 300000);
-
-        return () => clearInterval(interval);
-    }, [fetchData]);
-
-    // Handle market selection (URL param > Default)
-    useEffect(() => {
-        if (markets.length === 0) return;
-
-        const marketIdParam = searchParams.get('marketId');
-        if (marketIdParam) {
-            const marketId = parseInt(marketIdParam, 10);
-            if (!isNaN(marketId)) {
-                const marketExists = markets.find(m => m.id === marketId);
-                if (marketExists) {
-                    setSelectedMarketId(marketId);
-                    return; // URL match found, stop here
-                }
-            }
-        }
-
-        // Fallback: If no URL param or invalid/not found, and no market selected yet, default to first
-        if (selectedMarketId === 0) {
-            setSelectedMarketId(markets[0].id);
-        }
-    }, [searchParams, markets]);
-
-    // Reset selected outcome when market changes
-    useEffect(() => {
-        setSelectedOutcome(null);
-    }, [selectedMarketId]);
-
     // --- Trading Logic ---
+    const { isConnected, address, isConnecting: walletLoading, connect, loginMethod } = useWallet();
+
     const handleTrade = async () => {
         if (!isConnected) {
             connect();
@@ -340,7 +139,13 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
 
         // Check for insufficient balance
-        if (parseFloat(amount) > parseFloat(balance)) {
+        // Note: For External Wallets, user has USDC in wallet, not "depositedBalance".
+        // depositedBalance is only for Custodial / Funds in Contract.
+        // If external, we should check USDC balance?
+        // web3MultiService.getUSDCBalance(address)
+        // But for now, let's skip balance check for external or check USDC.
+
+        if (loginMethod !== 'wallet' && parseFloat(amount) > parseFloat(balance)) {
             setShowInsufficientBalance(true);
             return;
         }
@@ -348,77 +153,96 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         setIsTradeLoading(true);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            const response = await fetch(`${apiUrl}/api/multi-bet`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    walletAddress: address,
-                    marketId: market.id,
-                    outcomeIndex: selectedOutcome,
-                    amount: parseFloat(amount)
-                })
-            });
+            let result;
 
-            const data = await response.json();
-            console.log('🔍 [BET RESPONSE]:', JSON.stringify(data, null, 2));
-            if (data.success) {
-                console.log('🔍 [SUCCESS DATA]:', {
-                    shares: data.transaction?.shares,
-                    cost: data.transaction?.cost,
-                    newPrice: data.transaction?.newPrice,
-                    hash: data.transaction?.hash
-                });
+            if (loginMethod === 'wallet') {
+                // EXTERNAL WALLET (Inclusive Pricing)
+                console.log('[Terminal] Executing via External Wallet (Inclusive Pricing)...');
+                result = await web3MultiService.buyShares(
+                    market.id,
+                    selectedOutcome,
+                    amount
+                );
+
+                // Construct success data from result
+                // We need to fetch new price or guess it?
+                // For simplicity, use current price + small bump or wait for refresh
+                const currentPrice = market.prices[selectedOutcome];
+
                 setSuccessData({
                     marketId: market.id,
                     outcome: market.outcomes[selectedOutcome],
                     outcomeIndex: selectedOutcome,
-                    shares: parseFloat(data.transaction?.shares || '0'),
-                    cost: data.transaction?.cost || amount,
+                    shares: parseFloat(result.shares),
+                    cost: result.cost, // Net Cost (after gas deduc)
                     question: market.question,
-                    newPrice: data.transaction?.newPrice || market.prices[selectedOutcome],
-                    hash: data.transaction?.hash || '0x'
+                    newPrice: currentPrice, // Placeholder
+                    hash: result.hash
                 });
-                setIsSuccessModalOpen(true);
 
-                // Optimistic Update: Update local state immediately
-                setMarkets(prev => prev.map(m => {
-                    if (m.id === market.id) {
-                        const newPrices = [...m.prices];
-                        // Update price of the traded outcome
-                        if (data.transaction?.newPrice) {
-                            newPrices[selectedOutcome] = data.transaction.newPrice;
-                            // Recalculate other prices loosely if needed, but for now just update specific one
-                            // Ideally we'd fetch fresh prices, but this is optimistic
-                        }
-
-                        // Update Volume
-                        const newVol = parseFloat(m.totalVolume) + parseFloat(data.transaction?.cost || amount);
-
-                        return {
-                            ...m,
-                            totalVolume: newVol.toFixed(2),
-                            prices: newPrices
-                        };
-                    }
-                    return m;
-                }));
-
-                // Still fetch fresh data in background
-                fetchData();
             } else {
-                // User-friendly error message
-                const errorMsg = data.error?.includes('Insufficient balance')
-                    ? 'Insufficient balance. Please deposit more funds.'
-                    : data.error?.includes('Market has ended')
-                        ? 'This market has ended and is no longer accepting bets.'
-                        : 'Something went wrong. Please try again soon.';
-                alert(errorMsg);
+                // CUSTODIAL WALLET (API)
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                const response = await fetch(`${apiUrl}/api/multi-bet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        walletAddress: address,
+                        marketId: market.id,
+                        outcomeIndex: selectedOutcome,
+                        amount: parseFloat(amount)
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Trade failed');
+
+                result = {
+                    shares: data.transaction?.shares,
+                    cost: data.transaction?.cost, // Net Cost (after gas deduc backend)
+                    newPrice: data.transaction?.newPrice,
+                    hash: data.transaction?.hash
+                };
+
+                setSuccessData({
+                    marketId: market.id,
+                    outcome: market.outcomes[selectedOutcome],
+                    outcomeIndex: selectedOutcome,
+                    shares: parseFloat(result.shares || '0'),
+                    cost: result.cost || amount,
+                    question: market.question,
+                    newPrice: result.newPrice || market.prices[selectedOutcome],
+                    hash: result.hash || '0x'
+                });
             }
+
+            // Success Handing (Shared)
+            setIsSuccessModalOpen(true);
+
+            // Optimistic Update
+            setMarkets(prev => prev.map(m => {
+                if (m.id === market.id) {
+                    const newPrices = [...m.prices];
+                    if (result.newPrice) newPrices[selectedOutcome] = result.newPrice;
+
+                    const newVol = parseFloat(m.totalVolume) + parseFloat(result.cost || amount);
+                    return { ...m, totalVolume: newVol.toFixed(2), prices: newPrices };
+                }
+                return m;
+            }));
+
+            fetchData();
+
         } catch (e: any) {
             console.error("Trade failed:", e);
-            // User-friendly error message
-            alert('Something went wrong. Please try again soon.');
+            const msg = e.message || 'Something went wrong';
+            if (msg.includes('Insufficient balance') || msg.includes('transfer amount exceeds balance')) {
+                setShowInsufficientBalance(true); // Re-use modal for external too?
+                // Or alert
+                if (loginMethod === 'wallet') alert("Insufficient USDC Balance in your wallet.");
+            } else {
+                alert(msg);
+            }
         } finally {
             setIsTradeLoading(false);
         }

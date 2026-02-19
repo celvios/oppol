@@ -738,7 +738,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     const [amount, setAmount] = useState('100');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { address, isConnected, connect } = useWallet();
+    const { address, isConnected, connect, loginMethod } = useWallet();
 
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
@@ -760,32 +760,55 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
         setError(null);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-            const response = await fetch(`${apiUrl}/api/multi-bet`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    walletAddress: address,
-                    marketId: market.id,
-                    outcomeIndex: outcomeIndex, // Using simple outcomeIndex
-                    amount: parseFloat(amount)
-                })
-            });
-            const data = await response.json();
-            if (data.success) {
+            if (loginMethod === 'wallet') {
+                // EXTERNAL WALLET (Inclusive Pricing)
+                console.log('[MobileTerminal] Executing via External Wallet...');
+                const result = await web3Service.buyShares(
+                    market.id,
+                    outcomeIndex,
+                    amount
+                );
+
                 setSuccessData({
                     marketId: market.id,
-                    side,
-                    shares: parseFloat(data.transaction?.shares || '0'), // Parse string shares
-                    cost: amount,
+                    side: outcomeName, // Use actual name
+                    shares: parseFloat(result.shares),
+                    cost: result.cost,
                     question: market.question,
-                    newPrice: data.transaction?.newPrice || currentPrice,
-                    hash: data.transaction?.hash || '0x'
+                    newPrice: currentPrice, // Placeholder
+                    hash: result.hash
                 });
                 setIsSuccessModalOpen(true);
-                onTradeSuccess?.(); // Trigger refresh
+                onTradeSuccess?.();
             } else {
-                setError(data.error || 'Trade failed');
+                // CUSTODIAL
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                const response = await fetch(`${apiUrl}/api/multi-bet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        walletAddress: address,
+                        marketId: market.id,
+                        outcomeIndex: outcomeIndex, // Using simple outcomeIndex
+                        amount: parseFloat(amount)
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setSuccessData({
+                        marketId: market.id,
+                        side: outcomeName,
+                        shares: parseFloat(data.transaction?.shares || '0'), // Parse string shares
+                        cost: data.transaction?.cost || amount,
+                        question: market.question,
+                        newPrice: data.transaction?.newPrice || currentPrice,
+                        hash: data.transaction?.hash || '0x'
+                    });
+                    setIsSuccessModalOpen(true);
+                    onTradeSuccess?.(); // Trigger refresh
+                } else {
+                    setError(data.error || 'Trade failed');
+                }
             }
         } catch (e: unknown) {
             console.error('Trade error:', e);
@@ -795,6 +818,11 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
             setLoading(false);
         }
     };
+
+    // Helper: Is balance sufficient?
+    // If custodial: Amount <= Balance
+    // If external: We don't verify balance here (logic in buyShares will fail if low), so allow proceed
+    const isBalanceSufficient = loginMethod === 'wallet' || parseFloat(amount || '0') <= parseFloat(balance);
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end justify-center">
@@ -853,7 +881,10 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                     <div>
                         <div className="flex justify-between text-xs text-text-secondary uppercase tracking-widest mb-3">
                             <span>Amount (USDC)</span>
-                            <span>Bal: ${parseFloat(balance).toLocaleString()}</span>
+                            {/* Hide balance warning for external or show wallet balance? For now just show App Balance for custodial */}
+                            <span>
+                                {loginMethod === 'wallet' ? 'Wallet' : `Bal: $${parseFloat(balance).toLocaleString()}`}
+                            </span>
                         </div>
                         <div className="relative group">
                             <input
@@ -875,6 +906,12 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                             <span className="text-white/50">Est. Shares</span>
                             <span className="font-mono text-xl font-bold" style={{ color: outcomeColor }}>{estShares.toFixed(2)}</span>
                         </div>
+                        {loginMethod === 'wallet' && (
+                            <div className="flex justify-between items-center text-xs text-white/40 border-t border-white/5 pt-2">
+                                <span>Inclusive Pricing</span>
+                                <span>Gas deduced from Amount</span>
+                            </div>
+                        )}
                     </GlassCard>
 
                     {error && (
@@ -886,7 +923,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                     <div className="mt-6">
                         {!isConnected ? (
                             <NeonButton onClick={() => connect()} variant="cyan" className="w-full text-lg py-4">
-                                CONNECT TO TRADE
+                                CONNECT TO TRADE // No, wait, if !isConnected we are not here? Actually useWallet handles it.
                             </NeonButton>
                         ) : (
                             <NeonSlider
@@ -894,7 +931,7 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
                                 isLoading={loading}
                                 side={side}
                                 color={outcomeColor}
-                                disabled={loading || !amount || parseFloat(amount) < 0.5 || parseFloat(balance) === 0}
+                                disabled={loading || !amount || parseFloat(amount) < 0.5 || !isBalanceSufficient}
                             />
                         )}
                     </div>

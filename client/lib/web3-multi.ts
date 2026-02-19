@@ -283,9 +283,6 @@ export class Web3MultiService {
     /**
      * Get single multi-outcome market
      */
-    /**
-     * Get single multi-outcome market
-     */
     async getMarket(marketId: number): Promise<MultiMarket | null> {
         // Check cache first if available (though getMarkets usually populates it)
         if (this.marketsCache) {
@@ -437,12 +434,133 @@ export class Web3MultiService {
             const tx = await contractWithSigner.claimWinnings(marketId);
             console.log(`[Web3Multi] Claim TX sent: ${tx.hash}`);
 
-            const receipt = await tx.wait();
-            console.log(`[Web3Multi] Claim TX confirmed: ${receipt.hash}`);
-
-            return receipt.hash;
+            await tx.wait();
+            return tx.hash;
         } catch (error: any) {
             console.error('[Web3Multi] Claim failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Buy Shares for External Wallets (Inclusive Pricing)
+     * Estimates gas, deducts from input USDC, and executes trade.
+     */
+    async buyShares(marketId: number, outcomeIndex: number, amountUSDC: string, signer?: ethers.Signer): Promise<{ hash: string, shares: string, cost: string }> {
+        if (!this.predictionMarket || !this.usdc) throw new Error('Contracts not initialized');
+
+        console.log(`[Web3Multi] Buying shares for market ${marketId} (Ext Wallet)...`);
+
+        try {
+            let userSigner = signer;
+            if (!userSigner) {
+                const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+                userSigner = await browserProvider.getSigner();
+            }
+            const userAddress = await userSigner.getAddress();
+
+            // 1. Estimate Gas Cost (BNB)
+            let provider = userSigner.provider;
+
+            // Fallback for tricky signers
+            if (!provider && (window as any).ethereum) {
+                try {
+                    provider = new ethers.BrowserProvider((window as any).ethereum);
+                } catch (e) {
+                    console.warn("[Web3Multi] Could not get fallback provider");
+                }
+            }
+
+            // Current Gas Price
+            let gasPrice = ethers.parseUnits('3', 'gwei');
+            if (provider) {
+                try {
+                    const feeData = await provider.getFeeData();
+                    if (feeData.gasPrice) gasPrice = feeData.gasPrice;
+                } catch (e) {
+                    console.warn("Failed to get gas price, using default");
+                }
+            }
+
+            // Est Usage: Approve + Buy. ~250k gas safe.
+            const estGasCostBNB = gasPrice * 250000n;
+
+            // 2. Fetch BNB Price for USD conversion
+            let bnbPrice = 600; // default
+            try {
+                const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDC');
+                const data = await res.json();
+                if (data.price) bnbPrice = parseFloat(data.price);
+            } catch (e) {
+                console.warn('[Web3Multi] Failed to fetch BNB price, using default $600');
+            }
+
+            const gasCostUSD = parseFloat(ethers.formatEther(estGasCostBNB)) * bnbPrice;
+            console.log(`[Web3Multi] Est Gas: ${ethers.formatEther(estGasCostBNB)} BNB (~$${gasCostUSD.toFixed(3)})`);
+
+            // 3. Deduct Gas from Input (Inclusive Pricing)
+            const inputAmount = parseFloat(amountUSDC);
+            let tradeAmount = inputAmount - gasCostUSD;
+
+            if (tradeAmount <= 0) {
+                // Too low to cover gas, handle gracefully?
+                // Let's assume user has to pay gas. 
+                // If Inclusive Pricing is mandated, we throw.
+                // But for external wallets, gas is paid OUTSIDE the trade amount.
+                // Inclusive Pricing implies: Wallet pays Gas, Trade Amount reduced by equivalent USD.
+                // So Total Asset Value change approx InputAmount.
+                throw new Error(`Gas cost ($${gasCostUSD.toFixed(2)}) exceeds input amount ($${inputAmount})`);
+            }
+
+            console.log(`[Web3Multi] Net Trade Amount: $${tradeAmount.toFixed(2)}`);
+
+            // 4. Exec Transaction
+            const mktAddr = await this.predictionMarket.getAddress();
+            const usdcWithSigner = this.usdc.connect(userSigner) as ethers.Contract;
+            const marketWithSigner = this.predictionMarket.connect(userSigner) as ethers.Contract;
+
+            // Check Allowance
+            const decimals = 6; // USDC
+            const tradeAmountBN = ethers.parseUnits(tradeAmount.toFixed(decimals), decimals);
+
+            const allowance = await usdcWithSigner.allowance(userAddress, mktAddr);
+            if (allowance < tradeAmountBN) {
+                console.log('[Web3Multi] Approving USDC...');
+                const txApprove = await usdcWithSigner.approve(mktAddr, ethers.MaxUint256);
+                await txApprove.wait();
+            }
+
+            // Calculate Shares
+            const priceBN = await marketWithSigner.getPrice(marketId, outcomeIndex);
+            const price = Number(priceBN);
+            const priceFloat = price > 0 ? price / 100 : 0.5;
+            let estShares = tradeAmount / priceFloat;
+            let sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
+
+            // Verify Cost
+            let costBN = await marketWithSigner.calculateCost(marketId, outcomeIndex, sharesBN);
+
+            // Adjust if Cost > TradeAmount
+            if (costBN > tradeAmountBN) {
+                const ratio = (Number(tradeAmountBN) * 1000) / Number(costBN);
+                sharesBN = sharesBN * BigInt(Math.floor(ratio)) / 1000n;
+                costBN = await marketWithSigner.calculateCost(marketId, outcomeIndex, sharesBN);
+            }
+
+            console.log(`[Web3Multi] Buying ${ethers.formatUnits(sharesBN, 18)} shares for max ${ethers.formatUnits(costBN, 6)} USDC`);
+
+            const tx = await marketWithSigner.buyShares(marketId, outcomeIndex, sharesBN, tradeAmountBN);
+            console.log(`[Web3Multi] Buy TX sent: ${tx.hash}`);
+            await tx.wait();
+
+            return {
+                hash: tx.hash,
+                shares: ethers.formatUnits(sharesBN, 18),
+                cost: tradeAmount.toFixed(6)
+            };
+
+        } catch (error: any) {
+            console.error('[Web3Multi] Buy failed:', error);
             throw error;
         }
     }
