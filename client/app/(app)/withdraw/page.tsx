@@ -83,6 +83,8 @@ export default function WithdrawPage() {
             // Timeout to stop loading if it takes too long
             const timer = setTimeout(() => {
                 console.warn('[WithdrawPage] Timeout waiting for address');
+                setContractBalance('0.00');
+                setWalletBalance('0.00');
                 setIsLoading(false);
             }, 5000);
             return () => clearTimeout(timer);
