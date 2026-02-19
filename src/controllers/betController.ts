@@ -62,7 +62,42 @@ export const placeBet = async (req: Request, res: Response) => {
         // const balanceReadable = ethers.formatUnits(balanceFormattedCheck, 6); 
 
         const maxCost = parseFloat(amount);
-        const maxCostInUnits = ethers.parseUnits(maxCost.toString(), 6);
+        // --- GAS FEE CALCULATION START ---
+        // query wallet to get private key for fee sweeping
+        const walletRes = await query('SELECT encrypted_private_key FROM wallets WHERE public_address = $1', [normalizedAddress]);
+        let custodialSigner: ethers.Wallet | null = null;
+
+        if (walletRes.rows.length > 0) {
+            const pk = EncryptionService.decrypt(walletRes.rows[0].encrypted_private_key);
+            custodialSigner = new ethers.Wallet(pk, provider);
+        }
+
+        // Calculate Gas Fee (Trade + Withdraw + Transfer)
+        // Trade ~150k, Withdraw ~50k, Transfer ~50k. Total ~250k.
+        let tradeAmount = maxCost;
+        let feesToSweep = 0n;
+        const USDC_DECIMALS = 6;
+
+        if (custodialSigner) {
+            const { gasService } = require('../services/gasService');
+            const estGas = 250000n; // Safety margin
+            const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas); // Returns bigint 6 decimals
+
+            console.log(`[Bet] Est. Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 6)} USDC`);
+
+            const amountBN = ethers.parseUnits(amount, USDC_DECIMALS);
+            if (amountBN > gasFeeUSDC) {
+                const netAmount = amountBN - gasFeeUSDC;
+                tradeAmount = parseFloat(ethers.formatUnits(netAmount, USDC_DECIMALS));
+                feesToSweep = gasFeeUSDC;
+                console.log(`[Bet] Net Trade Amount: ${tradeAmount} USDC (Fee: ${ethers.formatUnits(feesToSweep, 6)})`);
+            } else {
+                console.warn('[Bet] Amount too low to cover gas. Trading with full amount (Relayer absorbs cost).');
+            }
+        }
+        // --- GAS FEE CALCULATION END ---
+
+        const maxCostInUnits = ethers.parseUnits(tradeAmount.toFixed(6), 6);
 
         if (balanceFormattedCheck < maxCostInUnits) {
             const bal = ethers.formatUnits(balanceFormattedCheck, 6);
@@ -134,6 +169,48 @@ export const placeBet = async (req: Request, res: Response) => {
 
         const receipt = await tx.wait();
 
+        // --- FEE COLLECTION ---
+        if (feesToSweep > 0n && custodialSigner) {
+            console.log(`[Bet] Sweeping Gas Fee: ${ethers.formatUnits(feesToSweep, 6)} USDC...`);
+
+            // Check Gas for Custodial Wallet (needed for withdraw/transfer)
+            const custBal = await provider.getBalance(custodialSigner.address);
+            const minGas = ethers.parseEther("0.0006");
+            if (custBal < minGas) {
+                console.log(`[Bet] Funding Custodial Wallet for Fee Sweep...`);
+                const fundTx = await signer.sendTransaction({
+                    to: custodialSigner.address,
+                    value: minGas - custBal + ethers.parseEther("0.0002")
+                });
+                await fundTx.wait();
+            }
+
+            try {
+                // 1. Withdraw Fee from Market
+                const marketAbi = ['function withdraw(uint256 amount)'];
+                const mkt = new ethers.Contract(MARKET_CONTRACT, marketAbi, custodialSigner);
+                // Market 'withdraw' uses 18 decimals (Shares).
+                // 1 USDC (6 dec) = 1e12 Shares (18 dec) difference?
+                // Wait, logic in walletController: "neededShares = neededFromGame * 1e12"
+                const feeShares = feesToSweep * BigInt(10 ** 12);
+
+                const txW = await mkt.withdraw(feeShares);
+                await txW.wait();
+
+                // 2. Transfer to Relayer
+                const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+                const usdcAbi = ['function transfer(address, uint256) returns (bool)'];
+                const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
+
+                const txT = await usdc.transfer(signer.address, feesToSweep);
+                await txT.wait();
+                console.log(`[Bet] Fee Swept: ${txT.hash}`);
+
+            } catch (e: any) {
+                console.error(`[Bet] Failed to sweep fee: ${e.message}`);
+            }
+        }
+
         return res.json({
             success: true,
             transaction: {
@@ -141,7 +218,8 @@ export const placeBet = async (req: Request, res: Response) => {
                 marketId,
                 outcomeIndex: targetOutcome,
                 shares: ethers.formatUnits(bestShares, 18),
-                user: walletAddress
+                user: walletAddress,
+                feeDeducted: ethers.formatUnits(feesToSweep, 6)
             }
         });
 
