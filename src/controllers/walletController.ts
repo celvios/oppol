@@ -158,6 +158,73 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
  * Reads the actual USDC balance from the user's custodial wallet and deposits it into the market contract.
  * Body: { privyUserId: string }
  */
+// Helper to swap USDT to USDC via Zap or Router
+const processCustodialSwap = async (userId: string, custodialAddress: string, privateKey: string, provider: ethers.JsonRpcProvider) => {
+    try {
+        console.log(`[Swap] Checking for USDT balance to swap...`);
+        const USDT_ADDR = CONFIG.USDT_CONTRACT;
+        const ZAP_ADDR = CONFIG.ZAP_CONTRACT; // Ensure this is in CONFIG
+
+        if (!USDT_ADDR || !ZAP_ADDR) {
+            console.log('[Swap] Missing USDT or ZAP address config. Skipping swap.');
+            return;
+        }
+
+        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function approve(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
+        const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
+        const bal = await usdt.balanceOf(custodialAddress);
+        const decimals = await usdt.decimals().catch(() => 18);
+
+        // Threshold: 0.1 USDT
+        if (bal < ethers.parseUnits("0.1", decimals)) {
+            console.log(`[Swap] USDT Balance low (${ethers.formatUnits(bal, decimals)}). Skipping.`);
+            return;
+        }
+
+        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT. Initiating Swap...`);
+
+        // Need Signer
+        const signer = new ethers.Wallet(privateKey, provider);
+        const usdtSigner = new ethers.Contract(USDT_ADDR, usdtAbi, signer);
+
+        // Check Gas (Reuse fund logic if needed, but assuming processCustodialDeposit handles it? No, we need it here)
+        const ethBal = await provider.getBalance(custodialAddress);
+        const minGas = ethers.parseEther("0.0006");
+        if (ethBal < minGas) {
+            console.log('[Swap] Low Gas for Swap. Funding...');
+            const relayerKey = process.env.PRIVATE_KEY;
+            if (relayerKey) {
+                const relayer = new ethers.Wallet(relayerKey, provider);
+                const tx = await relayer.sendTransaction({
+                    to: custodialAddress,
+                    value: minGas - ethBal + ethers.parseEther("0.0002")
+                });
+                await tx.wait();
+            }
+        }
+
+        // Approve Zap
+        const zapAbi = ['function zapInToken(address tokenIn, uint256 amountIn, uint256 minUSDC) external'];
+        const zap = new ethers.Contract(ZAP_ADDR, zapAbi, signer);
+
+        console.log('[Swap] Approving Zap...');
+        const txApprove = await usdtSigner.approve(ZAP_ADDR, bal);
+        await txApprove.wait();
+
+        // Zap
+        console.log('[Swap] Zapping USDT -> USDC...');
+        // minUSDC = 0 for now to prevent failures, or 95% slippage
+        const txZap = await zap.zapInToken(USDT_ADDR, bal, 0);
+        console.log(`[Swap] Zap Tx: ${txZap.hash}`);
+        await txZap.wait();
+        console.log('[Swap] Swap Complete.');
+
+    } catch (e: any) {
+        console.error('[Swap] Failed:', e.message);
+        // Continue to deposit (maybe they have USDC too)
+    }
+};
+
 export const triggerCustodialDeposit = async (req: Request, res: Response) => {
     try {
         const { privyUserId } = req.body;
@@ -184,62 +251,46 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
         }
         const custodialAddress = walletResult.rows[0].public_address;
+        const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
 
-        // Check actual USDC balance on-chain
+        // Setup Provider
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
         const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+        // 1. Attempt Swap if USDT exists
+        await processCustodialSwap(userId, custodialAddress, privateKey, provider);
+
+        // 2. Proceed with Standard USDC Deposit
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
         const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
-        // 3. Get USDC Balance
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
         const usdcBalanceWei = await usdc.balanceOf(custodialAddress);
 
-        // Use BigInt directly to avoid floating point errors
-        let amountBN: bigint;
+        let amountBN: bigint = usdcBalanceWei;
+        const USDC_DECIMALS = 6;
 
-        // The original `amountStr` was derived from `rawBal` and `decimals`.
-        // We need to decide if `amountStr` should be passed to `processCustodialDeposit`
-        // or if `processCustodialDeposit` should calculate it from `amountBN`.
-        // For now, let's assume `amountStr` is still needed for `processCustodialDeposit`
-        // and derive it from `amountBN`.
-        const USDC_DECIMALS = 6; // Assuming USDC has 6 decimals as per processCustodialDeposit
-        const amountStr = ethers.formatUnits(usdcBalanceWei, USDC_DECIMALS); // Derive amountStr from usdcBalanceWei
-
-        if (amountStr) {
-            // If amount provided manually, parse it (assuming 6 decimals)
-            amountBN = ethers.parseUnits(amountStr, USDC_DECIMALS);
-        } else {
-            // Sweep entire balance
-            amountBN = usdcBalanceWei;
-        }
-
-        // Check minimum (0.01 USDC = 10000 units)
+        // Check minimum (0.01 USDC)
         if (amountBN < 10000n) {
+            // Return success false but with "Swapped" status if we did a swap? 
+            // Or just standard "No Balance" if swap failed or produced dust.
             console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, 6)} USDC). Skipping.`);
             return res.json({ success: false, error: 'No USDC balance to deposit', balance: parseFloat(ethers.formatUnits(amountBN, 6)) });
         }
 
         console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, 6)} USDC for ${userId}`);
+        const amountStr = ethers.formatUnits(amountBN, 6);
 
-        // Trigger the deposit synchronously to return result to user
-        try {
-            const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
-            return res.json({
-                success: true,
-                message: `Successfully deposited ${ethers.formatUnits(amountBN, 6)} USDC into market contract`,
-                amount: parseFloat(ethers.formatUnits(amountBN, 6)),
-                custodialAddress,
-                txHash
-            });
-        } catch (err: any) {
-            console.error('[TriggerDeposit] Deposit process failed:', err);
-            return res.status(500).json({
-                success: false,
-                error: `Deposit failed: ${err.message || 'Unknown error during processing'}`
-            });
-        }
+        // Trigger the deposit
+        const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
+        return res.json({
+            success: true,
+            message: `Successfully deposited ${amountStr} USDC into market contract`,
+            amount: parseFloat(amountStr),
+            custodialAddress,
+            txHash
+        });
 
     } catch (error: any) {
         console.error('[TriggerDeposit] Error:', error);
