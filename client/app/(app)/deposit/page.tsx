@@ -300,13 +300,48 @@ export default function DepositPage() {
 
             // Check current balance
             let currentBal = 0;
-            if (selectedToken.isNative) {
-                const bal = await provider.getBalance(checkAddress);
-                currentBal = parseFloat(ethers.formatEther(bal));
+            let detectedTokenSymbol = selectedToken.symbol;
+
+            if (isEmbeddedWallet) {
+                // For embedded, check BOTH USDC and USDT
+                // We want to detect if *any* supported stablecoin arrived
+                const usdcToken = tokens.find(t => t.symbol === 'USDC');
+                const usdtToken = tokens.find(t => t.symbol === 'USDT');
+
+                let usdcBal = 0;
+                let usdtBal = 0;
+
+                if (usdcToken) {
+                    const c = new Contract(usdcToken.address, ERC20_ABI, provider);
+                    const b = await c.balanceOf(checkAddress);
+                    usdcBal = parseFloat(ethers.formatUnits(b, usdcToken.decimals));
+                    console.log(`[Polling] USDC: ${usdcBal}`);
+                }
+                if (usdtToken) {
+                    const c = new Contract(usdtToken.address, ERC20_ABI, provider);
+                    const b = await c.balanceOf(checkAddress);
+                    usdtBal = parseFloat(ethers.formatUnits(b, usdtToken.decimals));
+                    console.log(`[Polling] USDT: ${usdtBal}`);
+                }
+
+                // Use the highest balance (or sum? usually user sends one or the other)
+                // If we have mixed balances, backend swap handles USDT, so effectively we have sum?
+                // For simplicity, let's trigger if SUM >= amount, or MAX >= amount. 
+                // Since swap logic takes time, let's just trigger if we see funds.
+                currentBal = usdcBal + usdtBal;
+                if (usdtBal > usdcBal) detectedTokenSymbol = 'USDT';
+                else detectedTokenSymbol = 'USDC';
+
             } else {
-                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
-                const bal = await tokenContract.balanceOf(checkAddress);
-                currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
+                // Standard wallet: check selected token only
+                if (selectedToken.isNative) {
+                    const bal = await provider.getBalance(checkAddress);
+                    currentBal = parseFloat(ethers.formatEther(bal));
+                } else {
+                    const tokenContract = new Contract(selectedToken.address, ERC20_ABI, provider);
+                    const bal = await tokenContract.balanceOf(checkAddress);
+                    currentBal = parseFloat(ethers.formatUnits(bal, selectedToken.decimals));
+                }
             }
 
             console.log(`[Polling] Checking ${checkAddress}... Current: ${currentBal}, Required: ${parseFloat(effectiveAmount)}`);
