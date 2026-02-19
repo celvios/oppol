@@ -8,14 +8,18 @@ export interface AuthState {
     user: any | null;
     walletAddress: string | undefined;
     loginMethod: 'privy' | 'wallet' | 'google' | 'twitter' | 'discord' | 'email' | null;
+    isLoading: boolean;
 }
 
 /**
  * Unified auth hook that checks both Privy (social login) and Reown (wallet connection)
  */
 export function useAuth(): AuthState {
-    const { authenticated: privyAuth, user: privyUser } = usePrivy();
-    const { isConnected, address } = useAccount(); // Reown/Wagmi
+    const { authenticated: privyAuth, user: privyUser, ready: privyReady } = usePrivy();
+    const { isConnected, address, status } = useAccount(); // Reown/Wagmi
+
+    // Loading state: Privy not ready OR Wagmi reconnecting
+    const isLoading = !privyReady || status === 'reconnecting';
 
     // Privy takes precedence if authenticated
     if (privyAuth && privyUser) {
@@ -39,6 +43,7 @@ export function useAuth(): AuthState {
             user: privyUser,
             walletAddress: privyUser.wallet?.address || address,
             loginMethod: loginMethod,
+            isLoading: isLoading
         };
     }
 
@@ -49,6 +54,7 @@ export function useAuth(): AuthState {
             user: null,
             walletAddress: address,
             loginMethod: 'wallet',
+            isLoading: isLoading
         };
     }
 
@@ -58,5 +64,6 @@ export function useAuth(): AuthState {
         user: null,
         walletAddress: undefined,
         loginMethod: null,
+        isLoading: isLoading
     };
 }

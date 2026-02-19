@@ -17,9 +17,11 @@ export function useWallet() {
   };
 
   const handleDisconnect = async () => {
-    if (loginMethod === 'privy') {
+    // If logged in via Privy (Social or Email or Embedded Wallet), use Privy logout
+    if (loginMethod !== 'wallet') {
       await logout();
     } else {
+      // Pure Wagmi/Reown wallet (if any)
       wagmiDisconnect();
     }
   };
