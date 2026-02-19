@@ -158,19 +158,21 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
  * Reads the actual USDC balance from the user's custodial wallet and deposits it into the market contract.
  * Body: { privyUserId: string }
  */
-// Helper to swap USDT to USDC via Zap or Router
+// Helper to swap USDT to USDC via PancakeSwap Router
 const processCustodialSwap = async (userId: string, custodialAddress: string, privateKey: string, provider: ethers.JsonRpcProvider) => {
     try {
         console.log(`[Swap] Checking for USDT balance to swap...`);
         const USDT_ADDR = CONFIG.USDT_CONTRACT;
-        const ZAP_ADDR = CONFIG.ZAP_CONTRACT; // Ensure this is in CONFIG
+        // PancakeSwap Router v2
+        const ROUTER_ADDR = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
+        const USDC_ADDR = CONFIG.USDC_CONTRACT;
 
-        if (!USDT_ADDR || !ZAP_ADDR) {
-            console.log('[Swap] Missing USDT or ZAP address config. Skipping swap.');
+        if (!USDT_ADDR || !USDC_ADDR) {
+            console.log('[Swap] Missing USDT or USDC address config. Skipping swap.');
             return;
         }
 
-        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function approve(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
+        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function approve(address, uint256) returns (bool)', 'function decimals() view returns (uint8)', 'function allowance(address, address) view returns (uint256)'];
         const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
         const bal = await usdt.balanceOf(custodialAddress);
         const decimals = await usdt.decimals().catch(() => 18);
@@ -181,15 +183,15 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             return;
         }
 
-        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT. Initiating Swap...`);
+        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT. Initiating Swap via Router...`);
 
         // Need Signer
         const signer = new ethers.Wallet(privateKey, provider);
         const usdtSigner = new ethers.Contract(USDT_ADDR, usdtAbi, signer);
 
-        // Check Gas (Reuse fund logic if needed, but assuming processCustodialDeposit handles it? No, we need it here)
+        // Check Gas
         const ethBal = await provider.getBalance(custodialAddress);
-        const minGas = ethers.parseEther("0.0006");
+        const minGas = ethers.parseEther("0.001"); // Swap needs gas
         if (ethBal < minGas) {
             console.log('[Swap] Low Gas for Swap. Funding...');
             const relayerKey = process.env.PRIVATE_KEY;
@@ -197,26 +199,47 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
                 const relayer = new ethers.Wallet(relayerKey, provider);
                 const tx = await relayer.sendTransaction({
                     to: custodialAddress,
-                    value: minGas - ethBal + ethers.parseEther("0.0002")
+                    value: minGas - ethBal + ethers.parseEther("0.002")
                 });
                 await tx.wait();
             }
         }
 
-        // Approve Zap
-        const zapAbi = ['function zapInToken(address tokenIn, uint256 amountIn, uint256 minUSDC) external'];
-        const zap = new ethers.Contract(ZAP_ADDR, zapAbi, signer);
+        // Approve Router
+        const allowance = await usdt.allowance(custodialAddress, ROUTER_ADDR);
+        if (allowance < bal) {
+            console.log('[Swap] Approving Router...');
+            const txApprove = await usdtSigner.approve(ROUTER_ADDR, ethers.MaxUint256);
+            await txApprove.wait();
+        }
 
-        console.log('[Swap] Approving Zap...');
-        const txApprove = await usdtSigner.approve(ZAP_ADDR, bal);
-        await txApprove.wait();
+        // Swap
+        const routerAbi = ['function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)'];
+        const router = new ethers.Contract(ROUTER_ADDR, routerAbi, signer);
 
-        // Zap
-        console.log('[Swap] Zapping USDT -> USDC...');
-        // minUSDC = 0 for now to prevent failures, or 95% slippage
-        const txZap = await zap.zapInToken(USDT_ADDR, bal, 0);
-        console.log(`[Swap] Zap Tx: ${txZap.hash}`);
-        await txZap.wait();
+        console.log('[Swap] Swapping USDT -> USDC...');
+        const path = [USDT_ADDR, USDC_ADDR]; // Try direct first
+        const deadline = Math.floor(Date.now() / 1000) + 60 * 10; // 10 mins
+
+        // Estimate Gas to ensure path works (or try WBNB path)
+        let finalPath = path;
+        try {
+            await router.swapExactTokensForTokens.estimateGas(bal, 0, path, custodialAddress, deadline);
+        } catch (e) {
+            console.log('[Swap] Direct path failed/gas-error. Trying via WBNB...');
+            const WBNB_ADDR = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // BSC WBNB
+            finalPath = [USDT_ADDR, WBNB_ADDR, USDC_ADDR];
+        }
+
+        const txSwap = await router.swapExactTokensForTokens(
+            bal,
+            0, // Accept any amount (slippage handled by arb bots usually, for small amounts its fine)
+            finalPath,
+            custodialAddress,
+            deadline
+        );
+        console.log(`[Swap] Swap Tx: ${txSwap.hash}`);
+        await txSwap.wait();
         console.log('[Swap] Swap Complete.');
 
     } catch (e: any) {
