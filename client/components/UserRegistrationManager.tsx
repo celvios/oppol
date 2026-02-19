@@ -18,9 +18,21 @@ export default function UserRegistrationManager() {
     // Sync Privy User with Backend
     useEffect(() => {
         const syncPrivyUser = async () => {
-            if (loginMethod === 'privy' && user && walletAddress) {
+            // Check if we have a valid Privy user (id present) and a wallet address
+            // We accept any login method that provides a Privy User object (Google, Email, Twitter, etc.)
+            const isValidPrivySession = user && user.id && walletAddress;
+
+            // Exclude pure wallet connection if they don't have a Privy ID (useAuth returns user=null for pure Wagmi)
+            // But if they logged in via Privy Wallet, user is not null.
+
+            if (isValidPrivySession) {
                 try {
-                    console.log('Syncing Privy user with backend...', user);
+                    console.log('Syncing Privy user with backend...', {
+                        privyId: user.id,
+                        method: loginMethod,
+                        address: walletAddress
+                    });
+
                     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/privy`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -34,20 +46,21 @@ export default function UserRegistrationManager() {
 
                     const data = await res.json();
                     if (data.success) {
-                        console.log('Privy user synced successfully:', data.user);
+                        console.log('✅ Privy user synced successfully:', data.user);
                         setIsRegistered(true);
 
                         // SYNC TO STORE
                         setUser(data.user);
                         if (data.custodialAddress) {
-                            console.log('Setting Custodial Address in Store:', data.custodialAddress);
+                            console.log('Using Custodial Address:', data.custodialAddress);
                             setCustodialAddress(data.custodialAddress);
                         } else {
-                            // Clear it if not present (e.g. standard wallet user)
                             setCustodialAddress(null);
                         }
 
                         localStorage.setItem(`user_registered_${walletAddress.toLowerCase()}`, 'true');
+                    } else {
+                        console.warn('Sync response not success:', data);
                     }
                 } catch (error) {
                     console.error('Failed to sync Privy user:', error);
@@ -55,7 +68,7 @@ export default function UserRegistrationManager() {
             }
         };
 
-        if (isConnected && loginMethod === 'privy') {
+        if (isConnected && user) {
             syncPrivyUser();
         }
     }, [isConnected, loginMethod, user, walletAddress, setUser, setCustodialAddress]);
