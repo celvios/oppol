@@ -122,12 +122,12 @@ export default function DepositPage() {
         }
     }, [effectiveAddress, selectedToken]);
 
-    // Polling for "Verifying" step
+    // Polling for "Verifying" AND "Depositing" steps
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (fundingStep === 'verifying' && effectiveAddress) {
+        if ((fundingStep === 'verifying' || fundingStep === 'depositing') && effectiveAddress) {
             if (isEmbeddedWallet) {
-                console.log(`[Polling] Starting verification loop for embedded wallet... (${effectiveAddress})`);
+                console.log(`[Polling] Loop running for ${fundingStep}... (${effectiveAddress})`);
                 interval = setInterval(async () => {
                     const { web3Service } = await import('@/lib/web3');
 
@@ -138,7 +138,9 @@ export default function DepositPage() {
                     const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
                     if (newBalNum > oldBalNum + 0.001) {
                         setGameBalance(newBal);
-                        setFundingStep('depositing');
+                        // If we are already depositing, just show success
+                        if (fundingStep !== 'depositing') setFundingStep('depositing');
+
                         setTimeout(() => {
                             setSuccessModalOpen(true);
                             setLastDeposit({ amount: depositAmount, symbol: 'USDC', hash: '' });
@@ -148,16 +150,16 @@ export default function DepositPage() {
                         return;
                     }
 
-                    // 2. Check if funds arrived in wallet but not yet deposited (Frontend trigger)
-                    // This fixes the "buffering" hang if backend sweep is slow/missed
-                    console.log(`[Polling] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
-                    // We can reuse checkAndAutoDeposit, but we need it to actually DO something if funds are found.
-                    // If we change checkAndAutoDeposit to call backend, it updates everywhere.
-                    await checkAndAutoDeposit();
+                    // 2. Check if funds trigger needed (only if verifyng)
+                    // If already depositing, we assume sweep triggered. checkAndAutoDeposit would spam backend.
+                    if (fundingStep === 'verifying') {
+                        console.log(`[Polling] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
+                        await checkAndAutoDeposit();
+                    }
 
                 }, 3000);
             } else {
-                // External wallet users: poll token balance then call handleDeposit
+                // External wallet users: poll token balance
                 interval = setInterval(async () => {
                     await checkAndAutoDeposit();
                 }, 3000);
@@ -310,6 +312,11 @@ export default function DepositPage() {
             // Debug Log for User
             if (currentBal >= parseFloat(effectiveAmount)) {
                 console.log('✅ Funds Detected! Triggering Auto-Deposit...');
+
+                if (fundingStep === 'depositing') {
+                    console.log('⚠️ Already depositing, skipping duplicate trigger.');
+                    return;
+                }
 
                 // TRIGGER BACKEND SWEEP AUTOMATICALLY
                 try {
