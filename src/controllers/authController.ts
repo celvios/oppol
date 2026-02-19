@@ -75,12 +75,15 @@ export const registerUser = async (req: Request, res: Response) => {
             }
 
             // --- Username Uniqueness Logic ---
-            const { customUsername } = req.body;
-            let displayName = customUsername;
+            const { username, customUsername } = req.body;
+            let displayName = username || customUsername;
+
+            console.log(`[Auth] New User Registration. Requested Name: '${displayName}', Wallet: ${walletAddress}`);
 
             if (!displayName) {
                 // Generate default if not provided
                 displayName = email ? email.split('@')[0] : `User ${walletAddress.slice(0, 6)}`;
+                console.log(`[Auth] No username provided. Generated default: '${displayName}'`);
             }
 
             // Check if display_name exists (Case-insensitive)
