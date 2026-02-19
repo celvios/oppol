@@ -329,10 +329,14 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 export const handleCustodialWithdraw = async (req: Request, res: Response) => {
     try {
         const { privyUserId, amount, destinationAddress } = req.body;
-        // amount is string (USDC amount, e.g. "10.5")
+        console.log(`[Withdraw] Request: user=${privyUserId}, amount=${amount}, dest=${destinationAddress}`);
 
         if (!privyUserId || !amount) {
             return res.status(400).json({ success: false, error: 'Missing parameters' });
+        }
+
+        if (!destinationAddress) {
+            return res.status(400).json({ success: false, error: 'Destination address required' });
         }
 
         console.log(`[Withdraw] Processing custodial withdraw for ${privyUserId}, Amount: ${amount}`);
@@ -406,13 +410,14 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             const marketAbi = ['function withdraw(uint256 amount)'];
             const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-            // Convert USDC needed to Shares (Correction: Withdraw takes USDC decimals, not 18)
-            // const neededUSDCStr = ethers.formatUnits(neededFromGame, 6);
-            // const neededShares = ethers.parseUnits(neededUSDCStr, 18); 
-            // FIX: Use neededFromGame directly (which is already BigInt 6 decimals) or ensure 6 decimals
+            // Conversion: neededFromGame is 6 decimals (USDC).
+            // Market 'withdraw' (and userBalances) uses 18 decimals (Shares).
+            // We need to scale up 6 -> 18 decimals.
+            // 1 USDC (1e6) = 1e18 Shares. Factor = 1e12.
+            const neededShares = neededFromGame * BigInt(10 ** 12);
 
-            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, 6)} USDC from Market...`);
-            const txWithdraw = await market.withdraw(neededFromGame);
+            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, 6)} USDC (${ethers.formatUnits(neededShares, 18)} Shares) from Market...`);
+            const txWithdraw = await market.withdraw(neededShares);
             await txWithdraw.wait();
         }
 
