@@ -368,11 +368,16 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             if (relayerKey) {
                 const relayer = new ethers.Wallet(relayerKey, provider);
                 console.log(`[Withdraw] Funding gas for withdrawal...`);
-                const tx = await relayer.sendTransaction({
-                    to: custodialAddress,
-                    value: minGas - bal + ethers.parseEther("0.0002")
-                });
-                await tx.wait();
+                try {
+                    const tx = await relayer.sendTransaction({
+                        to: custodialAddress,
+                        value: minGas - bal + ethers.parseEther("0.0002")
+                    });
+                    await tx.wait();
+                } catch (e: any) {
+                    console.error('[Withdraw] Failed to fund gas:', e.message);
+                    // Continue anyway, maybe it has enough
+                }
             }
         }
 
@@ -383,28 +388,13 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
 
-        const decimals = await usdc.decimals().catch(() => 18); // Default to 18 if call fails (safe for BSC)
+        const decimals = await usdc.decimals().catch(() => 18n); // Default to 18 if call fails
+        const decimalsBi = BigInt(decimals);
         console.log(`[Withdraw] USDC Decimals: ${decimals}`);
 
-        const amountUSDC = ethers.parseUnits(amount, decimals); // Use actual decimals
-        const amountShares = ethers.parseUnits(amount, 18); // Market shares are always 18 decimals
+        const amountUSDC = ethers.parseUnits(amount, Number(decimals)); // Use actual decimals
 
-        // Step A: Withdraw from Market (if funds are in market)
-        // We assume user wants to withdraw user-specified amount.
-        // But for "Cash Out", logic in frontend checks breakdown.
-        // Simplification: Always try to withdraw requested amount from Market FIRST?
-        // OR: Frontend should specify if it wants "withdraw" or "transfer".
-        // Let's support a flag or inferred logic.
-        // For now, let's assume we withdraw the FULL amount from Market, THEN transfer.
-        // Wait, if user already has USDC in wallet, we shouldn't fail market withdraw.
-
-        // Let's implement robust "Cash Out":
-        // 1. Check Wallet USDC Balance.
-        // 2. If Wallet USDC < Amount, withdraw difference from Market.
-        // 3. Transfer Total Amount to Destination.
-
-        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)'];
-        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
+        // Check Wallet Balance
         const walletBalance = await usdc.balanceOf(custodialAddress);
 
         let neededFromGame = 0n;
@@ -416,13 +406,18 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             const marketAbi = ['function withdraw(uint256 amount)'];
             const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-            // Conversion: neededFromGame is 6 decimals (USDC).
-            // Market 'withdraw' (and userBalances) uses 18 decimals (Shares).
-            // We need to scale up 6 -> 18 decimals.
-            // 1 USDC (1e6) = 1e18 Shares. Factor = 1e12.
-            const neededShares = neededFromGame * BigInt(10 ** 12);
+            // Conversion: neededFromGame is in USDC decimals.
+            // Market 'withdraw' uses 18 decimals (Shares).
+            // Scale up: neededShares = neededFromGame * 10^(18 - decimals)
+            // If decimals is 18, factor is 1. If 6, factor is 1e12.
+            // Note: If decimals > 18 (rare), this would fail. Assuming <= 18.
+            let scaleFactor = 1n;
+            if (18n > decimalsBi) {
+                scaleFactor = BigInt(10) ** (18n - decimalsBi);
+            }
+            const neededShares = neededFromGame * scaleFactor;
 
-            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, 6)} USDC (${ethers.formatUnits(neededShares, 18)} Shares) from Market...`);
+            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, decimals)} USDC (${ethers.formatUnits(neededShares, 18)} Shares) from Market...`);
             const txWithdraw = await market.withdraw(neededShares);
             await txWithdraw.wait();
         }
