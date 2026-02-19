@@ -79,6 +79,8 @@ export default function DepositPage() {
     const [depositAmount, setDepositAmount] = useState('');
     // Ref to persist deposit amount for polling intervals
     const depositAmountRef = useRef('');
+    const lastSweepTimeRef = useRef<number>(0);
+
 
     // Sync ref with state
     useEffect(() => {
@@ -313,10 +315,17 @@ export default function DepositPage() {
             if (currentBal >= parseFloat(effectiveAmount)) {
                 console.log('✅ Funds Detected! Triggering Auto-Deposit...');
 
-                if (fundingStep === 'depositing') {
-                    console.log('⚠️ Already depositing, skipping duplicate trigger.');
+                // Allow retry if 30 seconds passed since last sweep attempt
+                const now = Date.now();
+                const lastSweepTime = lastSweepTimeRef.current || 0;
+
+                if (fundingStep === 'depositing' && (now - lastSweepTime < 30000)) {
+                    console.log('⚠️ Recently triggered deposit, skipping duplicate.');
                     return;
                 }
+
+                lastSweepTimeRef.current = now;
+
 
                 // TRIGGER BACKEND SWEEP AUTOMATICALLY
                 try {
