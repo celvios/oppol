@@ -217,7 +217,7 @@ export default function AdminDashboard() {
                         title="Create Market"
                         description="Launch a new binary or multi-outcome market"
                         icon={Shield}
-                        href="/admin/create-market"
+                        href="/create-market"
                     />
                     <ActionCard
                         title="Resolve Market"
