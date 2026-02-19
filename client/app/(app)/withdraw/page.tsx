@@ -258,7 +258,11 @@ export default function WithdrawPage() {
     }
 
     // Use BigInt for precise math
-    const contractBalanceWei = contractBalance ? ethers.parseUnits(contractBalance, 6) : BigInt(0);
+    // Fix: Contract balance is 18 decimals (Shares), but we need to combine with Wallet (6 decimals USDC)
+    // We cannot parse an 18-decimal string with parseUnits(..., 6) as it throws "underflow" if decimals > 6
+    const contractBalanceWei18 = contractBalance ? ethers.parseUnits(contractBalance, 18) : BigInt(0);
+    const contractBalanceWei = contractBalanceWei18 / BigInt(10 ** 12); // Convert 18 -> 6 decimals (truncate)
+
     const walletBalanceWei = walletBalance ? ethers.parseUnits(walletBalance, 6) : BigInt(0);
 
     const availableBalanceWei = isEmbeddedWallet
