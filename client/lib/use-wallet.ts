@@ -4,7 +4,7 @@ import { useDisconnect } from "wagmi";
 import { useUIStore } from "@/lib/store";
 
 export function useWallet() {
-  const { isAuthenticated, user: authUser, walletAddress, loginMethod } = useAuth();
+  const { isAuthenticated, isLoading, user: authUser, walletAddress, loginMethod } = useAuth();
   const { logout } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
 
@@ -41,7 +41,7 @@ export function useWallet() {
   return {
     isConnected: isAuthenticated,
     address: effectiveAddress, // Use custodial address if available
-    isConnecting: false, // Privy handles loading state internally mostly
+    isConnecting: isLoading, // Now correctly tracks Privy ready state
     connect: handleConnect, // Opens Global Modal
     disconnect: handleDisconnect,
     user,

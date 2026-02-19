@@ -1,5 +1,4 @@
-'use client';
-
+import { usePrivy } from '@privy-io/react-auth';
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
 
@@ -26,6 +25,7 @@ interface AuthState {
 }
 
 export function useAuth(): AuthState {
+    const { ready, authenticated, user, logout: privyLogout } = usePrivy();
     const { address: walletAddress, isConnected, status } = useAccount();
     const [isHydrated, setIsHydrated] = useState(false);
     const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -89,7 +89,8 @@ export function useAuth(): AuthState {
     }, [userId, sessionToken]);
 
     // Logout function
-    const logout = () => {
+    const logout = async () => {
+        await privyLogout();
         localStorage.removeItem('session_token');
         localStorage.removeItem('cached_wallet_address');
         // Clear all cached wallets
@@ -103,13 +104,21 @@ export function useAuth(): AuthState {
         setCustodialAddress(undefined);
     };
 
-    // Determine loading state
-    const isLoading = !isHydrated || status === 'reconnecting';
+    // Determine loading state - now includes Privy ready state
+    // We are loading if:
+    // 1. Not hydrated (React)
+    // 2. Privy is not ready (checking auth)
+    // 3. Wagmi is reconnecting (wallet logic)
+    const isLoading = !isHydrated || !ready || status === 'reconnecting';
 
     // Determine auth status
+    // User is authenticated if:
+    // 1. Privy says generic 'authenticated' (covers email/social)
+    // 2. Wagmi is connected
+    // 3. We have a session token (legacy/custodial fallback)
     const isWalletConnected = isHydrated && isConnected;
     const isCustodial = !!sessionToken;
-    const isAuthenticated = isWalletConnected || isCustodial;
+    const isAuthenticated = (ready && authenticated) || isWalletConnected || isCustodial;
 
     // Determine auth type
     let authType: 'wallet' | 'custodial' | null = null;
