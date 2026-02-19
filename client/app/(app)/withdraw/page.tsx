@@ -78,11 +78,24 @@ export default function WithdrawPage() {
 
         if (effectiveAddress) {
             fetchAllBalances();
+        } else {
+            // Connected but no address yet (syncing?)
+            // Timeout to stop loading if it takes too long
+            const timer = setTimeout(() => {
+                console.warn('[WithdrawPage] Timeout waiting for address');
+                setIsLoading(false);
+            }, 5000);
+            return () => clearTimeout(timer);
         }
     }, [effectiveAddress, isEffectivelyConnected]);
 
     async function fetchAllBalances() {
-        if (!effectiveAddress) return;
+        if (!effectiveAddress) {
+            console.warn('[WithdrawPage] No effective address, cancelling fetch');
+            setIsLoading(false);
+            return;
+        }
+        console.log('[WithdrawPage] Fetching balances for:', effectiveAddress);
         setIsLoading(true);
         try {
             // 1. Get Game Balance
