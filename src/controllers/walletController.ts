@@ -380,8 +380,14 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!MARKET_ADDR || !USDC_ADDR) throw new Error("Missing Contract Config");
 
-        const amountUSDC = ethers.parseUnits(amount, 6); // 6 decimals
-        const amountShares = ethers.parseUnits(amount, 18); // 18 decimals
+        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
+        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
+
+        const decimals = await usdc.decimals().catch(() => 18); // Default to 18 if call fails (safe for BSC)
+        console.log(`[Withdraw] USDC Decimals: ${decimals}`);
+
+        const amountUSDC = ethers.parseUnits(amount, decimals); // Use actual decimals
+        const amountShares = ethers.parseUnits(amount, 18); // Market shares are always 18 decimals
 
         // Step A: Withdraw from Market (if funds are in market)
         // We assume user wants to withdraw user-specified amount.
