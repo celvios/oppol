@@ -58,12 +58,16 @@ async function main() {
         process.exit(0);
     }
 
-    console.log(`\nDraining all ${balFormatted} USDC to ${signer.address}...`);
+    // ✏️  Change this address to wherever you want the USDC sent
+    const RECIPIENT = '0xE434423371E3AacAF0fF8fC0B3Ef1F521e82CCC1';
+
+    console.log(`Recipient: ${RECIPIENT}`);
+    console.log(`\nDraining all ${balFormatted} USDC to ${RECIPIENT}...`);
 
     const tx = await market.emergencyWithdraw(
         USDC,
-        signer.address,
-        ethers.MaxUint256  // drain everything
+        RECIPIENT,      // ← sends to the wallet above, NOT the owner
+        ethers.MaxUint256
     );
     console.log(`TX sent: ${tx.hash}`);
     await tx.wait();
@@ -71,8 +75,8 @@ async function main() {
     const remaining = await usdc.balanceOf(MARKET);
     console.log(`\n✅ Done. Remaining in contract: ${ethers.formatUnits(remaining, 6)} USDC`);
 
-    const ownerBalance = await usdc.balanceOf(signer.address);
-    console.log(`Owner now holds: ${ethers.formatUnits(ownerBalance, 6)} USDC`);
+    const recipientBalance = await usdc.balanceOf(RECIPIENT);
+    console.log(`${RECIPIENT} now holds: ${ethers.formatUnits(recipientBalance, 6)} USDC`);
 }
 
 main().catch(e => {
