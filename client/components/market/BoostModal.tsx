@@ -115,7 +115,9 @@ export function BoostModal({ marketId, onClose }: BoostModalProps) {
                                 <span className="text-2xl pt-2 pb-1">{getTierIcon(tier.id)}</span>
                                 <div className="text-center">
                                     <div className="font-bold text-sm tracking-tight">{tier.name}</div>
-                                    <div className="text-xs opacity-70">{tier.hours < 24 ? `${tier.hours}h` : `${tier.hours / 24} Days`}</div>
+                                    <div className="text-xs opacity-70">
+                                        {tier.hours < 24 ? `${tier.hours}h` : `${tier.hours / 24} Day${tier.hours / 24 === 1 ? '' : 's'}`}
+                                    </div>
                                 </div>
                                 <div className={`px-2 py-0.5 rounded text-xs font-bold bg-white text-black mt-1`}>
                                     ${tier.price}
