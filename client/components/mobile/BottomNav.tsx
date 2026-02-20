@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, Wallet, PlusCircle, Globe, Trophy, User, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { twMerge } from "tailwind-merge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUIStore } from "@/lib/store";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useBC400Check } from "@/lib/use-bc400";
@@ -21,6 +21,11 @@ export default function BottomNav() {
 
     const [showWalletModal, setShowWalletModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     if (isTradeModalOpen || isInputFocused || isCommentsOpen) return null;
 
@@ -82,8 +87,8 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
                     </div>
 
-                    {/* Portfolio / Sign In */}
-                    {isConnected ? (
+                    {/* Portfolio / Sign In - defaults to Sign In until mounted to avoid hydration flash */}
+                    {mounted && isConnected ? (
                         <Link
                             href="/portfolio"
                             className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
@@ -102,10 +107,12 @@ export default function BottomNav() {
                                 e.preventDefault();
                                 connect();
                             }}
-                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer group"
                         >
-                            <User className="w-6 h-6 text-text-secondary transition-colors" />
-                            <span className="text-text-secondary transition-colors">Sign In</span>
+                            {/* Subtle glow to draw attention */}
+                            <div className="absolute inset-0 bg-green-500/5 rounded-lg" />
+                            <User className="w-6 h-6 text-green-400 transition-colors group-hover:text-green-300" />
+                            <span className="text-green-400 font-semibold transition-colors group-hover:text-green-300">Sign In</span>
                         </div>
                     )}
 
