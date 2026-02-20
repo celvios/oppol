@@ -301,68 +301,72 @@ export default function PortfolioPage() {
             </div>
 
             {/* Custodial Deposit Prompt: for social/embedded users with USDC in their custodial wallet */}
-            {isEmbeddedWallet && parseFloat(custodialUsdcBalance) > 0.01 && !custodialDepositDone && (
-                <div className="mb-8 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                            <Wallet className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-bold text-white">Funds Ready to Play</h3>
-                                <span className="px-2 py-0.5 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full">Detected</span>
+            {
+                isEmbeddedWallet && parseFloat(custodialUsdcBalance) > 0.01 && !custodialDepositDone && (
+                    <div className="mb-8 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                                <Wallet className="w-6 h-6 text-white" />
                             </div>
-                            <p className="text-white/60 text-sm">
-                                We found <span className="text-white font-mono font-bold">{parseFloat(custodialUsdcBalance).toFixed(2)} USDC</span> in your wallet ready to deposit.
-                            </p>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-lg font-bold text-white">Funds Ready to Play</h3>
+                                    <span className="px-2 py-0.5 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full">Detected</span>
+                                </div>
+                                <p className="text-white/60 text-sm">
+                                    We found <span className="text-white font-mono font-bold">{parseFloat(custodialUsdcBalance).toFixed(2)} USDC</span> in your wallet ready to deposit.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (!privyUser?.id) return;
+                                setIsDepositingCustodial(true);
+                                try {
+                                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                                    const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ privyUserId: privyUser.id })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        if (data.txHash) console.log('Deposit TX:', data.txHash);
+                                        setCustodialDepositDone(true);
+                                        // Reload after a few seconds to show updated balance
+                                        setTimeout(() => window.location.reload(), 5000);
+                                    } else {
+                                        alert(data.error || 'Deposit failed');
+                                    }
+                                } catch (e: any) {
+                                    alert('Deposit failed: ' + e.message);
+                                } finally {
+                                    setIsDepositingCustodial(false);
+                                }
+                            }}
+                            disabled={isDepositingCustodial}
+                            className="w-full md:w-auto px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {isDepositingCustodial ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                            ) : (
+                                <>Add to Balance</>
+                            )}
+                        </button>
+                    </div>
+                )
+            }
+            {
+                isEmbeddedWallet && custodialDepositDone && (
+                    <div className="mb-8 bg-green-500/10 border border-green-500/20 rounded-2xl p-6 flex items-center gap-4 animate-fadeIn">
+                        <CheckCircle className="w-8 h-8 text-green-500 shrink-0" />
+                        <div>
+                            <h3 className="text-white font-bold">Deposit Submitted!</h3>
+                            <p className="text-white/60 text-sm">Your balance will update in ~10 seconds. Refreshing...</p>
                         </div>
                     </div>
-                    <button
-                        onClick={async () => {
-                            if (!privyUser?.id) return;
-                            setIsDepositingCustodial(true);
-                            try {
-                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                                const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ privyUserId: privyUser.id })
-                                });
-                                const data = await res.json();
-                                if (data.success) {
-                                    if (data.txHash) console.log('Deposit TX:', data.txHash);
-                                    setCustodialDepositDone(true);
-                                    // Reload after a few seconds to show updated balance
-                                    setTimeout(() => window.location.reload(), 5000);
-                                } else {
-                                    alert(data.error || 'Deposit failed');
-                                }
-                            } catch (e: any) {
-                                alert('Deposit failed: ' + e.message);
-                            } finally {
-                                setIsDepositingCustodial(false);
-                            }
-                        }}
-                        disabled={isDepositingCustodial}
-                        className="w-full md:w-auto px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                        {isDepositingCustodial ? (
-                            <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
-                        ) : (
-                            <>Add to Game Balance</>
-                        )}
-                    </button>
-                </div>
-            )}
-            {isEmbeddedWallet && custodialDepositDone && (
-                <div className="mb-8 bg-green-500/10 border border-green-500/20 rounded-2xl p-6 flex items-center gap-4 animate-fadeIn">
-                    <CheckCircle className="w-8 h-8 text-green-500 shrink-0" />
-                    <div>
-                        <h3 className="text-white font-bold">Deposit Submitted!</h3>
-                        <p className="text-white/60 text-sm">Your balance will update in ~10 seconds. Refreshing...</p>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -522,6 +526,6 @@ export default function PortfolioPage() {
             <div className="text-center text-white/30 text-xs">
                 Note: Average entry price is estimated at $0.50. For accurate PnL tracking, trade history logging will be implemented.
             </div>
-        </div>
+        </div >
     );
 }

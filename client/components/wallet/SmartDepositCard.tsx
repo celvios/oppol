@@ -81,7 +81,7 @@ export default function SmartDepositCard({
                         </>
                     ) : (
                         <>
-                            Add to Game Balance
+                            Add to Balance
                             <ArrowRight className="w-5 h-5" />
                         </>
                     )}

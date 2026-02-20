@@ -317,7 +317,7 @@ export default function WithdrawPage() {
                 <div className="flex justify-between items-center mb-6 pb-6 border-b border-white/5">
                     <div>
                         <p className="text-xs text-white/40 uppercase tracking-wider mb-1">
-                            {isEmbeddedWallet ? 'Total Available Balance' : (activeTab === 'withdraw' ? 'Game Balance' : 'Wallet Balance')}
+                            {isEmbeddedWallet ? 'Total Available Balance' : (activeTab === 'withdraw' ? 'Balance' : 'Wallet Balance')}
                         </p>
                         <p className="text-2xl font-mono font-bold text-white">
                             ${parseFloat(availableBalance.toString()).toFixed(2)}
