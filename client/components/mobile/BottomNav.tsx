@@ -82,19 +82,32 @@ export default function BottomNav() {
                         <span className={twMerge("transition-colors", pathname === "/create-market" ? "text-white" : "text-text-secondary")}>Create Poll</span>
                     </div>
 
-                    {/* Portfolio */}
-                    <Link
-                        href="/portfolio"
-                        className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
-                    >
-                        {pathname === "/portfolio" && (
-                            <div
-                                className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                            />
-                        )}
-                        <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")} />
-                        <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
-                    </Link>
+                    {/* Portfolio / Sign In */}
+                    {isConnected ? (
+                        <Link
+                            href="/portfolio"
+                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative"
+                        >
+                            {pathname === "/portfolio" && (
+                                <div
+                                    className="absolute -top-[1px] w-12 h-1 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                                />
+                            )}
+                            <Wallet className={twMerge("w-6 h-6 transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")} />
+                            <span className={twMerge("transition-colors", pathname === "/portfolio" ? "text-white" : "text-text-secondary")}>Portfolio</span>
+                        </Link>
+                    ) : (
+                        <div
+                            onClick={(e) => {
+                                e.preventDefault();
+                                connect();
+                            }}
+                            className="flex flex-col items-center justify-center w-full h-full text-xs font-medium gap-1 relative cursor-pointer"
+                        >
+                            <User className="w-6 h-6 text-text-secondary transition-colors" />
+                            <span className="text-text-secondary transition-colors">Sign In</span>
+                        </div>
+                    )}
 
 
 
