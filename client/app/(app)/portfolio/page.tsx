@@ -193,7 +193,6 @@ export default function PortfolioPage() {
                             claimed,
                             marketResolved,
                             isWinner: marketResolved && winningOutcome === 0,
-                            winningOutcome
                         });
                     }
 
@@ -223,7 +222,6 @@ export default function PortfolioPage() {
                             claimed,
                             marketResolved,
                             isWinner: marketResolved && winningOutcome === 1,
-                            winningOutcome
                         });
                     }
                 }
@@ -288,10 +286,7 @@ export default function PortfolioPage() {
                         </div>
                     )}
                     <button
-                        onClick={async () => {
-                            disconnect();
-                            await logout();
-                        }}
+                        onClick={() => disconnect()}
                         className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all text-red-400 hover:text-red-300"
                     >
                         <LogOut size={16} />
