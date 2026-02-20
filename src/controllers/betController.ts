@@ -106,41 +106,25 @@ export const placeBet = async (req: Request, res: Response) => {
         }
 
         // Binary search to find max shares for the given amount
-        // Shares are 18 decimals
+        // Shares are 18-dec. calculateCost() returns 18-dec LMSR values.
+        // maxCostInUnits is 6-dec USDC — scale to 18-dec for comparison.
+        const maxCostIn18Dec = maxCostInUnits * BigInt(10 ** 12); // 6-dec → 18-dec
+
         let low = BigInt(1);
-        let high = BigInt(Math.floor(maxCost * 2)) * BigInt(10 ** 18); // Rough upper bound? Or just search
-        // Amount = Cost ~ Shares * Price. Max Price = 1. So Shares <= Amount.
-        // But Shares are 1e18. Amount is 1e6 (USDC).
-        // 1 Share (1e18 units) costs ~0.5 USDC (0.5 * 1e6 units).
-        // So Shares ~ Amount / Price.
-        // Upper bound: Amount (6 dec) * 1e12 / 0.01 (min price) ?
-        // Let's use a safe high number: Amount * 2 in 1e18 scale (assuming price ~0.5)
+        // Upper bound: if price ≈ 0.5, shares ≈ 2 * amount. Start with 10x as safe upper.
+        let high = maxCostIn18Dec * BigInt(10);
 
         let bestShares = BigInt(0);
 
-        // Simplified search range
-        // We try to buy 'amount' worth of shares.
-        // If price is 0.5, we get amount * 2 shares.
-
-        // Iterating is expensive on RPC.
-        // Optimization: Get current price, calculate shares, then adjust.
-        const price = await marketContract.getPrice(marketId, targetOutcome);
-        // Price is 100 prob? Or 1e18?
-        // app.ts Line 323: `newPrice = iface...[0] / 100`. So price is 0-100?
-
-        // Let's rely on `calculateCost` like app.ts did
-        low = BigInt(1);
-        high = ethers.parseUnits((maxCost * 4).toString(), 18); // 4x leverage limit just in case
-
-        // Perform Binary Search (limited iterations)
-        for (let i = 0; i < 20; i++) { // 20 iterations is precise enough
+        // Binary search (20 iterations gives 1/2^20 ≈ 0.0001% precision)
+        for (let i = 0; i < 20; i++) {
             const mid = (low + high) / BigInt(2);
             if (mid === BigInt(0)) break;
 
             const cost = await marketContract.calculateCost(marketId, targetOutcome, mid);
-            // Cost is 6 decimals?
+            // cost is 18-dec, maxCostIn18Dec is also 18-dec — same unit now ✓
 
-            if (cost <= maxCostInUnits) {
+            if (cost <= maxCostIn18Dec) {
                 bestShares = mid;
                 low = mid + BigInt(1);
             } else {
@@ -187,14 +171,11 @@ export const placeBet = async (req: Request, res: Response) => {
 
             try {
                 // 1. Withdraw Fee from Market
+                // DECIMAL FIX: withdraw() takes 6-dec USDC amount — same as feesToSweep.
+                // The old code multiplied by 1e12 (treating it as shares), causing TX to always revert.
                 const marketAbi = ['function withdraw(uint256 amount)'];
                 const mkt = new ethers.Contract(MARKET_CONTRACT, marketAbi, custodialSigner);
-                // Market 'withdraw' uses 18 decimals (Shares).
-                // 1 USDC (6 dec) = 1e12 Shares (18 dec) difference?
-                // Wait, logic in walletController: "neededShares = neededFromGame * 1e12"
-                const feeShares = feesToSweep * BigInt(10 ** 12);
-
-                const txW = await mkt.withdraw(feeShares);
+                const txW = await mkt.withdraw(feesToSweep); // feesToSweep is already 6-dec USDC
                 await txW.wait();
 
                 // 2. Transfer to Relayer
@@ -204,7 +185,7 @@ export const placeBet = async (req: Request, res: Response) => {
 
                 const txT = await usdc.transfer(signer.address, feesToSweep);
                 await txT.wait();
-                console.log(`[Bet] Fee Swept: ${txT.hash}`);
+                console.log(`[Bet] ✅ Gas fee swept to relayer: ${txT.hash}`);
 
             } catch (e: any) {
                 console.error(`[Bet] Failed to sweep fee: ${e.message}`);
@@ -233,22 +214,33 @@ export const placeBet = async (req: Request, res: Response) => {
 };
 
 /**
- * Get bet cost estimate
+ * Get bet cost estimate — calls contract for real price
  */
 export const estimateBetCost = async (req: Request, res: Response) => {
     try {
-        const { marketId, side, outcomeIndex, shares } = req.query;
+        const { marketId, outcomeIndex, shares } = req.query;
 
-        // Placeholder for cost estimation
-        // Real implementation should call contract.getCost if available or calculate locally
-        const price = 0.5;
-        const cost = (parseFloat(shares as string) || 100) * price;
+        if (marketId === undefined || shares === undefined) {
+            return res.status(400).json({ success: false, error: 'Missing marketId or shares' });
+        }
+
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const marketContract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, provider);
+
+        const sharesBN = ethers.parseUnits((shares as string) || '1', 18);
+        const targetOutcome = parseInt((outcomeIndex as string) || '0');
+
+        // Get real cost from contract (18-dec LMSR output)
+        const cost = await marketContract.calculateCost(Number(marketId), targetOutcome, sharesBN);
+        // Get real price in basis points (0-10000)
+        const priceBP = await marketContract.getPrice(Number(marketId), targetOutcome);
 
         return res.json({
             success: true,
-            estimatedCost: cost.toFixed(2),
-            shares,
-            pricePerShare: price
+            estimatedCost: ethers.formatUnits(cost, 18),          // 18-dec LMSR value → human readable
+            shares: shares,
+            pricePerShare: (Number(priceBP) / 10000).toFixed(4),  // basis points → 0.0–1.0
+            pricePercent: (Number(priceBP) / 100).toFixed(2),     // basis points → 0–100%
         });
     } catch (error: any) {
         return res.status(500).json({

@@ -1,0 +1,7 @@
+Question: Will this project cross 1m by 2027
+End Time: 1771747696 (2026-02-22T08:08:16.000Z)
+Initial Liquidity: 0.0000000002
+YES Price: 5023 (50.23%)
+NO Price: 4976 (49.76%)
+YES Shares: 3.857799999999999999
+NO Shares: 2.007761887409516462

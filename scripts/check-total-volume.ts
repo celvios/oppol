@@ -70,7 +70,7 @@ async function main() {
                 // Progress indicator
                 if ((from - startBlock) % (CHUNK_SIZE * 10) === 0) {
                     const percent = Math.round(((from - startBlock) / SCAN_DEPTH) * 100);
-                    console.log(`Progress: ${percent}% (Block ${from}) - Found so far: $${ethers.formatUnits(grandTotalVolume, 18)}`);
+                    console.log(`Progress: ${percent}% (Block ${from}) - Found so far: $${ethers.formatUnits(grandTotalVolume, 6)}`);
                 }
 
             } catch (e: any) {
@@ -90,11 +90,11 @@ async function main() {
         });
 
         for (const [id, vol] of sortedMarkets) {
-            console.log(`Market ${id}: $${ethers.formatUnits(vol, 18)}`);
+            console.log(`Market ${id}: $${ethers.formatUnits(vol, 6)} USDC`);
         }
 
         console.log("---------------------------------------------------");
-        console.log(`GRAND TOTAL VOLUME: $${ethers.formatUnits(grandTotalVolume, 18)}`);
+        console.log(`GRAND TOTAL VOLUME: $${ethers.formatUnits(grandTotalVolume, 6)} USDC`);
 
     } catch (error) {
         console.error("Fatal Error:", error);

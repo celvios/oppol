@@ -359,6 +359,7 @@ export class Web3MultiService {
         try {
             const sharesInUnits = ethers.parseUnits(shares.toString(), 18);
             const cost = await this.predictionMarket.calculateCost(marketId, outcomeIndex, sharesInUnits);
+            // calculateCost returns 18-dec (LMSR internal precision)
             return ethers.formatUnits(cost, 18);
         } catch (error) {
             console.error('Error calculating cost:', error);
@@ -390,8 +391,8 @@ export class Web3MultiService {
         if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            // Market contract normalizes to 18 decimals
-            return ethers.formatUnits(balance, 18);
+            // DECIMAL FIX: userBalances in contract is 6-dec USDC, not 18-dec
+            return ethers.formatUnits(balance, 6);
         } catch (error) {
             console.error('Error fetching deposited balance:', error);
             return '0';

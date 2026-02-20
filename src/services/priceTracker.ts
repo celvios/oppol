@@ -29,8 +29,17 @@ export async function recordMarketPrice(marketId: number): Promise<void> {
         const market = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
 
         const prices = await market.getAllPrices(marketId);
-        // Record the first outcome price (typically "Yes" for binary markets)
-        const priceValue = prices.length > 0 ? Number(prices[0]) : 5000; // Default to 50%
+        // Store outcome[0] as primary price (basis points: 5000 = 50%)
+        const priceValue = prices.length > 0 ? Number(prices[0]) : 5000;
+
+        // Deduplication: skip if price hasn't changed since last record
+        const last = await query(
+            'SELECT price FROM price_history WHERE market_id = $1 ORDER BY recorded_at DESC LIMIT 1',
+            [marketId]
+        );
+        if (last.rows.length > 0 && last.rows[0].price === priceValue) {
+            return; // No change, skip insert
+        }
 
         await query(
             'INSERT INTO price_history (market_id, price) VALUES ($1, $2)',
@@ -85,7 +94,17 @@ async function recordMarketPriceWithProvider(marketId: number, marketContract: e
     try {
         const { query } = await import('../config/database');
         const prices = await marketContract.getAllPrices(marketId);
+        // outcome[0] is stored as primary; basis points (5000 = 50%)
         const priceValue = prices.length > 0 ? Number(prices[0]) : 5000;
+
+        // Deduplication: skip if price hasn't changed since last recorded value
+        const last = await query(
+            'SELECT price FROM price_history WHERE market_id = $1 ORDER BY recorded_at DESC LIMIT 1',
+            [marketId]
+        );
+        if (last.rows.length > 0 && last.rows[0].price === priceValue) {
+            return; // No change — skip insert to prevent table bloat
+        }
 
         await query(
             'INSERT INTO price_history (market_id, price) VALUES ($1, $2)',

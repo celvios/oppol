@@ -140,27 +140,26 @@ export async function syncAllMarkets(): Promise<void> {
 
                 if (dbMarket.rows.length > 0) {
                     const row = dbMarket.rows[0];
+                    // totalCost from SharesPurchased events is 18-decimal (same as calculateCost output)
                     volume = row.volume ? ethers.parseUnits(row.volume, 18) : BigInt(0);
                     lastIndexedBlock = row.last_indexed_block ? parseInt(row.last_indexed_block) : 0;
                 } else {
                     isFirstRun = true;
                 }
 
-                // If never indexed, scan typically from recent or full history if critical
-                // For this fixing task, if 0, we assume we need to scan DEEP or reset.
-                // If lastIndexedBlock is 0, we can scan back a safe amount or just start now?
-                // Better: If 0, scan last 1M blocks to be safe and populate backlog.
+                // Double-count protection:
+                // If first run ever: scan from deployment block (full history, start volume at 0)
+                // If DB already has volume but block=0 (legacy row): start from NOW (don't re-add history)
                 if (lastIndexedBlock === 0) {
-                    lastIndexedBlock = Math.max(0, currentBlock - 1000000);
-                    // Reset volume if we are doing a fresh deep scan?
-                    // No, keep existing volume if DB has it, but scanning might double count if we aren't careful.
-                    // If DB has volume but block is 0, it means legacy data.
-                    // We should probably TRUST DB volume and scan from NOW.
-                    // BUT, to fix the missing bet, we MUST scan the period where it happened.
-                    // For now, relies on `force_resync` script for fix, this is for ongoing.
-                    // Safest: set lastIndexedBlock to currentBlock if 0 to start tracking NEW trades only,
-                    // unless we want to backfill.
-                    // Let's stick to: sync from last_indexed_block + 1.
+                    const DEPLOYMENT_BLOCK = parseInt(process.env.MARKET_DEPLOYMENT_BLOCK || '0');
+                    if (isFirstRun) {
+                        // Fresh market in DB — scan full history from deployment
+                        lastIndexedBlock = DEPLOYMENT_BLOCK > 0 ? DEPLOYMENT_BLOCK : Math.max(0, currentBlock - 1000000);
+                        volume = BigInt(0); // Start clean
+                    } else {
+                        // Existing volume in DB but block reset — track only NEW trades from now
+                        lastIndexedBlock = currentBlock;
+                    }
                 }
 
                 const fetchFromBlock = lastIndexedBlock + 1;
@@ -183,7 +182,29 @@ export async function syncAllMarkets(): Promise<void> {
                                 // args[4] is COST (totalCost in contract)
                                 // args[3] is SHARES
                                 // @ts-ignore
-                                totalNewVolume += BigInt(log.args[4]);
+                                const { user, outcomeIndex, shares, totalCost } = log.args;
+                                const txHash = log.transactionHash;
+
+                                totalNewVolume += BigInt(totalCost);
+
+                                // Insert trade record
+                                try {
+                                    await query(`
+                                        INSERT INTO trades (
+                                            market_id, user_address, outcome_index, shares, total_cost, tx_hash, created_at
+                                        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                                        ON CONFLICT (tx_hash) DO NOTHING
+                                    `, [
+                                        marketId,
+                                        user,
+                                        Number(outcomeIndex),
+                                        ethers.formatUnits(shares, 18),    // shares: 18-dec
+                                        ethers.formatUnits(totalCost, 18), // totalCost: 18-dec (calculateCost output)
+                                        txHash
+                                    ]);
+                                } catch (err: any) {
+                                    console.error(`[Indexer] Failed to insert trade ${txHash}:`, err.message);
+                                }
                             }
                         } catch (e: any) {
                             console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
@@ -200,6 +221,7 @@ export async function syncAllMarkets(): Promise<void> {
                     }
                 }
 
+                // totalCost events are 18-decimal (LMSR calculateCost output)
                 const finalVolumeStr = ethers.formatUnits(volume, 18);
 
                 // Get block timestamp
@@ -235,7 +257,7 @@ export async function syncAllMarkets(): Promise<void> {
                         basicInfo.resolved,
                         Number(basicInfo.winningOutcome),
                         new Date(Number(basicInfo.endTime) * 1000),
-                        ethers.formatUnits(basicInfo.liquidityParam, 18),
+                        ethers.formatUnits(basicInfo.liquidityParam, 6), // DECIMAL FIX: liquidityParam is 6-dec USDC
                         Number(basicInfo.outcomeCount),
                         finalVolumeStr,
                         currentBlock,
