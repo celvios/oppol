@@ -73,7 +73,9 @@ export default function UserRegistrationManager() {
         }
     }, [isConnected, loginMethod, user, walletAddress, setUser, setCustodialAddress]);
 
-    // Existing check logic for Reown users ...
+    // Check registration status for wallet users
+    // NOTE: Social/Privy users are handled by the syncPrivyUser effect above.
+    // This effect only shows the modal for wallet users who haven't registered.
     useEffect(() => {
         const checkUserStatus = async () => {
             if (!isConnected || !walletAddress) {
@@ -81,70 +83,49 @@ export default function UserRegistrationManager() {
                 return;
             }
 
-            // Don't check again if user was already registered in this session
+            // Use ref as the primary session guard — avoids re-trigger loop
             if (hasRegisteredRef.current) {
                 return;
             }
 
-            // Check localStorage first to avoid unnecessary API calls
-            const safeAddress = (walletAddress || "").toLowerCase();
+            // Social/Privy users are automatically synced — never show modal for them
+            // loginMethod is 'google' | 'email' | 'twitter' | 'discord' | 'privy'
+            if (loginMethod && loginMethod !== 'wallet') {
+                hasRegisteredRef.current = true;
+                setShowModal(false);
+                return;
+            }
+
+            const safeAddress = walletAddress.toLowerCase();
             const storageKey = `user_registered_${safeAddress}`;
+
+            // Trust localStorage cache first
             const wasRegistered = localStorage.getItem(storageKey);
-
-            // If already registered via Privy sync, skip check
-            if (isRegistered) return;
-
             if (wasRegistered === 'true') {
-                // Still verify with API to ensure user actually exists
-                try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${walletAddress}`);
-                    const data = await res.json();
-                    if (data.success && data.user && data.user.display_name) {
-                        setIsRegistered(true);
-                        setShowModal(false);
-                        return;
-                    } else {
-                        // User was marked as registered but doesn't have display_name - clear localStorage
-                        localStorage.removeItem(storageKey);
-                    }
-                } catch (error) {
-                    // If API fails but localStorage says registered, trust localStorage
-                    setIsRegistered(true);
-                    setShowModal(false);
-                    return;
-                }
+                hasRegisteredRef.current = true;
+                setIsRegistered(true);
+                setShowModal(false);
+                return;
             }
 
             try {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${walletAddress}`);
                 const data = await res.json();
 
-                if (data.success) {
-                    // If user exists and has display_name, mark as registered
-                    if (data.user && data.user.display_name) {
-                        setIsRegistered(true);
-                        setShowModal(false);
-                        localStorage.setItem(storageKey, 'true');
-                    } else {
-                        // User doesn't exist or doesn't have display_name - show modal
-                        setShowModal(true);
-                    }
+                if (data.success && data.user) {
+                    // User exists in DB — consider them registered regardless of display_name
+                    hasRegisteredRef.current = true;
+                    setIsRegistered(true);
+                    setShowModal(false);
+                    localStorage.setItem(storageKey, 'true');
                 } else {
-                    // API returned error - don't block user, but show modal
+                    // Truly new wallet user — show modal
                     setShowModal(true);
                 }
             } catch (error) {
                 console.error('Failed to check user status:', error);
-                // On error, check localStorage as fallback
-                const storageKey = `user_registered_${walletAddress.toLowerCase()}`;
-                const wasRegistered = localStorage.getItem(storageKey);
-                if (wasRegistered === 'true') {
-                    setIsRegistered(true);
-                    setShowModal(false);
-                } else {
-                    // Show modal if we can't verify
-                    setShowModal(true);
-                }
+                // On network error, don't block the user — trust localStorage
+                setShowModal(false);
             } finally {
                 setHasChecked(true);
             }
@@ -153,7 +134,8 @@ export default function UserRegistrationManager() {
         if (isConnected && walletAddress) {
             checkUserStatus();
         }
-    }, [isConnected, walletAddress, isRegistered]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConnected, walletAddress, loginMethod]); // intentionally exclude isRegistered to avoid loop
 
     const handleRegisterSuccess = async () => {
         setShowModal(false);
