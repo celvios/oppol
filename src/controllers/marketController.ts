@@ -230,6 +230,96 @@ export const getCategories = async (req: Request, res: Response) => {
     }
 };
 
+export const getMarketPriceHistory = async (req: Request, res: Response) => {
+    try {
+        const { marketId } = req.params;
+        const interval = (req.query.interval as string) || '1h'; // 1h, 1d, all
+
+        // Map interval to bucket size
+        const bucketMap: Record<string, string> = {
+            '1h': '5 minutes',
+            '1d': '1 hour',
+            'all': '6 hours',
+        };
+        const bucket = bucketMap[interval] || '1 hour';
+
+        // Query trades grouped by time bucket, get implied probability per bucket
+        // Probability = sum(total_cost) / sum(shares) for YES (outcome_index=0)
+        // We use separate CTEs for YES and NO to track both
+        const result = await query(`
+            WITH buckets AS (
+                SELECT
+                    date_trunc('${bucket === '5 minutes' ? 'minute' : bucket === '1 hour' ? 'hour' : 'hour'}', created_at) as time_bucket,
+                    -- For "5 minutes" we floor to 5-min intervals
+                    -- simplified: just use date_trunc
+                    outcome_index,
+                    SUM(CAST(total_cost AS NUMERIC)) as total_cost_sum,
+                    SUM(CAST(shares AS NUMERIC)) as shares_sum
+                FROM trades
+                WHERE market_id = $1
+                  AND shares IS NOT NULL
+                  AND total_cost IS NOT NULL
+                  AND CAST(shares AS NUMERIC) > 0
+                GROUP BY time_bucket, outcome_index
+                ORDER BY time_bucket ASC
+            ),
+            yes_buckets AS (
+                SELECT
+                    time_bucket,
+                    CASE
+                        WHEN shares_sum > 0 THEN
+                            LEAST(GREATEST(total_cost_sum / shares_sum, 0.01), 0.99)
+                        ELSE NULL
+                    END as yes_price
+                FROM buckets
+                WHERE outcome_index = 0
+            )
+            SELECT
+                time_bucket,
+                yes_price
+            FROM yes_buckets
+            ORDER BY time_bucket ASC
+        `, [marketId]);
+
+        // If no trades, get current price from market
+        if (result.rows.length === 0) {
+            const marketResult = await query('SELECT prices FROM markets WHERE market_id = $1', [marketId]);
+            if (marketResult.rows.length > 0) {
+                let prices = marketResult.rows[0].prices;
+                if (typeof prices === 'string') { try { prices = JSON.parse(prices); } catch (e) { prices = [50, 50]; } }
+                const currentYesPrice = Array.isArray(prices) ? (prices[0] || 50) / 100 : 0.5;
+                return res.json({
+                    success: true,
+                    history: [
+                        { time: new Date().toISOString(), prob: currentYesPrice }
+                    ]
+                });
+            }
+            return res.json({ success: true, history: [] });
+        }
+
+        // Format as { time, prob } for frontend chart
+        const history = result.rows.map(row => ({
+            time: row.time_bucket,
+            prob: parseFloat(row.yes_price) || 0.5
+        }));
+
+        // Append current price from markets table as last data point
+        const marketResult = await query('SELECT prices FROM markets WHERE market_id = $1', [marketId]);
+        if (marketResult.rows.length > 0) {
+            let prices = marketResult.rows[0].prices;
+            if (typeof prices === 'string') { try { prices = JSON.parse(prices); } catch (e) { prices = [50, 50]; } }
+            const currentYesPrice = Array.isArray(prices) ? (prices[0] || 50) / 100 : 0.5;
+            history.push({ time: new Date().toISOString(), prob: currentYesPrice });
+        }
+
+        res.json({ success: true, history });
+    } catch (error) {
+        console.error('Get Price History Error:', error);
+        res.status(500).json({ success: false, message: 'Server error', history: [] });
+    }
+};
+
 export const deleteCategory = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

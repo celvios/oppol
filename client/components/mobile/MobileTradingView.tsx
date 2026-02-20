@@ -152,7 +152,7 @@ export default function MobileTradingView({ outcome, setOutcome, marketId, quest
             <div className="flex-1 px-4 mb-4">
                 {activeTab === "CHART" ? (
                     <div className="h-[300px]">
-                        <ProbabilityChart outcome={outcome} />
+                        <ProbabilityChart outcome={outcome} marketId={marketId} />
                     </div>
                 ) : (
                     <div className="h-[400px]">
