@@ -40,7 +40,7 @@ router.post('/bet', placeBet);
 router.get('/bet/estimate', estimateBetCost);
 
 // Market & Category Routes
-import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories, deleteCategory, getMarketPriceHistory } from '../controllers/marketController';
+import { createMarketMetadata, getAllMarketMetadata, getMarketMetadata, createCategory, getCategories, deleteCategory, getMarketPriceHistory, getUserPortfolio } from '../controllers/marketController';
 import { checkContractMarkets } from '../controllers/debugController';
 
 router.post('/markets', createMarketMetadata);
@@ -50,6 +50,10 @@ router.post('/categories', createCategory);
 router.get('/categories', getCategories);
 router.delete('/categories/:id', deleteCategory);
 router.get('/markets/:marketId/price-history', getMarketPriceHistory);
+
+// Portfolio (DB-backed, no RPC calls)
+router.get('/portfolio/:address', getUserPortfolio);
+router.get('/portfolio/:address/stats', getUserPortfolio); // alias used by old code
 
 import { uploadImage } from '../controllers/uploadController';
 router.post('/upload', uploadImage);

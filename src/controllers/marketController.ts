@@ -243,45 +243,20 @@ export const getMarketPriceHistory = async (req: Request, res: Response) => {
         };
         const bucket = bucketMap[interval] || '1 hour';
 
-        // Query trades grouped by time bucket, get implied probability per bucket
-        // Probability = sum(total_cost) / sum(shares) for YES (outcome_index=0)
-        // We use separate CTEs for YES and NO to track both
+        // Query price_history table — stores real on-chain getAllPrices() values (basis points)
+        // This is the correct source for LMSR price history (not cost/shares approximation)
+        const truncUnit = bucket === '5 minutes' ? 'minute' : bucket === '1 hour' ? 'hour' : 'day';
         const result = await query(`
-            WITH buckets AS (
-                SELECT
-                    date_trunc('${bucket === '5 minutes' ? 'minute' : bucket === '1 hour' ? 'hour' : 'hour'}', created_at) as time_bucket,
-                    -- For "5 minutes" we floor to 5-min intervals
-                    -- simplified: just use date_trunc
-                    outcome_index,
-                    SUM(CAST(total_cost AS NUMERIC)) as total_cost_sum,
-                    SUM(CAST(shares AS NUMERIC)) as shares_sum
-                FROM trades
-                WHERE market_id = $1
-                  AND shares IS NOT NULL
-                  AND total_cost IS NOT NULL
-                  AND CAST(shares AS NUMERIC) > 0
-                GROUP BY time_bucket, outcome_index
-                ORDER BY time_bucket ASC
-            ),
-            yes_buckets AS (
-                SELECT
-                    time_bucket,
-                    CASE
-                        WHEN shares_sum > 0 THEN
-                            LEAST(GREATEST(total_cost_sum / shares_sum, 0.01), 0.99)
-                        ELSE NULL
-                    END as yes_price
-                FROM buckets
-                WHERE outcome_index = 0
-            )
             SELECT
-                time_bucket,
-                yes_price
-            FROM yes_buckets
+                date_trunc($2, recorded_at) AS time_bucket,
+                AVG(price) / 100.0 AS yes_price
+            FROM price_history
+            WHERE market_id = $1
+            GROUP BY time_bucket
             ORDER BY time_bucket ASC
-        `, [marketId]);
+        `, [marketId, truncUnit]);
 
-        // If no trades, get current price from market
+        // If no price_history yet, fall back to current market price
         if (result.rows.length === 0) {
             const marketResult = await query('SELECT prices FROM markets WHERE market_id = $1', [marketId]);
             if (marketResult.rows.length > 0) {
@@ -290,21 +265,19 @@ export const getMarketPriceHistory = async (req: Request, res: Response) => {
                 const currentYesPrice = Array.isArray(prices) ? (prices[0] || 50) / 100 : 0.5;
                 return res.json({
                     success: true,
-                    history: [
-                        { time: new Date().toISOString(), prob: currentYesPrice }
-                    ]
+                    history: [{ time: new Date().toISOString(), prob: currentYesPrice }]
                 });
             }
             return res.json({ success: true, history: [] });
         }
 
         // Format as { time, prob } for frontend chart
-        const history = result.rows.map(row => ({
+        const history = result.rows.map((row: any) => ({
             time: row.time_bucket,
-            prob: parseFloat(row.yes_price) || 0.5
+            prob: Math.min(Math.max(parseFloat(row.yes_price) || 0.5, 0.01), 0.99)
         }));
 
-        // Append current price from markets table as last data point
+        // Append current price as final data point
         const marketResult = await query('SELECT prices FROM markets WHERE market_id = $1', [marketId]);
         if (marketResult.rows.length > 0) {
             let prices = marketResult.rows[0].prices;
@@ -320,7 +293,106 @@ export const getMarketPriceHistory = async (req: Request, res: Response) => {
     }
 };
 
+export const getUserPortfolio = async (req: Request, res: Response) => {
+    try {
+        const { address } = req.params;
+        if (!address) return res.status(400).json({ success: false, message: 'Address required' });
+
+        // Get all markets the user has traded in, with their share balances
+        // Group by market + outcome to sum shares, and join market info
+        const result = await query(`
+            SELECT
+                t.market_id,
+                t.outcome_index,
+                SUM(CAST(t.shares AS NUMERIC)) AS total_shares,
+                SUM(CAST(t.total_cost AS NUMERIC)) AS total_cost,
+                m.question,
+                m.outcome_names,
+                m.prices,
+                m.resolved,
+                m.winning_outcome
+            FROM trades t
+            LEFT JOIN markets m ON t.market_id = m.market_id
+            WHERE LOWER(t.user_address) = LOWER($1)
+              AND CAST(t.shares AS NUMERIC) > 0
+            GROUP BY t.market_id, t.outcome_index, m.question, m.outcome_names, m.prices, m.resolved, m.winning_outcome
+            ORDER BY t.market_id ASC
+        `, [address]);
+
+        // Group by market_id
+        const marketMap: Record<number, any> = {};
+        for (const row of result.rows) {
+            const mid = Number(row.market_id);
+            if (!marketMap[mid]) {
+                let prices: number[] = [50, 50];
+                let outcomeNames: string[] = ['YES', 'NO'];
+                try { prices = typeof row.prices === 'string' ? JSON.parse(row.prices) : row.prices || [50, 50]; } catch { }
+                try { outcomeNames = typeof row.outcome_names === 'string' ? JSON.parse(row.outcome_names) : row.outcome_names || ['YES', 'NO']; } catch { }
+
+                marketMap[mid] = {
+                    marketId: mid,
+                    question: row.question || `Market ${mid}`,
+                    prices,
+                    outcomeNames,
+                    resolved: row.resolved || false,
+                    winningOutcome: row.winning_outcome !== null ? Number(row.winning_outcome) : null,
+                    outcomes: {} // outcome_index -> { shares, totalCost }
+                };
+            }
+            marketMap[mid].outcomes[Number(row.outcome_index)] = {
+                shares: parseFloat(row.total_shares) || 0,
+                totalCost: parseFloat(row.total_cost) || 0,
+            };
+        }
+
+        // Build positions array
+        const positions: any[] = [];
+        for (const market of Object.values(marketMap)) {
+            const prices: number[] = market.prices;
+            for (const [outcomeIdx, data] of Object.entries(market.outcomes) as any) {
+                const idx = Number(outcomeIdx);
+                const shares = (data as any).shares;
+                const totalCost = (data as any).totalCost;
+                if (shares <= 0) continue;
+
+                // Current price for this outcome (basis points -> decimal)
+                const priceRaw = prices[idx] ?? 50;
+                const currentPrice = priceRaw / 100;
+                const avgPrice = shares > 0 ? totalCost / shares : currentPrice;
+
+                const currentValue = shares * currentPrice;
+                const pnl = currentValue - totalCost;
+
+                const side = market.outcomeNames[idx] || (idx === 0 ? 'YES' : 'NO');
+                const isWinner = market.resolved && market.winningOutcome === idx;
+
+                positions.push({
+                    marketId: market.marketId,
+                    market: market.question,
+                    side,
+                    outcomeIndex: idx,
+                    shares,
+                    avgPrice,
+                    currentPrice,
+                    currentValue,
+                    pnl,
+                    pnlDisplay: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
+                    claimed: false, // Would need contract call; default false
+                    marketResolved: market.resolved,
+                    isWinner,
+                });
+            }
+        }
+
+        res.json({ success: true, positions });
+    } catch (error) {
+        console.error('Get User Portfolio Error:', error);
+        res.status(500).json({ success: false, message: 'Server error', positions: [] });
+    }
+};
+
 export const deleteCategory = async (req: Request, res: Response) => {
+
     try {
         const { id } = req.params;
         if (!id) return res.status(400).json({ success: false, message: 'Category ID is required' });

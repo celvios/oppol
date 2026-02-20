@@ -87,11 +87,12 @@ export default function PortfolioPage() {
 
         async function fetchData() {
             try {
-                // For social/embedded users: fetch custodial wallet address and its USDC balance
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+
+                // For social/embedded users: resolve custodial address
                 let checkAddress = effectiveAddress!;
                 if (isEmbeddedWallet && privyUser?.id) {
                     try {
-                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
                         const authRes = await fetch(`${apiUrl}/api/auth/privy`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -106,122 +107,59 @@ export default function PortfolioPage() {
                         if (custAddr) {
                             setCustodialAddress(custAddr);
                             checkAddress = custAddr;
-                            // Check USDC balance in custodial wallet
-                            const { ethers } = await import('ethers');
-                            const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
-                            const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
-                            const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
-                            const usdc = new ethers.Contract(usdcAddr, usdcAbi, provider);
-                            const [rawBal, decimals] = await Promise.all([usdc.balanceOf(custAddr), usdc.decimals().catch(() => 6)]);
-                            const custodialBal = parseFloat(ethers.formatUnits(rawBal, decimals));
-                            console.log('[Portfolio] Custodial USDC balance:', custodialBal);
-                            setCustodialUsdcBalance(custodialBal.toFixed(6));
+                            // Fetch custodial USDC balance in parallel below
                         }
                     } catch (e) {
                         console.warn('[Portfolio] Failed to fetch custodial address:', e);
                     }
                 }
 
-                // Fetch user DEPOSITED balance (from market contract)
-                const userBalance = await web3Service.getDepositedBalance(checkAddress);
+                // Kick off balance + portfolio fetch IN PARALLEL for speed
+                const [depositedBalance, walletBal, portfolioRes] = await Promise.all([
+                    web3Service.getDepositedBalance(checkAddress).catch(() => '0'),
+                    web3Service.getUSDCBalance(effectiveAddress!).catch(() => '0'),
+                    fetch(`${apiUrl}/api/portfolio/${checkAddress}`).then(r => r.json()).catch(() => ({ success: false, positions: [] })),
+                ]);
 
-                setBalance(userBalance);
+                setBalance(depositedBalance);
+                setWalletBalance(walletBal);
 
-                const getWalletBalance = await web3Service.getUSDCBalance(effectiveAddress!);
-                setWalletBalance(getWalletBalance);
-
-                // Fetch all markets and user positions
-                const markets = await web3Service.getMarkets();
-
-                // Fetch portfolio stats (real avg entry price) from backend
-                let portfolioStats: Record<string, any> = {};
-                try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-                    if (apiUrl) {
-                        const statsRes = await fetch(`${apiUrl}/api/portfolio/${effectiveAddress}/stats`);
-                        const statsData = await statsRes.json();
-                        if (statsData.success) {
-                            portfolioStats = statsData.stats;
-                        }
+                // Custodial USDC balance (if needed)
+                if (checkAddress !== effectiveAddress) {
+                    try {
+                        const { ethers } = await import('ethers');
+                        const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
+                        const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+                        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+                        const usdc = new ethers.Contract(usdcAddr, usdcAbi, provider);
+                        const [rawBal, decimals] = await Promise.all([usdc.balanceOf(checkAddress), usdc.decimals().catch(() => 6)]);
+                        setCustodialUsdcBalance(parseFloat((await import('ethers')).ethers.formatUnits(rawBal, decimals)).toFixed(6));
+                    } catch (e) {
+                        console.warn('[Portfolio] Custodial USDC balance fetch failed:', e);
                     }
-                } catch (err) {
-                    console.warn('Failed to fetch portfolio stats:', err);
                 }
 
+                // Map API positions to the Position interface
                 const userPositions: Position[] = [];
                 let aggregatePnL = 0;
 
-                const positionPromises = markets.map(async (market) => {
-                    const position = await web3Service.getUserPosition(market.id, effectiveAddress!);
-                    return { market, position };
-                });
-
-                const results = await Promise.all(positionPromises);
-
-                for (const { market, position } of results) {
-                    if (!position) continue;
-
-                    const yesShares = parseFloat(position.yesShares) || 0;
-                    const noShares = parseFloat(position.noShares) || 0;
-                    const claimed = position.claimed;
-                    const marketResolved = market.resolved;
-                    const winningOutcome = Number(market.winningOutcome);
-
-                    // Process YES position
-                    if (yesShares > 0) {
-                        const currentPrice = market.yesOdds / 100;
-
-                        // Get real avg price or fallback to 0.50
-                        const statsKey = `${market.id}-YES`;
-                        const avgPrice = portfolioStats[statsKey]?.avgPrice || 0.50;
-
-                        const currentValue = yesShares * currentPrice;
-                        const costBasis = yesShares * avgPrice;
-                        const pnl = currentValue - costBasis;
+                if (portfolioRes.success && Array.isArray(portfolioRes.positions)) {
+                    for (const p of portfolioRes.positions) {
+                        const pnl = p.pnl || 0;
                         aggregatePnL += pnl;
-
                         userPositions.push({
-                            market: market.question,
-                            marketId: market.id,
-                            side: 'YES',
-                            shares: parseFloat(yesShares.toFixed(2)),
-                            avgPrice: avgPrice.toFixed(2),
-                            currentPrice,
-                            currentValue: currentValue.toFixed(2),
-                            pnl: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
+                            market: p.market,
+                            marketId: p.marketId,
+                            side: p.outcomeIndex === 0 ? 'YES' : 'NO',
+                            shares: parseFloat((p.shares || 0).toFixed(2)),
+                            avgPrice: (p.avgPrice || 0).toFixed(2),
+                            currentPrice: p.currentPrice || 0,
+                            currentValue: (p.currentValue || 0).toFixed(2),
+                            pnl: p.pnlDisplay || '$0.00',
                             pnlRaw: pnl,
-                            claimed,
-                            marketResolved,
-                            isWinner: marketResolved && winningOutcome === 0,
-                        });
-                    }
-
-                    // Process NO position
-                    if (noShares > 0) {
-                        const currentPrice = (100 - market.yesOdds) / 100;
-
-                        // Get real avg price or fallback to 0.50
-                        const statsKey = `${market.id}-NO`;
-                        const avgPrice = portfolioStats[statsKey]?.avgPrice || 0.50;
-
-                        const currentValue = noShares * currentPrice;
-                        const costBasis = noShares * avgPrice;
-                        const pnl = currentValue - costBasis;
-                        aggregatePnL += pnl;
-
-                        userPositions.push({
-                            market: market.question,
-                            marketId: market.id,
-                            side: 'NO',
-                            shares: parseFloat(noShares.toFixed(2)),
-                            avgPrice: avgPrice.toFixed(2),
-                            currentPrice,
-                            currentValue: currentValue.toFixed(2),
-                            pnl: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
-                            pnlRaw: pnl,
-                            claimed,
-                            marketResolved,
-                            isWinner: marketResolved && winningOutcome === 1,
+                            claimed: p.claimed || false,
+                            isWinner: p.isWinner || false,
+                            marketResolved: p.marketResolved || false,
                         });
                     }
                 }
@@ -234,6 +172,7 @@ export default function PortfolioPage() {
                 setLoading(false);
             }
         }
+
 
         // Initial fetch
         fetchData();
