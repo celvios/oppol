@@ -19,7 +19,6 @@ async function main() {
     // Validate upgrade (skip storage check if V2->V3 is safe)
     const v3 = await upgrades.upgradeProxy(PROXY_ADDRESS, V3, {
         unsafeSkipStorageCheck: true,
-        unsafeAllow: ['audit']
     });
 
     await v3.waitForDeployment();

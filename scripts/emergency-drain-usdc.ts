@@ -50,7 +50,10 @@ async function main() {
     }
 
     const contractBalance = await usdc.balanceOf(MARKET);
-    const balFormatted = ethers.formatUnits(contractBalance, 6);
+    // Read decimals dynamically — BSC Binance-Pegged USDC has 18 dec, not 6!
+    const decimals = await usdc.decimals();
+    const balFormatted = ethers.formatUnits(contractBalance, decimals);
+    console.log(`USDC decimals: ${decimals}`);
     console.log(`\nUSDC in contract: ${balFormatted} USDC`);
 
     if (contractBalance === 0n) {
