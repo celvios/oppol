@@ -305,6 +305,28 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         
         emit CreatorRewardsClaimed(msg.sender, amount);
     }
-    
+
+    /**
+     * @dev Emergency: allows owner to withdraw any ERC20 token held by this contract.
+     * Used to recover test funds or stuck tokens before/after relaunch.
+     * @param _token  ERC20 token address (use USDC_CONTRACT for user deposit recovery)
+     * @param _to     Recipient address (owner wallet)
+     * @param _amount Amount in token's native decimals (use type(uint256).max for full balance)
+     */
+    function emergencyWithdraw(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) external onlyOwner nonReentrant {
+        require(_to != address(0), "Invalid recipient");
+        IERC20 t = IERC20(_token);
+        uint256 bal = t.balanceOf(address(this));
+        uint256 amount = _amount > bal ? bal : _amount;
+        require(amount > 0, "Nothing to withdraw");
+        require(t.transfer(_to, amount), "Transfer failed");
+        emit EmergencyWithdrawal(_token, _to, amount);
+    }
+
+    event EmergencyWithdrawal(address indexed token, address indexed to, uint256 amount);
 
 }
