@@ -49,7 +49,7 @@ import BoostButton from "@/components/market/BoostButton";
 
 interface PricePoint {
     time: string;
-    price: number;
+    [key: string]: number | string;
 }
 
 interface TradeSuccessData {
@@ -83,9 +83,9 @@ export function DesktopTerminal() {
     const marketRef = useRef(market);
     // Use API metadata - no fallback, API is source of truth
     const metadata = market ? {
-        image: market.image_url || '',
-        description: market.description || '',
-        category: market.category_id || 'General'
+        image: (market as any).image_url || '',
+        description: (market as any).description || '',
+        category: (market as any).category_id || 'General'
     } : null;
 
     useEffect(() => {
@@ -358,7 +358,7 @@ export function DesktopTerminal() {
                                 {/* Market Image */}
                                 <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                     <img
-                                        src={m.image_url || ''}
+                                        src={(m as any).image_url || ''}
                                         alt=""
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
@@ -479,7 +479,7 @@ export function DesktopTerminal() {
                     <div className="flex-1 w-full h-full min-h-[300px]">
                         <MultiOutcomeChart
                             data={priceHistory}
-                            outcomes={market.outcomes || ["YES", "NO"]}
+                            outcomes={(market as any).outcomes || ["YES", "NO"]}
                         />
                     </div>
                 </GlassCard>
@@ -582,11 +582,11 @@ export function DesktopTerminal() {
                                 endTime={market.endTime}
                                 resolved={market.resolved}
                                 outcome={market.outcome}
-                                winningOutcomeIndex={market.winningOutcome}
-                                assertionPending={market.assertionPending}
+                                winningOutcomeIndex={(market as any).winningOutcome}
+                                assertionPending={(market as any).assertionPending}
                                 assertedOutcome={market.assertedOutcome}
-                                assertedOutcomeIndex={market.assertedOutcome}
-                                asserter={market.asserter}
+                                assertedOutcomeIndex={(market as any).assertedOutcome}
+                                asserter={(market as any).asserter}
                             />
                         </div>
                     ) : (

@@ -484,7 +484,7 @@ export class Web3MultiService {
             }
 
             // Est Usage: Approve + Buy. ~250k gas safe.
-            const estGasCostBNB = gasPrice * 250000n;
+            const estGasCostBNB = gasPrice * BigInt(250000);
 
             // 2. Fetch BNB Price for USD conversion
             let bnbPrice = 600; // default
@@ -544,7 +544,7 @@ export class Web3MultiService {
             // Adjust if Cost > TradeAmount
             if (costBN > tradeAmountBN) {
                 const ratio = (Number(tradeAmountBN) * 1000) / Number(costBN);
-                sharesBN = sharesBN * BigInt(Math.floor(ratio)) / 1000n;
+                sharesBN = sharesBN * BigInt(Math.floor(ratio)) / BigInt(1000);
                 costBN = await marketWithSigner.calculateCost(marketId, outcomeIndex, sharesBN);
             }
 

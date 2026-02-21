@@ -127,8 +127,172 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
 
-    // --- Trading Logic ---
+    const market = markets.find(m => m.id === selectedMarketId) || markets[0];
+    const marketRef = useRef(market);
+
+    // Auto-focus and clear input on mobile when outcome is selected
+    useEffect(() => {
+        if (selectedOutcome !== null) {
+            setAmount('');
+            setTimeout(() => {
+                if (mobileInputRef.current) mobileInputRef.current.focus();
+            }, 100);
+        }
+    }, [selectedOutcome]);
+
+    // Helper to validate image
+    const isValidImage = (img: string | undefined): boolean => {
+        if (!img || !img.trim()) return false;
+        const trimmed = img.trim();
+        return trimmed.startsWith('data:image/') ||
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('/');
+    };
+
+    const getImageUrl = (m: MultiMarket) => {
+        const img = m.image_url || m.image || '';
+        return img && isValidImage(img) ? img.trim() : '';
+    };
+
+    const metadata = market ? {
+        image: getImageUrl(market),
+        description: market.description && market.description.trim() ? market.description.trim() : '',
+        category: market.category_id || 'General'
+    } : null;
+
+    useEffect(() => {
+        marketRef.current = market;
+    }, [market]);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // --- Data Fetching ---
+    const fetchHistory = useCallback(async (id: number) => {
+        const generatePlaceholder = () => {
+            if (!marketRef.current) return [];
+            const now = Date.now();
+            const m = marketRef.current;
+
+            return Array.from({ length: 50 }).map((_, i) => {
+                const time = new Date(now - (49 - i) * 1000).toLocaleTimeString();
+                const point: any = { time };
+                m.outcomes.forEach((outcome, idx) => {
+                    const basePrice = m.prices[idx] || 0;
+                    point[outcome] = basePrice + Math.sin((now - (49 - i) * 1000) / 800 + idx) * 0.5;
+                });
+                return point;
+            });
+        };
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+            if (apiUrl) {
+                const response = await fetch(`${apiUrl}/api/markets/${id}/price-history?limit=50`);
+                const data = await response.json();
+                if (data.success && data.history?.length > 0) {
+                    setPriceHistory(generatePlaceholder());
+                } else {
+                    setPriceHistory(generatePlaceholder());
+                }
+            } else {
+                setPriceHistory(generatePlaceholder());
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            setPriceHistory(generatePlaceholder());
+        }
+    }, []);
+
+    // Animation / Heartbeat for chart
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!marketRef.current) return;
+            const m = marketRef.current;
+            setPriceHistory(prev => {
+                const now = Date.now();
+                const timeString = new Date(now).toLocaleTimeString();
+                const newPoint: any = { time: timeString };
+                m.outcomes.forEach((outcome, idx) => {
+                    const basePrice = m.prices[idx] || 0;
+                    newPoint[outcome] = basePrice + Math.sin(now / 800 + idx) * 0.5;
+                });
+
+                if (prev.length === 0) return [];
+                const newHistory = [...prev, newPoint];
+                return newHistory.slice(-50);
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (selectedMarketId !== null && selectedMarketId !== undefined) fetchHistory(selectedMarketId);
+    }, [selectedMarketId, fetchHistory]);
+
     const { isConnected, address, isConnecting: walletLoading, connect, loginMethod } = useWallet();
+
+    // --- Data Fetching (Markets) ---
+    const fetchData = useCallback(async () => {
+        console.log('[MultiTerminal] fetchData called');
+        try {
+            const [allMarkets, depositedBalance, position] = await Promise.all([
+                web3MultiService.getMarkets(),
+                address ? web3MultiService.getDepositedBalance(address).catch(e => {
+                    console.error('[MultiTerminal] Balance fetch error:', e);
+                    return '0';
+                }) : Promise.resolve('0'),
+                (address && selectedMarketId !== null && selectedMarketId !== undefined) ? web3MultiService.getUserPosition(selectedMarketId, address).catch(e => {
+                    console.error('[MultiTerminal] Position fetch error:', e);
+                    return null;
+                }) : Promise.resolve(null)
+            ]);
+
+            console.log('[MultiTerminal] Markets fetched:', allMarkets.length);
+            setMarkets(allMarkets);
+            setBalance(depositedBalance);
+            if (position) setUserPosition(position);
+        } catch (error) {
+            console.error('[MultiTerminal] Error in fetchData:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [address, selectedMarketId]);
+
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 300000);
+        return () => clearInterval(interval);
+    }, [fetchData]);
+
+    // Handle market selection (URL param > Default)
+    useEffect(() => {
+        if (markets.length === 0) return;
+
+        const marketIdParam = searchParams.get('marketId');
+        if (marketIdParam !== null) {
+            const marketId = parseInt(marketIdParam, 10);
+            if (!isNaN(marketId)) {
+                const marketExists = markets.find(m => m.id === marketId);
+                if (marketExists) {
+                    setSelectedMarketId(marketId);
+                    return;
+                }
+            }
+        }
+
+        if (selectedMarketId === undefined || selectedMarketId === null) {
+            if (markets.length > 0) setSelectedMarketId(markets[0].id);
+        }
+    }, [searchParams, markets, selectedMarketId]);
+
+    useEffect(() => {
+        setSelectedOutcome(null);
+    }, [selectedMarketId]);
+
+    // --- Trading Logic ---
 
     const handleTrade = async () => {
         if (!isConnected) {
@@ -223,7 +387,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             setMarkets(prev => prev.map(m => {
                 if (m.id === market.id) {
                     const newPrices = [...m.prices];
-                    if (result.newPrice) newPrices[selectedOutcome] = result.newPrice;
+                    if ((result as any).newPrice) newPrices[selectedOutcome] = (result as any).newPrice;
 
                     const newVol = parseFloat(m.totalVolume) + parseFloat(result.cost || amount);
                     return { ...m, totalVolume: newVol.toFixed(2), prices: newPrices };

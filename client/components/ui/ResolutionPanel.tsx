@@ -110,7 +110,7 @@ export function ResolutionPanel({
         address: MARKET_CONTRACT,
         abi: MARKET_ABI,
         functionName: 'getUserPosition',
-        args: address ? [BigInt(marketId), address] : undefined,
+        args: address ? [BigInt(marketId), address as `0x${string}`] : undefined,
         query: { enabled: !!address }
     });
 

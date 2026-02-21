@@ -627,9 +627,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
                             outcome={market.outcome}
                             winningOutcomeIndex={market.winningOutcome}
                             assertionPending={market.assertionPending}
-                            assertedOutcome={market.assertedOutcome}
-                            assertedOutcomeIndex={market.assertedOutcome}
-                            asserter={market.asserter}
+                            assertedOutcome={(market as any).assertedOutcome}
+                            assertedOutcomeIndex={(market as any).assertedOutcome}
+                            asserter={(market as any).asserter}
                         />
                     </div>
                 ) : (

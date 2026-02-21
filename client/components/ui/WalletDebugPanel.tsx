@@ -9,11 +9,11 @@ export function WalletDebugPanel() {
     const [isOpen, setIsOpen] = useState(false);
     const [events, setEvents] = useState<string[]>([]);
     const wallet = useWallet();
-    
+
     // Only show in development
     const isDev = process.env.NODE_ENV === 'development';
-    
-    let wagmiAccount = { address: undefined, isConnected: false };
+
+    let wagmiAccount: any = { address: undefined, isConnected: false };
     try {
         if (typeof window !== 'undefined') {
             wagmiAccount = useAccount();
@@ -24,7 +24,7 @@ export function WalletDebugPanel() {
 
     useEffect(() => {
         if (!isDev) return;
-        
+
         const handleWalletEvent = (e: CustomEvent) => {
             const timestamp = new Date().toLocaleTimeString();
             const detail = JSON.stringify(e.detail);
@@ -34,7 +34,7 @@ export function WalletDebugPanel() {
         window.addEventListener('wallet-changed', handleWalletEvent as EventListener);
         window.addEventListener('wallet-connect-request', handleWalletEvent as EventListener);
         window.addEventListener('wallet-disconnect-request', handleWalletEvent as EventListener);
-        
+
         return () => {
             window.removeEventListener('wallet-changed', handleWalletEvent as EventListener);
             window.removeEventListener('wallet-connect-request', handleWalletEvent as EventListener);
@@ -64,7 +64,7 @@ export function WalletDebugPanel() {
                             <X size={16} className="text-white/60 hover:text-white" />
                         </button>
                     </div>
-                    
+
                     <div className="space-y-3">
                         <div>
                             <div className="text-purple-400 mb-1">useWallet Hook:</div>
@@ -74,7 +74,7 @@ export function WalletDebugPanel() {
                                 <div>Connecting: {wallet.isConnecting ? '⏳' : '✅'}</div>
                             </div>
                         </div>
-                        
+
                         <div>
                             <div className="text-purple-400 mb-1">Wagmi Direct:</div>
                             <div className="pl-2 space-y-1">
@@ -82,14 +82,14 @@ export function WalletDebugPanel() {
                                 <div>Address: {wagmiAccount.address || 'null'}</div>
                             </div>
                         </div>
-                        
+
                         <div>
                             <div className="text-purple-400 mb-1">Web3Modal:</div>
                             <div className="pl-2">
                                 Available: {(window as any).web3modal ? '✅' : '❌'}
                             </div>
                         </div>
-                        
+
                         <div>
                             <div className="text-purple-400 mb-1">Local Storage:</div>
                             <div className="pl-2">
@@ -97,7 +97,7 @@ export function WalletDebugPanel() {
                                 <div>Timestamp: {localStorage.getItem('opoll-wallet-timestamp') || 'null'}</div>
                             </div>
                         </div>
-                        
+
                         <div>
                             <div className="text-purple-400 mb-1">Recent Events:</div>
                             <div className="pl-2 space-y-1 max-h-32 overflow-y-auto">
@@ -110,7 +110,7 @@ export function WalletDebugPanel() {
                                 )}
                             </div>
                         </div>
-                        
+
                         <div className="pt-2 border-t border-purple-500/30">
                             <button
                                 onClick={() => {

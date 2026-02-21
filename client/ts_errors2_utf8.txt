@@ -1,0 +1,13 @@
+﻿components/admin/UserExplorer.tsx(73,44): error TS2322: Type '{ children: string; variant: "cyan"; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; onClick: () => Promise<...>; }' is not assignable to type 'IntrinsicAttributes & NeonButtonProps'.
+  Property 'icon' does not exist on type 'IntrinsicAttributes & NeonButtonProps'.
+components/terminal/MultiOutcomeTerminal.tsx(390,32): error TS2339: Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; } | { shares: any; cost: any; newPrice: any; hash: any; }'.
+  Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; }'.
+components/terminal/MultiOutcomeTerminal.tsx(390,78): error TS2339: Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; } | { shares: any; cost: any; newPrice: any; hash: any; }'.
+  Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; }'.
+components/ui/ResolutionPanel.tsx(113,9): error TS2322: Type '[bigint, string] | undefined' is not assignable to type 'readonly [marketId: bigint, user: `0x${string}`] | undefined'.
+  Type '[bigint, string]' is not assignable to type 'readonly [marketId: bigint, user: `0x${string}`]'.
+    Type at position 1 in source is not compatible with type at position 1 in target.
+      Type 'string' is not assignable to type '`0x${string}`'.
+lib/mockData.ts(1,33): error TS2304: Cannot find name 'TradeSuccessData'.
+lib/web3-multi.ts(487,46): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+lib/web3-multi.ts(547,67): error TS2737: BigInt literals are not available when targeting lower than ES2020.

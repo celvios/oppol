@@ -29,9 +29,9 @@ export default function MarketPage() {
             </nav>
 
             {/* Mobile View */}
-            <MobileTradingView 
-                outcome={selectedOutcome === 0 ? "YES" : "NO"} 
-                setOutcome={(o) => setSelectedOutcome(o === "YES" ? 0 : 1)}
+            <MobileTradingView
+                outcome={selectedOutcome}
+                setOutcome={setSelectedOutcome}
                 marketId={id ? parseInt(id as string) : undefined}
             />
 

@@ -10,7 +10,7 @@ interface Market {
     resolved: boolean;
     winningOutcome: number;
     formattedEndTime: string;
-    status: 'ACTIVE' | 'ENDED' | 'RESOLVED';
+    status: 'ACTIVE' | 'ENDED' | 'RESOLVED' | 'DELETED';
     volume?: string;
     image?: string;
     outcomes: string[];
@@ -171,8 +171,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                     <div className="flex items-center gap-3">
                         <span className="text-xs font-mono">DB Rows: {dbStats.count}</span>
                         <NeonButton
-                            variant="primary"
-                            size="sm"
+                            variant="cyan"
                             onClick={handleSync}
                             disabled={isSubmitting}
                         >
@@ -227,8 +226,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
 
                                 {m.status === 'ENDED' && (
                                     <NeonButton
-                                        variant="primary"
-                                        size="sm"
+                                        variant="cyan"
                                         onClick={() => setResolvingId(m.id)}
                                     >
                                         Resolve
@@ -277,7 +275,7 @@ export default function AdminMarketList({ adminKey }: { adminKey: string }) {
                                 Cancel
                             </button>
                             <NeonButton
-                                variant="primary"
+                                variant="cyan"
                                 className="flex-1"
                                 disabled={selectedOutcome === null || isSubmitting}
                                 onClick={handleResolve}

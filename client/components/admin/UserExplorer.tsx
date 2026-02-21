@@ -70,8 +70,11 @@ export default function UserExplorer({ adminKey }: { adminKey: string }) {
                         className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"
                     />
                 </div>
-                <NeonButton variant="secondary" size="sm" icon={RefreshCw} onClick={fetchUsers}>
-                    Refresh
+                <NeonButton variant="cyan" onClick={fetchUsers}>
+                    <div className="flex items-center gap-2">
+                        <RefreshCw size={16} />
+                        Refresh
+                    </div>
                 </NeonButton>
             </div>
 

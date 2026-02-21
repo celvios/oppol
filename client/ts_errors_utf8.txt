@@ -1,0 +1,63 @@
+﻿app/(app)/markets/[id]/page.tsx(33,26): error TS2367: This comparison appears to be unintentional because the types 'string' and 'number' have no overlap.
+app/(app)/markets/[id]/page.tsx(34,55): error TS2345: Argument of type '1 | 0' is not assignable to parameter of type 'SetStateAction<"YES" | "NO">'.
+  Type '1' is not assignable to type 'SetStateAction<"YES" | "NO">'.
+components/admin/AdminMarketList.tsx(123,28): error TS2345: Argument of type '(prev: Market[]) => (Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to parameter of type 'SetStateAction<Market[]>'.
+  Type '(prev: Market[]) => (Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to type '(prevState: Market[]) => Market[]'.
+    Type '(Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to type 'Market[]'.
+      Type 'Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; }' is not assignable to type 'Market'.
+        Type '{ isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string; image?: string; outcomes: string[]; }' is not assignable to type 'Market'.
+          Types of property 'status' are incompatible.
+            Type '"DELETED"' is not assignable to type '"ACTIVE" | "ENDED" | "RESOLVED"'.
+components/admin/AdminMarketList.tsx(131,28): error TS2345: Argument of type '(prev: Market[]) => (Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to parameter of type 'SetStateAction<Market[]>'.
+  Type '(prev: Market[]) => (Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to type '(prevState: Market[]) => Market[]'.
+    Type '(Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; })[]' is not assignable to type 'Market[]'.
+      Type 'Market | { isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string | undefined; image?: string | undefined; outcomes: string[]; }' is not assignable to type 'Market'.
+        Type '{ isHidden: true; status: "DELETED"; id: number; question: string; endTime: number; resolved: boolean; winningOutcome: number; formattedEndTime: string; volume?: string; image?: string; outcomes: string[]; }' is not assignable to type 'Market'.
+          Types of property 'status' are incompatible.
+            Type '"DELETED"' is not assignable to type '"ACTIVE" | "ENDED" | "RESOLVED"'.
+components/admin/AdminMarketList.tsx(174,29): error TS2322: Type '"primary"' is not assignable to type '"glass" | "cyan" | "coral" | "green" | "red" | "orange" | undefined'.
+components/admin/AdminMarketList.tsx(205,97): error TS2367: This comparison appears to be unintentional because the types '"ACTIVE" | "ENDED" | "RESOLVED"' and '"DELETED"' have no overlap.
+components/admin/AdminMarketList.tsx(230,41): error TS2322: Type '"primary"' is not assignable to type '"glass" | "cyan" | "coral" | "green" | "red" | "orange" | undefined'.
+components/admin/AdminMarketList.tsx(280,33): error TS2322: Type '"primary"' is not assignable to type '"glass" | "cyan" | "coral" | "green" | "red" | "orange" | undefined'.
+components/admin/UserExplorer.tsx(73,29): error TS2322: Type '"secondary"' is not assignable to type '"glass" | "cyan" | "coral" | "green" | "red" | "orange" | undefined'.
+components/mobile/MobileTerminal.tsx(630,29): error TS2322: Type 'number | undefined' is not assignable to type 'boolean | undefined'.
+  Type 'number' is not assignable to type 'boolean | undefined'.
+components/terminal/DesktopTerminal.tsx(86,23): error TS2339: Property 'image_url' does not exist on type 'Market'.
+components/terminal/DesktopTerminal.tsx(87,29): error TS2339: Property 'description' does not exist on type 'Market'.
+components/terminal/DesktopTerminal.tsx(88,26): error TS2339: Property 'category_id' does not exist on type 'Market'.
+components/terminal/DesktopTerminal.tsx(148,37): error TS2345: Argument of type '{ time: string; Yes: number; No: number; }[]' is not assignable to parameter of type 'SetStateAction<PricePoint[]>'.
+  Type '{ time: string; Yes: number; No: number; }[]' is not assignable to type 'PricePoint[]'.
+    Property 'price' is missing in type '{ time: string; Yes: number; No: number; }' but required in type 'PricePoint'.
+components/terminal/DesktopTerminal.tsx(151,33): error TS2345: Argument of type '{ time: string; Yes: number; No: number; }[]' is not assignable to parameter of type 'SetStateAction<PricePoint[]>'.
+  Type '{ time: string; Yes: number; No: number; }[]' is not assignable to type 'PricePoint[]'.
+    Property 'price' is missing in type '{ time: string; Yes: number; No: number; }' but required in type 'PricePoint'.
+components/terminal/DesktopTerminal.tsx(155,29): error TS2345: Argument of type '{ time: string; Yes: number; No: number; }[]' is not assignable to parameter of type 'SetStateAction<PricePoint[]>'.
+  Type '{ time: string; Yes: number; No: number; }[]' is not assignable to type 'PricePoint[]'.
+    Property 'price' is missing in type '{ time: string; Yes: number; No: number; }' but required in type 'PricePoint'.
+components/terminal/DesktopTerminal.tsx(195,29): error TS2345: Argument of type '(prev: PricePoint[]) => (PricePoint | { time: string; Yes: number; No: number; })[]' is not assignable to parameter of type 'SetStateAction<PricePoint[]>'.
+  Type '(prev: PricePoint[]) => (PricePoint | { time: string; Yes: number; No: number; })[]' is not assignable to type '(prevState: PricePoint[]) => PricePoint[]'.
+    Type '(PricePoint | { time: string; Yes: number; No: number; })[]' is not assignable to type 'PricePoint[]'.
+      Type 'PricePoint | { time: string; Yes: number; No: number; }' is not assignable to type 'PricePoint'.
+        Property 'price' is missing in type '{ time: string; Yes: number; No: number; }' but required in type 'PricePoint'.
+components/terminal/DesktopTerminal.tsx(361,48): error TS2339: Property 'image_url' does not exist on type 'Market'.
+components/terminal/DesktopTerminal.tsx(482,46): error TS2551: Property 'outcomes' does not exist on type 'Market'. Did you mean 'outcome'?
+components/terminal/DesktopTerminal.tsx(585,61): error TS2339: Property 'winningOutcome' does not exist on type 'Market'.
+components/terminal/DesktopTerminal.tsx(588,33): error TS2322: Type 'boolean | undefined' is not assignable to type 'number | undefined'.
+  Type 'boolean' is not assignable to type 'number'.
+components/terminal/MultiOutcomeTerminal.tsx(260,9): error TS2448: Block-scoped variable 'address' used before its declaration.
+components/terminal/MultiOutcomeTerminal.tsx(260,9): error TS2454: Variable 'address' is used before being assigned.
+components/terminal/MultiOutcomeTerminal.tsx(389,32): error TS2339: Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; } | { shares: any; cost: any; newPrice: any; hash: any; }'.
+  Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; }'.
+components/terminal/MultiOutcomeTerminal.tsx(389,78): error TS2339: Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; } | { shares: any; cost: any; newPrice: any; hash: any; }'.
+  Property 'newPrice' does not exist on type '{ hash: string; shares: string; cost: string; }'.
+components/ui/ResolutionPanel.tsx(113,9): error TS2322: Type '[bigint, string] | undefined' is not assignable to type 'readonly [marketId: bigint, user: `0x${string}`] | undefined'.
+  Type '[bigint, string]' is not assignable to type 'readonly [marketId: bigint, user: `0x${string}`]'.
+    Type at position 1 in source is not compatible with type at position 1 in target.
+      Type 'string' is not assignable to type '`0x${string}`'.
+components/ui/WalletDebugPanel.tsx(19,13): error TS2322: Type 'UseConnectionReturnType<Config>' is not assignable to type '{ address: undefined; isConnected: boolean; }'.
+  Type '{ address: `0x${string}`; addresses: readonly [`0x${string}`, ...`0x${string}`[]]; chain: Chain | undefined; chainId: number; connector: Connector; isConnected: true; isConnecting: false; isDisconnected: false; isReconnecting: false; status: "connected"; }' is not assignable to type '{ address: undefined; isConnected: boolean; }'.
+    Types of property 'address' are incompatible.
+      Type '`0x${string}`' is not assignable to type 'undefined'.
+lib/mockData.ts(1,33): error TS2304: Cannot find name 'TradeSuccessData'.
+lib/web3-multi.ts(487,46): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+lib/web3-multi.ts(547,67): error TS2737: BigInt literals are not available when targeting lower than ES2020.
