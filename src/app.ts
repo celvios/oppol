@@ -1229,6 +1229,7 @@ app.get('/api/markets', async (req, res) => {
       created_at,
       volume
       FROM markets
+      WHERE NOT (resolved = true AND end_time < NOW() - INTERVAL '48 hours')
       ORDER BY (is_boosted = TRUE AND boost_expires_at > EXTRACT(EPOCH FROM NOW()) * 1000) DESC, market_id ASC
       `);
 
