@@ -1061,7 +1061,7 @@ app.post('/api/admin/create-market', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const { question, outcomes, category, image, description, durationHours, initialLiquidity } = req.body;
+    const { question, outcomes, category, image, description, durationMinutes, initialLiquidity } = req.body;
 
     if (!question || !outcomes || outcomes.length < 2) {
       return res.status(400).json({ success: false, error: 'Invalid market data' });
@@ -1081,15 +1081,10 @@ app.post('/api/admin/create-market', async (req, res) => {
     const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0xf91Dd35bF428B0052CB63127931b4e49fe0fB7d6';
     const marketABI = [
       // V3 function - auto-calculates liquidity as (outcomes.length * 100 * 1e6)
-      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationDays) external returns (uint256)',
+      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationMinutes) external returns (uint256)',
       'function marketCount() view returns (uint256)'
     ];
     const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
-
-    // Convert duration to days (V3 uses days, not seconds)
-    const durationDays = Math.ceil((durationHours || 24) / 24);
-
-    console.log(`[Admin] Using V3 createMarketV3 - liquidity will auto-calculate to ${outcomes.length * 100} USDC`);
 
     // Call V3 createMarketV3 - NO manual liquidity parameter needed!
     const tx = await contract.createMarketV3(
@@ -1097,7 +1092,7 @@ app.post('/api/admin/create-market', async (req, res) => {
       image || '',           // V3 requires image
       description || '',     // V3 requires description  
       outcomes,
-      durationDays
+      durationMinutes || 1440 // Default to 24 hours in minutes
     );
 
     console.log(`[Admin] TX Sent: ${tx.hash}`);
@@ -1140,13 +1135,13 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const { question, outcomes, category, image, description, durationDays } = req.body;
+    const { question, outcomes, category, image, description, durationMinutes } = req.body;
 
     if (!question || !outcomes || outcomes.length < 2) {
       return res.status(400).json({ success: false, error: 'Invalid market data' });
     }
 
-    console.log(`[Admin V2] Creating market: "${question}" with ${outcomes.length} outcomes for ${durationDays} days`);
+    console.log(`[Admin V2] Creating market: "${question}" with ${outcomes.length} outcomes for ${durationMinutes} minutes`);
 
     // Setup Provider & Signer
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-testnet.bnbchain.org';
@@ -1160,7 +1155,7 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
     const MULTI_MARKET_ADDR = process.env.MULTI_MARKET_ADDRESS || '0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae';
     const marketABI = [
       // V3 function - auto-calculates liquidity
-      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationDays) external returns (uint256)',
+      'function createMarketV3(string memory _question, string memory _image, string memory _description, string[] memory _outcomes, uint256 _durationMinutes) external returns (uint256)',
       'function marketCount() view returns (uint256)'
     ];
     const contract = new ethers.Contract(MULTI_MARKET_ADDR, marketABI, signer);
@@ -1172,7 +1167,7 @@ app.post('/api/admin/create-market-v2', async (req, res) => {
       image || "",
       description || "",
       outcomes,
-      parseInt(durationDays) // V3 uses days as integer
+      parseInt(durationMinutes || "1440") // Default to 24 hours
     );
 
     console.log(`[Admin V2] TX Sent: ${tx.hash}`);

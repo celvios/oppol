@@ -38,7 +38,7 @@ export default function CreateMarketPage() {
         description: "",
         image: "",
         category: "Crypto",
-        durationDays: "30",
+        durationMinutes: "1440", // 24 hours default
         outcomes: ["Yes", "No"] // Default to binary, user can add more
     });
 
@@ -246,7 +246,7 @@ export default function CreateMarketPage() {
                         image: finalImageUrl,
                         category: formData.category,
                         outcomes: formData.outcomes,
-                        durationDays: parseFloat(formData.durationDays)
+                        durationMinutes: parseFloat(formData.durationMinutes)
                     })
                 });
 
@@ -275,7 +275,7 @@ export default function CreateMarketPage() {
                             image: finalImageUrl,
                             category: formData.category,
                             outcomes: formData.outcomes,
-                            durationDays: parseFloat(formData.durationDays)
+                            durationMinutes: parseFloat(formData.durationMinutes)
                         },
                         userAddress: address
                     })
@@ -518,12 +518,12 @@ export default function CreateMarketPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm text-text-secondary uppercase tracking-wider flex items-center gap-2">
-                                        <Calendar size={14} /> Duration (Days)
+                                        <Calendar size={14} /> Duration (Minutes)
                                     </label>
                                     <input
                                         type="number"
-                                        name="durationDays"
-                                        value={formData.durationDays}
+                                        name="durationMinutes"
+                                        value={formData.durationMinutes}
                                         onChange={handleInputChange}
                                         min="1"
                                         className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neon-cyan/50 transition-colors"

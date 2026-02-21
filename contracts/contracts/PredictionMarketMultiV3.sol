@@ -58,7 +58,7 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         string memory _image,
         string memory _description,
         string[] memory _outcomes,
-        uint256 _durationDays
+        uint256 _durationMinutes
     ) external returns (uint256) {
         // Reuse V2 logic for creation (we call internal or public function from V2?)
         // V2 createMarket is external. We can't call it easily via super if it's external and we want to wrap it.
@@ -104,7 +104,7 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         market.image = _image;
         market.description = _description;
         market.outcomeCount = _outcomes.length;
-        market.endTime = block.timestamp + (_durationDays * 1 days);
+        market.endTime = block.timestamp + (_durationMinutes * 1 minutes);
         market.liquidityParam = _outcomes.length * 100 * 1e6; // 100 USDC per outcome
         market.subsidyPool = 0;
         
@@ -204,7 +204,7 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         string memory _image,
         string memory _description,
         string[] memory _outcomes,
-        uint256 _durationDays
+        uint256 _durationMinutes
     ) external virtual override returns (uint256) {
         if (msg.sender != owner()) {
             require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
@@ -237,8 +237,8 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         market.image = _image;
         market.description = _description;
         market.outcomeCount = _outcomes.length;
-        // V2/V3 logic: Duration in days
-        market.endTime = block.timestamp + (_durationDays * 1 days);
+        // V2/V3 logic: Duration in minutes
+        market.endTime = block.timestamp + (_durationMinutes * 1 minutes);
         
         // AUTO-CALCULATE liquidity: 100 USDC per outcome
         market.liquidityParam = _outcomes.length * 100 * 1e6; // Match USDC decimals
@@ -267,7 +267,7 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         string memory _image,
         string memory _description,
         string[] memory _outcomes,
-        uint256 _durationDays
+        uint256 _durationMinutes
     ) external onlyOperatorOrOwner returns (uint256) {
         if (_outcomes.length < MIN_OUTCOMES || _outcomes.length > MAX_OUTCOMES) {
             revert InvalidOutcomeCount(_outcomes.length);
@@ -280,7 +280,7 @@ contract PredictionMarketMultiV3 is PredictionMarketMultiV2 {
         market.image = _image;
         market.description = _description;
         market.outcomeCount = _outcomes.length;
-        market.endTime = block.timestamp + (_durationDays * 1 days);
+        market.endTime = block.timestamp + (_durationMinutes * 1 minutes);
         market.liquidityParam = _outcomes.length * 100 * 1e6; // Auto-liquidity
         market.subsidyPool = 0;
         

@@ -221,7 +221,7 @@ contract PredictionMarketMultiV2 is
      * @param _image URL/Path to market image
      * @param _description Market description/rules
      * @param _outcomes Array of outcome labels (2-10)
-     * @param _durationDays Duration in DAYS (not seconds!)
+     * @param _durationMinutes Duration in MINUTES
      * 
      * NO liquidity parameter needed!
      * NO subsidy needed!
@@ -231,7 +231,7 @@ contract PredictionMarketMultiV2 is
         string memory _image,
         string memory _description,
         string[] memory _outcomes,
-        uint256 _durationDays
+        uint256 _durationMinutes
     ) external virtual returns (uint256) {
         if (msg.sender != owner()) {
             require(publicCreation || address(creationToken) != address(0), "Public creation disabled");
@@ -250,7 +250,7 @@ contract PredictionMarketMultiV2 is
         market.image = _image;
         market.description = _description;
         market.outcomeCount = _outcomes.length;
-        market.endTime = block.timestamp + (_durationDays * 1 days);
+        market.endTime = block.timestamp + (_durationMinutes * 1 minutes);
         
         // AUTO-CALCULATE liquidity: 100 USDC per outcome
         market.liquidityParam = _outcomes.length * 100 * 1e6; // Match USDC decimals
