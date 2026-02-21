@@ -1,0 +1,14 @@
+token
+oracle
+assertionBond
+creationToken
+minCreationBalance
+publicCreation
+protocolFee
+accumulatedFees
+operators
+marketCount
+markets
+positions
+assertionToMarket
+userBalances

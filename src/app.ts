@@ -1322,9 +1322,8 @@ app.get('/api/markets/:id', async (req, res) => {
 
     const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
     const provider = new ethers.JsonRpcProvider(rpcUrl, parseInt(process.env.CHAIN_ID || '56'));
-    // FORCE CORRECT CONTRACT
-    const MARKET_ADDR = '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
-    // const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MARKET_ADDRESS || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
+
+    const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.NEXT_PUBLIC_MARKET_ADDRESS || '0xe5a5320b3764Bd8FFFd95cF7aA7F406DaC2B070C';
 
     const marketABI = [
       'function marketCount() view returns (uint256)',

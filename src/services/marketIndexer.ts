@@ -98,7 +98,50 @@ export async function syncAllMarkets(): Promise<void> {
 
         console.log(`[Indexer] ✅ Multicall3 completed in ${Date.now() - startTime}ms`);
 
-        // Decode responses and update database
+        // Find the globally latest indexed block across ALL markets
+        const globalStateRes = await query('SELECT MAX(last_indexed_block) as min_block FROM markets');
+        let globalLastBlock = globalStateRes.rows[0]?.min_block ? parseInt(globalStateRes.rows[0].min_block) : 0;
+
+        const DEPLOYMENT_BLOCK = parseInt(process.env.MARKET_DEPLOYMENT_BLOCK || '0');
+        if (globalLastBlock === 0) {
+            globalLastBlock = DEPLOYMENT_BLOCK > 0 ? DEPLOYMENT_BLOCK : Math.max(0, currentBlock - 10000);
+        }
+
+        const fetchFromBlock = globalLastBlock + 1;
+
+        // 1. GLOBALLY fetch all SharesPurchased events in ONE call, drastically saving RPC Compute Units
+        const allNewTrades: any[] = [];
+        if (currentBlock >= fetchFromBlock) {
+            const CHUNK_SIZE = 4000;
+            console.log(`[Indexer] Fetching global events from block ${fetchFromBlock} to ${currentBlock}...`);
+
+            for (let from = fetchFromBlock; from <= currentBlock; from += CHUNK_SIZE) {
+                const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
+                try {
+                    // Query WITHOUT filtering by marketId -> gets ALL markets at once
+                    const logs = await marketContract.queryFilter(
+                        marketContract.filters.SharesPurchased(),
+                        from,
+                        to
+                    );
+                    allNewTrades.push(...logs);
+                } catch (e: any) {
+                    console.error(`[Indexer] ❌ Global chunk ${from}-${to} failed:`, e.message);
+                }
+                await new Promise(r => setTimeout(r, 200)); // Rate limit
+            }
+            console.log(`[Indexer] Found ${allNewTrades.length} new trades globally.`);
+        }
+
+        // Group trades by marketId
+        const tradesByMarket: Record<number, any[]> = {};
+        for (const log of allNewTrades) {
+            const marketId = Number(log.args.marketId);
+            if (!tradesByMarket[marketId]) tradesByMarket[marketId] = [];
+            tradesByMarket[marketId].push(log);
+        }
+
+        // 2. Decode responses and update database
         for (let index = 0; index < marketIds.length; index++) {
             const marketId = marketIds[index];
             const baseIndex = index * 3; // Each market has 3 calls
@@ -131,102 +174,57 @@ export async function syncAllMarkets(): Promise<void> {
 
                 // Get current state from DB
                 const dbMarket = await query(
-                    'SELECT volume, last_indexed_block FROM markets WHERE market_id = $1',
+                    'SELECT volume FROM markets WHERE market_id = $1',
                     [marketId]
                 );
 
-                let lastIndexedBlock = 0;
-                let isFirstRun = false;
-
                 if (dbMarket.rows.length > 0) {
                     const row = dbMarket.rows[0];
-                    // totalCost from SharesPurchased events is 18-decimal (same as calculateCost output)
                     volume = row.volume ? ethers.parseUnits(row.volume, 18) : BigInt(0);
-                    lastIndexedBlock = row.last_indexed_block ? parseInt(row.last_indexed_block) : 0;
-                } else {
-                    isFirstRun = true;
                 }
 
-                // Double-count protection:
-                // If first run ever: scan from deployment block (full history, start volume at 0)
-                // If DB already has volume but block=0 (legacy row): start from NOW (don't re-add history)
-                if (lastIndexedBlock === 0) {
-                    const DEPLOYMENT_BLOCK = parseInt(process.env.MARKET_DEPLOYMENT_BLOCK || '0');
-                    if (isFirstRun) {
-                        // Fresh market in DB — scan full history from deployment
-                        lastIndexedBlock = DEPLOYMENT_BLOCK > 0 ? DEPLOYMENT_BLOCK : Math.max(0, currentBlock - 1000000);
-                        volume = BigInt(0); // Start clean
-                    } else {
-                        // Existing volume in DB but block reset — track only NEW trades from now
-                        lastIndexedBlock = currentBlock;
+                // Process new trades for THIS market
+                const marketTrades = tradesByMarket[marketId] || [];
+                let totalNewVolume = BigInt(0);
+
+                for (const log of marketTrades) {
+                    // @ts-ignore
+                    const { user, outcomeIndex, shares, totalCost } = log.args;
+                    const txHash = log.transactionHash;
+
+                    totalNewVolume += BigInt(totalCost);
+
+                    // Insert trade record
+                    try {
+                        await query(`
+                            INSERT INTO trades (
+                                market_id, user_address, outcome_index, shares, total_cost, tx_hash, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                            ON CONFLICT (tx_hash) DO NOTHING
+                        `, [
+                            marketId,
+                            user,
+                            Number(outcomeIndex),
+                            ethers.formatUnits(shares, 18),
+                            ethers.formatUnits(totalCost, 18),
+                            txHash
+                        ]);
+                    } catch (err: any) {
+                        console.error(`[Indexer] Failed to insert trade ${txHash}:`, err.message);
                     }
                 }
 
-                const fetchFromBlock = lastIndexedBlock + 1;
+                volume += totalNewVolume;
 
-                // Only query if new blocks exist
-                if (currentBlock >= fetchFromBlock) {
-                    const CHUNK_SIZE = 2000;
-                    let totalNewVolume = BigInt(0);
-
-                    // Forward scan from `fetchFromBlock`
-                    for (let from = fetchFromBlock; from <= currentBlock; from += CHUNK_SIZE) {
-                        const to = Math.min(from + CHUNK_SIZE - 1, currentBlock);
-                        try {
-                            const logs = await marketContract.queryFilter(
-                                marketContract.filters.SharesPurchased(marketId),
-                                from,
-                                to
-                            );
-                            for (const log of logs) {
-                                // args[4] is COST (totalCost in contract)
-                                // args[3] is SHARES
-                                // @ts-ignore
-                                const { user, outcomeIndex, shares, totalCost } = log.args;
-                                const txHash = log.transactionHash;
-
-                                totalNewVolume += BigInt(totalCost);
-
-                                // Insert trade record
-                                try {
-                                    await query(`
-                                        INSERT INTO trades (
-                                            market_id, user_address, outcome_index, shares, total_cost, tx_hash, created_at
-                                        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-                                        ON CONFLICT (tx_hash) DO NOTHING
-                                    `, [
-                                        marketId,
-                                        user,
-                                        Number(outcomeIndex),
-                                        ethers.formatUnits(shares, 18),    // shares: 18-dec
-                                        ethers.formatUnits(totalCost, 18), // totalCost: 18-dec (calculateCost output)
-                                        txHash
-                                    ]);
-                                } catch (err: any) {
-                                    console.error(`[Indexer] Failed to insert trade ${txHash}:`, err.message);
-                                }
-                            }
-                        } catch (e: any) {
-                            console.error(`[Indexer] ❌ Market ${marketId} chunk ${from}-${to}:`, e.message);
-                        }
-
-                        // Rate limit
-                        await new Promise(resolve => setTimeout(resolve, 200));
-                    }
-
-                    volume += totalNewVolume;
-
-                    if (totalNewVolume > 0n) {
-                        console.log(`[Indexer] Market ${marketId} +${ethers.formatUnits(totalNewVolume, 18)} vol`);
-                    }
+                if (totalNewVolume > 0n) {
+                    console.log(`[Indexer] Market ${marketId} +${ethers.formatUnits(totalNewVolume, 18)} vol`);
                 }
 
                 // totalCost events are 18-decimal (LMSR calculateCost output)
                 const finalVolumeStr = ethers.formatUnits(volume, 18);
 
                 // Get block timestamp
-                const block = await provider.getBlock(currentBlock);
-                const blockTimestamp = block ? new Date(block.timestamp * 1000) : new Date();
+                const blockTimestamp = new Date(); // Use current time for indexing timestamp
 
                 // Insert or update market
                 await query(

@@ -230,6 +230,9 @@ export const initDatabase = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(comment_id, user_id)
       );
+
+      -- Trades Schema Update
+      ALTER TABLE trades ADD COLUMN IF NOT EXISTS outcome_index INTEGER;
     `);
 
     console.log('✅ Database Initialization Complete');

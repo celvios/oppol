@@ -72,7 +72,7 @@ export async function getMarketsServer(): Promise<ServerMarket[]> {
             resolved: m.resolved || false,
             winningOutcome: m.winningOutcome || 0,
             // Boost fields (Sync with web3-multi.ts)
-            isBoosted: m.is_boosted || (m.market_id !== undefined ? m.market_id : m.id) < 3,
+            isBoosted: m.is_boosted || false,
             boost_tier: m.boost_tier,
             boost_expires_at: m.boost_expires_at,
         }));
