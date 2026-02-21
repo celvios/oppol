@@ -70,9 +70,9 @@ export class GasService {
             // Add Safety Margin (10%?)
             const costUSDSafe = costUSD * 1.1;
 
-            // Convert to USDC (6 decimals)
-            // e.g. $0.50 -> 500000
-            const amountUSDC = ethers.parseUnits(costUSDSafe.toFixed(6), 6);
+            // Convert to USDC (18 decimals for BSC)
+            // e.g. $0.50 -> 500000000000000000
+            const amountUSDC = ethers.parseUnits(costUSDSafe.toFixed(18), 18);
 
             console.log(`[GasService] Est. Cost: ${gasLimit} gas @ ${ethers.formatUnits(gasPrice, "gwei")} gwei`);
             console.log(`[GasService] BNB Price: $${bnbPrice}, Total: $${costUSDSafe.toFixed(4)}`);
@@ -81,9 +81,9 @@ export class GasService {
 
         } catch (error) {
             console.error('Gas estimation failed:', error);
-            // Fallback: Return generous estimate ($0.10) to be safe?
-            // 0.10 USDC
-            return ethers.parseUnits("0.1", 6);
+            // Fallback: Return generous estimate ($0.10) to be safe
+            // 0.10 USDC in 18 decimals
+            return ethers.parseUnits("0.1", 18);
         }
     }
 }

@@ -391,8 +391,8 @@ export class Web3MultiService {
         if (!this.predictionMarket) return '0';
         try {
             const balance = await this.predictionMarket.userBalances(address);
-            // DECIMAL FIX: userBalances in contract is 6-dec USDC, not 18-dec
-            return ethers.formatUnits(balance, 6);
+            // DECIMAL FIX: userBalances on BSC USDC is 18-dec
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching deposited balance:', error);
             return '0';
@@ -406,8 +406,8 @@ export class Web3MultiService {
         if (!this.usdc) return '0';
         try {
             const balance = await this.usdc.balanceOf(address);
-            // USDC on BSC has 6 decimals
-            return ethers.formatUnits(balance, 6);
+            // USDC on BSC has 18 decimals
+            return ethers.formatUnits(balance, 18);
         } catch (error) {
             console.error('Error fetching USDC balance:', error);
             return '0';
@@ -521,7 +521,7 @@ export class Web3MultiService {
             const marketWithSigner = this.predictionMarket.connect(userSigner) as ethers.Contract;
 
             // Check Allowance
-            const decimals = 6; // USDC
+            const decimals = 18; // USDC on BSC
             const tradeAmountBN = ethers.parseUnits(tradeAmount.toFixed(decimals), decimals);
 
             const allowance = await usdcWithSigner.allowance(userAddress, mktAddr);
@@ -548,7 +548,7 @@ export class Web3MultiService {
                 costBN = await marketWithSigner.calculateCost(marketId, outcomeIndex, sharesBN);
             }
 
-            console.log(`[Web3Multi] Buying ${ethers.formatUnits(sharesBN, 18)} shares for max ${ethers.formatUnits(costBN, 6)} USDC`);
+            console.log(`[Web3Multi] Buying ${ethers.formatUnits(sharesBN, 18)} shares for max ${ethers.formatUnits(costBN, 18)} USDC`);
 
             const tx = await marketWithSigner.buyShares(marketId, outcomeIndex, sharesBN, tradeAmountBN);
             console.log(`[Web3Multi] Buy TX sent: ${tx.hash}`);
@@ -557,7 +557,7 @@ export class Web3MultiService {
             return {
                 hash: tx.hash,
                 shares: ethers.formatUnits(sharesBN, 18),
-                cost: tradeAmount.toFixed(6)
+                cost: tradeAmount.toFixed(18)
             };
 
         } catch (error: any) {

@@ -115,11 +115,11 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const estGas = 150000n;
         const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
 
-        console.log(`[Deposit] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 6)} USDC`);
+        console.log(`[Deposit] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 18)} USDC`);
 
         // Convert amount
-        // USDC on BSC has 6 decimals
-        const USDC_DECIMALS = 6;
+        // USDC on BSC has 18 decimals!
+        const USDC_DECIMALS = 18;
         const amountBN = ethers.parseUnits(amountRaw, USDC_DECIMALS);
 
         let depositAmount = amountBN;
@@ -127,7 +127,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         // Deduct Fee
         if (amountBN > gasFeeUSDC) {
             depositAmount = amountBN - gasFeeUSDC;
-            console.log(`[Deposit] Deducting Fee. Net Deposit: ${ethers.formatUnits(depositAmount, 6)} USDC`);
+            console.log(`[Deposit] Deducting Fee. Net Deposit: ${ethers.formatUnits(depositAmount, 18)} USDC`);
         } else {
             console.warn(`[Deposit] Amount too low to cover gas. Proceeding without deduction (platform absorbs cost).`);
             // Optional: fail here if you want to enforce user pays
@@ -157,7 +157,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const marketAbi = ['function deposit(uint256 amount)'];
         const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 6)} USDC to Market...`);
+        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 18)} USDC to Market...`);
         // Check balance again just in case (USDC balance)
         // We assume watcher was triggered by transfer, so balance is there.
 
@@ -167,7 +167,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
 
         // 5. Transfer Fee to Relayer (Revenue)
         if (depositAmount < amountBN && gasFeeUSDC > 0n) {
-            console.log(`[Deposit] Transferring Gas Fee (${ethers.formatUnits(gasFeeUSDC, 6)} USDC) to Relayer...`);
+            console.log(`[Deposit] Transferring Gas Fee (${ethers.formatUnits(gasFeeUSDC, 18)} USDC) to Relayer...`);
             try {
                 const txFee = await usdc.transfer(relayer.address, gasFeeUSDC);
                 await txFee.wait();
@@ -325,18 +325,18 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const usdcBalanceWei = await usdc.balanceOf(custodialAddress);
 
         let amountBN: bigint = usdcBalanceWei;
-        const USDC_DECIMALS = 6;
+        const USDC_DECIMALS = 18;
 
         // Check minimum (0.01 USDC)
-        if (amountBN < 10000n) {
+        if (amountBN < ethers.parseUnits("0.01", 18)) {
             // Return success false but with "Swapped" status if we did a swap? 
             // Or just standard "No Balance" if swap failed or produced dust.
-            console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, 6)} USDC). Skipping.`);
-            return res.json({ success: false, error: 'No USDC balance to deposit', balance: parseFloat(ethers.formatUnits(amountBN, 6)) });
+            console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, 18)} USDC). Skipping.`);
+            return res.json({ success: false, error: 'No USDC balance to deposit', balance: parseFloat(ethers.formatUnits(amountBN, 18)) });
         }
 
-        console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, 6)} USDC for ${userId}`);
-        const amountStr = ethers.formatUnits(amountBN, 6);
+        console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, 18)} USDC for ${userId}`);
+        const amountStr = ethers.formatUnits(amountBN, 18);
 
         // Trigger the deposit
         const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
@@ -439,19 +439,10 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
             const marketAbi = ['function withdraw(uint256 amount)'];
             const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
 
-            // Conversion: neededFromGame is in USDC decimals.
-            // Market 'withdraw' uses 18 decimals (Shares).
-            // Scale up: neededShares = neededFromGame * 10^(18 - decimals)
-            // If decimals is 18, factor is 1. If 6, factor is 1e12.
-            // Note: If decimals > 18 (rare), this would fail. Assuming <= 18.
-            let scaleFactor = 1n;
-            if (18n > decimalsBi) {
-                scaleFactor = BigInt(10) ** (18n - decimalsBi);
-            }
-            const neededShares = neededFromGame * scaleFactor;
-
-            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, decimals)} USDC (${ethers.formatUnits(neededShares, 18)} Shares) from Market...`);
-            const txWithdraw = await market.withdraw(neededShares);
+            // Conversion: neededFromGame is in USDC decimals (6 dec).
+            // Market 'withdraw' expects the exact same USDC amount (6 dec).
+            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, decimals)} USDC from Market...`);
+            const txWithdraw = await market.withdraw(neededFromGame);
             await txWithdraw.wait();
         }
 

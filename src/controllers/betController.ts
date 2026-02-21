@@ -55,11 +55,8 @@ export const placeBet = async (req: Request, res: Response) => {
         const marketContract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
         // Check deposited balance of the USER (Contract Balance)
-        // USDC uses 6 decimals (typically) or 18? app.ts used 6. Let's use 6 for safety check.
-        // If contract actually uses 18, this check might be off.
-        // We'll trust contract failure if we are wrong, but let's try 6.
+        // USDC uses 18 decimals on BSC.
         const balanceFormattedCheck = await marketContract.userBalances(normalizedAddress);
-        // const balanceReadable = ethers.formatUnits(balanceFormattedCheck, 6); 
 
         const maxCost = parseFloat(amount);
         // --- GAS FEE CALCULATION START ---
@@ -76,39 +73,38 @@ export const placeBet = async (req: Request, res: Response) => {
         // Trade ~150k, Withdraw ~50k, Transfer ~50k. Total ~250k.
         let tradeAmount = maxCost;
         let feesToSweep = 0n;
-        const USDC_DECIMALS = 6;
+        const USDC_DECIMALS = 18;
 
         if (custodialSigner) {
             const { gasService } = require('../services/gasService');
             const estGas = 250000n; // Safety margin
-            const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas); // Returns bigint 6 decimals
+            const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas); // Returns bigint 18 decimals
 
-            console.log(`[Bet] Est. Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 6)} USDC`);
+            console.log(`[Bet] Est. Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 18)} USDC`);
 
             const amountBN = ethers.parseUnits(amount, USDC_DECIMALS);
             if (amountBN > gasFeeUSDC) {
                 const netAmount = amountBN - gasFeeUSDC;
                 tradeAmount = parseFloat(ethers.formatUnits(netAmount, USDC_DECIMALS));
                 feesToSweep = gasFeeUSDC;
-                console.log(`[Bet] Net Trade Amount: ${tradeAmount} USDC (Fee: ${ethers.formatUnits(feesToSweep, 6)})`);
+                console.log(`[Bet] Net Trade Amount: ${tradeAmount} USDC (Fee: ${ethers.formatUnits(feesToSweep, 18)})`);
             } else {
                 console.warn('[Bet] Amount too low to cover gas. Trading with full amount (Relayer absorbs cost).');
             }
         }
         // --- GAS FEE CALCULATION END ---
 
-        const maxCostInUnits = ethers.parseUnits(tradeAmount.toFixed(6), 6);
+        const maxCostInUnits = ethers.parseUnits(tradeAmount.toFixed(18), 18);
 
         if (balanceFormattedCheck < maxCostInUnits) {
-            const bal = ethers.formatUnits(balanceFormattedCheck, 6);
+            const bal = ethers.formatUnits(balanceFormattedCheck, 18);
             console.log(`[Bet] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount}`);
             return res.status(400).json({ success: false, error: `Insufficient balance. Have: $${bal}, Need: $${amount}` });
         }
 
         // Binary search to find max shares for the given amount
-        // Shares are 18-dec. calculateCost() returns 18-dec LMSR values.
-        // maxCostInUnits is 6-dec USDC — scale to 18-dec for comparison.
-        const maxCostIn18Dec = maxCostInUnits * BigInt(10 ** 12); // 6-dec → 18-dec
+        // maxCostInUnits is 18-dec USDC.
+        const maxCostIn18Dec = maxCostInUnits; // 18-dec USDC -> 18-dec LMSR
 
         let low = BigInt(1);
         // Upper bound: if price ≈ 0.5, shares ≈ 2 * amount. Start with 10x as safe upper.
@@ -155,7 +151,7 @@ export const placeBet = async (req: Request, res: Response) => {
 
         // --- FEE COLLECTION ---
         if (feesToSweep > 0n && custodialSigner) {
-            console.log(`[Bet] Sweeping Gas Fee: ${ethers.formatUnits(feesToSweep, 6)} USDC...`);
+            console.log(`[Bet] Sweeping Gas Fee: ${ethers.formatUnits(feesToSweep, 18)} USDC...`);
 
             // Check Gas for Custodial Wallet (needed for withdraw/transfer)
             const custBal = await provider.getBalance(custodialSigner.address);
@@ -171,11 +167,10 @@ export const placeBet = async (req: Request, res: Response) => {
 
             try {
                 // 1. Withdraw Fee from Market
-                // DECIMAL FIX: withdraw() takes 6-dec USDC amount — same as feesToSweep.
-                // The old code multiplied by 1e12 (treating it as shares), causing TX to always revert.
+                // DECIMAL FIX: withdraw() takes 18-dec USDC amount — same as feesToSweep.
                 const marketAbi = ['function withdraw(uint256 amount)'];
                 const mkt = new ethers.Contract(MARKET_CONTRACT, marketAbi, custodialSigner);
-                const txW = await mkt.withdraw(feesToSweep); // feesToSweep is already 6-dec USDC
+                const txW = await mkt.withdraw(feesToSweep); // feesToSweep is already 18-dec USDC
                 await txW.wait();
 
                 // 2. Transfer to Relayer
@@ -200,7 +195,7 @@ export const placeBet = async (req: Request, res: Response) => {
                 outcomeIndex: targetOutcome,
                 shares: ethers.formatUnits(bestShares, 18),
                 user: walletAddress,
-                feeDeducted: ethers.formatUnits(feesToSweep, 6)
+                feeDeducted: ethers.formatUnits(feesToSweep, 18)
             }
         });
 
