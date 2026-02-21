@@ -1,4 +1,0 @@
-Liquidity Param (Raw): 200000000000000000000
-Liquidity Param (6 full): 200000000000000.0
-Liquidity Param (18 full): 200.0
-Prices: 5000, 4999

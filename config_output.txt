@@ -1,7 +1,0 @@
-Reading config from Market: 0xe3Eb84D7e271A5C44B27578547f69C80c497355B
-Creation Token Address: 0xB929177331De755d7aCc5665267a247e458bCdeC
-Min Creation Balance: 1
-Public Creation Enabled: false
-❌ Creation Token DOES NOT match BC400 Address!
-Expected: 0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD
-Could not fetch token details: execution reverted (no data present; likely require(false) occurred (action="call", data="0x", reason="require(false)", transaction={ "data": "0x313ce567", "to": "0xB929177331De755d7aCc5665267a247e458bCdeC" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.16.0)

@@ -1,3 +1,0 @@
-Checking prices for Market 0 on 0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae
-Total Markets: 1
-Error: execution reverted (no data present; likely require(false) occurred (action="call", data="0x", reason="require(false)", transaction={ "data": "0x04bc1afb0000000000000000000000000000000000000000000000000000000000000000", "to": "0x95BEec73d2F473bB9Df7DC1b65637fB4CFc047Ae" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.16.0)

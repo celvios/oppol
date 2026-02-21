@@ -1,5 +1,0 @@
---- Checking Relayer Wallet Balance ---
-Address: 0xa4B1B886f955b2342bC9bB4f7B80839357378b76
-BNB Balance: 0.007608743576619003 BNB
-USDC Balance: 1.9922164399020263 (Raw: 1992216439902026248, Decimals: 18)
-DEBUG: With 6 decimals (buggy), it would show: 1992216439902.0264
