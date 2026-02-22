@@ -329,18 +329,26 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             const usdcDecimals = 18;
             const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
 
-            const currentPrice = market.prices[selectedOutcome];
-            const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
-            const estShares = parseFloat(amount) / priceFloat;
-            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
-
             // Gas reimbursement: dynamically calculated from live BSC gas price + BNB/USD price.
             // Fetches real-time data and adds a 20% safety buffer. Falls back to $0.20 on error.
             const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
 
+            if (tradeAmountBN <= feeUSDC) {
+                setIsTradeLoading(false);
+                alert(`Trade amount is too small. It must be greater than the current network gas fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
+                return;
+            }
 
             // Net USDC that goes into the market contract for shares
-            const netTradeCost = tradeAmountBN > feeUSDC ? tradeAmountBN - feeUSDC : tradeAmountBN;
+            const netTradeCost = tradeAmountBN - feeUSDC;
+
+            const currentPrice = market.prices[selectedOutcome];
+            const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
+
+            // Calculate shares based on the NET amount, not the gross amount
+            const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
+            const estShares = netAmountFloat / priceFloat;
+            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
             const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
             if (!activeWallet) throw new Error("No active wallet found. Please reconnect.");
