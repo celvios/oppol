@@ -476,64 +476,36 @@ export default function DepositPage() {
 
 
             if (selectedToken.direct) {
-                // Direct USDT/USDC deposit
-                if (!MARKET_CONTRACT) {
-                    throw new Error("Market contract address is missing in configuration.");
+                // Direct USDC deposit to their Smart Account 
+                // We must send funds to their gasless Pimlico address, NOT the market contract.
+
+                setStatusMessage('Locating Smart Account...');
+                const { BiconomyService } = await import('@/lib/biconomy-service');
+
+                // Active wallet is the connected Web3 wallet (MetaMask)
+                const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+
+                if (!activeWallet) {
+                    throw new Error("Could not find active wallet mapping for Smart Account.");
                 }
 
-                // Use public provider for reading allowance
-                const readProvider = new ethers.JsonRpcProvider(rpcUrl);
-                const tokenContractRead = new Contract(selectedToken.address, ERC20_ABI, readProvider);
+                const smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
+                console.log(`[Deposit] Funding Smart Account at: ${smartAccountAddr}`);
+
+                setStatusMessage('Sending to Smart Account...');
+                console.log('[Deposit] Sending USDC transfer tx...');
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
-                const marketContract = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-                const currentAllowance = await tokenContractRead.allowance(address, MARKET_CONTRACT);
-                console.log(`[Deposit] Allowance check: ${ethers.formatUnits(currentAllowance, selectedToken.decimals)} (Required: ${depositAmount})`);
-
-                if (currentAllowance < amountInWei) {
-                    setStatusMessage('Approving token...');
-                    console.log('[Deposit] Requesting approval...');
-                    const approveTx = await tokenContract.approve(MARKET_CONTRACT, amountInWei);
-                    console.log('[Deposit] Approval Tx sent:', approveTx.hash);
-                    await approveTx.wait();
-                    console.log('[Deposit] Approval confirmed.');
-                }
-
-                setStatusMessage('Depositing...');
-                console.log('[Deposit] Sending deposit tx...');
-                const depositTx = await marketContract.deposit(amountInWei);
-                console.log('[Deposit] Deposit Tx sent:', depositTx.hash);
-                await depositTx.wait();
-                console.log('[Deposit] Deposit confirmed.');
+                // Standard ERC-20 transfer to their smart account
+                const transferTx = await tokenContract.transfer(smartAccountAddr, amountInWei);
+                console.log('[Deposit] Transfer Tx sent:', transferTx.hash);
+                await transferTx.wait();
+                console.log('[Deposit] Transfer confirmed.');
 
             } else {
-                // Zap Logic
-                if (!ZAP_CONTRACT) throw new Error("Zap contract invalid.");
-                const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
-                const estimatedMain = ethers.parseUnits((parseFloat(depositAmount) * 0.95).toString(), 18);
-
-                if (selectedToken.isNative) {
-                    setStatusMessage('Zapping BNB...');
-                    const zapTx = await zapContract.zapInBNB(estimatedMain, { value: amountInWei });
-                    await zapTx.wait();
-                } else {
-                    const tokenToZap = selectedToken.address;
-                    const tokenContract = new Contract(tokenToZap, ERC20_ABI, signer);
-                    const readProvider = new ethers.JsonRpcProvider(rpcUrl);
-                    const tokenContractRead = new Contract(tokenToZap, ERC20_ABI, readProvider);
-
-                    const currentAllowance = await tokenContractRead.allowance(address, ZAP_CONTRACT);
-
-                    if (currentAllowance < amountInWei) {
-                        setStatusMessage(`Approving ${selectedToken.symbol}...`);
-                        const approveTx = await tokenContract.approve(ZAP_CONTRACT, amountInWei);
-                        await approveTx.wait();
-                    }
-
-                    setStatusMessage('Zapping...');
-                    const zapTx = await zapContract.zapInToken(tokenToZap, amountInWei, estimatedMain);
-                    await zapTx.wait();
-                }
+                // Zap Logic temporarily disabled while we transition to full Smart Accounts
+                throw new Error("Cross-token Zap is temporarily disabled. Please deposit USDC directly to fund your Smart Account.");
             }
 
             setLastDeposit({

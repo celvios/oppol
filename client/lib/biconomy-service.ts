@@ -26,7 +26,7 @@ import { entryPoint07Address } from "viem/account-abstraction";
 
 // Estimated gas for a batched UserOperation on BSC
 // (EntryPoint overhead + Approve + Transfer + buyShares)
-const ESTIMATED_GAS_UNITS = 330_000n;
+const ESTIMATED_GAS_UNITS = BigInt(330000);
 const USDC_DECIMALS = 18;
 
 // BSC Mainnet chain ID
@@ -38,13 +38,12 @@ function getPimlicoUrl(): string {
     return `https://api.pimlico.io/v2/${BSC_CHAIN_ID}/rpc?apikey=${apiKey}`;
 }
 
-// Keep class name as BiconomyService to avoid renaming all call sites
 export class BiconomyService {
 
     /**
      * Fetches real-time gas fee in USDC:
      * 1. Gets current BSC gas price from RPC
-     * 2. Gets BNB/USD from Binance public API (no key needed)
+     * 2. Gets BNB/USD from Binance public API
      * 3. Calculates: gas_units × gas_price × bnb_price → USDC
      * 4. Adds 20% safety buffer
      */
@@ -87,6 +86,14 @@ export class BiconomyService {
     }
 
     /**
+     * Exposes the deterministic Smart Account Address for funding purposes.
+     */
+    static async getSmartAccountAddress(privyWallet: any): Promise<string> {
+        const smartAccountClient = await this.getSmartAccountClient(privyWallet);
+        return smartAccountClient.account.address;
+    }
+
+    /**
      * Builds a Pimlico-backed Smart Account Client for the given Privy/external wallet.
      */
     private static async getSmartAccountClient(privyWallet: any) {
@@ -107,7 +114,7 @@ export class BiconomyService {
             transport: custom(ethereumProvider),
         });
 
-        // Pimlico bundler + paymaster client (one URL handles both)
+        // Pimlico bundler + paymaster client
         const pimlicoClient = createPimlicoClient({
             transport: http(pimlicoUrl),
             entryPoint: {
@@ -116,7 +123,7 @@ export class BiconomyService {
             },
         });
 
-        // ERC-4337 Simple Smart Account (deterministic, no extra deploy cost)
+        // ERC-4337 Simple Smart Account
         const smartAccount = await toSimpleSmartAccount({
             client: publicClient,
             owner: walletClient,
@@ -143,14 +150,11 @@ export class BiconomyService {
     }
 
     /**
-     * Executes a gasless, batched trade for any user (MetaMask, email, Google).
-     *
+     * Executes a gasless, batched trade for any user.
      * Atomic UserOperation batch:
      *   1. approve(marketContract, costUSDC)
-     *   2. transfer(treasury, feeUSDC)   ← gas reimbursement to treasury
+     *   2. transfer(treasury, feeUSDC)
      *   3. buyShares(marketId, outcome, shares, maxCost)
-     *
-     * Pimlico Paymaster covers BNB gas cost. Treasury receives USDC to reimburse.
      */
     static async executeBatchedTrade(
         privyWallet: any,
@@ -171,7 +175,6 @@ export class BiconomyService {
 
         const smartAccountClient = await this.getSmartAccountClient(privyWallet);
 
-        // 1. Approve market contract to spend USDC
         const approveData = encodeFunctionData({
             abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
             functionName: "approve",
@@ -182,8 +185,7 @@ export class BiconomyService {
             { to: usdcAddress as Address, data: approveData },
         ];
 
-        // 2. Transfer USDC fee to treasury (gas reimbursement)
-        if (feeUSDC > 0n) {
+        if (feeUSDC > BigInt(0)) {
             const transferData = encodeFunctionData({
                 abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
                 functionName: "transfer",
@@ -192,7 +194,6 @@ export class BiconomyService {
             calls.push({ to: usdcAddress as Address, data: transferData });
         }
 
-        // 3. Buy shares
         const buyData = encodeFunctionData({
             abi: parseAbi(["function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)"]),
             functionName: "buyShares",
@@ -202,16 +203,13 @@ export class BiconomyService {
 
         console.log(`[Pimlico] Sending batched UserOperation (${calls.length} calls)...`);
 
-        // Send sponsored UserOperation via Pimlico
         const txHash = await smartAccountClient.sendUserOperation({ calls });
+        console.log(`[Pimlico] UserOperation sent! Waiting for confirmation...`);
 
-        console.log(`[Pimlico] UserOperation sent! Waiting for on-chain confirmation...`);
-
-        // Wait for receipt
         const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: txHash });
         const onChainHash = receipt.receipt.transactionHash;
 
-        console.log(`[Pimlico] ✅ Confirmed on-chain: ${onChainHash}`);
+        console.log(`[Pimlico] ✅ Confirmed: ${onChainHash}`);
         return onChainHash;
     }
 }

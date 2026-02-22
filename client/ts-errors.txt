@@ -1,0 +1,2 @@
+﻿lib/biconomy-service.ts(29,29): error TS2737: BigInt literals are not available when targeting lower than ES2020.
+lib/biconomy-service.ts(188,23): error TS2737: BigInt literals are not available when targeting lower than ES2020.
