@@ -6,6 +6,10 @@ import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share, Gift, Loader2, CheckCircle } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
+import { useWallets } from "@privy-io/react-auth";
+import { BiconomyService } from '@/lib/biconomy-service';
+import { getMultiContracts } from '@/lib/contracts-multi';
+import { ethers } from "ethers";
 import { web3MultiService, MultiMarket, MultiPosition } from '@/lib/web3-multi';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import NeonSlider from "@/components/ui/NeonSlider";
@@ -57,6 +61,7 @@ interface MultiOutcomeTerminalProps {
 
 export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTerminalProps) {
     const searchParams = useSearchParams();
+    const { wallets } = useWallets();
 
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
@@ -302,14 +307,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
         if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
 
-        // Check for insufficient balance
-        // Note: For External Wallets, user has USDC in wallet, not "depositedBalance".
-        // depositedBalance is only for Custodial / Funds in Contract.
-        // If external, we should check USDC balance?
-        // web3MultiService.getUSDCBalance(address)
-        // But for now, let's skip balance check for external or check USDC.
-
-        if (loginMethod !== 'wallet' && parseFloat(amount) > parseFloat(balance)) {
+        // Balance check: all users go through Biconomy Smart Account now.
+        // Balance represents the user's USDC in the market contract.
+        // For both MetaMask and email users, trade amount must not exceed their deposited balance.
+        if (parseFloat(amount) > parseFloat(balance)) {
             setShowInsufficientBalance(true);
             return;
         }
@@ -319,66 +320,63 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             let result;
 
-            if (loginMethod === 'wallet') {
-                // EXTERNAL WALLET (Inclusive Pricing)
-                console.log('[Terminal] Executing via External Wallet (Inclusive Pricing)...');
-                result = await web3MultiService.buyShares(
-                    market.id,
-                    selectedOutcome,
-                    amount
-                );
+            // ALL users — MetaMask, email, Google — go through Biconomy Smart Account.
+            // First-time MetaMask users: Biconomy auto-deploys their Smart Account (1 signature, once ever).
+            // All subsequent trades for everyone are completely popup-free.
+            console.log(`[Terminal] Executing via Biconomy Smart Account (user type: ${loginMethod})...`);
 
-                // Construct success data from result
-                // We need to fetch new price or guess it?
-                // For simplicity, use current price + small bump or wait for refresh
-                const currentPrice = market.prices[selectedOutcome];
+            const contracts = getMultiContracts();
+            const usdcDecimals = 18;
+            const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
 
-                setSuccessData({
-                    marketId: market.id,
-                    outcome: market.outcomes[selectedOutcome],
-                    outcomeIndex: selectedOutcome,
-                    shares: parseFloat(result.shares),
-                    cost: result.cost, // Net Cost (after gas deduc)
-                    question: market.question,
-                    newPrice: currentPrice, // Placeholder
-                    hash: result.hash
-                });
+            const currentPrice = market.prices[selectedOutcome];
+            const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
+            const estShares = parseFloat(amount) / priceFloat;
+            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
-            } else {
-                // CUSTODIAL WALLET (API)
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                const response = await fetch(`${apiUrl}/api/multi-bet`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        walletAddress: address,
-                        marketId: market.id,
-                        outcomeIndex: selectedOutcome,
-                        amount: parseFloat(amount)
-                    })
-                });
+            // Gas reimbursement: $0.05 USDC flat fee per trade swept to treasury.
+            // This covers Biconomy's BNB gas spend on behalf of the user.
+            const GAS_FEE_USDC = "0.05";
+            const feeUSDC = ethers.parseUnits(GAS_FEE_USDC, usdcDecimals);
 
-                const data = await response.json();
-                if (!data.success) throw new Error(data.error || 'Trade failed');
+            // Net USDC that goes into the market contract for shares
+            const netTradeCost = tradeAmountBN > feeUSDC ? tradeAmountBN - feeUSDC : tradeAmountBN;
 
-                result = {
-                    shares: data.transaction?.shares,
-                    cost: data.transaction?.cost, // Net Cost (after gas deduc backend)
-                    newPrice: data.transaction?.newPrice,
-                    hash: data.transaction?.hash
-                };
+            const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+            if (!activeWallet) throw new Error("No active wallet found. Please reconnect.");
 
-                setSuccessData({
-                    marketId: market.id,
-                    outcome: market.outcomes[selectedOutcome],
-                    outcomeIndex: selectedOutcome,
-                    shares: parseFloat(result.shares || '0'),
-                    cost: result.cost || amount,
-                    question: market.question,
-                    newPrice: result.newPrice || market.prices[selectedOutcome],
-                    hash: result.hash || '0x'
-                });
-            }
+            const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
+            const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "0xa4B1B886f955b2342bC9bbB4f7B80839357378b76";
+
+            const hash = await BiconomyService.executeBatchedTrade(
+                activeWallet,
+                contracts.predictionMarketMulti,
+                usdcAddr,
+                treasury,
+                market.id,
+                selectedOutcome,
+                sharesBN,
+                netTradeCost,  // USDC → market contract for shares
+                feeUSDC        // USDC → treasury for gas reimbursement
+            );
+
+            result = {
+                shares: estShares.toFixed(2),
+                cost: amount,
+                newPrice: currentPrice,
+                hash: hash
+            };
+
+            setSuccessData({
+                marketId: market.id,
+                outcome: market.outcomes[selectedOutcome],
+                outcomeIndex: selectedOutcome,
+                shares: parseFloat(result.shares || '0'),
+                cost: result.cost || amount,
+                question: market.question,
+                newPrice: result.newPrice || market.prices[selectedOutcome],
+                hash: result.hash || '0x'
+            });
 
             // Success Handing (Shared)
             setIsSuccessModalOpen(true);

@@ -23,14 +23,17 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
         <PrivyProviderBase
             appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cl_dummy_id_for_build'}
             config={{
-                loginMethods: ['email', 'google'],
+                loginMethods: ['email', 'google', 'wallet'],
                 appearance: {
                     theme: 'dark',
-                    accentColor: '#10b981', // Green accent
+                    accentColor: '#10b981',
                     logo: 'https://www.opoll.org/logo.png',
                 },
                 embeddedWallets: {
-                    createOnLogin: 'users-without-wallets',
+                    createOnLogin: 'all-users',
+                    // showWalletUIs: false suppresses all Privy signing popups for embedded wallet users.
+                    // Email/Google users will never see a "sign this transaction" popup — trades are silent.
+                    showWalletUIs: false,
                 },
                 defaultChain: bsc,
                 supportedChains: [bsc],

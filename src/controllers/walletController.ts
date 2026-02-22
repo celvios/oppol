@@ -77,35 +77,9 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         // Global Relayer (Funder)
         const relayerKey = process.env.PRIVATE_KEY;
         if (!relayerKey) throw new Error("Missing PRIVATE_KEY for Relayer");
-        const relayer = new ethers.Wallet(relayerKey, provider);
-
-        // Custodial Signer
+        // Legacy Relayer Removed: Biconomy Paymaster now natively handles all gas for users via Account Abstraction.
+        // Private Key operations have been completely deprecated from backend execution.
         const custodialSigner = new ethers.Wallet(privateKey, provider);
-
-        // We need gas to Approve + Deposit. ~0.001 BNB is ideal, but for low-balance relayers:
-        // Approve ~45k gas. Deposit ~100k gas. Total ~150k gas.
-        // @ 3 Gwei = 0.00045 BNB. So 0.0006 is safe minimum.
-        const bal = await provider.getBalance(custodialAddress);
-        const minGas = ethers.parseEther("0.0006");
-
-        if (bal < minGas) {
-            // Check Relayer Balance first
-            const relayerBal = await provider.getBalance(relayer.address);
-            const neededForRelay = minGas - bal + ethers.parseEther("0.0002");
-
-            if (relayerBal < neededForRelay) {
-                console.error(`❌ [Deposit] CRITICAL: Relayer Wallet (${relayer.address}) is Empty! Balance: ${ethers.formatEther(relayerBal)} BNB`);
-                throw new Error("Relayer System Out of Gas - Please contact support.");
-            }
-
-            console.log(`[Deposit] Low BNB (${ethers.formatEther(bal)}). Funding gas from Relayer...`);
-            const tx = await relayer.sendTransaction({
-                to: custodialAddress,
-                value: neededForRelay
-            });
-            await tx.wait();
-            console.log(`[Deposit] Gas funded: ${tx.hash}`);
-        }
 
         // 3. Approve USDC: ~45k gas
         // 4. Deposit: ~100k gas
@@ -165,18 +139,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         console.log(`[Deposit] Deposit TX Sent: ${txDeposit.hash}`);
         const receipt = await txDeposit.wait();
 
-        // 5. Transfer Fee to Relayer (Revenue)
-        if (depositAmount < amountBN && gasFeeUSDC > 0n) {
-            console.log(`[Deposit] Transferring Gas Fee (${ethers.formatUnits(gasFeeUSDC, 18)} USDC) to Relayer...`);
-            try {
-                const txFee = await usdc.transfer(relayer.address, gasFeeUSDC);
-                await txFee.wait();
-                console.log(`[Deposit] Fee Transferred: ${txFee.hash}`);
-            } catch (e: any) {
-                console.error(`[Deposit] Failed to transfer fee: ${e.message}`);
-            }
-        }
-
+        // Step 5: Legacy Fee Transfer Removed. Biconomy automatically absorbs or handles gas fees natively.
         console.log(`✅ [Deposit] Sweep complete! User ${userId} now has on-chain balance.`);
         return txDeposit.hash;
 

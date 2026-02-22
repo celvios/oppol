@@ -10,6 +10,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@biconomy/account": "^4.5.7",
+    "@biconomy/bundler": "^3.1.4",
+    "@biconomy/common": "^3.1.4",
+    "@biconomy/core-types": "^3.1.4",
+    "@biconomy/paymaster": "^3.1.4",
     "@coinbase/wallet-sdk": "^4.3.7",
     "@metamask/sdk": "^0.33.1",
     "@okxconnect/universal-provider": "^1.9.1",
@@ -40,7 +45,7 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
-    "viem": "^2.43.5",
+    "viem": "^2.46.2",
     "wagmi": "^3.2.0"
   },
   "devDependencies": {
