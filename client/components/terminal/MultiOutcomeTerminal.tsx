@@ -334,10 +334,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             const estShares = parseFloat(amount) / priceFloat;
             const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
-            // Gas reimbursement: $0.05 USDC flat fee per trade swept to treasury.
-            // This covers Biconomy's BNB gas spend on behalf of the user.
-            const GAS_FEE_USDC = "0.05";
-            const feeUSDC = ethers.parseUnits(GAS_FEE_USDC, usdcDecimals);
+            // Gas reimbursement: dynamically calculated from live BSC gas price + BNB/USD price.
+            // Fetches real-time data and adds a 20% safety buffer. Falls back to $0.20 on error.
+            const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
+
 
             // Net USDC that goes into the market contract for shares
             const netTradeCost = tradeAmountBN > feeUSDC ? tradeAmountBN - feeUSDC : tradeAmountBN;
