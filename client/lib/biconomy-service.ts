@@ -1,101 +1,156 @@
-import { createWalletClient, custom, encodeFunctionData, parseAbi } from "viem";
-import { bsc } from "viem/chains";
-import { createSmartAccountClient } from "@biconomy/account";
-import { PaymasterMode } from "@biconomy/paymaster";
-import { ethers } from "ethers";
+/**
+ * PimlicoService — replaces BiconomyService.
+ * Uses permissionless.js + Pimlico bundler/paymaster for ERC-4337 gasless trading on BSC.
+ * 
+ * Required .env.local:
+ *   NEXT_PUBLIC_PIMLICO_API_KEY=your_pimlico_api_key
+ *   NEXT_PUBLIC_RPC_URL=https://bsc-dataseed.binance.org/
+ *   NEXT_PUBLIC_TREASURY_ADDRESS=0x...
+ */
 
-// Estimated gas for a batched UserOperation (Approve + USDC Transfer + buyShares + EntryPoint overhead)
+import {
+    createPublicClient,
+    createWalletClient,
+    custom,
+    encodeFunctionData,
+    http,
+    parseAbi,
+    type Address,
+} from "viem";
+import { bsc } from "viem/chains";
+import { ethers } from "ethers";
+import { createSmartAccountClient } from "permissionless";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+import { toSimpleSmartAccount } from "permissionless/accounts";
+import { entryPoint07Address } from "viem/account-abstraction";
+
+// Estimated gas for a batched UserOperation on BSC
+// (EntryPoint overhead + Approve + Transfer + buyShares)
 const ESTIMATED_GAS_UNITS = 330_000n;
 const USDC_DECIMALS = 18;
 
+// BSC Mainnet chain ID
+const BSC_CHAIN_ID = 56;
+
+function getPimlicoUrl(): string {
+    const apiKey = process.env.NEXT_PUBLIC_PIMLICO_API_KEY;
+    if (!apiKey) throw new Error("NEXT_PUBLIC_PIMLICO_API_KEY is missing from .env.local");
+    return `https://api.pimlico.io/v2/${BSC_CHAIN_ID}/rpc?apikey=${apiKey}`;
+}
+
+// Keep class name as BiconomyService to avoid renaming all call sites
 export class BiconomyService {
 
     /**
-     * Fetches the real-time gas fee in USDC by:
-     * 1. Getting current BSC gas price from the RPC node
-     * 2. Getting current BNB/USD price from Binance public API
-     * 3. Calculating: gas_units × gas_price_gwei × bnb_price_usd → USDC amount
-     * 
-     * Adds a 20% buffer on top to protect against price spikes between estimation and execution.
+     * Fetches real-time gas fee in USDC:
+     * 1. Gets current BSC gas price from RPC
+     * 2. Gets BNB/USD from Binance public API (no key needed)
+     * 3. Calculates: gas_units × gas_price × bnb_price → USDC
+     * 4. Adds 20% safety buffer
      */
     static async estimateGasFeeUSDC(): Promise<bigint> {
         try {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://bsc-dataseed.binance.org/";
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-            // 1. Get live BSC gas price
+            // 1. Live BSC gas price
             const feeData = await provider.getFeeData();
-            const gasPriceWei = feeData.gasPrice ?? ethers.parseUnits("3", "gwei"); // Fallback: 3 Gwei
+            const gasPriceWei = feeData.gasPrice ?? ethers.parseUnits("3", "gwei");
 
-            // 2. Get live BNB/USD price from Binance public API (no key required)
-            let bnbPriceUSD = 600; // Fallback price
+            // 2. Live BNB/USD from Binance public ticker
+            let bnbPriceUSD = 600;
             try {
                 const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT");
                 const json = await res.json();
                 bnbPriceUSD = parseFloat(json.price);
-            } catch (priceErr) {
-                console.warn("[GasFee] Could not fetch BNB price from Binance. Using fallback $600.");
+            } catch {
+                console.warn("[GasFee] BNB price fetch failed. Using fallback $600.");
             }
 
-            // 3. Calculate exact cost in USD
-            // gas_cost_bnb = gas_units × gas_price_in_bnb
-            // gas_price_in_bnb = gasPriceWei / 1e18
+            // 3. Cost in USD + 20% buffer
             const gasCostBNB = Number(ESTIMATED_GAS_UNITS) * Number(gasPriceWei) / 1e18;
             const gasCostUSD = gasCostBNB * bnbPriceUSD;
-
-            // 4. Add 20% buffer to handle price movements between estimation & execution
             const gasCostWithBuffer = gasCostUSD * 1.20;
 
             console.log(
-                `[GasFee] Gas Price: ${ethers.formatUnits(gasPriceWei, "gwei")} Gwei | ` +
+                `[GasFee] Gas: ${ethers.formatUnits(gasPriceWei, "gwei")} Gwei | ` +
                 `BNB: $${bnbPriceUSD.toFixed(2)} | ` +
-                `Estimated Cost: $${gasCostUSD.toFixed(4)} | ` +
-                `Fee (with 20% buffer): $${gasCostWithBuffer.toFixed(4)} USDC`
+                `Fee (with buffer): $${gasCostWithBuffer.toFixed(4)} USDC`
             );
 
-            // Convert to BigInt with 18 decimal places (USDC on BSC uses 18 decimals)
-            const feeUSDC = ethers.parseUnits(gasCostWithBuffer.toFixed(18), USDC_DECIMALS);
-            return feeUSDC;
+            return ethers.parseUnits(gasCostWithBuffer.toFixed(18), USDC_DECIMALS);
 
         } catch (err) {
-            console.error("[GasFee] Gas estimation failed. Using safe fallback of $0.20 USDC.", err);
-            // Safe fallback: $0.20 USDC — covers most BSC gas scenarios
+            console.error("[GasFee] Estimation failed. Falling back to $0.20 USDC.", err);
             return ethers.parseUnits("0.20", USDC_DECIMALS);
         }
     }
 
-    private static async getSmartAccount(privyWallet: any) {
-        const provider = await privyWallet.getEthereumProvider();
-        const walletClient = createWalletClient({
-            account: privyWallet.address as `0x${string}`,
+    /**
+     * Builds a Pimlico-backed Smart Account Client for the given Privy/external wallet.
+     */
+    private static async getSmartAccountClient(privyWallet: any) {
+        const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://bsc-dataseed.binance.org/";
+        const pimlicoUrl = getPimlicoUrl();
+
+        // Public client for reading chain state
+        const publicClient = createPublicClient({
             chain: bsc,
-            transport: custom(provider)
+            transport: http(rpcUrl),
         });
 
-        const paymasterUrl = process.env.NEXT_PUBLIC_BICONOMY_PAYMASTER_URL || "";
-        const bundlerUrl = process.env.NEXT_PUBLIC_BICONOMY_BUNDLER_URL || "";
-
-        if (!paymasterUrl || !bundlerUrl) {
-            throw new Error("Biconomy environment variables missing. Please set NEXT_PUBLIC_BICONOMY_PAYMASTER_URL and NEXT_PUBLIC_BICONOMY_BUNDLER_URL.");
-        }
-
-        const smartAccount = await createSmartAccountClient({
-            signer: walletClient,
-            biconomyPaymasterApiKey: paymasterUrl,
-            bundlerUrl: bundlerUrl,
+        // Wallet client from Privy / MetaMask provider
+        const ethereumProvider = await privyWallet.getEthereumProvider();
+        const walletClient = createWalletClient({
+            account: privyWallet.address as Address,
+            chain: bsc,
+            transport: custom(ethereumProvider),
         });
 
-        return smartAccount;
+        // Pimlico bundler + paymaster client (one URL handles both)
+        const pimlicoClient = createPimlicoClient({
+            transport: http(pimlicoUrl),
+            entryPoint: {
+                address: entryPoint07Address,
+                version: "0.7",
+            },
+        });
+
+        // ERC-4337 Simple Smart Account (deterministic, no extra deploy cost)
+        const smartAccount = await toSimpleSmartAccount({
+            client: publicClient,
+            owner: walletClient,
+            entryPoint: {
+                address: entryPoint07Address,
+                version: "0.7",
+            },
+        });
+
+        // Combine account + bundler + sponsored paymaster
+        const smartAccountClient = createSmartAccountClient({
+            account: smartAccount,
+            chain: bsc,
+            bundlerTransport: http(pimlicoUrl),
+            paymaster: pimlicoClient,
+            userOperation: {
+                estimateFeesPerGas: async () => {
+                    return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                },
+            },
+        });
+
+        return smartAccountClient;
     }
 
     /**
      * Executes a gasless, batched trade for any user (MetaMask, email, Google).
-     * Transaction Batch (single atomic UserOperation):
-     * 1. Approve USDC for Market Contract (amount = costUSDC)
-     * 2. Transfer dynamic gas fee (USDC) to Treasury to reimburse Biconomy spend
-     * 3. buyShares() — the actual trade
-     * 
-     * feeUSDC is calculated dynamically by calling estimateGasFeeUSDC() before this.
+     *
+     * Atomic UserOperation batch:
+     *   1. approve(marketContract, costUSDC)
+     *   2. transfer(treasury, feeUSDC)   ← gas reimbursement to treasury
+     *   3. buyShares(marketId, outcome, shares, maxCost)
+     *
+     * Pimlico Paymaster covers BNB gas cost. Treasury receives USDC to reimburse.
      */
     static async executeBatchedTrade(
         privyWallet: any,
@@ -108,51 +163,55 @@ export class BiconomyService {
         costUSDC: bigint,
         feeUSDC: bigint
     ): Promise<string> {
-        console.log(`[Biconomy] Preparing gasless batch trade for Market ${marketId} | Fee: ${ethers.formatUnits(feeUSDC, USDC_DECIMALS)} USDC`);
+        console.log(
+            `[Pimlico] Preparing gasless trade | Market: ${marketId} | ` +
+            `Cost: ${ethers.formatUnits(costUSDC, USDC_DECIMALS)} USDC | ` +
+            `Fee: ${ethers.formatUnits(feeUSDC, USDC_DECIMALS)} USDC`
+        );
 
-        const smartAccount = await this.getSmartAccount(privyWallet);
+        const smartAccountClient = await this.getSmartAccountClient(privyWallet);
 
-        // 1. Approve Market Contract to spend USDC for shares
-        const encodeApprove = encodeFunctionData({
+        // 1. Approve market contract to spend USDC
+        const approveData = encodeFunctionData({
             abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
             functionName: "approve",
-            args: [marketAddress as `0x${string}`, costUSDC]
+            args: [marketAddress as Address, costUSDC],
         });
 
-        const batch: { to: string; data: string }[] = [
-            { to: usdcAddress, data: encodeApprove }
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: usdcAddress as Address, data: approveData },
         ];
 
-        // 2. Transfer exact USDC gas fee to Treasury (only if fee > 0)
+        // 2. Transfer USDC fee to treasury (gas reimbursement)
         if (feeUSDC > 0n) {
-            const encodeTransfer = encodeFunctionData({
+            const transferData = encodeFunctionData({
                 abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
                 functionName: "transfer",
-                args: [treasuryAddress as `0x${string}`, feeUSDC]
+                args: [treasuryAddress as Address, feeUSDC],
             });
-            batch.push({ to: usdcAddress, data: encodeTransfer });
+            calls.push({ to: usdcAddress as Address, data: transferData });
         }
 
-        // 3. Buy Shares
-        const encodeBuy = encodeFunctionData({
+        // 3. Buy shares
+        const buyData = encodeFunctionData({
             abi: parseAbi(["function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)"]),
             functionName: "buyShares",
-            args: [BigInt(marketId), BigInt(outcomeIndex), sharesToBuy, costUSDC]
+            args: [BigInt(marketId), BigInt(outcomeIndex), sharesToBuy, costUSDC],
         });
-        batch.push({ to: marketAddress, data: encodeBuy });
+        calls.push({ to: marketAddress as Address, data: buyData });
 
-        console.log(`[Biconomy] Building UserOperation with ${batch.length} batched transactions...`);
+        console.log(`[Pimlico] Sending batched UserOperation (${calls.length} calls)...`);
 
-        // Build & Sponsor UserOperation (Biconomy pays BNB gas, treasury receives USDC reimbursement)
-        const userOpResponse = await smartAccount.sendTransaction(batch, {
-            paymasterServiceData: { mode: PaymasterMode.SPONSORED }
-        });
+        // Send sponsored UserOperation via Pimlico
+        const txHash = await smartAccountClient.sendUserOperation({ calls });
 
-        console.log(`[Biconomy] UserOperation dispatched! Hash: ${userOpResponse.userOpHash}`);
+        console.log(`[Pimlico] UserOperation sent! Waiting for on-chain confirmation...`);
 
-        const receipt = await userOpResponse.wait();
-        console.log(`[Biconomy] On-chain confirmation: ${receipt.receipt.transactionHash}`);
+        // Wait for receipt
+        const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: txHash });
+        const onChainHash = receipt.receipt.transactionHash;
 
-        return receipt.receipt.transactionHash;
+        console.log(`[Pimlico] ✅ Confirmed on-chain: ${onChainHash}`);
+        return onChainHash;
     }
 }
