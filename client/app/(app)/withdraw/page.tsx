@@ -12,6 +12,7 @@ import { useConnectorClient, useAccount } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import { web3MultiService } from "@/lib/web3-multi";
 import { useUIStore } from "@/lib/store";
+import { useWallets } from "@privy-io/react-auth";
 
 const MARKET_ABI = [
     { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
@@ -27,6 +28,7 @@ export default function WithdrawPage() {
     const { user, custodialAddress } = useUIStore();
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
+    const { wallets } = useWallets();
 
     // Fix for Google Users seeing standard wallet UI
     // If loginMethod is social, we treat it as embedded/custodial
@@ -123,23 +125,38 @@ export default function WithdrawPage() {
 
             const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
 
-            const [usdcBal, usdcDec, usdtBal, usdtDec] = await Promise.all([
+            const privyWallet = wallets?.find((w: any) => w.walletClientType === 'privy');
+            const privyAddress = privyWallet?.address;
+
+            const queries = [
                 new eth.Contract(USDC_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
                 new eth.Contract(USDC_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
                 new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
                 new eth.Contract(USDT_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
-            ]);
+            ];
+            if (privyAddress) {
+                queries.push(new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(privyAddress).catch(() => 0n));
+            }
+
+            const results = await Promise.all(queries);
+            const usdcBal = results[0];
+            const usdcDec = results[1];
+            const usdtBal = results[2];
+            const usdtDec = results[3];
+            const privyUsdtBal = privyAddress ? results[4] : 0n;
 
             const usdcNum = parseFloat(eth.formatUnits(usdcBal, usdcDec));
             const usdtNum = parseFloat(eth.formatUnits(usdtBal, usdtDec));
+            const privyUsdtNum = parseFloat(eth.formatUnits(privyUsdtBal, usdtDec));
+
             const totalWallet = usdcNum + usdtNum;
 
-            console.log(`[WithdrawPage] USDC: ${usdcNum}, USDT: ${usdtNum}, Total: ${totalWallet}`);
+            console.log(`[WithdrawPage] USDC: ${usdcNum}, USDT: ${usdtNum}, Privy USDT: ${privyUsdtNum}`);
             setWalletBalance(totalWallet.toFixed(6));
 
-            // ⚡ TEMP: show USDT recovery popup if USDT found
-            if (usdtNum > 0.01) {
-                setUsdtBalance(usdtNum.toFixed(4));
+            // ⚡ TEMP: show USDT recovery popup if USDT found anywhere
+            if (usdtNum > 0.01 || privyUsdtNum > 0.01) {
+                setUsdtBalance((usdtNum > privyUsdtNum ? usdtNum : privyUsdtNum).toFixed(4));
                 setShowUsdtPopup(true);
             }
 
@@ -326,23 +343,43 @@ export default function WithdrawPage() {
 
     // ⚡ TEMP: USDT send handler
     async function handleUsdtSend() {
-        if (!isAddress(usdtDestination) || !connectorClient || !effectiveAddress) return;
+        if (!isAddress(usdtDestination)) return;
         setUsdtSending(true);
         try {
             const { ethers: eth } = await import('ethers');
-            const { clientToSigner: cts } = await import('@/lib/viem-ethers-adapters');
-            const signer = cts(connectorClient);
             const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
             const tokenAbi = [
                 'function balanceOf(address) view returns (uint256)',
                 'function decimals() view returns (uint8)',
                 'function transfer(address,uint256) returns (bool)',
             ];
-            const usdt = new eth.Contract(USDT_ADDRESS, tokenAbi, signer);
-            const dec = await usdt.decimals().catch(() => 18);
-            const bal = await usdt.balanceOf(effectiveAddress);
+
+            // Look for which wallet holds the USDT
+            const provider = new eth.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
+            const usdt = new eth.Contract(USDT_ADDRESS, tokenAbi, provider);
+
+            const privyWallet = wallets.find((w: any) => w.walletClientType === 'privy');
+            const privyBal = privyWallet ? await usdt.balanceOf(privyWallet.address) : 0n;
+
+            let signer;
+            if (privyBal > 0n && privyWallet) {
+                console.log('Sending from Privy Embedded Wallet...');
+                const eipProvider = await privyWallet.getEthereumProvider();
+                const browserProvider = new eth.BrowserProvider(eipProvider);
+                signer = await browserProvider.getSigner();
+            } else if (connectorClient) {
+                console.log('Sending from External Wallet...');
+                const { clientToSigner: cts } = await import('@/lib/viem-ethers-adapters');
+                signer = cts(connectorClient);
+            } else {
+                throw new Error("No connected wallet found to sign the transaction");
+            }
+
+            const usdtSigned = new eth.Contract(USDT_ADDRESS, tokenAbi, signer);
+            const bal = await usdtSigned.balanceOf(signer.address);
+
             if (bal === 0n) { setUsdtSending(false); return; }
-            const tx = await usdt.transfer(usdtDestination, bal);
+            const tx = await usdtSigned.transfer(usdtDestination, bal);
             await tx.wait();
             setUsdtTxHash(tx.hash);
             setShowUsdtPopup(false);
