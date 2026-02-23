@@ -89,7 +89,7 @@ export default function PortfolioPage() {
             try {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
-                // For social/embedded users: resolve custodial address
+                // For social/embedded users OR Web3 wallet users: resolve custodial/smart account address
                 let checkAddress = effectiveAddress!;
                 if (isEmbeddedWallet && privyUser?.id) {
                     try {
@@ -112,6 +112,20 @@ export default function PortfolioPage() {
                     } catch (e) {
                         console.warn('[Portfolio] Failed to fetch custodial address:', e);
                     }
+                } else if (loginMethod === 'wallet' && privyUser) {
+                    // Web3 users have a Biconomy Smart Account 
+                    try {
+                        const { BiconomyService } = await import('@/lib/biconomy-service');
+                        const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                        const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+                        if (activeWallet) {
+                            const smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
+                            setCustodialAddress(smartAccountAddr);
+                            checkAddress = smartAccountAddr;
+                        }
+                    } catch (e) {
+                        console.warn('[Portfolio] Failed to fetch Smart Account address:', e);
+                    }
                 }
 
                 // Kick off balance + portfolio fetch IN PARALLEL for speed
@@ -124,18 +138,31 @@ export default function PortfolioPage() {
                 setBalance(depositedBalance);
                 setWalletBalance(walletBal);
 
-                // Custodial USDC balance (if needed)
+                // Custodial USDC/USDT balance (if needed)
                 if (checkAddress !== effectiveAddress) {
                     try {
                         const { ethers } = await import('ethers');
                         const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
                         const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
-                        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
-                        const usdc = new ethers.Contract(usdcAddr, usdcAbi, provider);
-                        const [rawBal, decimals] = await Promise.all([usdc.balanceOf(checkAddress), usdc.decimals().catch(() => 6)]);
-                        setCustodialUsdcBalance(parseFloat((await import('ethers')).ethers.formatUnits(rawBal, decimals)).toFixed(6));
+                        const usdtAddr = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
+                        const erc20Abi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+                        const usdc = new ethers.Contract(usdcAddr, erc20Abi, provider);
+                        const usdt = new ethers.Contract(usdtAddr, erc20Abi, provider);
+
+                        // Check both USDC and USDT (BSC-USD is essentially USDT)
+                        const [rawUsdc, decUsdc, rawUsdt, decUsdt] = await Promise.all([
+                            usdc.balanceOf(checkAddress), usdc.decimals().catch(() => 18),
+                            usdt.balanceOf(checkAddress), usdt.decimals().catch(() => 18)
+                        ]);
+
+                        const usdcBal = parseFloat((await import('ethers')).ethers.formatUnits(rawUsdc, decUsdc));
+                        const usdtBal = parseFloat((await import('ethers')).ethers.formatUnits(rawUsdt, decUsdt));
+
+                        // Show whichever is higher (in case they deposited USDT and hasn't swept yet)
+                        const maxBal = Math.max(usdcBal, usdtBal);
+                        setCustodialUsdcBalance(maxBal.toFixed(6));
                     } catch (e) {
-                        console.warn('[Portfolio] Custodial USDC balance fetch failed:', e);
+                        console.warn('[Portfolio] Custodial USDC/USDT balance fetch failed:', e);
                     }
                 }
 
@@ -234,9 +261,9 @@ export default function PortfolioPage() {
                 </div>
             </div>
 
-            {/* Custodial Deposit Prompt: for social/embedded users with USDC in their custodial wallet */}
+            {/* Custodial/Smart Deposit Prompt: for all users with USDC/USDT in their managed wallet */}
             {
-                isEmbeddedWallet && parseFloat(custodialUsdcBalance) > 0.01 && !custodialDepositDone && (
+                parseFloat(custodialUsdcBalance) > 0.01 && !custodialDepositDone && (
                     <div className="mb-8 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
@@ -248,7 +275,8 @@ export default function PortfolioPage() {
                                     <span className="px-2 py-0.5 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full">Detected</span>
                                 </div>
                                 <p className="text-white/60 text-sm">
-                                    We found <span className="text-white font-mono font-bold">{parseFloat(custodialUsdcBalance).toFixed(2)} USDC</span> in your wallet ready to deposit.
+                                    We found <span className="text-white font-mono font-bold">{parseFloat(custodialUsdcBalance).toFixed(2)} USDC/USDT</span> in your Smart Account.
+                                    {loginMethod === 'wallet' && <span className="block text-white/40 text-xs mt-1">USDT will be swapped to USDC automatically.</span>}
                                 </p>
                             </div>
                         </div>
@@ -257,20 +285,58 @@ export default function PortfolioPage() {
                                 if (!privyUser?.id) return;
                                 setIsDepositingCustodial(true);
                                 try {
-                                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                                    const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ privyUserId: privyUser.id })
-                                    });
-                                    const data = await res.json();
-                                    if (data.success) {
-                                        if (data.txHash) console.log('Deposit TX:', data.txHash);
+                                    if (loginMethod === 'wallet') {
+                                        // Web3 Wallet User: Requires Client-Side Gasless Transaction execution
+                                        const { BiconomyService } = await import('@/lib/biconomy-service');
+                                        const { ethers } = await import('ethers');
+
+                                        const wallets = privyUser.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                                        const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+                                        if (!activeWallet) throw new Error("No active wallet found");
+
+                                        // We might need to swap USDT first
+                                        const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/');
+                                        const usdtAddr = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
+                                        const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
+                                        const marketAddr = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
+
+                                        const usdt = new ethers.Contract(usdtAddr, ['function balanceOf(address) view returns (uint256)'], provider);
+                                        const usdc = new ethers.Contract(usdcAddr, ['function balanceOf(address) view returns (uint256)'], provider);
+
+                                        // Do we need to swap USDT?
+                                        const usdtBal = await usdt.balanceOf(custodialAddress);
+                                        if (usdtBal > ethers.parseUnits("0.01", 18)) {
+                                            console.log('[Portfolio] Found USDT, initiating gasless swap...');
+                                            await BiconomyService.executeSwap(activeWallet, usdtAddr, usdcAddr, usdtBal);
+                                        }
+
+                                        // Now deposit USDC
+                                        const usdcBal = await usdc.balanceOf(custodialAddress);
+                                        if (usdcBal > ethers.parseUnits("0.01", 18)) {
+                                            console.log('[Portfolio] Depositing USDC into Market...');
+                                            await BiconomyService.executeDeposit(activeWallet, marketAddr, usdcAddr, usdcBal);
+                                        }
+
                                         setCustodialDepositDone(true);
-                                        // Reload after a few seconds to show updated balance
-                                        setTimeout(() => window.location.reload(), 5000);
+                                        setTimeout(() => window.location.reload(), 3000);
+
                                     } else {
-                                        alert(data.error || 'Deposit failed');
+                                        // Embedded Wallet/Social User: Trigger backend relayer sweep
+                                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                                        const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ privyUserId: privyUser.id })
+                                        });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            if (data.txHash) console.log('Deposit TX:', data.txHash);
+                                            setCustodialDepositDone(true);
+                                            // Reload after a few seconds to show updated balance
+                                            setTimeout(() => window.location.reload(), 5000);
+                                        } else {
+                                            alert(data.error || 'Deposit failed');
+                                        }
                                     }
                                 } catch (e: any) {
                                     alert('Deposit failed: ' + e.message);
@@ -291,7 +357,7 @@ export default function PortfolioPage() {
                 )
             }
             {
-                isEmbeddedWallet && custodialDepositDone && (
+                custodialDepositDone && (
                     <div className="mb-8 bg-green-500/10 border border-green-500/20 rounded-2xl p-6 flex items-center gap-4 animate-fadeIn">
                         <CheckCircle className="w-8 h-8 text-green-500 shrink-0" />
                         <div>

@@ -161,11 +161,18 @@ export default function DepositPage() {
 
                 }, 3000);
             }
-            // External wallet users: NO background polling.
-            // Deposits only happen when user explicitly clicks "Approve & Deposit".
+            // External wallet users also get polling IF they are doing a Direct deposit (to Smart Account)
+            if (!isEmbeddedWallet && selectedToken.direct) {
+                interval = setInterval(async () => {
+                    if (fundingStep === 'verifying') {
+                        console.log(`[Polling - Web3] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
+                        await checkAndAutoDeposit();
+                    }
+                }, 4000);
+            }
         }
         return () => clearInterval(interval);
-    }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance, custodialWalletAddress, selectedToken]);
+    }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance, custodialWalletAddress, selectedToken, loginMethod, privyUser]);
 
     // Returns the custodial address so callers can use it immediately (avoids state async delay)
     async function fetchCustodialAddress(): Promise<string | null> {
@@ -292,15 +299,34 @@ export default function DepositPage() {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-            // Determine which address to check: Custodial (if embedded) or Effective (External)
-            const checkAddress = (isEmbeddedWallet && custodialWalletAddress) ? custodialWalletAddress : effectiveAddress;
+            // Determine which address to check
+            let checkAddress = effectiveAddress;
+            if (isEmbeddedWallet && custodialWalletAddress) {
+                checkAddress = custodialWalletAddress;
+            } else if (loginMethod === 'wallet' && privyUser) {
+                try {
+                    const { BiconomyService } = await import('@/lib/biconomy-service');
+                    const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                    const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+                    if (activeWallet) {
+                        checkAddress = await BiconomyService.getSmartAccountAddress(activeWallet);
+                    }
+                } catch (e) {
+                    console.log('[Polling] Error fetching Web3 Smart Account', e);
+                }
+            }
 
             // Check current balance
             let currentBal = 0;
             let detectedTokenSymbol = selectedToken.symbol;
 
-            if (isEmbeddedWallet) {
-                // For embedded, check BOTH USDC and USDT
+            // Determine if we need to check both tokens for auto-sweep
+            // Since Web3 direct USDC deposits go to the Smart Account and wait for a sweep too,
+            // we should check the Smart Account for all supported funding tokens.
+            const isSmartAccountUser = isEmbeddedWallet || selectedToken.direct;
+
+            if (isSmartAccountUser) {
+                // For embedded AND direct Smart Account depositors, check BOTH USDC and USDT
                 // We want to detect if *any* supported stablecoin arrived
                 const usdcToken = tokens.find(t => t.symbol === 'USDC');
                 const usdtToken = tokens.find(t => t.symbol === 'USDT');

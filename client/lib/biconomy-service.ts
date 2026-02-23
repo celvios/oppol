@@ -190,4 +190,104 @@ export class BiconomyService {
         console.log(`[Pimlico] ✅ Confirmed: ${onChainHash}`);
         return onChainHash;
     }
+
+    /**
+     * Executes a gasless batched deposit for Web3 Users
+     * Atomic UserOperation batch:
+     *   1. approve(marketContract, amountUSDC)
+     *   2. deposit(amountUSDC)
+     */
+    static async executeDeposit(
+        privyWallet: any,
+        marketAddress: string,
+        usdcAddress: string,
+        amountUSDC: bigint
+    ): Promise<string> {
+        console.log(
+            `[Pimlico] Preparing gasless deposit | ` +
+            `Amount: ${ethers.formatUnits(amountUSDC, USDC_DECIMALS)} USDC`
+        );
+
+        const smartAccountClient = await this.getSmartAccountClient(privyWallet);
+
+        const approveData = encodeFunctionData({
+            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
+            functionName: "approve",
+            args: [marketAddress as Address, amountUSDC],
+        });
+
+        const depositData = encodeFunctionData({
+            abi: parseAbi(["function deposit(uint256 amount)"]),
+            functionName: "deposit",
+            args: [amountUSDC],
+        });
+
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: usdcAddress as Address, data: approveData },
+            { to: marketAddress as Address, data: depositData },
+        ];
+
+        console.log(`[Pimlico] Sending batched deposit UserOperation (${calls.length} calls)...`);
+
+        const txHash = await smartAccountClient.sendUserOperation({ calls });
+        console.log(`[Pimlico] UserOperation sent! Waiting for confirmation...`);
+
+        const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: txHash });
+        const onChainHash = receipt.receipt.transactionHash;
+
+        console.log(`[Pimlico] ✅ Deposit Confirmed: ${onChainHash}`);
+        return onChainHash;
+    }
+
+    /**
+     * Executes a gasless batched swap for Web3 Users
+     * Atomic UserOperation batch:
+     *   1. approve(Router, amountIn)
+     *   2. swapExactTokensForTokens(amountIn, 0, path, smartAccount, deadline)
+     */
+    static async executeSwap(
+        privyWallet: any,
+        tokenInAddress: string,
+        tokenOutAddress: string,
+        amountIn: bigint
+    ): Promise<string> {
+        console.log(
+            `[Pimlico] Preparing gasless swap | ` +
+            `Amount: ${ethers.formatUnits(amountIn, 18)}`
+        );
+
+        const ROUTER_ADDR = "0x10ED43C718714eb63d5aA57B78B54704E256024E"; // PancakeSwap V2 Router
+        const smartAccountClient = await this.getSmartAccountClient(privyWallet);
+        const smartAccountAddress = smartAccountClient.account.address;
+
+        const approveData = encodeFunctionData({
+            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
+            functionName: "approve",
+            args: [ROUTER_ADDR as Address, amountIn],
+        });
+
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 10); // 10 minutes
+
+        const swapData = encodeFunctionData({
+            abi: parseAbi(["function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)"]),
+            functionName: "swapExactTokensForTokens",
+            args: [amountIn, BigInt(0), [tokenInAddress as Address, tokenOutAddress as Address], smartAccountAddress, deadline],
+        });
+
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: tokenInAddress as Address, data: approveData },
+            { to: ROUTER_ADDR as Address, data: swapData },
+        ];
+
+        console.log(`[Pimlico] Sending batched swap UserOperation (${calls.length} calls)...`);
+
+        const txHash = await smartAccountClient.sendUserOperation({ calls });
+        console.log(`[Pimlico] UserOperation sent! Waiting for confirmation...`);
+
+        const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: txHash });
+        const onChainHash = receipt.receipt.transactionHash;
+
+        console.log(`[Pimlico] ✅ Swap Confirmed: ${onChainHash}`);
+        return onChainHash;
+    }
 }
