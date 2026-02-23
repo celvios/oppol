@@ -474,8 +474,41 @@ export default function DepositPage() {
                 console.log('[Deposit] Transfer confirmed.');
 
             } else {
-                // Zap Logic temporarily disabled while we transition to full Smart Accounts
-                throw new Error("Cross-token Zap is temporarily disabled. Please deposit USDC directly to fund your Smart Account.");
+                // Cross-token Zap: convert USDT / BNB → USDC and deposit into Smart Account
+                if (!ZAP_CONTRACT) {
+                    throw new Error("Zap contract is not configured. Please contact support.");
+                }
+
+                const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
+
+                // 0.5% slippage tolerance: minUSDC = amount * 0.995
+                const minUSDC = amountInWei * BigInt(995) / BigInt(1000);
+
+                let zapTx;
+                if (selectedToken.isNative) {
+                    // BNB → USDC via Zap (payable)
+                    setStatusMessage('Swapping BNB → USDC...');
+                    console.log('[Deposit] Calling zapInBNB...');
+                    zapTx = await zapContract.zapInBNB(minUSDC, { value: amountInWei });
+                } else {
+                    // ERC-20 (USDT etc.) → USDC via Zap
+                    setStatusMessage(`Approving ${selectedToken.symbol}...`);
+                    console.log(`[Deposit] Approving Zap to spend ${selectedToken.symbol}...`);
+                    const tokenContractWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
+                    const allowance = await tokenContractWithSigner.allowance(effectiveAddress, ZAP_CONTRACT);
+                    if (allowance < amountInWei) {
+                        const approveTx = await tokenContractWithSigner.approve(ZAP_CONTRACT, ethers.MaxUint256);
+                        await approveTx.wait();
+                        console.log('[Deposit] Approval confirmed.');
+                    }
+                    setStatusMessage(`Swapping ${selectedToken.symbol} → USDC...`);
+                    console.log('[Deposit] Calling zapInToken...');
+                    zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, minUSDC);
+                }
+
+                console.log('[Deposit] Zap TX sent:', zapTx.hash);
+                await zapTx.wait();
+                console.log('[Deposit] Zap confirmed - USDC deposited to Smart Account.');
             }
 
             setLastDeposit({
