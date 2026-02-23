@@ -12,81 +12,57 @@ export interface AuthState {
 }
 
 /**
- * Unified auth hook that checks both Privy (social login) and Reown (wallet connection)
+ * Unified auth hook.
+ *
+ * Two completely separate login paths:
+ *   1. WALLET (Reown/AppKit) — wagmi isConnected is true, address is the real external wallet.
+ *   2. SOCIAL (Privy) — privyAuth is true, address is the Privy-managed embedded wallet.
+ *
+ * Wallet takes priority if both are active simultaneously.
  */
 export function useAuth(): AuthState {
     const { authenticated: privyAuth, user: privyUser, ready: privyReady } = usePrivy();
-    const { isConnected, address, status } = useAccount(); // Reown/Wagmi
+    const { isConnected, address, status } = useAccount(); // Reown/wagmi
 
-    // Loading state: Privy not ready OR Wagmi reconnecting
     const isLoading = !privyReady || status === 'reconnecting';
 
-    // Privy takes precedence if authenticated
+    // --- Path 1: External Wallet (Reown/AppKit) ---
+    // If wagmi reports a connected wallet, this is a wallet login.
+    // Use the wagmi address directly — no Privy involvement.
+    if (isConnected && address) {
+        return {
+            isAuthenticated: true,
+            user: privyUser ?? null,
+            walletAddress: address,
+            loginMethod: 'wallet',
+            isLoading,
+        };
+    }
+
+    // --- Path 2: Privy Social Login (Google / Email / etc.) ---
     if (privyAuth && privyUser) {
-        // --- Reliable login method detection ---
-        // We can't trust linkedAccounts order (a user may have both Google AND wallet linked).
-        // Instead:
-        //   1. Check if an EXTERNAL wallet (walletClientType !== 'privy') is a linked account AND
-        //      wagmi reports it as connected → this session is a wallet login.
-        //   2. Otherwise fall back to social/email login type.
+        let loginMethod: 'google' | 'twitter' | 'discord' | 'email' | 'privy' = 'privy';
 
-        type PrivyLoginMethod = 'google' | 'twitter' | 'discord' | 'email' | 'wallet' | 'privy';
-        let loginMethod: PrivyLoginMethod = 'privy';
-
-        const externalWallet = privyUser.linkedAccounts.find(
-            (a) => a.type === 'wallet' && (a as any).walletClientType !== 'privy'
-        );
-
-        const isExternalWalletSession =
-            // An external wallet is connected via wagmi and its address matches
-            isConnected && address &&
-            externalWallet &&
-            (externalWallet as any).address?.toLowerCase() === address?.toLowerCase();
-
-        if (isExternalWalletSession) {
-            loginMethod = 'wallet';
-        } else if (privyUser.linkedAccounts.some(a => a.type === 'google_oauth')) {
-            loginMethod = 'google';
-        } else if (privyUser.linkedAccounts.some(a => a.type === 'twitter_oauth')) {
-            loginMethod = 'twitter';
-        } else if (privyUser.linkedAccounts.some(a => a.type === 'discord_oauth')) {
-            loginMethod = 'discord';
-        } else if (privyUser.linkedAccounts.some(a => a.type === 'email')) {
-            loginMethod = 'email';
-        }
-
-        // For external wallet sessions, use the wagmi address (0x4250...).
-        // For social/email, use the Privy embedded wallet address.
-        const effectiveWalletAddress = loginMethod === 'wallet'
-            ? (address || privyUser.wallet?.address)
-            : privyUser.wallet?.address;
+        if (privyUser.linkedAccounts.some(a => a.type === 'google_oauth')) loginMethod = 'google';
+        else if (privyUser.linkedAccounts.some(a => a.type === 'twitter_oauth')) loginMethod = 'twitter';
+        else if (privyUser.linkedAccounts.some(a => a.type === 'discord_oauth')) loginMethod = 'discord';
+        else if (privyUser.linkedAccounts.some(a => a.type === 'email')) loginMethod = 'email';
 
         return {
             isAuthenticated: true,
             user: privyUser,
-            walletAddress: effectiveWalletAddress,
+            walletAddress: privyUser.wallet?.address,
             loginMethod,
             isLoading,
         };
     }
 
-    // Fall back to Reown wallet connection
-    if (isConnected && address) {
-        return {
-            isAuthenticated: true,
-            user: null,
-            walletAddress: address,
-            loginMethod: 'wallet',
-            isLoading: isLoading
-        };
-    }
-
-    // Not authenticated
+    // --- Not authenticated ---
     return {
         isAuthenticated: false,
         user: null,
         walletAddress: undefined,
         loginMethod: null,
-        isLoading: isLoading
+        isLoading,
     };
 }
