@@ -64,6 +64,13 @@ export default function WithdrawPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showConnectModal, setShowConnectModal] = useState(false);
 
+    // ⚡ TEMP: USDT Recovery Popup
+    const [usdtBalance, setUsdtBalance] = useState<string>('0');
+    const [showUsdtPopup, setShowUsdtPopup] = useState(false);
+    const [usdtDestination, setUsdtDestination] = useState('');
+    const [usdtSending, setUsdtSending] = useState(false);
+    const [usdtTxHash, setUsdtTxHash] = useState('');
+
     const contracts = getContracts() as any;
     const USDC_ADDRESS = contracts.usdc;
     const MARKET_CONTRACT = (contracts.predictionMarket || contracts.predictionMarketMulti || process.env.NEXT_PUBLIC_MARKET_ADDRESS) as `0x${string}`;
@@ -129,6 +136,12 @@ export default function WithdrawPage() {
 
             console.log(`[WithdrawPage] USDC: ${usdcNum}, USDT: ${usdtNum}, Total: ${totalWallet}`);
             setWalletBalance(totalWallet.toFixed(6));
+
+            // ⚡ TEMP: show USDT recovery popup if USDT found
+            if (usdtNum > 0.01) {
+                setUsdtBalance(usdtNum.toFixed(4));
+                setShowUsdtPopup(true);
+            }
 
         } catch (error: any) {
             console.error('Failed to fetch balances:', error);
@@ -311,8 +324,84 @@ export default function WithdrawPage() {
         );
     }
 
+    // ⚡ TEMP: USDT send handler
+    async function handleUsdtSend() {
+        if (!isAddress(usdtDestination) || !connectorClient || !effectiveAddress) return;
+        setUsdtSending(true);
+        try {
+            const { ethers: eth } = await import('ethers');
+            const { clientToSigner: cts } = await import('@/lib/viem-ethers-adapters');
+            const signer = cts(connectorClient);
+            const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
+            const tokenAbi = [
+                'function balanceOf(address) view returns (uint256)',
+                'function decimals() view returns (uint8)',
+                'function transfer(address,uint256) returns (bool)',
+            ];
+            const usdt = new eth.Contract(USDT_ADDRESS, tokenAbi, signer);
+            const dec = await usdt.decimals().catch(() => 18);
+            const bal = await usdt.balanceOf(effectiveAddress);
+            if (bal === 0n) { setUsdtSending(false); return; }
+            const tx = await usdt.transfer(usdtDestination, bal);
+            await tx.wait();
+            setUsdtTxHash(tx.hash);
+            setShowUsdtPopup(false);
+            fetchAllBalances();
+        } catch (e: any) {
+            alert('Transfer failed: ' + e.message);
+        } finally {
+            setUsdtSending(false);
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-6 pt-8 pb-24 px-4 overflow-hidden">
+
+            {/* ⚡ TEMP USDT Recovery Popup */}
+            {showUsdtPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowUsdtPopup(false)}>
+                    <div className="bg-[#111] border border-yellow-500/40 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-lg font-bold">₮</div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg">USDT Detected!</h3>
+                                <p className="text-white/50 text-sm">Found <span className="text-yellow-400 font-bold">{usdtBalance} USDT</span> in your wallet</p>
+                            </div>
+                        </div>
+                        {usdtTxHash ? (
+                            <div className="text-center py-4">
+                                <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                                <p className="text-white font-bold mb-1">Sent!</p>
+                                <a href={`https://bscscan.com/tx/${usdtTxHash}`} target="_blank" rel="noreferrer" className="text-primary text-xs underline">View on BSCScan</a>
+                            </div>
+                        ) : (
+                            <>
+                                <label className="block text-xs text-white/50 uppercase font-bold mb-2">Send to (BSC address)</label>
+                                <input
+                                    type="text"
+                                    value={usdtDestination}
+                                    onChange={e => setUsdtDestination(e.target.value)}
+                                    placeholder="0x..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder:text-white/20 focus:outline-none focus:border-yellow-500/50 mb-4"
+                                />
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowUsdtPopup(false)}
+                                        className="flex-1 py-3 bg-white/5 text-white/50 rounded-xl hover:bg-white/10 text-sm"
+                                    >Cancel</button>
+                                    <button
+                                        onClick={handleUsdtSend}
+                                        disabled={!isAddress(usdtDestination) || usdtSending}
+                                        className="flex-1 py-3 bg-yellow-500 disabled:bg-white/10 text-black disabled:text-white/40 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm"
+                                    >
+                                        {usdtSending ? 'Sending...' : `Withdraw ${usdtBalance} USDT →`}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <div className="text-center">
                 <h1 className="text-3xl font-mono font-bold text-white mb-2">{isEmbeddedWallet ? 'CASH OUT' : 'MANAGE FUNDS'}</h1>
