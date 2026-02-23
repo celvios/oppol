@@ -14,7 +14,7 @@ export const MULTI_CONTRACTS = {
     },
     // BSC Mainnet
     bsc: {
-        predictionMarketMulti: process.env.NEXT_PUBLIC_MARKET_ADDRESS || "0xe3Eb84D7e271A5C44B27578547f69C80c497355B",
+        predictionMarketMulti: process.env.NEXT_PUBLIC_MARKET_ADDRESS || "0xe5a5320b3764Bd8FFFd95cF7aA7F406DaC2B070C",
         usdc: process.env.NEXT_PUBLIC_USDC_CONTRACT || "0x55d398326f99059fF775485246999027B3197955", // USDT
     },
 };
