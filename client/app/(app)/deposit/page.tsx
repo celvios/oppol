@@ -393,7 +393,10 @@ export default function DepositPage() {
                     // Fire and forget - don't block UI waiting for full sweep, but trigger it
                     fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
+                        },
                         body: JSON.stringify({ privyUserId: privyUser?.id })
                     }).then(res => res.json())
                         .then(data => console.log('[Polling] Backend Sweep Triggered:', data))

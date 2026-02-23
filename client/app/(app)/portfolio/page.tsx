@@ -337,7 +337,10 @@ export default function PortfolioPage() {
                                         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
                                         const res = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
+                                            },
                                             body: JSON.stringify({ privyUserId: privyUser.id })
                                         });
                                         const data = await res.json();

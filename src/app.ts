@@ -20,6 +20,7 @@ import commentsRoutes from './routes/comments';
 import boostRoutes from './routes/boostRoutes';
 import marketRoutes from './routes/marketRoutes';
 import { apiRouter } from './routes/api';
+import { verifyAuth } from './middleware/verifyAuth';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -175,7 +176,7 @@ app.post('/api/calculate-cost', async (req, res) => {
 
 // BET ENDPOINT - UNIFIED (Uses buySharesFor on multi-outcome contract)
 // Accepts side: 'YES'/'NO' for binary markets, converts to outcomeIndex: 0/1
-app.post('/api/bet', async (req, res) => {
+app.post('/api/bet', verifyAuth, async (req, res) => {
   try {
     const { ethers } = await import('ethers');
     const { walletAddress, marketId, side, amount, outcomeIndex: explicitOutcome } = req.body;
@@ -341,7 +342,7 @@ app.post('/api/bet', async (req, res) => {
 });
 
 // MULTI-OUTCOME BET ENDPOINT - For multi-outcome markets
-app.post('/api/multi-bet', async (req, res) => {
+app.post('/api/multi-bet', verifyAuth, async (req, res) => {
   try {
     const { ethers } = await import('ethers');
     const { walletAddress, marketId, outcomeIndex, amount } = req.body;

@@ -2,15 +2,16 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
-// Use a consistent encryption key from environment or generate a default one
-// Use a consistent encryption key from environment or generate a default one
-const DEFAULT_KEY_HEX = '1ef5d56bb056a08019ea2f34e6540211eacfd3fff109bcf98d483da21db2b3c5';
-let encryptEnv = process.env.ENCRYPTION_KEY || DEFAULT_KEY_HEX;
-let KEY = Buffer.from(encryptEnv, 'hex');
+// ENCRYPTION_KEY must be a 64-char hex string (32 bytes) set in environment variables.
+// NEVER commit this value to source control. Rotate it immediately if exposed.
+const encryptEnv = process.env.ENCRYPTION_KEY;
+if (!encryptEnv) {
+    throw new Error('[EncryptionService] FATAL: ENCRYPTION_KEY environment variable is not set. Server cannot start safely.');
+}
 
+const KEY = Buffer.from(encryptEnv, 'hex');
 if (KEY.length !== 32) {
-    console.warn(`[EncryptionService] ⚠️ Configured ENCRYPTION_KEY produces invalid key length (${KEY.length} bytes). Falling back to default.`);
-    KEY = Buffer.from(DEFAULT_KEY_HEX, 'hex');
+    throw new Error(`[EncryptionService] FATAL: ENCRYPTION_KEY produces invalid key length (${KEY.length} bytes, expected 32). Provide a 64-character hex string.`);
 }
 
 export class EncryptionService {

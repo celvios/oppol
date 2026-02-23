@@ -5,6 +5,7 @@ import { WhatsAppController } from '../controllers/whatsappController';
 import { TelegramController } from '../controllers/telegramController';
 import { placeBet, estimateBetCost } from '../controllers/betController';
 import balanceRoutes from './balance';
+import { verifyAuth } from '../middleware/verifyAuth';
 
 const router = Router();
 
@@ -14,8 +15,8 @@ router.post('/register', registerUser);
 
 // Wallet Routes
 router.get('/wallet/:userId', getWallet);
-router.post('/wallet/deposit-custodial', triggerCustodialDeposit);
-router.post('/wallet/custodial-withdraw', handleCustodialWithdraw);
+router.post('/wallet/deposit-custodial', verifyAuth, triggerCustodialDeposit);
+router.post('/wallet/custodial-withdraw', verifyAuth, handleCustodialWithdraw);
 // router.post('/wallet/link', linkWallet); // Removed: Distinct auth
 
 // Balance Routes
