@@ -125,10 +125,13 @@ export default function DepositPage() {
     }, [effectiveAddress, selectedToken]);
 
     // Polling for "Verifying" AND "Depositing" steps
+    // SAFETY: Only run auto-sweep for embedded/custodial wallets (Google, email users).
+    // External MetaMask wallets must NEVER be auto-swept — they require an explicit user signature.
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if ((fundingStep === 'verifying' || fundingStep === 'depositing') && effectiveAddress) {
             if (isEmbeddedWallet) {
+                // Custodial/social users: auto-detect funds and trigger sweep
                 console.log(`[Polling] Loop running for ${fundingStep}... (${effectiveAddress})`);
                 interval = setInterval(async () => {
                     const { web3Service } = await import('@/lib/web3');
@@ -140,7 +143,6 @@ export default function DepositPage() {
                     const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
                     if (newBalNum > oldBalNum + 0.001) {
                         setGameBalance(newBal);
-                        // If we are already depositing, just show success
                         if (fundingStep !== 'depositing') setFundingStep('depositing');
 
                         setTimeout(() => {
@@ -152,20 +154,15 @@ export default function DepositPage() {
                         return;
                     }
 
-                    // 2. Check if funds trigger needed (only if verifyng)
-                    // If already depositing, we assume sweep triggered. checkAndAutoDeposit would spam backend.
                     if (fundingStep === 'verifying') {
                         console.log(`[Polling] Triggering check... (Ref Amount: ${depositAmountRef.current})`);
                         await checkAndAutoDeposit();
                     }
 
                 }, 3000);
-            } else {
-                // External wallet users: poll token balance
-                interval = setInterval(async () => {
-                    await checkAndAutoDeposit();
-                }, 3000);
             }
+            // External wallet users: NO background polling.
+            // Deposits only happen when user explicitly clicks "Approve & Deposit".
         }
         return () => clearInterval(interval);
     }, [fundingStep, effectiveAddress, initialBalance, depositAmount, isEmbeddedWallet, initialGameBalance, gameBalance, custodialWalletAddress, selectedToken]);
