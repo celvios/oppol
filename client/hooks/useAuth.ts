@@ -23,27 +23,50 @@ export function useAuth(): AuthState {
 
     // Privy takes precedence if authenticated
     if (privyAuth && privyUser) {
-        // Determine login method from linked accounts
-        let loginMethod: 'google' | 'twitter' | 'discord' | 'email' | 'wallet' | 'privy' = 'privy';
+        // --- Reliable login method detection ---
+        // We can't trust linkedAccounts order (a user may have both Google AND wallet linked).
+        // Instead:
+        //   1. Check if an EXTERNAL wallet (walletClientType !== 'privy') is a linked account AND
+        //      wagmi reports it as connected → this session is a wallet login.
+        //   2. Otherwise fall back to social/email login type.
 
-        const google = privyUser.linkedAccounts.find((a) => a.type === 'google_oauth');
-        const twitter = privyUser.linkedAccounts.find((a) => a.type === 'twitter_oauth');
-        const discord = privyUser.linkedAccounts.find((a) => a.type === 'discord_oauth');
-        const email = privyUser.linkedAccounts.find((a) => a.type === 'email');
-        const wallet = privyUser.linkedAccounts.find((a) => a.type === 'wallet');
+        type PrivyLoginMethod = 'google' | 'twitter' | 'discord' | 'email' | 'wallet' | 'privy';
+        let loginMethod: PrivyLoginMethod = 'privy';
 
-        if (google) loginMethod = 'google';
-        else if (twitter) loginMethod = 'twitter';
-        else if (discord) loginMethod = 'discord';
-        else if (email) loginMethod = 'email';
-        else if (wallet) loginMethod = 'wallet';
+        const externalWallet = privyUser.linkedAccounts.find(
+            (a) => a.type === 'wallet' && (a as any).walletClientType !== 'privy'
+        );
+
+        const isExternalWalletSession =
+            // An external wallet is connected via wagmi and its address matches
+            isConnected && address &&
+            externalWallet &&
+            (externalWallet as any).address?.toLowerCase() === address?.toLowerCase();
+
+        if (isExternalWalletSession) {
+            loginMethod = 'wallet';
+        } else if (privyUser.linkedAccounts.some(a => a.type === 'google_oauth')) {
+            loginMethod = 'google';
+        } else if (privyUser.linkedAccounts.some(a => a.type === 'twitter_oauth')) {
+            loginMethod = 'twitter';
+        } else if (privyUser.linkedAccounts.some(a => a.type === 'discord_oauth')) {
+            loginMethod = 'discord';
+        } else if (privyUser.linkedAccounts.some(a => a.type === 'email')) {
+            loginMethod = 'email';
+        }
+
+        // For external wallet sessions, use the wagmi address (0x4250...).
+        // For social/email, use the Privy embedded wallet address.
+        const effectiveWalletAddress = loginMethod === 'wallet'
+            ? (address || privyUser.wallet?.address)
+            : privyUser.wallet?.address;
 
         return {
             isAuthenticated: true,
             user: privyUser,
-            walletAddress: privyUser.wallet?.address || address,
-            loginMethod: loginMethod,
-            isLoading: isLoading
+            walletAddress: effectiveWalletAddress,
+            loginMethod,
+            isLoading,
         };
     }
 
