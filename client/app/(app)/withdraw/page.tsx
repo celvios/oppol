@@ -100,29 +100,45 @@ export default function WithdrawPage() {
         console.log('[WithdrawPage] Fetching balances for:', effectiveAddress);
         setIsLoading(true);
         try {
-            // 1. Get Game Balance
+            // 1. Get Game Balance (USDC already deposited into contract)
             const deposited = await web3MultiService.getDepositedBalance(effectiveAddress);
             setContractBalance(deposited);
 
-            // 2. Get Wallet Balance
-            if (connectorClient) {
-                const signer = clientToSigner(connectorClient);
-                const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
-                const balWei = await usdcContract.balanceOf(effectiveAddress);
-                setWalletBalance(ethers.formatUnits(balWei, 6));
-            } else {
-                setWalletBalance('0.00');
-            }
+            // 2. Get Wallet Balance — check both USDC AND USDT, show combined total
+            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+            const { ethers: eth } = await import('ethers');
+            const provider = new eth.JsonRpcProvider(rpcUrl);
+
+            const tokenAbi = [
+                'function balanceOf(address) view returns (uint256)',
+                'function decimals() view returns (uint8)',
+            ];
+
+            const USDT_ADDRESS = process.env.NEXT_PUBLIC_USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
+
+            const [usdcBal, usdcDec, usdtBal, usdtDec] = await Promise.all([
+                new eth.Contract(USDC_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
+                new eth.Contract(USDC_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
+                new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
+                new eth.Contract(USDT_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
+            ]);
+
+            const usdcNum = parseFloat(eth.formatUnits(usdcBal, usdcDec));
+            const usdtNum = parseFloat(eth.formatUnits(usdtBal, usdtDec));
+            const totalWallet = usdcNum + usdtNum;
+
+            console.log(`[WithdrawPage] USDC: ${usdcNum}, USDT: ${usdtNum}, Total: ${totalWallet}`);
+            setWalletBalance(totalWallet.toFixed(6));
+
         } catch (error: any) {
             console.error('Failed to fetch balances:', error);
-            // Fallback to 0 on error so we don't stick on loading forever
             if (contractBalance === null) setContractBalance('0.00');
             if (walletBalance === null) setWalletBalance('0.00');
-        }
-        finally {
+        } finally {
             setIsLoading(false);
         }
     }
+
 
     async function handleAction() {
         if (!effectiveAddress || !amount || parseFloat(amount) <= 0) return;
