@@ -434,37 +434,7 @@ export default function DepositPage() {
                 console.log(`[Deposit] BNB Balance check: ${ethers.formatEther(bnbBalance)} BNB (Min: ${ethers.formatEther(minGas)})`);
 
                 if (bnbBalance < minGas) {
-                    setStatusMessage('Requesting gas...');
-                    console.log('Low Gas. Requesting from faucet...');
-
-                    try {
-                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                        console.log(`[Deposit] Calling faucet API: ${apiUrl}/api/faucet/claim`);
-                        const res = await fetch(`${apiUrl}/api/faucet/claim`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ address: effectiveAddress })
-                        });
-
-                        const data = await res.json();
-                        console.log('[Deposit] Faucet Response:', data);
-
-                        if (data.success) {
-                            console.log('Gas claimed!', data.txHash);
-                            setStatusMessage('Gas received! Proceeding...');
-                            // Wait for block confirmation (approx 3s)
-                            await new Promise(r => setTimeout(r, 4000));
-                        } else {
-                            console.error('Faucet error:', data.error);
-                            // If faucet fails, user might still have enough if our check was too conservative?
-                            // But usually it means they really don't have enough.
-                            // We throw specific error
-                            throw new Error(`Insufficient BNB for gas. Faucet: ${data.error}`);
-                        }
-                    } catch (e: any) {
-                        console.error('Faucet call failed', e);
-                        throw new Error(`Insufficient Gas & Faucet Failed: ${e.message}`);
-                    }
+                    throw new Error(`Insufficient BNB to cover network fee. Please add a small amount of BNB to your wallet to approve this deposit.`);
                 }
 
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
