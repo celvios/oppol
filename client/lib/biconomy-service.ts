@@ -24,9 +24,8 @@ import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { toSimpleSmartAccount } from "permissionless/accounts";
 import { entryPoint07Address } from "viem/account-abstraction";
 
-// Estimated gas for a batched UserOperation on BSC
-// (EntryPoint overhead + Approve + Transfer + buyShares)
-const ESTIMATED_GAS_UNITS = BigInt(330000);
+// We no longer rely on a hardcoded array of gas units, the backend handles the base.
+// const ESTIMATED_GAS_UNITS = BigInt(330000);
 const USDC_DECIMALS = 18;
 
 // BSC Mainnet chain ID
@@ -41,46 +40,24 @@ function getPimlicoUrl(): string {
 export class BiconomyService {
 
     /**
-     * Fetches real-time gas fee in USDC:
-     * 1. Gets current BSC gas price from RPC
-     * 2. Gets BNB/USD from Binance public API
-     * 3. Calculates: gas_units × gas_price × bnb_price → USDC
-     * 4. Adds 20% safety buffer
+     * Fetches real-time gas fee in USDC from the backend Chainlink Oracle.
      */
     static async estimateGasFeeUSDC(): Promise<bigint> {
         try {
-            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://bsc-dataseed.binance.org/";
-            const provider = new ethers.JsonRpcProvider(rpcUrl);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+            const response = await fetch(`${apiUrl}/api/gas/estimate`);
+            const data = await response.json();
 
-            // 1. Live BSC gas price
-            const feeData = await provider.getFeeData();
-            const gasPriceWei = feeData.gasPrice ?? ethers.parseUnits("3", "gwei");
-
-            // 2. Live BNB/USD from Binance public ticker
-            let bnbPriceUSD = 600;
-            try {
-                const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT");
-                const json = await res.json();
-                bnbPriceUSD = parseFloat(json.price);
-            } catch {
-                console.warn("[GasFee] BNB price fetch failed. Using fallback $600.");
+            if (data.success && data.feeUSDCWei) {
+                console.log(`[GasFee] Oracle estimate: ${data.feeUSDC} USDC`);
+                return BigInt(data.feeUSDCWei);
             }
 
-            // 3. Cost in USD + 20% buffer
-            const gasCostBNB = Number(ESTIMATED_GAS_UNITS) * Number(gasPriceWei) / 1e18;
-            const gasCostUSD = gasCostBNB * bnbPriceUSD;
-            const gasCostWithBuffer = gasCostUSD * 1.20;
-
-            console.log(
-                `[GasFee] Gas: ${ethers.formatUnits(gasPriceWei, "gwei")} Gwei | ` +
-                `BNB: $${bnbPriceUSD.toFixed(2)} | ` +
-                `Fee (with buffer): $${gasCostWithBuffer.toFixed(4)} USDC`
-            );
-
-            return ethers.parseUnits(gasCostWithBuffer.toFixed(18), USDC_DECIMALS);
+            console.warn("[GasFee] Backend Oracle returned an error, falling back to $0.20 USDC.");
+            return ethers.parseUnits("0.20", USDC_DECIMALS);
 
         } catch (err) {
-            console.error("[GasFee] Estimation failed. Falling back to $0.20 USDC.", err);
+            console.error("[GasFee] Estimation API call failed. Falling back to $0.20 USDC.", err);
             return ethers.parseUnits("0.20", USDC_DECIMALS);
         }
     }
@@ -201,6 +178,7 @@ export class BiconomyService {
         });
         calls.push({ to: marketAddress as Address, data: buyData });
 
+        console.log(`[Pimlico] Gas dynamically checked: ${feeUSDC.toString()}`);
         console.log(`[Pimlico] Sending batched UserOperation (${calls.length} calls)...`);
 
         const txHash = await smartAccountClient.sendUserOperation({ calls });

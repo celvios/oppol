@@ -49,20 +49,23 @@ router.post('/markets', createMarketMetadata);
 router.post('/categories', createCategory);
 router.get('/categories', getCategories);
 router.delete('/categories/:id', deleteCategory);
-router.get('/markets/:marketId/price-history', getMarketPriceHistory);
-
-// Portfolio (DB-backed, no RPC calls)
-router.get('/portfolio/:address', getUserPortfolio);
-router.get('/portfolio/:address/stats', getUserPortfolio); // alias used by old code
-
-import { uploadImage } from '../controllers/uploadController';
-router.post('/upload', uploadImage);
-
-router.get('/debug/contract', checkContractMarkets);
-
 // Faucet Route
 import { claimFaucet } from '../controllers/faucetController';
-router.post('/faucet/claim', claimFaucet);
+import rateLimit from 'express-rate-limit';
+
+const faucetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 2, // Limit each IP to 2 faucet requests per window
+    message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+router.post('/faucet/claim', faucetLimiter, claimFaucet);
+
+// Gas Route
+import { gasRouter } from './gasRoutes';
+router.use('/gas', gasRouter);
 
 // Migration Route (server-side Privy signing)
 import { migrateUserFunds } from '../controllers/migrateController';
