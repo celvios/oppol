@@ -112,14 +112,26 @@ export default function PortfolioPage() {
                     } catch (e) {
                         console.warn('[Portfolio] Failed to fetch custodial address:', e);
                     }
-                } else if (loginMethod === 'wallet' && privyUser) {
-                    // Web3 users have a Biconomy Smart Account 
+                } else if (loginMethod === 'wallet') {
+                    // Web3/Reown wallet users: derive their Biconomy Smart Account address
                     try {
                         const { BiconomyService } = await import('@/lib/biconomy-service');
-                        const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
-                        const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
-                        if (activeWallet) {
-                            const smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
+                        let smartAccountAddr: string | null = null;
+
+                        if (privyUser) {
+                            // Privy-linked wallet: use the Privy wallet object (has getEthereumProvider)
+                            const wallets = privyUser.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                            const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+                            if (activeWallet) {
+                                smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
+                            }
+                        } else {
+                            // Pure Reown/wagmi wallet: derive from EOA + window.ethereum
+                            smartAccountAddr = await BiconomyService.getSmartAccountAddressFromEOA(effectiveAddress!);
+                        }
+
+                        if (smartAccountAddr) {
+                            console.log('[Portfolio] Smart Account:', smartAccountAddr);
                             setCustodialAddress(smartAccountAddr);
                             checkAddress = smartAccountAddr;
                         }

@@ -71,6 +71,33 @@ export class BiconomyService {
     }
 
     /**
+     * Derives the deterministic Smart Account address from just an EOA address.
+     * Works for Reown/wagmi wallet users who are NOT Privy users.
+     * Uses window.ethereum (the connected wallet's provider).
+     */
+    static async getSmartAccountAddressFromEOA(ownerAddress: string): Promise<string> {
+        const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://bsc-dataseed.binance.org/";
+        const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+
+        const provider = (window as any).ethereum;
+        if (!provider) throw new Error('No ethereum provider found');
+
+        const walletClient = createWalletClient({
+            account: ownerAddress as Address,
+            chain: bsc,
+            transport: custom(provider),
+        });
+
+        const smartAccount = await toSimpleSmartAccount({
+            client: publicClient,
+            owner: walletClient,
+            entryPoint: { address: entryPoint07Address, version: "0.7" },
+        });
+
+        return smartAccount.address;
+    }
+
+    /**
      * Builds a Pimlico-backed Smart Account Client for the given Privy/external wallet.
      */
     private static async getSmartAccountClient(privyWallet: any) {
