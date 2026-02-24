@@ -130,24 +130,52 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
 
         if (!USDC_ADDR || !MARKET_ADDR) throw new Error("Missing USDC or MARKET Address");
 
-        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 18)} USDC to Market via Pimlico...`);
+        // Deduct platform fee (mirrors withdrawal logic)
+        const { gasService } = require('../services/gasService');
+        const estGas = 100000n;
+        const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
+        console.log(`[Deposit] Estimated Platform Fee: ${ethers.formatUnits(gasFeeUSDC, USDC_DECIMALS)} USDC`);
+
+        let netDepositAmount = depositAmount;
+        if (depositAmount > gasFeeUSDC) {
+            netDepositAmount = depositAmount - gasFeeUSDC;
+            console.log(`[Deposit] Deducting Fee. Net deposit to Market: ${ethers.formatUnits(netDepositAmount, USDC_DECIMALS)} USDC`);
+        } else {
+            console.warn(`[Deposit] Amount too low to cover fee. Proceeding without deduction (platform absorbs cost).`);
+        }
+
+        console.log(`[Deposit] Depositing ${ethers.formatUnits(netDepositAmount, 18)} USDC to Market via Pimlico...`);
 
         const approveData = encodeFunctionData({
             abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
             functionName: "approve",
-            args: [MARKET_ADDR as Address, depositAmount],
+            args: [MARKET_ADDR as Address, depositAmount], // approve full amount (net + fee)
         });
 
         const depositData = encodeFunctionData({
             abi: parseAbi(["function deposit(uint256 amount)"]),
             functionName: "deposit",
-            args: [depositAmount],
+            args: [netDepositAmount],
         });
 
         const calls: { to: Address; data: `0x${string}` }[] = [
             { to: USDC_ADDR as Address, data: approveData },
             { to: MARKET_ADDR as Address, data: depositData },
         ];
+
+        // Queue fee transfer to treasury if a fee was deducted
+        if (depositAmount > gasFeeUSDC) {
+            const treasuryAddress = process.env.ADMIN_WALLET || process.env.NEXT_PUBLIC_ADMIN_WALLET;
+            if (treasuryAddress) {
+                console.log(`[Deposit] Queuing fee transfer (${ethers.formatUnits(gasFeeUSDC, USDC_DECIMALS)} USDC) to Treasury...`);
+                const feeTransferData = encodeFunctionData({
+                    abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
+                    functionName: "transfer",
+                    args: [treasuryAddress as Address, gasFeeUSDC],
+                });
+                calls.push({ to: USDC_ADDR as Address, data: feeTransferData });
+            }
+        }
 
         console.log(`[Deposit] Sending batched deposit UserOperation (${calls.length} calls)...`);
         const userOpHash = await smartAccountClient.sendUserOperation({ calls });
