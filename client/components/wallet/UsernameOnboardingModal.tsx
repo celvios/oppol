@@ -16,6 +16,7 @@ interface UsernameOnboardingModalProps {
 
 export default function UsernameOnboardingModal({ isOpen, onClose, onSubmit, suggestedUsername, walletAddress }: UsernameOnboardingModalProps) {
     const [username, setUsername] = useState(suggestedUsername || "");
+    const [agreed, setAgreed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -114,18 +115,40 @@ export default function UsernameOnboardingModal({ isOpen, onClose, onSubmit, sug
                                 )}
                             </div>
 
+                            <div className="text-left relative mb-6">
+                                <label className="flex items-start gap-3 cursor-pointer group">
+                                    <div className="relative flex items-center justify-center mt-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={agreed}
+                                            onChange={(e) => setAgreed(e.target.checked)}
+                                            className="peer sr-only"
+                                        />
+                                        <div className="w-5 h-5 border-2 border-white/30 rounded bg-black/40 peer-checked:bg-neon-cyan peer-checked:border-neon-cyan peer-focus:ring-2 peer-focus:ring-neon-cyan/50 transition-all flex items-center justify-center">
+                                            <CheckCircle className={`w-3 h-3 text-black opacity-0 peer-checked:opacity-100 transition-opacity`} />
+                                        </div>
+                                    </div>
+                                    <span className="text-xs text-white/60 leading-tight">
+                                        I agree to the <a href="https://bc400.gitbook.io/opoll-terms-and-conditions/" target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline">Terms & Conditions</a> and <a href="https://bc400.gitbook.io/privacy-policy/" target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline">Privacy Policy</a>.
+                                        <br /><br />
+                                        Access to and use of OPoll.org is strictly prohibited for persons located in, incorporated in, or ordinarily resident in the United States, the United Kingdom, or France.
+                                        By proceeding, you represent and warrant that you are not located in, a citizen or resident of, or acting on behalf of any person or entity in the foregoing jurisdictions.
+                                    </span>
+                                </label>
+                            </div>
+
                             <NeonButton
                                 variant="cyan"
                                 type="submit"
-                                disabled={!username || loading}
+                                disabled={!username || !agreed || loading}
                                 className="w-full py-4 text-lg font-bold"
                             >
                                 {loading ? "Checking..." : "Claim Identity"}
                             </NeonButton>
                         </form>
 
-                        <div className="mt-6 text-xs text-white/20">
-                            Wallet: {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connecting...'}
+                        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-white/20">
+                            <div>Wallet: {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connecting...'}</div>
                         </div>
                     </GlassCard>
                 </motion.div>
