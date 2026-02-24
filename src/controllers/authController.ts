@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../config/database';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { createWalletInternal } from './walletController';
+import { createWalletInternal, getSmartAccountAddressForKey } from './walletController';
 import { createRandomWallet } from '../services/web3';
 import { EncryptionService } from '../services/encryption';
 import { watchAddress } from '../services/depositWatcher';
@@ -183,22 +183,45 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
             // Check if they need a custodial wallet (if they are a custodial user type)
             if (isCustodial) {
                 // Check wallets table
-                const walletCheck = await query('SELECT public_address FROM wallets WHERE user_id = $1', [user.id]);
+                const walletCheck = await query('SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1', [user.id]);
                 if (walletCheck.rows.length > 0) {
-                    custodialWalletAddress = walletCheck.rows[0].public_address;
+                    // Re-derive the Smart Account address from the stored EOA private key
+                    try {
+                        const { EncryptionService } = require('../services/encryption');
+                        const pk = EncryptionService.decrypt(walletCheck.rows[0].encrypted_private_key);
+                        const saAddr = await getSmartAccountAddressForKey(pk);
+                        custodialWalletAddress = saAddr;
+                        // Keep users.wallet_address in sync with Smart Account address
+                        if (user.wallet_address !== saAddr) {
+                            await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [saAddr, user.id]);
+                            user.wallet_address = saAddr;
+                        }
+                    } catch (e) {
+                        console.error('[Auth] Failed to derive SA address, falling back to EOA:', e);
+                        custodialWalletAddress = walletCheck.rows[0].public_address;
+                    }
                 } else {
                     // Create one
                     console.log(`[Auth] Generating Custodial Wallet for existing user ${user.id}`);
                     const newWallet = await createWalletInternal(user.id);
-                    custodialWalletAddress = newWallet.public_address;
 
-                    // CRITICAL: Update the user's main wallet_address to be the custodial one
-                    // This ensures the frontend uses this address for all checks
-                    await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
-                    user.wallet_address = custodialWalletAddress;
+                    // Derive the Smart Account address
+                    try {
+                        const { EncryptionService } = require('../services/encryption');
+                        const pk = EncryptionService.decrypt(newWallet.encrypted_private_key || '');
+                        const saAddr = await getSmartAccountAddressForKey(pk);
+                        custodialWalletAddress = saAddr;
+                        await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [saAddr, user.id]);
+                        user.wallet_address = saAddr;
+                    } catch (e) {
+                        console.error('[Auth] Failed to derive SA address on creation, falling back to EOA:', e);
+                        custodialWalletAddress = newWallet.public_address;
+                        await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
+                        user.wallet_address = custodialWalletAddress;
+                    }
 
                     // Start watching for deposits
-                    watchAddress(custodialWalletAddress, user.id, '');
+                    watchAddress(custodialWalletAddress!, user.id, '');
                 }
             }
 
@@ -235,14 +258,25 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
             if (isCustodial) {
                 console.log(`[Auth] Generating Custodial Wallet for new user ${user.id}`);
                 const newWallet = await createWalletInternal(user.id);
-                custodialWalletAddress = newWallet.public_address;
 
-                // Update user record with custodial address
-                await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
-                user.wallet_address = custodialWalletAddress;
+                // Derive the Smart Account address (Pimlico smart account — gasless)
+                try {
+                    const { EncryptionService } = require('../services/encryption');
+                    const pk = EncryptionService.decrypt(newWallet.encrypted_private_key || '');
+                    const saAddr = await getSmartAccountAddressForKey(pk);
+                    custodialWalletAddress = saAddr;
+                    await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [saAddr, user.id]);
+                    user.wallet_address = saAddr;
+                    console.log(`[Auth] 🚀 Smart Account address for new user: ${saAddr}`);
+                } catch (e) {
+                    console.error('[Auth] Failed to compute SA address, falling back to EOA:', e);
+                    custodialWalletAddress = newWallet.public_address;
+                    await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [custodialWalletAddress, user.id]);
+                    user.wallet_address = custodialWalletAddress;
+                }
 
                 // Start watching for deposits
-                watchAddress(custodialWalletAddress, user.id, '');
+                watchAddress(custodialWalletAddress!, user.id, '');
             }
         }
 

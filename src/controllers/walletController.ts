@@ -63,6 +63,20 @@ export const linkWallet = async (req: Request, res: Response) => {
     res.status(410).json({ error: 'Wallet linking is deprecated. Web and Mobile Auth are distinct.' });
 };
 
+// Export helper to get Smart Account address from a private key (used in authController)
+export const getSmartAccountAddressForKey = async (privateKeyHex: string): Promise<string> => {
+    const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+    const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+    const formattedKey = privateKeyHex.startsWith('0x') ? privateKeyHex as `0x${string}` : `0x${privateKeyHex}` as `0x${string}`;
+    const ownerAccount = privateKeyToAccount(formattedKey);
+    const smartAccount = await toSimpleSmartAccount({
+        client: publicClient,
+        owner: ownerAccount,
+        entryPoint: { address: entryPoint07Address, version: "0.7" },
+    });
+    return smartAccount.address;
+};
+
 // Helper to build Pimlico Smart Account Client
 const getSmartAccountClient = async (privateKeyHex: string) => {
     const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
@@ -217,9 +231,10 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
         const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
         const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
 
-        // Smart Account balance instead of raw EOA!
+        // Check Smart Account balance (users should now deposit directly here)
         const bal = await usdt.balanceOf(smartAccountAddress);
         const decimals = await usdt.decimals().catch(() => 18);
+        console.log(`[Swap] Checking Smart Account ${smartAccountAddress} for USDT... Raw: ${bal}`);
 
         // Threshold: 0.1 USDT
         if (bal < ethers.parseUnits("0.1", decimals)) {
@@ -298,9 +313,10 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // 1. Attempt Swap if USDT exists
         try {
             await processCustodialSwap(userId, custodialAddress, privateKey, provider);
-        } catch (e) {
+        } catch (e: any) {
             // Note: If swap fails for unpredictable reasons, we just log it and see if they have USDC anyway
-            console.log("[TriggerDeposit] Swap failed/skipped, checking USDC directly.");
+            console.error("[TriggerDeposit] Swap failed/skipped:", e?.message || e);
+            console.error(e);
         }
 
         // 2. Proceed with Standard USDC Deposit (Using Smart Account balance!)
