@@ -377,10 +377,39 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
                     currentValue,
                     pnl,
                     pnlDisplay: pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`,
-                    claimed: false, // Would need contract call; default false
+                    claimed: false, // default; overridden below for resolved markets
                     marketResolved: market.resolved,
                     isWinner,
                 });
+            }
+        }
+
+        // For resolved market positions, do a batch on-chain check for real claimed status
+        const resolvedPositions = positions.filter((p: any) => p.marketResolved);
+        if (resolvedPositions.length > 0) {
+            try {
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const provider = new ethers.JsonRpcProvider(rpcUrl);
+                const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
+                if (MARKET_ADDR) {
+                    const posABI = ['function getUserPosition(uint256 marketId, address user) view returns (uint256[] shares, bool claimed)'];
+                    const marketContract = new ethers.Contract(MARKET_ADDR, posABI, provider);
+                    // Group by marketId so we only call once per market per user
+                    const checkedMarkets = new Set<number>();
+                    await Promise.all(resolvedPositions.map(async (pos: any) => {
+                        if (checkedMarkets.has(pos.marketId)) return;
+                        checkedMarkets.add(pos.marketId);
+                        try {
+                            const result = await marketContract.getUserPosition(pos.marketId, address);
+                            // Apply claimed to all positions in this market
+                            positions
+                                .filter((p: any) => p.marketId === pos.marketId)
+                                .forEach((p: any) => { p.claimed = result.claimed; });
+                        } catch { /* leave as false */ }
+                    }));
+                }
+            } catch (e) {
+                console.error('[Portfolio] On-chain claimed check failed, using default false:', e);
             }
         }
 
@@ -390,6 +419,7 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error', positions: [] });
     }
 };
+
 
 export const deleteCategory = async (req: Request, res: Response) => {
 

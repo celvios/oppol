@@ -500,3 +500,72 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+
+/**
+ * POST /api/wallet/claim-custodial
+ * Calls claimWinnings(marketId) on-chain from the user's Pimlico Smart Account.
+ * Used for Google/Email (custodial) users who cannot sign wallet transactions directly.
+ * Body: { privyUserId: string, marketId: number }
+ */
+export const claimCustodialWinnings = async (req: Request, res: Response) => {
+    try {
+        const { privyUserId, marketId } = req.body;
+
+        if (!privyUserId || marketId === undefined) {
+            return res.status(400).json({ success: false, error: 'privyUserId and marketId are required' });
+        }
+
+        console.log(`[CustodialClaim] User ${privyUserId} claiming winnings for market ${marketId}`);
+
+        // 1. Look up user
+        const userResult = await query('SELECT id FROM users WHERE privy_user_id = $1', [privyUserId]);
+        if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
+        const userId = userResult.rows[0].id;
+
+        // 2. Get custodial wallet
+        const walletResult = await query(
+            'SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
+            [userId]
+        );
+        if (walletResult.rows.length === 0) return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+
+        const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
+
+        // 3. Build Pimlico Smart Account client
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getSmartAccountClient(privateKey);
+
+        console.log(`[CustodialClaim] Calling claimWinnings(${marketId}) from Smart Account ${smartAccountAddress}`);
+
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
+        if (!MARKET_ADDR) throw new Error('Market contract address not configured');
+
+        // 4. Encode claimWinnings call
+        const claimData = encodeFunctionData({
+            abi: parseAbi(['function claimWinnings(uint256 marketId)']),
+            functionName: 'claimWinnings',
+            args: [BigInt(marketId)],
+        });
+
+        // 5. Send gasless UserOperation via Pimlico
+        const userOpHash = await smartAccountClient.sendUserOperation({
+            calls: [{ to: MARKET_ADDR as Address, data: claimData }],
+        });
+
+        console.log(`[CustodialClaim] UserOperation sent: ${userOpHash}. Waiting for confirmation...`);
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const txHash = receipt.receipt.transactionHash;
+
+        console.log(`✅ [CustodialClaim] Winnings claimed. Tx: ${txHash}`);
+
+        return res.json({
+            success: true,
+            message: `Winnings claimed for market ${marketId}`,
+            txHash,
+            marketId,
+        });
+
+    } catch (error: any) {
+        console.error('[CustodialClaim] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};

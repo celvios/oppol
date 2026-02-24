@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getWallet, linkWallet, triggerCustodialDeposit, handleCustodialWithdraw } from '../controllers/walletController';
+import { getWallet, linkWallet, triggerCustodialDeposit, handleCustodialWithdraw, claimCustodialWinnings } from '../controllers/walletController';
 
 const router = Router();
 
@@ -29,5 +29,12 @@ router.post('/deposit-custodial', triggerCustodialDeposit);
  * @access Public
  */
 router.post('/custodial-withdraw', handleCustodialWithdraw);
+
+/**
+ * @route POST /api/wallet/claim-custodial
+ * @desc Gaslessly claim winnings for a custodial (Google/Email) user via Pimlico Smart Account
+ * @access Public
+ */
+router.post('/claim-custodial', claimCustodialWinnings);
 
 export default router;

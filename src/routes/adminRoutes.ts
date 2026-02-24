@@ -55,6 +55,15 @@ router.post('/resolve-market', checkAdminAuth, async (req, res) => {
         const receipt = await tx.wait();
         console.log(`[Admin] Resolution Confirmed: ${receipt.hash}`);
 
+        // Force sync so DB reflects resolution immediately (don't wait for 30s indexer poll)
+        try {
+            const { syncAllMarkets } = await import('../services/marketIndexer');
+            await syncAllMarkets();
+            console.log(`[Admin] ✅ Indexer synced after resolution of market ${marketId}`);
+        } catch (syncErr: any) {
+            console.warn(`[Admin] Indexer sync failed after resolution (non-critical): ${syncErr.message}`);
+        }
+
         return res.json({
             success: true,
             transactionHash: receipt.hash,

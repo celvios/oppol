@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/lib/use-wallet';
+import { usePrivy } from '@privy-io/react-auth';
 import { useWriteContract, useReadContract } from 'wagmi';
 import { ethers } from 'ethers'; // For parsing if needed
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,8 +23,6 @@ const MARKET_CONTRACT = (contracts.predictionMarketMulti || contracts.prediction
 enum MarketStatus {
     ACTIVE = 'ACTIVE',
     ENDED = 'ENDED',
-    ASSERTING = 'ASSERTING',
-    DISPUTABLE = 'DISPUTABLE',
     RESOLVED = 'RESOLVED',
 }
 
@@ -73,13 +72,9 @@ interface ResolutionPanelProps {
     question: string;
     endTime: number;
     resolved: boolean;
-    outcome?: boolean; // Legacy prop (implies binary)
-    winningOutcomeIndex?: number; // New prop for multi-outcome
-    outcomes?: string[]; // Outcomes list for correct display
-    assertionPending?: boolean;
-    assertedOutcome?: boolean; // Legacy
-    assertedOutcomeIndex?: number; // New
-    asserter?: string;
+    outcome?: boolean;
+    winningOutcomeIndex?: number;
+    outcomes?: string[];
 }
 
 export function ResolutionPanel({
@@ -87,22 +82,23 @@ export function ResolutionPanel({
     question,
     endTime,
     resolved,
-    outcome, // Legacy binary support
+    outcome,
     winningOutcomeIndex,
     outcomes,
-    assertionPending = false,
-    assertedOutcome,
-    assertedOutcomeIndex,
-    asserter
 }: ResolutionPanelProps) {
     const { isConnected, address } = useWallet();
+    const { user: privyUser } = usePrivy();
+    const isCustodialUser = privyUser?.linkedAccounts?.some(
+        (a: any) => a.type === 'google_oauth' || a.type === 'email'
+    ) ?? false;
+
     const [status, setStatus] = useState<MarketStatus>(MarketStatus.ACTIVE);
     const [timeRemaining, setTimeRemaining] = useState('');
     const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+    const [custodialClaimPending, setCustodialClaimPending] = useState(false);
+    const [custodialClaimed, setCustodialClaimed] = useState(false);
 
     // Contract write hooks
-    const { writeContract: assertWrite, isPending: assertPendingWrite } = useWriteContract();
-    const { writeContract: settleWrite, isPending: settlePending } = useWriteContract();
     const { writeContract: claimWrite, isPending: claimPending } = useWriteContract();
 
     // Read user position
@@ -117,17 +113,14 @@ export function ResolutionPanel({
     // Determine market status
     useEffect(() => {
         const now = Date.now() / 1000;
-
         if (resolved) {
             setStatus(MarketStatus.RESOLVED);
-        } else if (assertionPending) {
-            setStatus(MarketStatus.DISPUTABLE);
         } else if (now >= endTime) {
             setStatus(MarketStatus.ENDED);
         } else {
             setStatus(MarketStatus.ACTIVE);
         }
-    }, [resolved, assertionPending, endTime]);
+    }, [resolved, endTime]);
 
     // Update time remaining
     useEffect(() => {
@@ -155,50 +148,40 @@ export function ResolutionPanel({
         return () => clearInterval(interval);
     }, [endTime]);
 
-    // Handle assert outcome (Binary Default: 0=Yes, 1=No ? Or 0=No, 1=Yes?)
-    // Typically in this codebase: Yes=0, No=1 ??
-    // Wait, let's look at `web3.ts`: const outcomeIndex = isYes ? 0 : 1;
-    // So 0=YES, 1=NO.
-    async function handleAssert(idx: number) {
-        if (!isConnected) return;
-        setActionInProgress('assert');
 
-        try {
-            assertWrite({
-                address: MARKET_CONTRACT,
-                abi: MARKET_ABI,
-                functionName: 'assertOutcome',
-                args: [BigInt(marketId), BigInt(idx)],
-            });
-        } catch (error) {
-            console.error('Assert failed:', error);
-            setActionInProgress(null);
-        }
-    }
-
-    // Handle settle
-    async function handleSettle() {
-        if (!isConnected) return;
-        setActionInProgress('settle');
-
-        try {
-            settleWrite({
-                address: MARKET_CONTRACT,
-                abi: MARKET_ABI,
-                functionName: 'settleMarket',
-                args: [BigInt(marketId)],
-            });
-        } catch (error) {
-            console.error('Settle failed:', error);
-            setActionInProgress(null);
-        }
-    }
-
-    // Handle claim
+    // Handle claim — routes to backend for custodial users, on-chain for Web3 users
     async function handleClaim() {
         if (!isConnected) return;
-        setActionInProgress('claim');
 
+        // Custodial (Google/Email) user: call backend endpoint (Pimlico gasless)
+        if (isCustodialUser && privyUser?.id) {
+            setCustodialClaimPending(true);
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                const res = await fetch(`${apiUrl}/api/wallet/claim-custodial`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
+                    },
+                    body: JSON.stringify({ privyUserId: privyUser.id, marketId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setCustodialClaimed(true);
+                } else {
+                    console.error('[Claim] Backend claim failed:', data.error);
+                }
+            } catch (e) {
+                console.error('[Claim] Custodial claim error:', e);
+            } finally {
+                setCustodialClaimPending(false);
+            }
+            return;
+        }
+
+        // Web3 wallet user: sign directly on-chain
+        setActionInProgress('claim');
         try {
             claimWrite({
                 address: MARKET_CONTRACT,
@@ -293,13 +276,10 @@ export function ResolutionPanel({
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4"
                     >
-                        <div className={`p-6 rounded-xl text-center ${finalWinnerIndex === 0 ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'
-                            } border`}>
-                            <CheckCircle className={`w-12 h-12 mx-auto mb-2 ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
-                                }`} />
+                        <div className="p-6 rounded-xl text-center bg-green-500/20 border-green-500/30 border">
+                            <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-400" />
                             <p className="text-white/60 text-sm">Winning Outcome</p>
-                            <p className={`text-3xl font-bold ${finalWinnerIndex === 0 ? 'text-green-400' : 'text-red-400'
-                                }`}>
+                            <p className="text-3xl font-bold text-green-400">
                                 {finalWinnerIndex !== null && finalWinnerIndex !== undefined
                                     ? (outcomes && outcomes[finalWinnerIndex]
                                         ? outcomes[finalWinnerIndex]
@@ -323,7 +303,7 @@ export function ResolutionPanel({
                                                     {idx === 0 ? 'YES' : (idx === 1 ? 'NO' : `Outcome ${idx}`)}
                                                 </span>
                                                 <span className="font-mono text-white">
-                                                    {(s / 1e6).toFixed(2)} Shares
+                                                    {(s / 1e18).toFixed(2)} Shares
                                                 </span>
                                             </div>
                                         );
@@ -333,18 +313,18 @@ export function ResolutionPanel({
                         )}
 
                         {/* Claim button */}
-                        {hasWinningPosition && !hasClaimed && (
+                        {hasWinningPosition && !hasClaimed && !custodialClaimed && (
                             <button
                                 onClick={handleClaim}
-                                disabled={!isConnected || claimPending}
+                                disabled={!isConnected || claimPending || custodialClaimPending}
                                 className="w-full py-4 bg-primary text-black font-bold rounded-xl hover:bg-primary/80 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                                {claimPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
-                                Claim {(winningSharesCount / 1e6).toFixed(2)} Winnings
+                                {(claimPending || custodialClaimPending) ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
+                                Claim {(winningSharesCount / 1e18).toFixed(2)} Winnings
                             </button>
                         )}
 
-                        {hasClaimed && (
+                        {(hasClaimed || custodialClaimed) && (
                             <div className="text-center py-4">
                                 <CheckCircle className="w-8 h-8 text-primary mx-auto mb-2" />
                                 <p className="text-primary font-medium">Winnings Claimed!</p>
@@ -373,15 +353,13 @@ export function ResolutionPanel({
 
 // Status badge component
 function StatusBadge({ status }: { status: MarketStatus }) {
-    const config = {
+    const config: Record<MarketStatus, { color: string; label: string }> = {
         [MarketStatus.ACTIVE]: { color: 'bg-blue-500/20 text-blue-400 border-blue-500/50', label: 'Active' },
         [MarketStatus.ENDED]: { color: 'bg-amber-500/20 text-amber-400 border-amber-500/50', label: 'Awaiting Resolution' },
-        [MarketStatus.ASSERTING]: { color: 'bg-purple-500/20 text-purple-400 border-purple-500/50', label: 'Asserting' },
-        [MarketStatus.DISPUTABLE]: { color: 'bg-orange-500/20 text-orange-400 border-orange-500/50', label: 'Dispute Window' },
         [MarketStatus.RESOLVED]: { color: 'bg-green-500/20 text-green-400 border-green-500/50', label: 'Resolved' },
     };
 
-    const { color, label } = config[status];
+    const { color, label } = config[status] ?? config[MarketStatus.ACTIVE];
 
     return (
         <span className={`px-3 py-1 rounded-full text-xs font-medium border ${color}`}>
