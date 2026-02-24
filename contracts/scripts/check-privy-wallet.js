@@ -50,11 +50,8 @@ async function main() {
         console.log(`\nFound Privy user: ${user.id}`);
         const detail = await privyGet(`/api/v1/users/${user.id}`);
         const wallets = (detail.linked_accounts || []).filter(a => a.type === 'wallet');
-        console.log('\nLinked wallets:');
-        wallets.forEach(w => {
-            const match = w.address?.toLowerCase() === DEST_ADDR.toLowerCase();
-            console.log(`  ${w.address} ${match ? '👈 THIS IS THE DESTINATION' : ''}`);
-        });
+        require('fs').writeFileSync('privy_out.json', JSON.stringify({ detail, wallets }, null, 2));
+        console.log('\nLogged to privy_out.json');
     } else {
         console.log('No Privy user found for that wallet address.');
     }

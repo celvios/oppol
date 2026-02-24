@@ -15,21 +15,21 @@ export interface AuthState {
  * Unified auth hook.
  *
  * Two completely separate login paths:
- *   1. WALLET (Reown/AppKit) — wagmi isConnected is true, address is the real external wallet.
+ *   1. WALLET (Reown/AppKit) — wagmi isConnected is true AND connector is not Privy.
  *   2. SOCIAL (Privy) — privyAuth is true, address is the Privy-managed embedded wallet.
  *
  * Wallet takes priority if both are active simultaneously.
  */
 export function useAuth(): AuthState {
     const { authenticated: privyAuth, user: privyUser, ready: privyReady } = usePrivy();
-    const { isConnected, address, status } = useAccount(); // Reown/wagmi
+    const { isConnected, address, status, connector } = useAccount(); // Reown/wagmi
 
     const isLoading = !privyReady || status === 'reconnecting';
 
     // --- Path 1: External Wallet (Reown/AppKit) ---
-    // If wagmi reports a connected wallet, this is a wallet login.
-    // Use the wagmi address directly — no Privy involvement.
-    if (isConnected && address) {
+    // If wagmi reports a connected wallet AND it is NOT the Privy embedded wallet injection.
+    // Privy injects its own connector into wagmi which we MUST ignore here.
+    if (isConnected && address && connector?.id !== 'privy') {
         return {
             isAuthenticated: true,
             user: privyUser ?? null,
@@ -66,3 +66,4 @@ export function useAuth(): AuthState {
         isLoading,
     };
 }
+

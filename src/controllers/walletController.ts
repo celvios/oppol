@@ -4,6 +4,21 @@ import { createRandomWallet } from '../services/web3';
 import { EncryptionService } from '../services/encryption';
 import { CONFIG } from '../config/contracts';
 import { ethers } from 'ethers';
+import {
+    createPublicClient,
+    createWalletClient,
+    http,
+    encodeFunctionData,
+    parseAbi,
+    type Address,
+    custom
+} from 'viem';
+import { bsc } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
+import { createSmartAccountClient } from 'permissionless';
+import { createPimlicoClient } from 'permissionless/clients/pimlico';
+import { toSimpleSmartAccount } from 'permissionless/accounts';
+import { entryPoint07Address } from 'viem/account-abstraction';
 
 // Get user's wallet
 export const getWallet = async (req: Request, res: Response) => {
@@ -48,6 +63,43 @@ export const linkWallet = async (req: Request, res: Response) => {
     res.status(410).json({ error: 'Wallet linking is deprecated. Web and Mobile Auth are distinct.' });
 };
 
+// Helper to build Pimlico Smart Account Client
+const getSmartAccountClient = async (privateKeyHex: string) => {
+    const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+    const pimlicoUrl = `https://api.pimlico.io/v2/${CONFIG.CHAIN_ID}/rpc?apikey=${process.env.NEXT_PUBLIC_PIMLICO_API_KEY || process.env.PIMLICO_API_KEY}`;
+
+    const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+
+    // Ensure 0x prefix for viem
+    const formattedKey = privateKeyHex.startsWith('0x') ? privateKeyHex as `0x${string}` : `0x${privateKeyHex}` as `0x${string}`;
+    const ownerAccount = privateKeyToAccount(formattedKey);
+
+    const pimlicoClient = createPimlicoClient({
+        transport: http(pimlicoUrl),
+        entryPoint: { address: entryPoint07Address, version: "0.7" },
+    });
+
+    const smartAccount = await toSimpleSmartAccount({
+        client: publicClient,
+        owner: ownerAccount,
+        entryPoint: { address: entryPoint07Address, version: "0.7" },
+    });
+
+    const smartAccountClient = createSmartAccountClient({
+        account: smartAccount,
+        chain: bsc,
+        bundlerTransport: http(pimlicoUrl),
+        paymaster: pimlicoClient,
+        userOperation: {
+            estimateFeesPerGas: async () => {
+                return (await pimlicoClient.getUserOperationGasPrice()).fast;
+            },
+        },
+    });
+
+    return { smartAccountClient, pimlicoClient, smartAccountAddress: smartAccount.address, publicClient };
+};
+
 // Helper function to process custodial deposits (Sweep funds to Contract)
 export const processCustodialDeposit = async (userId: string, amountRaw: string, txHash: string) => {
     try {
@@ -65,83 +117,47 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         }
 
         const wallet = walletResult.rows[0];
-        const custodialAddress = wallet.public_address;
         const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
 
-        console.log(`[Deposit] Custodial Wallet: ${custodialAddress}`);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getSmartAccountClient(privateKey);
+        console.log(`[Deposit] Custodial Smart Account Wallet: ${smartAccountAddress}`);
 
-        // Setup Providers
-        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
-
-        // Global Relayer (Funder)
-        const relayerKey = process.env.PRIVATE_KEY;
-        if (!relayerKey) throw new Error("Missing PRIVATE_KEY for Relayer");
-        // Legacy Relayer Removed: Biconomy Paymaster now natively handles all gas for users via Account Abstraction.
-        // Private Key operations have been completely deprecated from backend execution.
-        const custodialSigner = new ethers.Wallet(privateKey, provider);
-
-        // 3. Approve USDC: ~45k gas
-        // 4. Deposit: ~100k gas
-        // Total Gas ~150k.
-        // Calculate Fee in USDC
-        const { gasService } = require('../services/gasService');
-        const estGas = 150000n;
-        const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
-
-        console.log(`[Deposit] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 18)} USDC`);
-
-        // Convert amount
-        // USDC on BSC has 18 decimals!
         const USDC_DECIMALS = 18;
-        const amountBN = ethers.parseUnits(amountRaw, USDC_DECIMALS);
-
-        let depositAmount = amountBN;
-
-        // Deduct Fee
-        if (amountBN > gasFeeUSDC) {
-            depositAmount = amountBN - gasFeeUSDC;
-            console.log(`[Deposit] Deducting Fee. Net Deposit: ${ethers.formatUnits(depositAmount, 18)} USDC`);
-        } else {
-            console.warn(`[Deposit] Amount too low to cover gas. Proceeding without deduction (platform absorbs cost).`);
-            // Optional: fail here if you want to enforce user pays
-        }
+        const depositAmount = ethers.parseUnits(amountRaw, USDC_DECIMALS);
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
 
         if (!USDC_ADDR || !MARKET_ADDR) throw new Error("Missing USDC or MARKET Address");
 
-        const usdcAbi = [
-            'function approve(address spender, uint256 amount) returns (bool)',
-            'function transfer(address, uint256) returns (bool)',
-            'function allowance(address owner, address spender) view returns (uint256)'
+        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 18)} USDC to Market via Pimlico...`);
+
+        const approveData = encodeFunctionData({
+            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
+            functionName: "approve",
+            args: [MARKET_ADDR as Address, depositAmount],
+        });
+
+        const depositData = encodeFunctionData({
+            abi: parseAbi(["function deposit(uint256 amount)"]),
+            functionName: "deposit",
+            args: [depositAmount],
+        });
+
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: USDC_ADDR as Address, data: approveData },
+            { to: MARKET_ADDR as Address, data: depositData },
         ];
-        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
 
-        const allowance = await usdc.allowance(custodialAddress, MARKET_ADDR);
-        if (allowance < depositAmount) {
-            console.log(`[Deposit] Approving USDC for Market...`);
-            const txApprove = await usdc.approve(MARKET_ADDR, ethers.MaxUint256);
-            await txApprove.wait();
-            console.log(`[Deposit] Approved: ${txApprove.hash}`);
-        }
+        console.log(`[Deposit] Sending batched deposit UserOperation (${calls.length} calls)...`);
+        const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+        console.log(`[Deposit] UserOperation sent! Waiting for confirmation...`);
 
-        // 4. Deposit to Market
-        const marketAbi = ['function deposit(uint256 amount)'];
-        const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const onChainHash = receipt.receipt.transactionHash;
 
-        console.log(`[Deposit] Depositing ${ethers.formatUnits(depositAmount, 18)} USDC to Market...`);
-        // Check balance again just in case (USDC balance)
-        // We assume watcher was triggered by transfer, so balance is there.
-
-        const txDeposit = await market.deposit(depositAmount);
-        console.log(`[Deposit] Deposit TX Sent: ${txDeposit.hash}`);
-        const receipt = await txDeposit.wait();
-
-        // Step 5: Legacy Fee Transfer Removed. Biconomy automatically absorbs or handles gas fees natively.
-        console.log(`✅ [Deposit] Sweep complete! User ${userId} now has on-chain balance.`);
-        return txDeposit.hash;
+        console.log(`✅ [Deposit] Sweep complete! User ${userId} now has on-chain balance. Hash: ${onChainHash}`);
+        return onChainHash;
 
     } catch (error: any) {
         console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error.message);
@@ -168,9 +184,13 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             return;
         }
 
-        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function approve(address, uint256) returns (bool)', 'function decimals() view returns (uint8)', 'function allowance(address, address) view returns (uint256)'];
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
+
+        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
         const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
-        const bal = await usdt.balanceOf(custodialAddress);
+
+        // Smart Account balance instead of raw EOA!
+        const bal = await usdt.balanceOf(smartAccountAddress);
         const decimals = await usdt.decimals().catch(() => 18);
 
         // Threshold: 0.1 USDT
@@ -179,68 +199,39 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             return;
         }
 
-        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT. Initiating Swap via Router...`);
+        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT in Smart Account. Initiating Swap via Router...`);
 
-        // Need Signer
-        const signer = new ethers.Wallet(privateKey, provider);
-        const usdtSigner = new ethers.Contract(USDT_ADDR, usdtAbi, signer);
+        const approveData = encodeFunctionData({
+            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
+            functionName: "approve",
+            args: [ROUTER_ADDR as Address, bal],
+        });
 
-        // Check Gas
-        const ethBal = await provider.getBalance(custodialAddress);
-        const minGas = ethers.parseEther("0.001"); // Swap needs gas
-        if (ethBal < minGas) {
-            console.log('[Swap] Low Gas for Swap. Funding...');
-            const relayerKey = process.env.PRIVATE_KEY;
-            if (relayerKey) {
-                const relayer = new ethers.Wallet(relayerKey, provider);
-                const tx = await relayer.sendTransaction({
-                    to: custodialAddress,
-                    value: minGas - ethBal + ethers.parseEther("0.002")
-                });
-                await tx.wait();
-            }
-        }
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 10); // 10 minutes
+        let finalPath = [USDT_ADDR, USDC_ADDR];
 
-        // Approve Router
-        const allowance = await usdt.allowance(custodialAddress, ROUTER_ADDR);
-        if (allowance < bal) {
-            console.log('[Swap] Approving Router...');
-            const txApprove = await usdtSigner.approve(ROUTER_ADDR, ethers.MaxUint256);
-            await txApprove.wait();
-        }
+        // Ensure we handle BigInt conversions cleanly
+        const swapData = encodeFunctionData({
+            abi: parseAbi(["function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)"]),
+            functionName: "swapExactTokensForTokens",
+            args: [bal, BigInt(0), finalPath as Address[], smartAccountAddress as Address, deadline],
+        });
 
-        // Swap
-        const routerAbi = ['function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)'];
-        const router = new ethers.Contract(ROUTER_ADDR, routerAbi, signer);
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: USDT_ADDR as Address, data: approveData },
+            { to: ROUTER_ADDR as Address, data: swapData },
+        ];
 
-        console.log('[Swap] Swapping USDT -> USDC...');
-        const path = [USDT_ADDR, USDC_ADDR]; // Try direct first
-        const deadline = Math.floor(Date.now() / 1000) + 60 * 10; // 10 mins
+        console.log('[Swap] Sending batched swap UserOperation via Pimlico...');
+        const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+        console.log(`[Swap] UserOperation sent! Waiting for confirmation...`);
 
-        // Estimate Gas to ensure path works (or try WBNB path)
-        let finalPath = path;
-        try {
-            await router.swapExactTokensForTokens.estimateGas(bal, 0, path, custodialAddress, deadline);
-        } catch (e) {
-            console.log('[Swap] Direct path failed/gas-error. Trying via WBNB...');
-            const WBNB_ADDR = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'; // BSC WBNB
-            finalPath = [USDT_ADDR, WBNB_ADDR, USDC_ADDR];
-        }
-
-        const txSwap = await router.swapExactTokensForTokens(
-            bal,
-            0, // Accept any amount (slippage handled by arb bots usually, for small amounts its fine)
-            finalPath,
-            custodialAddress,
-            deadline
-        );
-        console.log(`[Swap] Swap Tx: ${txSwap.hash}`);
-        await txSwap.wait();
-        console.log('[Swap] Swap Complete.');
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        console.log(`[Swap] ✅ Swap Complete. Tx: ${receipt.receipt.transactionHash}`);
 
     } catch (e: any) {
         console.error('[Swap] Failed:', e.message);
-        // Continue to deposit (maybe they have USDC too)
+        throw e; // We want to surface errors now instead of failing silently
     }
 };
 
@@ -277,15 +268,22 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         // 1. Attempt Swap if USDT exists
-        await processCustodialSwap(userId, custodialAddress, privateKey, provider);
+        try {
+            await processCustodialSwap(userId, custodialAddress, privateKey, provider);
+        } catch (e) {
+            // Note: If swap fails for unpredictable reasons, we just log it and see if they have USDC anyway
+            console.log("[TriggerDeposit] Swap failed/skipped, checking USDC directly.");
+        }
 
-        // 2. Proceed with Standard USDC Deposit
+        // 2. Proceed with Standard USDC Deposit (Using Smart Account balance!)
+        const { smartAccountAddress } = await getSmartAccountClient(privateKey);
+
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
         const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
         const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
-        const usdcBalanceWei = await usdc.balanceOf(custodialAddress);
+        const usdcBalanceWei = await usdc.balanceOf(smartAccountAddress);
 
         let amountBN: bigint = usdcBalanceWei;
         const USDC_DECIMALS = 18;
@@ -350,121 +348,101 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         const custodialAddress = wallet.public_address;
         const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
 
-        // 3. Setup Providers
-        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
-        const custodialSigner = new ethers.Wallet(privateKey, provider);
-
-        // Check GAS
-        const bal = await provider.getBalance(custodialAddress);
-        const minGas = ethers.parseEther("0.0006");
-        if (bal < minGas) {
-            // Fund from Relayer
-            const relayerKey = process.env.PRIVATE_KEY;
-            if (relayerKey) {
-                const relayer = new ethers.Wallet(relayerKey, provider);
-                console.log(`[Withdraw] Funding gas for withdrawal...`);
-                try {
-                    const tx = await relayer.sendTransaction({
-                        to: custodialAddress,
-                        value: minGas - bal + ethers.parseEther("0.0002")
-                    });
-                    await tx.wait();
-                } catch (e: any) {
-                    console.error('[Withdraw] Failed to fund gas:', e.message);
-                    // Continue anyway, maybe it has enough
-                }
-            }
-        }
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
 
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!MARKET_ADDR || !USDC_ADDR) throw new Error("Missing Contract Config");
 
-        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)', 'function decimals() view returns (uint8)'];
-        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
+        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+        const usdcAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
 
         const decimals = await usdc.decimals().catch(() => 18n); // Default to 18 if call fails
-        const decimalsBi = BigInt(decimals);
         console.log(`[Withdraw] USDC Decimals: ${decimals}`);
 
         const amountUSDC = ethers.parseUnits(amount, Number(decimals)); // Use actual decimals
 
-        // Check Wallet Balance
-        const walletBalance = await usdc.balanceOf(custodialAddress);
+        // Check Smart Account Wallet Balance
+        const walletBalance = await usdc.balanceOf(smartAccountAddress);
 
         let neededFromGame = 0n;
         if (walletBalance < amountUSDC) {
             neededFromGame = amountUSDC - walletBalance;
         }
 
-        if (neededFromGame > 0n) {
-            const marketAbi = ['function withdraw(uint256 amount)'];
-            const market = new ethers.Contract(MARKET_ADDR, marketAbi, custodialSigner);
+        const calls: { to: Address; data: `0x${string}` }[] = [];
 
-            // Conversion: neededFromGame is in USDC decimals (6 dec).
-            // Market 'withdraw' expects the exact same USDC amount (6 dec).
-            console.log(`[Withdraw] Withdrawing ${ethers.formatUnits(neededFromGame, decimals)} USDC from Market...`);
-            const txWithdraw = await market.withdraw(neededFromGame);
-            await txWithdraw.wait();
+        if (neededFromGame > 0n) {
+            console.log(`[Withdraw] Queuing withdrawal of ${ethers.formatUnits(neededFromGame, decimals)} USDC from Market...`);
+
+            const withdrawData = encodeFunctionData({
+                abi: parseAbi(["function withdraw(uint256 amount)"]),
+                functionName: "withdraw",
+                args: [neededFromGame],
+            });
+            calls.push({ to: MARKET_ADDR as Address, data: withdrawData });
         }
 
-        // Calculate Gas Fee for Withdrawal
+        // Calculate backend fee to deduct from the withdrawal
         const { gasService } = require('../services/gasService');
-        // Est: Withdraw (50k) + Transfer (50k) = 100k
+        // We use a flat estimate since Pimlico abstracts the gas, but we still want to charge the user a small fee if we are sponsoring the paymaster.
         const estGas = 100000n;
         const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas);
-        console.log(`[Withdraw] Estimated Gas Fee: ${ethers.formatUnits(gasFeeUSDC, Number(decimals))} USDC`);
+        console.log(`[Withdraw] Estimated Platform Fee: ${ethers.formatUnits(gasFeeUSDC, Number(decimals))} USDC`);
 
-        // Deduct from requested amount for transfer
         let netTransferAmount = amountUSDC;
         if (amountUSDC > gasFeeUSDC) {
             netTransferAmount = amountUSDC - gasFeeUSDC;
             console.log(`[Withdraw] Deducting Fee. Net Transfer to User: ${ethers.formatUnits(netTransferAmount, Number(decimals))} USDC`);
         } else {
-            console.warn(`[Withdraw] Amount too low to cover gas. Proceeding without deduction (platform absorbs cost).`);
+            console.warn(`[Withdraw] Amount too low to cover fee. Proceeding without deduction (platform absorbs cost).`);
         }
 
-        // Step B: Transfer to Destination (if provided)
+        // Add Transfer call to Destination
         let finalTx = '';
         if (destinationAddress) {
-            // Re-check balance to account for any fees or rounding during withdraw
-            const finalBalance = await usdc.balanceOf(custodialAddress);
-            console.log(`[Withdraw] Final Wallet Balance: ${ethers.formatUnits(finalBalance, decimals)}`);
+            // We'll calculate the actual required transfer amount based on what they will have vs what they asked for.
+            // Assuming the `withdraw` call succeeds, they will have `walletBalance + neededFromGame = amountUSDC`.
+            // So we transfer `netTransferAmount`.
 
-            // Use the lesser of requested NET amount or available balance
-            let transferAmount = netTransferAmount;
-            if (finalBalance < transferAmount) {
-                console.warn(`[Withdraw] Balance (${finalBalance}) < Net Requested (${transferAmount}). Adjusting to available balance.`);
-                transferAmount = finalBalance;
-            }
+            if (netTransferAmount > 0n) {
+                console.log(`[Withdraw] Queuing transfer of ${ethers.formatUnits(netTransferAmount, decimals)} USDC to ${destinationAddress}...`);
+                const transferData = encodeFunctionData({
+                    abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
+                    functionName: "transfer",
+                    args: [destinationAddress as Address, netTransferAmount],
+                });
+                calls.push({ to: USDC_ADDR as Address, data: transferData });
 
-            if (transferAmount > 0n) {
-                console.log(`[Withdraw] Transferring ${ethers.formatUnits(transferAmount, decimals)} USDC to ${destinationAddress}...`);
-                const txTransfer = await usdc.transfer(destinationAddress, transferAmount);
-                await txTransfer.wait();
-                finalTx = txTransfer.hash;
-
-                // Transfer Fee to Relayer (if we deducted it)
-                // The fee should be remaining in the wallet (Balance - TransferAmount)
-                const remainingBal = await usdc.balanceOf(custodialAddress);
-                if (remainingBal > 0n && amountUSDC > gasFeeUSDC) {
-                    console.log(`[Withdraw] Sweeping Fee (${ethers.formatUnits(remainingBal, decimals)} USDC) to Relayer...`);
-                    const relayerKey = process.env.PRIVATE_KEY;
-                    if (relayerKey) {
-                        const relayer = new ethers.Wallet(relayerKey, provider);
-                        try {
-                            const txFee = await usdc.transfer(relayer.address, remainingBal);
-                            await txFee.wait();
-                            console.log(`[Withdraw] Fee Swept: ${txFee.hash}`);
-                        } catch (e: any) {
-                            console.error(`[Withdraw] Failed to sweep fee: ${e.message}`);
-                        }
+                // If a fee was deducted, queue a transfer of the fee to the treasury/relayer address
+                if (amountUSDC > gasFeeUSDC) {
+                    const treasuryAddress = process.env.ADMIN_WALLET || process.env.NEXT_PUBLIC_ADMIN_WALLET;
+                    if (treasuryAddress) {
+                        console.log(`[Withdraw] Queuing Fee transfer (${ethers.formatUnits(gasFeeUSDC, decimals)} USDC) to Treasury...`);
+                        const feeTransferData = encodeFunctionData({
+                            abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
+                            functionName: "transfer",
+                            args: [treasuryAddress as Address, gasFeeUSDC],
+                        });
+                        calls.push({ to: USDC_ADDR as Address, data: feeTransferData });
                     }
                 }
             } else {
-                console.warn('[Withdraw] No funds to transfer after withdrawal.');
+                console.warn('[Withdraw] No funds to transfer after fees.');
             }
+        }
+
+        if (calls.length > 0) {
+            console.log(`[Withdraw] Sending batched UserOperation (${calls.length} calls) via Pimlico...`);
+            const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+            console.log(`[Withdraw] UserOperation sent! Waiting for confirmation...`);
+
+            const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+            finalTx = receipt.receipt.transactionHash;
+            console.log(`✅ [Withdraw] Complete. Tx: ${finalTx}`);
         }
 
         return res.json({
