@@ -188,7 +188,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         return onChainHash;
 
     } catch (error: any) {
-        console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error.message);
+        console.error(`❌ [Deposit] Sweep failed for ${userId}:`, error);
         throw error;
     }
 };
@@ -258,7 +258,7 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
         console.log(`[Swap] ✅ Swap Complete. Tx: ${receipt.receipt.transactionHash}`);
 
     } catch (e: any) {
-        console.error('[Swap] Failed:', e.message);
+        console.error('[Swap] Failed:', e);
         throw e; // We want to surface errors now instead of failing silently
     }
 };
