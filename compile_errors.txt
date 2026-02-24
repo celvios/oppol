@@ -1,0 +1,3 @@
+node_modules/ox/core/Base64.ts(81,28): error TS2550: Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+node_modules/ox/core/Errors.ts(27,12): error TS4113: This member cannot have an 'override' modifier because it is not declared in the base class 'Error'.
+node_modules/ox/core/Errors.ts(89,20): error TS2554: Expected 0-1 arguments, but got 2.

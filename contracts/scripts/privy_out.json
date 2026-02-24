@@ -1,0 +1,37 @@
+{
+  "detail": {
+    "id": "did:privy:cml466t130454l80c1c2oyups",
+    "created_at": 1769976299,
+    "linked_accounts": [
+      {
+        "type": "wallet",
+        "address": "0xE434423371E3AacAF0fF8fC0B3Ef1F521e82CCC1",
+        "chain_type": "ethereum",
+        "chain_id": "eip155:56",
+        "wallet_client": "unknown",
+        "wallet_client_type": "metamask",
+        "connector_type": "injected",
+        "verified_at": 1769976299,
+        "first_verified_at": 1769976299,
+        "latest_verified_at": 1770721156
+      }
+    ],
+    "mfa_methods": [],
+    "has_accepted_terms": false,
+    "is_guest": false
+  },
+  "wallets": [
+    {
+      "type": "wallet",
+      "address": "0xE434423371E3AacAF0fF8fC0B3Ef1F521e82CCC1",
+      "chain_type": "ethereum",
+      "chain_id": "eip155:56",
+      "wallet_client": "unknown",
+      "wallet_client_type": "metamask",
+      "connector_type": "injected",
+      "verified_at": 1769976299,
+      "first_verified_at": 1769976299,
+      "latest_verified_at": 1770721156
+    }
+  ]
+}

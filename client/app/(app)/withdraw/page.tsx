@@ -191,7 +191,10 @@ export default function WithdrawPage() {
 
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/wallet/custodial-withdraw`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
+                    },
                     body: JSON.stringify({
                         privyUserId: user.privy_user_id,
                         amount: amount,
