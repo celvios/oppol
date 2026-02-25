@@ -240,7 +240,7 @@ export default function CreateMarketPage() {
                 }
 
                 const signer = clientToSigner(connectorClient);
-                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
+                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
                 if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
 
                 const marketABI = [
