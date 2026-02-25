@@ -728,4 +728,103 @@ router.post('/set-volume', checkAdminAuth, async (req, res) => {
     }
 });
 
+// ─── Admin Create Market via Pimlico (Gasless / AA) ───────────────────────
+router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
+    try {
+        const { question, description, image, outcomes, durationMinutes, category } = req.body;
+
+        if (!question || !outcomes || !Array.isArray(outcomes) || outcomes.length < 2) {
+            return res.status(400).json({ success: false, error: 'Missing required fields: question, outcomes[]' });
+        }
+
+        const PIMLICO_API_KEY = process.env.NEXT_PUBLIC_PIMLICO_API_KEY || process.env.PIMLICO_API_KEY;
+        if (!PIMLICO_API_KEY) throw new Error('PIMLICO_API_KEY not configured');
+
+        const PRIVATE_KEY = process.env.PRIVATE_KEY;
+        if (!PRIVATE_KEY) throw new Error('PRIVATE_KEY not configured');
+
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        if (!MARKET_ADDR) throw new Error('Market contract address not configured');
+
+        const RPC_URL = process.env.RPC_URL || CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const CHAIN_ID = 56;
+        const pimlicoUrl = `https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_API_KEY}`;
+
+        // Dynamic ESM imports (permissionless is ESM-only)
+        const { createPublicClient, http, encodeFunctionData, parseAbi } = await import('viem');
+        const { bsc } = await import('viem/chains');
+        const { privateKeyToAccount } = await import('viem/accounts');
+        const { createSmartAccountClient } = await import('permissionless');
+        const { createPimlicoClient } = await import('permissionless/clients/pimlico');
+        const { toSimpleSmartAccount } = await import('permissionless/accounts');
+        const { entryPoint07Address } = await import('viem/account-abstraction');
+
+        const publicClient = createPublicClient({ chain: bsc, transport: http(RPC_URL) });
+        const formattedKey = (PRIVATE_KEY.startsWith('0x') ? PRIVATE_KEY : `0x${PRIVATE_KEY}`) as `0x${string}`;
+        const ownerAccount = privateKeyToAccount(formattedKey);
+
+        const pimlicoClient = createPimlicoClient({
+            transport: http(pimlicoUrl),
+            entryPoint: { address: entryPoint07Address, version: '0.7' },
+        });
+
+        const smartAccount = await toSimpleSmartAccount({
+            client: publicClient,
+            owner: ownerAccount,
+            entryPoint: { address: entryPoint07Address, version: '0.7' },
+        });
+
+        const smartAccountClient = createSmartAccountClient({
+            account: smartAccount,
+            chain: bsc,
+            bundlerTransport: http(pimlicoUrl),
+            paymaster: pimlicoClient,
+            userOperation: {
+                estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
+            },
+        });
+
+        console.log(`[Admin/Pimlico] Smart Account: ${smartAccount.address}`);
+        console.log(`[Admin/Pimlico] Creating market: "${question}" (${durationMinutes || 1440} min)`);
+
+        const createMarketData = encodeFunctionData({
+            abi: parseAbi(['function createMarket(string _question, string _description, string _image, string[] _outcomeNames, uint256 _durationMinutes) external returns (uint256)']),
+            functionName: 'createMarket',
+            args: [question, description || '', image || '', outcomes, BigInt(Math.round(Number(durationMinutes) || 1440))],
+        });
+
+        const userOpHash = await smartAccountClient.sendUserOperation({
+            calls: [{ to: MARKET_ADDR as `0x${string}`, data: createMarketData }],
+        });
+
+        console.log(`[Admin/Pimlico] UserOp sent: ${userOpHash}`);
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const txHash = receipt.receipt.transactionHash;
+        console.log(`[Admin/Pimlico] ✅ Confirmed: ${txHash}`);
+
+        // Get market ID from contract
+        const rpcUrl = RPC_URL;
+        const chainId = CHAIN_ID;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+        const readContract = new ethers.Contract(MARKET_ADDR, ['function marketCount() view returns (uint256)'], provider);
+        const count = await readContract.marketCount();
+        const marketId = Number(count) - 1;
+
+        // Save to DB
+        await query(
+            `INSERT INTO markets (market_id, question, description, image, category, outcome_names)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (market_id) DO UPDATE
+             SET question = $2, description = $3, image = $4, category = $5, outcome_names = $6`,
+            [marketId, question, description || '', image || '', category || 'Other', JSON.stringify(outcomes)]
+        );
+
+        return res.json({ success: true, marketId, txHash });
+
+    } catch (error: any) {
+        console.error('[Admin/Pimlico] Create Market Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
