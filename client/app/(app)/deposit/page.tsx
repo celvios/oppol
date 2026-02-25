@@ -453,22 +453,22 @@ export default function DepositPage() {
                 if (currentBalance < (amountInWei + gasBuffer)) {
                     throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
                 }
-            } else {
-                // Check if user has enough gas (BNB)
+            } else if (!selectedToken.direct) {
+                // For zap/swap tokens (USDT, etc.), user pays BNB gas — check they have enough
                 const bnbBalance = await publicProvider.getBalance(effectiveAddress);
-                const minGas = ethers.parseEther("0.001"); // Minimal gas for approval + deposit
+                const minGas = ethers.parseEther("0.001");
                 console.log(`[Deposit] BNB Balance check: ${ethers.formatEther(bnbBalance)} BNB (Min: ${ethers.formatEther(minGas)})`);
-
                 if (bnbBalance < minGas) {
-                    throw new Error(`Insufficient BNB to cover network fee. Please add a small amount of BNB to your wallet to approve this deposit.`);
+                    throw new Error(`Insufficient BNB to cover network fee. Please add a small amount of BNB to your wallet.`);
                 }
-
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
-                currentBalance = await tokenContract.balanceOf(address);
+                currentBalance = await tokenContract.balanceOf(effectiveAddress);
                 if (currentBalance < amountInWei) {
                     throw new Error(`Insufficient ${selectedToken.symbol} balance.`);
                 }
             }
+            // Direct USDC: no BNB needed — Step 1 (if needed) pays trivial gas, Step 2 is gasless via Pimlico
+
 
 
             if (selectedToken.direct) {
