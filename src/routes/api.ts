@@ -6,6 +6,7 @@ import { TelegramController } from '../controllers/telegramController';
 import { placeBet, estimateBetCost } from '../controllers/betController';
 import balanceRoutes from './balance';
 import { verifyAuth } from '../middleware/verifyAuth';
+import { uploadImage } from '../controllers/uploadController';
 
 const router = Router();
 
@@ -21,6 +22,9 @@ router.post('/wallet/custodial-withdraw', verifyAuth, handleCustodialWithdraw);
 
 // Balance Routes
 router.use('/balance', balanceRoutes);
+
+// Image Upload Route (Cloudinary)
+router.post('/upload', uploadImage);
 
 // WhatsApp Bot Routes
 router.post('/whatsapp/user', WhatsAppController.getOrCreateUser);
