@@ -203,11 +203,10 @@ export default function CreateMarketPage() {
         }
 
         const adminKey = localStorage.getItem("admin_secret");
-        // Admin path: only if key is valid (wallet can be anything)
-        const useAdminEndpoint = adminKey && hasAdminAccess;
-        const usePublicEndpoint = canCreate && !useAdminEndpoint;
+        const isAdmin = !!(adminKey && hasAdminAccess);
 
-        if (!useAdminEndpoint && !usePublicEndpoint) {
+        // Gate: admin bypasses BC400/NFT check; public users need BC400/NFT
+        if (!isAdmin && !canCreate) {
             setError("You don't have permission to create markets. You need BC400 tokens (10M) or an NFT.");
             setIsLoading(false);
             return;
@@ -239,104 +238,74 @@ export default function CreateMarketPage() {
                 }
             }
 
-            if (useAdminEndpoint) {
-                // Admin flow: backend signs via Pimlico Smart Account (operator)
-                // Admin only needs the admin secret — no MetaMask or BNB needed
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                const res = await fetch(`${apiUrl}/api/admin/create-market-v2`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-admin-secret': adminKey!
-                    },
-                    body: JSON.stringify({
-                        creator: address, // Connected wallet gets creator fees
-                        question: formData.question,
-                        description: formData.description,
-                        image: finalImageUrl,
-                        category: formData.category,
-                        outcomes: formData.outcomes,
-                        durationMinutes: parseFloat(formData.durationMinutes)
-                    })
-                });
-
-                const data = await res.json();
-                if (!data.success) {
-                    throw new Error(data.error || 'Failed to create market via backend');
-                }
-                marketId = data.marketId;
-                txHash = data.txHash;
-
-            } else {
-                // User pays gas: sign and submit createMarket directly from connected wallet
-
-                if (!connectorClient) {
-                    throw new Error('Wallet not ready. Please connect your wallet and try again.');
-                }
-
-                const signer = clientToSigner(connectorClient);
-
-                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
-                if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
-
-                const marketABI = [
-                    'function createMarket(string memory _question, string memory _description, string memory _image, string[] memory _outcomeNames, uint256 _durationMinutes) external returns (uint256)'
-                ];
-
-                const contract = new ethers.Contract(MARKET_ADDR, marketABI, signer);
-
-                setIsLoading(true);
-                setError('');
-
-                // Estimate gas so we can show user expected cost
-                const durationMinutes = parseFloat(formData.durationMinutes);
-                console.log('[Create Market] Estimating gas...');
-                const gasEstimate = await contract.createMarket.estimateGas(
-                    formData.question,
-                    formData.description,
-                    finalImageUrl,
-                    formData.outcomes,
-                    BigInt(Math.round(durationMinutes))
-                );
-                console.log('[Create Market] Estimated gas:', gasEstimate.toString());
-
-                console.log('[Create Market] Sending tx from user wallet...');
-                const tx = await contract.createMarket(
-                    formData.question,
-                    formData.description,
-                    finalImageUrl,
-                    formData.outcomes,
-                    BigInt(Math.round(durationMinutes)),
-                    { gasLimit: gasEstimate + BigInt(50000) }
-                );
-
-                console.log('[Create Market] TX sent:', tx.hash);
-                const receipt = await tx.wait();
-                console.log('[Create Market] Confirmed in block:', receipt.blockNumber);
-
-                // Parse market ID from logs or use marketCount
-                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                const provider = new ethers.JsonRpcProvider(rpcUrl);
-                const readContract = new ethers.Contract(MARKET_ADDR, ['function marketCount() view returns (uint256)'], provider);
-                const count = await readContract.marketCount();
-                marketId = Number(count) - 1;
-                txHash = tx.hash;
-
-                // Save metadata to DB
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                await fetch(`${apiUrl}/api/markets`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        market_id: marketId,
-                        question: formData.question,
-                        description: formData.description,
-                        image: finalImageUrl,
-                        category: formData.category,
-                        outcome_names: formData.outcomes
-                    })
-                }).catch(e => console.warn('[Create Market] DB metadata save failed (non-critical):', e));
+            // Both admin and public: sign createMarket() from the connected wallet
+            // Admin secret bypasses the UI gate; admin's wallet has BC400/NFT for the on-chain check
+            if (!connectorClient) {
+                throw new Error('Wallet not ready. Please connect your wallet and try again.');
             }
+
+            const signer = clientToSigner(connectorClient);
+
+            const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
+            if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
+
+            const marketABI = [
+                'function createMarket(string memory _question, string memory _description, string memory _image, string[] memory _outcomeNames, uint256 _durationMinutes) external returns (uint256)'
+            ];
+
+            const contract = new ethers.Contract(MARKET_ADDR, marketABI, signer);
+
+            setIsLoading(true);
+            setError('');
+
+            // Estimate gas so we can show user expected cost
+            const durationMinutes = parseFloat(formData.durationMinutes);
+            console.log('[Create Market] Estimating gas...');
+            const gasEstimate = await contract.createMarket.estimateGas(
+                formData.question,
+                formData.description,
+                finalImageUrl,
+                formData.outcomes,
+                BigInt(Math.round(durationMinutes))
+            );
+            console.log('[Create Market] Estimated gas:', gasEstimate.toString());
+
+            console.log('[Create Market] Sending tx from user wallet...');
+            const tx = await contract.createMarket(
+                formData.question,
+                formData.description,
+                finalImageUrl,
+                formData.outcomes,
+                BigInt(Math.round(durationMinutes)),
+                { gasLimit: gasEstimate + BigInt(50000) }
+            );
+
+            console.log('[Create Market] TX sent:', tx.hash);
+            const receipt = await tx.wait();
+            console.log('[Create Market] Confirmed in block:', receipt.blockNumber);
+
+            // Parse market ID from logs or use marketCount
+            const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+            const provider = new ethers.JsonRpcProvider(rpcUrl);
+            const readContract = new ethers.Contract(MARKET_ADDR, ['function marketCount() view returns (uint256)'], provider);
+            const count = await readContract.marketCount();
+            marketId = Number(count) - 1;
+            txHash = tx.hash;
+
+            // Save metadata to DB
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            await fetch(`${apiUrl}/api/markets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    market_id: marketId,
+                    question: formData.question,
+                    description: formData.description,
+                    image: finalImageUrl,
+                    category: formData.category,
+                    outcome_names: formData.outcomes
+                })
+            }).catch(e => console.warn('[Create Market] DB metadata save failed (non-critical):', e));
 
             setSuccess(`Market created successfully! ID: ${marketId}`);
             setCreatedMarketId(marketId);
