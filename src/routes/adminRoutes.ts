@@ -972,7 +972,7 @@ router.post('/recover-sa-usdc', checkAdminAuth, async (req, res) => {
         const walletResult = await query(
             `SELECT w.public_address as eoa, w.encrypted_private_key
              FROM wallets w JOIN users u ON u.id = w.user_id
-             WHERE u.id = $1
+             WHERE u.id::text = $1
                 OR u.privy_user_id = $1
                 OR LOWER(u.wallet_address) = LOWER($1)
                 OR LOWER(w.public_address) = LOWER($1)`,
