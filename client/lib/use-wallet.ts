@@ -26,11 +26,14 @@ export function useWallet() {
     }
   };
 
-  // Determine effective address (Custodial > Privy/Wagmi)
-  // Check if custodialAddress is valid before using it
-  const effectiveAddress = (custodialAddress && custodialAddress !== '0x0000000000000000000000000000000000000000')
-    ? custodialAddress
-    : (walletAddress || null);
+  // Determine effective address:
+  // - Wallet (MetaMask) users: always use the wagmi/MetaMask address
+  // - Google/email (Privy) users: use custodial address if available, fallback to walletAddress
+  const effectiveAddress = loginMethod === 'wallet'
+    ? (walletAddress || null)
+    : (custodialAddress && custodialAddress !== '0x0000000000000000000000000000000000000000')
+      ? custodialAddress
+      : (walletAddress || null);
 
   // Map to the shape expected by components
   const user = isAuthenticated ? {
