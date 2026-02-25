@@ -307,9 +307,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
         if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
 
-        // Balance check: all users go through Biconomy Smart Account now.
-        // Balance represents the user's USDC in the market contract.
-        // For both MetaMask and email users, trade amount must not exceed their deposited balance.
         if (parseFloat(amount) > parseFloat(balance)) {
             setShowInsufficientBalance(true);
             return;
@@ -320,60 +317,91 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             let result;
 
-            // ALL users — MetaMask, email, Google — go through Biconomy Smart Account.
-            // First-time MetaMask users: Biconomy auto-deploys their Smart Account (1 signature, once ever).
-            // All subsequent trades for everyone are completely popup-free.
-            console.log(`[Terminal] Executing via Biconomy Smart Account (user type: ${loginMethod})...`);
-
             const contracts = getMultiContracts();
             const usdcDecimals = 18;
             const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
-
-            // Gas reimbursement: dynamically calculated from live BSC gas price + BNB/USD price.
-            // Fetches real-time data and adds a 20% safety buffer. Falls back to $0.20 on error.
-            const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
-
-            if (tradeAmountBN <= feeUSDC) {
-                setIsTradeLoading(false);
-                alert(`Trade amount is too small. It must be greater than the current network gas fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
-                return;
-            }
-
-            // Net USDC that goes into the market contract for shares
-            const netTradeCost = tradeAmountBN - feeUSDC;
-
             const currentPrice = market.prices[selectedOutcome];
             const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
 
-            // Calculate shares based on the NET amount, not the gross amount
-            const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
-            const estShares = netAmountFloat / priceFloat;
-            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
+            if (loginMethod === 'wallet') {
+                // ── MetaMask (EOA) path ──────────────────────────────────────────
+                // The user's deposited balance is stored under their EOA address.
+                // Sign buyShares() directly — MetaMask pops up, user pays BNB gas.
+                console.log(`[Terminal] MetaMask user — signing buyShares directly from EOA...`);
 
-            const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
-            if (!activeWallet) throw new Error("No active wallet found. Please reconnect.");
+                const provider = new ethers.BrowserProvider((window as any).ethereum);
+                const signer = await provider.getSigner();
 
-            const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
-            const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "0xa4B1B886f955b2342bC9bbB4f7B80839357378b76";
+                const estShares = parseFloat(amount) / priceFloat;
+                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
-            const hash = await BiconomyService.executeBatchedTrade(
-                activeWallet,
-                contracts.predictionMarketMulti,
-                usdcAddr,
-                treasury,
-                market.id,
-                selectedOutcome,
-                sharesBN,
-                netTradeCost,  // USDC → market contract for shares
-                feeUSDC        // USDC → treasury for gas reimbursement
-            );
+                const marketContract = new ethers.Contract(
+                    contracts.predictionMarketMulti,
+                    ['function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)'],
+                    signer
+                );
 
-            result = {
-                shares: estShares.toFixed(2),
-                cost: amount,
-                newPrice: currentPrice,
-                hash: hash
-            };
+                const tx = await marketContract.buyShares(
+                    BigInt(market.id),
+                    BigInt(selectedOutcome),
+                    sharesBN,
+                    tradeAmountBN
+                );
+                console.log('[Terminal] TX sent:', tx.hash);
+                const receipt = await tx.wait();
+                console.log('[Terminal] Confirmed:', receipt.hash);
+
+                result = {
+                    shares: estShares.toFixed(2),
+                    cost: amount,
+                    newPrice: currentPrice,
+                    hash: receipt.hash
+                };
+
+            } else {
+                // ── Custodial (Google / Email) path ─────────────────────────────
+                // User deposited via Pimlico Smart Account, so SA address owns the deposited balance.
+                // Gasless: Pimlico pays BNB gas, fee deducted from deposited balance to treasury.
+                console.log(`[Terminal] Custodial user — executing via Pimlico Smart Account...`);
+
+                const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
+
+                if (tradeAmountBN <= feeUSDC) {
+                    setIsTradeLoading(false);
+                    alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
+                    return;
+                }
+
+                const netTradeCost = tradeAmountBN - feeUSDC;
+                const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
+                const estShares = netAmountFloat / priceFloat;
+                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
+
+                const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+                if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
+
+                const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
+                const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '0xa4B1B886f955b2342bC9bbB4f7B80839357378b76';
+
+                const hash = await BiconomyService.executeBatchedTrade(
+                    activeWallet,
+                    contracts.predictionMarketMulti,
+                    usdcAddr,
+                    treasury,
+                    market.id,
+                    selectedOutcome,
+                    sharesBN,
+                    netTradeCost,
+                    feeUSDC
+                );
+
+                result = {
+                    shares: estShares.toFixed(2),
+                    cost: amount,
+                    newPrice: currentPrice,
+                    hash
+                };
+            }
 
             setSuccessData({
                 marketId: market.id,
@@ -386,15 +414,13 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 hash: result.hash || '0x'
             });
 
-            // Success Handing (Shared)
             setIsSuccessModalOpen(true);
 
-            // Optimistic Update
+            // Optimistic update
             setMarkets(prev => prev.map(m => {
                 if (m.id === market.id) {
                     const newPrices = [...m.prices];
                     if ((result as any).newPrice) newPrices[selectedOutcome] = (result as any).newPrice;
-
                     const newVol = parseFloat(m.totalVolume) + parseFloat(result.cost || amount);
                     return { ...m, totalVolume: newVol.toFixed(2), prices: newPrices };
                 }
@@ -404,12 +430,12 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             fetchData();
 
         } catch (e: any) {
-            console.error("Trade failed:", e);
+            console.error('Trade failed:', e);
             const msg = e.message || 'Something went wrong';
-            if (msg.includes('Insufficient balance') || msg.includes('transfer amount exceeds balance')) {
-                setShowInsufficientBalance(true); // Re-use modal for external too?
-                // Or alert
-                if (loginMethod === 'wallet') alert("Insufficient USDC Balance in your wallet.");
+            if (msg.includes('Insufficient balance') || msg.includes('transfer amount exceeds balance') || msg.includes('InsufficientBalance')) {
+                setShowInsufficientBalance(true);
+            } else if (msg.includes('user rejected') || msg.includes('ACTION_REJECTED')) {
+                // User dismissed MetaMask — silent, no alert
             } else {
                 alert(msg);
             }
@@ -417,6 +443,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             setIsTradeLoading(false);
         }
     };
+
+
 
     const handleClaim = async () => {
         if (!market || !address) return;
