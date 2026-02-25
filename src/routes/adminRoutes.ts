@@ -960,4 +960,106 @@ router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
     }
 });
 
+// POST /recover-sa-usdc — Transfer USDC from Pimlico SA back to user's EOA wallet
+// Body: { userId: string }  (can be DB user id OR privy_user_id)
+// Header: x-admin-secret
+router.post('/recover-sa-usdc', checkAdminAuth, async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ success: false, error: 'userId required' });
+
+        // Look up wallet
+        const walletResult = await query(
+            `SELECT w.public_address as eoa, w.encrypted_private_key
+             FROM wallets w JOIN users u ON u.id = w.user_id
+             WHERE u.id = $1 OR u.privy_user_id = $1`,
+            [userId]
+        );
+        if (walletResult.rows.length === 0)
+            return res.status(404).json({ success: false, error: 'No wallet found for this user' });
+
+        const { eoa, encrypted_private_key } = walletResult.rows[0];
+        const { EncryptionService } = await import('../services/encryption');
+        const pk = EncryptionService.decrypt(encrypted_private_key);
+        const formattedKey = (pk.startsWith('0x') ? pk : `0x${pk}`) as `0x${string}`;
+
+        // Derive SA
+        const { createPublicClient, http, encodeFunctionData, parseAbi } = await import('viem');
+        const { bsc } = await import('viem/chains');
+        const { privateKeyToAccount } = await import('viem/accounts');
+        const { toSimpleSmartAccount } = await import('permissionless/accounts');
+        const { createSmartAccountClient } = await import('permissionless');
+        const { createPimlicoClient } = await import('permissionless/clients/pimlico');
+        const { entryPoint07Address } = await import('viem/account-abstraction');
+
+        const rpcUrl = process.env.BNB_RPC_URL || 'https://bsc-rpc.publicnode.com';
+        const PIMLICO_KEY = process.env.NEXT_PUBLIC_PIMLICO_API_KEY || process.env.PIMLICO_API_KEY || '';
+        const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || process.env.CHAIN_ID || '56';
+        const PIMLICO_URL = `https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_KEY}`;
+        const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d') as `0x${string}`;
+
+        const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+        const ownerAccount = privateKeyToAccount(formattedKey);
+        const smartAccount = await toSimpleSmartAccount({
+            client: publicClient,
+            owner: ownerAccount,
+            entryPoint: { address: entryPoint07Address, version: "0.7" },
+        });
+        const saAddress = smartAccount.address;
+        console.log(`[Admin/Recover] SA: ${saAddress} → EOA: ${eoa}`);
+
+        // Check SA USDC balance
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const usdc = new ethers.Contract(USDC_ADDRESS, [
+            'function balanceOf(address) view returns (uint256)',
+            'function decimals() view returns (uint8)'
+        ], provider);
+        const [rawBal, dec] = await Promise.all([usdc.balanceOf(saAddress), usdc.decimals()]);
+        const balance = parseFloat(ethers.formatUnits(rawBal, dec));
+
+        if (balance < 0.001)
+            return res.json({ success: true, message: `SA (${saAddress}) has no meaningful USDC (${balance}). Nothing to recover.` });
+
+        // Transfer SA USDC → EOA via Pimlico UserOp
+        const pimlicoClient = createPimlicoClient({
+            transport: http(PIMLICO_URL),
+            entryPoint: { address: entryPoint07Address, version: "0.7" },
+        });
+        const smartAccountClient = createSmartAccountClient({
+            account: smartAccount,
+            chain: bsc,
+            bundlerTransport: http(PIMLICO_URL),
+            paymaster: pimlicoClient,
+            userOperation: {
+                estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
+            },
+        });
+
+        const transferData = encodeFunctionData({
+            abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
+            functionName: 'transfer',
+            args: [eoa as `0x${string}`, rawBal],
+        });
+
+        const userOpHash = await smartAccountClient.sendUserOperation({
+            calls: [{ to: USDC_ADDRESS, data: transferData }],
+        });
+
+        console.log(`[Admin/Recover] UserOp: ${userOpHash}`);
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+
+        return res.json({
+            success: true,
+            recovered: `${balance} USDC`,
+            from: saAddress,
+            to: eoa,
+            txHash: receipt.receipt.transactionHash
+        });
+
+    } catch (error: any) {
+        console.error('[Admin/Recover] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
