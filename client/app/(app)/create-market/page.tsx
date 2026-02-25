@@ -259,37 +259,73 @@ export default function CreateMarketPage() {
                 marketId = data.marketId;
                 txHash = data.txHash;
             } else {
-                // Gasless flow: Direct API call (no signature needed)
-                console.log("Creating market via gasless API...");
-
-                // Submit to gasless API
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/market/create`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        marketData: {
-                            question: formData.question,
-                            description: formData.description,
-                            image: finalImageUrl,
-                            category: formData.category,
-                            outcomes: formData.outcomes,
-                            durationMinutes: parseFloat(formData.durationMinutes)
-                        },
-                        userAddress: address
-                    })
-                });
-
-                const data = await res.json();
-                if (!data.success) {
-                    setError(data.error || "Failed to create market");
-                    setIsLoading(false);
-                    return;
+                // User pays gas: sign and submit createMarket directly from connected wallet
+                if (!connectorClient) {
+                    throw new Error('Wallet not ready. Please connect your wallet and try again.');
                 }
 
-                marketId = data.marketId;
-                txHash = data.transactionHash;
+                const signer = clientToSigner(connectorClient);
+
+                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
+                if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
+
+                const marketABI = [
+                    'function createMarket(string memory _question, string memory _description, string memory _image, string[] memory _outcomeNames, uint256 _durationMinutes) external returns (uint256)'
+                ];
+
+                const contract = new ethers.Contract(MARKET_ADDR, marketABI, signer);
+
+                setIsLoading(true);
+                setError('');
+
+                // Estimate gas so we can show user expected cost
+                const durationMinutes = parseFloat(formData.durationMinutes);
+                console.log('[Create Market] Estimating gas...');
+                const gasEstimate = await contract.createMarket.estimateGas(
+                    formData.question,
+                    formData.description,
+                    finalImageUrl,
+                    formData.outcomes,
+                    BigInt(Math.round(durationMinutes))
+                );
+                console.log('[Create Market] Estimated gas:', gasEstimate.toString());
+
+                console.log('[Create Market] Sending tx from user wallet...');
+                const tx = await contract.createMarket(
+                    formData.question,
+                    formData.description,
+                    finalImageUrl,
+                    formData.outcomes,
+                    BigInt(Math.round(durationMinutes)),
+                    { gasLimit: gasEstimate + 50000n }
+                );
+
+                console.log('[Create Market] TX sent:', tx.hash);
+                const receipt = await tx.wait();
+                console.log('[Create Market] Confirmed in block:', receipt.blockNumber);
+
+                // Parse market ID from logs or use marketCount
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const provider = new ethers.JsonRpcProvider(rpcUrl);
+                const readContract = new ethers.Contract(MARKET_ADDR, ['function marketCount() view returns (uint256)'], provider);
+                const count = await readContract.marketCount();
+                marketId = Number(count) - 1;
+                txHash = tx.hash;
+
+                // Save metadata to DB
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                await fetch(`${apiUrl}/api/markets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        market_id: marketId,
+                        question: formData.question,
+                        description: formData.description,
+                        image: finalImageUrl,
+                        category: formData.category,
+                        outcome_names: formData.outcomes
+                    })
+                }).catch(e => console.warn('[Create Market] DB metadata save failed (non-critical):', e));
             }
 
             setSuccess(`Market created successfully! ID: ${marketId}`);
