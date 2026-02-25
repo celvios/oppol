@@ -338,68 +338,101 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             let result;
 
-            // ALL users go through Pimlico Smart Account — gasless for everyone.
-            // MetaMask: SA is derived from MetaMask key, USDC was deposited into SA → market.
-            // Custodial: SA is derived from Privy embedded key, same flow.
-            console.log(`[Terminal] Executing gasless trade via Pimlico SA (user type: ${loginMethod})...`);
-
             const contracts = getMultiContracts();
             const usdcDecimals = 18;
-            const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
             const currentPrice = market.prices[selectedOutcome];
             const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
 
-            const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
+            if (loginMethod !== 'wallet') {
+                // ── Custodial (Google / Email) path ─────────────────────────────────
+                // Balance is under the BACKEND-managed SA (stored private key in DB).
+                // Client-side Pimlico (Privy embedded wallet) creates a DIFFERENT SA → can't access balance.
+                // Solution: call the backend which uses the stored key to execute the trade.
+                console.log(`[Terminal] Custodial user (${loginMethod}) → calling backend trade endpoint...`);
 
-            if (tradeAmountBN <= feeUSDC) {
-                setIsTradeLoading(false);
-                alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
-                return;
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET || '';
+
+                const response = await fetch(`${apiUrl}/api/wallet/trade-custodial`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': adminSecret,
+                    },
+                    body: JSON.stringify({
+                        privyUserId: privyUser?.id,
+                        marketId: market.id,
+                        outcomeIndex: selectedOutcome,
+                        amount,
+                    }),
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Backend trade failed');
+
+                result = {
+                    shares: data.shares,
+                    cost: amount,
+                    newPrice: currentPrice,
+                    hash: data.txHash,
+                };
+
+            } else {
+                // ── MetaMask (wallet) path ───────────────────────────────────────────
+                // MetaMask users deposited via Pimlico SA (derived from MetaMask key).
+                // Client-side Pimlico SA has the deposited balance → trades gaslessly.
+                console.log(`[Terminal] Wallet user → client-side Pimlico SA trade...`);
+
+                const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
+                const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
+
+                if (tradeAmountBN <= feeUSDC) {
+                    setIsTradeLoading(false);
+                    alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
+                    return;
+                }
+
+                const netTradeCost = tradeAmountBN - feeUSDC;
+                const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
+
+                let protocolFeeBps = 1000; // default 10%
+                try {
+                    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                    const provider = new ethers.JsonRpcProvider(rpcUrl);
+                    const feeContract = new ethers.Contract(contracts.predictionMarketMulti, ['function protocolFee() view returns (uint256)'], provider);
+                    protocolFeeBps = Number(await feeContract.protocolFee());
+                } catch { /* use default */ }
+
+                const lsmrBudget = netAmountFloat / (1 + protocolFeeBps / 10000);
+                const estShares = lsmrBudget / priceFloat;
+                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
+
+                const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+                if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
+
+                const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
+                const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '';
+
+                const hash = await BiconomyService.executeBatchedTrade(
+                    activeWallet,
+                    contracts.predictionMarketMulti,
+                    usdcAddr,
+                    treasury,
+                    market.id,
+                    selectedOutcome,
+                    sharesBN,
+                    netTradeCost,
+                    feeUSDC
+                );
+
+                result = {
+                    shares: estShares.toFixed(2),
+                    cost: amount,
+                    newPrice: currentPrice,
+                    hash,
+                };
             }
 
-            const netTradeCost = tradeAmountBN - feeUSDC;
-            const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
-
-            // Read protocol fee (bps) from contract so share estimate accounts for it.
-            // Contract deducts: totalCost = LSMR_cost + (LSMR_cost * protocolFee / 10000)
-            // We need: LSMR_cost + fee = netTradeCost, so LSMR_cost = netTradeCost / (1 + fee%)
-            let protocolFeeBps = 1000; // default 10%
-            try {
-                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                const provider = new ethers.JsonRpcProvider(rpcUrl);
-                const feeContract = new ethers.Contract(contracts.predictionMarketMulti, ['function protocolFee() view returns (uint256)'], provider);
-                protocolFeeBps = Number(await feeContract.protocolFee());
-            } catch { /* use default */ }
-
-            // Effective LSMR budget after the contract's own protocol fee is deducted
-            const lsmrBudget = netAmountFloat / (1 + protocolFeeBps / 10000);
-            const estShares = lsmrBudget / priceFloat;
-            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
-
-            const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
-            if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
-
-            const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
-            const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '0xa4B1B886f955b2342bC9bbB4f7B80839357378b76';
-
-            const hash = await BiconomyService.executeBatchedTrade(
-                activeWallet,
-                contracts.predictionMarketMulti,
-                usdcAddr,
-                treasury,
-                market.id,
-                selectedOutcome,
-                sharesBN,
-                netTradeCost,
-                feeUSDC
-            );
-
-            result = {
-                shares: estShares.toFixed(2),
-                cost: amount,
-                newPrice: currentPrice,
-                hash
-            };
 
             setSuccessData({
                 marketId: market.id,

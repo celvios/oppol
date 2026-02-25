@@ -569,3 +569,138 @@ export const claimCustodialWinnings = async (req: Request, res: Response) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+
+/**
+ * Execute a trade for a custodial (Google/Email) user via the backend SA.
+ * The backend has the stored private key → derives the correct Pimlico SA →
+ * executes: withdraw(fee) + transfer(fee→treasury) + buyShares() atomically.
+ *
+ * This is REQUIRED for custodial users because their balance is under the
+ * backend-managed SA address, not any client-derived (Privy embedded wallet) SA.
+ */
+export const executeCustodialTrade = async (req: Request, res: Response) => {
+    try {
+        const { privyUserId, marketId, outcomeIndex, amount } = req.body;
+
+        if (!privyUserId || marketId === undefined || outcomeIndex === undefined || !amount) {
+            return res.status(400).json({ success: false, error: 'Missing required params: privyUserId, marketId, outcomeIndex, amount' });
+        }
+
+        console.log(`[CustodialTrade] Request: user=${privyUserId}, market=${marketId}, outcome=${outcomeIndex}, amount=${amount}`);
+
+        // 1. Look up user and custodial wallet
+        const userResult = await query('SELECT id FROM users WHERE privy_user_id = $1', [privyUserId]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = userResult.rows[0].id;
+
+        const walletResult = await query(
+            'SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
+            [userId]
+        );
+        if (walletResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+        }
+
+        const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
+        console.log(`[CustodialTrade] SA: ${smartAccountAddress}`);
+
+        const USDC_ADDR = CONFIG.USDC_CONTRACT;
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const TREASURY_ADDR = process.env.ADMIN_WALLET || process.env.NEXT_PUBLIC_ADMIN_WALLET || process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
+
+        if (!USDC_ADDR || !MARKET_ADDR) {
+            return res.status(500).json({ success: false, error: 'Missing USDC or MARKET contract address' });
+        }
+
+        const DECIMALS = 18;
+        const amountBN = ethers.parseUnits(String(amount), DECIMALS);
+
+        // 2. Estimate platform gas fee
+        const { gasService } = require('../services/gasService');
+        const feeUSDC: bigint = await gasService.estimateGasCostInUSDC(BigInt(150000)).catch(() => ethers.parseUnits('0.02', DECIMALS));
+        console.log(`[CustodialTrade] Gas fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC`);
+
+        if (amountBN <= feeUSDC) {
+            return res.status(400).json({ success: false, error: 'Amount too small to cover gas fee' });
+        }
+
+        const netTradeCost = amountBN - feeUSDC;
+
+        // 3. Read protocol fee from contract and estimate shares
+        const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const marketContract = new ethers.Contract(
+            MARKET_ADDR,
+            [
+                'function protocolFee() view returns (uint256)',
+                'function getPrice(uint256 marketId, uint256 outcomeIndex) view returns (uint256)',
+            ],
+            provider
+        );
+
+        let protocolFeeBps = BigInt(1000); // default 10%
+        try { protocolFeeBps = await marketContract.protocolFee(); } catch { /* use default */ }
+
+        const priceRaw = await marketContract.getPrice(BigInt(marketId), BigInt(outcomeIndex)).catch(() => BigInt(50));
+        const priceFloat = Number(priceRaw) > 0 ? Number(priceRaw) / 100 : 0.5;
+
+        // lsmrBudget = netTradeCost / (1 + protocolFee%) so totalCost fits within netTradeCost
+        const lsmrBudget = parseFloat(ethers.formatUnits(netTradeCost, DECIMALS)) / (1 + Number(protocolFeeBps) / 10000);
+        const estShares = lsmrBudget / priceFloat;
+        const sharesBN = ethers.parseUnits(estShares.toFixed(DECIMALS), DECIMALS);
+        console.log(`[CustodialTrade] Shares: ${estShares.toFixed(4)}, lsmrBudget: ${lsmrBudget.toFixed(4)}`);
+
+        // 4. Build batched UserOperation calls
+        // Step A: Withdraw fee from deposited balance → SA wallet
+        const withdrawData = encodeFunctionData({
+            abi: parseAbi(['function withdraw(uint256 amount)']),
+            functionName: 'withdraw',
+            args: [feeUSDC],
+        });
+
+        // Step B: Transfer fee from SA wallet → treasury
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: MARKET_ADDR as Address, data: withdrawData },
+        ];
+
+        if (TREASURY_ADDR) {
+            const transferData = encodeFunctionData({
+                abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
+                functionName: 'transfer',
+                args: [TREASURY_ADDR as Address, feeUSDC],
+            });
+            calls.push({ to: USDC_ADDR as Address, data: transferData });
+        }
+
+        // Step C: Buy shares using deposited balance (netTradeCost as _maxCost)
+        const netTradeCostBN = BigInt(netTradeCost.toString());
+        const buyData = encodeFunctionData({
+            abi: parseAbi(['function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)']),
+            functionName: 'buyShares',
+            args: [BigInt(marketId), BigInt(outcomeIndex), BigInt(sharesBN.toString()), netTradeCostBN],
+        });
+        calls.push({ to: MARKET_ADDR as Address, data: buyData });
+
+        console.log(`[CustodialTrade] Sending ${calls.length}-call UserOperation...`);
+        const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const txHash = receipt.receipt.transactionHash;
+        console.log(`✅ [CustodialTrade] Trade confirmed. Tx: ${txHash}`);
+
+        return res.json({
+            success: true,
+            txHash,
+            shares: estShares.toFixed(4),
+            cost: amount,
+            smartAccountAddress,
+        });
+
+    } catch (error: any) {
+        console.error('[CustodialTrade] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
