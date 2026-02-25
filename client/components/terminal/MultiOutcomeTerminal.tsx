@@ -131,6 +131,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     }, [searchQuery]);
 
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
+    // For MetaMask users: the SA address (not EOA) holds the deposited balance
+    // because USDC deposits go to the SA wallet before SA calls market.deposit()
+    const [saAddress, setSaAddress] = useState<string | null>(null);
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -239,17 +242,35 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const { isConnected, address, isConnecting: walletLoading, connect, loginMethod } = useWallet();
 
+    // For MetaMask users: compute their SA address once (it's deterministic from their key).
+    // USDC deposits go to the SA wallet, so the deposited balance in the market is under SA address.
+    useEffect(() => {
+        if (loginMethod === 'wallet' && address) {
+            BiconomyService.getSmartAccountAddressFromEOA(address)
+                .then(sa => {
+                    console.log(`[MultiTerminal] MetaMask SA address: ${sa}`);
+                    setSaAddress(sa);
+                })
+                .catch(() => setSaAddress(null));
+        } else {
+            setSaAddress(null);
+        }
+    }, [loginMethod, address]);
+
+    // Effective address for balance queries: SA address for MetaMask users, direct address for custodial
+    const balanceAddress = (loginMethod === 'wallet' && saAddress) ? saAddress : address;
+
     // --- Data Fetching (Markets) ---
     const fetchData = useCallback(async () => {
         console.log('[MultiTerminal] fetchData called');
         try {
             const [allMarkets, depositedBalance, position] = await Promise.all([
                 web3MultiService.getMarkets(),
-                address ? web3MultiService.getDepositedBalance(address).catch(e => {
+                balanceAddress ? web3MultiService.getDepositedBalance(balanceAddress).catch(e => {
                     console.error('[MultiTerminal] Balance fetch error:', e);
                     return '0';
                 }) : Promise.resolve('0'),
-                (address && selectedMarketId !== null && selectedMarketId !== undefined) ? web3MultiService.getUserPosition(selectedMarketId, address).catch(e => {
+                (balanceAddress && selectedMarketId !== null && selectedMarketId !== undefined) ? web3MultiService.getUserPosition(selectedMarketId, balanceAddress).catch(e => {
                     console.error('[MultiTerminal] Position fetch error:', e);
                     return null;
                 }) : Promise.resolve(null)
@@ -264,7 +285,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         } finally {
             setLoading(false);
         }
-    }, [address, selectedMarketId]);
+    }, [balanceAddress, selectedMarketId]);
 
     useEffect(() => {
         fetchData();
@@ -317,91 +338,54 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         try {
             let result;
 
+            // ALL users go through Pimlico Smart Account — gasless for everyone.
+            // MetaMask: SA is derived from MetaMask key, USDC was deposited into SA → market.
+            // Custodial: SA is derived from Privy embedded key, same flow.
+            console.log(`[Terminal] Executing gasless trade via Pimlico SA (user type: ${loginMethod})...`);
+
             const contracts = getMultiContracts();
             const usdcDecimals = 18;
             const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
             const currentPrice = market.prices[selectedOutcome];
             const priceFloat = currentPrice > 0 ? currentPrice / 100 : 0.5;
 
-            if (loginMethod === 'wallet') {
-                // ── MetaMask (EOA) path ──────────────────────────────────────────
-                // The user's deposited balance is stored under their EOA address.
-                // Sign buyShares() directly — MetaMask pops up, user pays BNB gas.
-                console.log(`[Terminal] MetaMask user — signing buyShares directly from EOA...`);
+            const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
 
-                const provider = new ethers.BrowserProvider((window as any).ethereum);
-                const signer = await provider.getSigner();
-
-                const estShares = parseFloat(amount) / priceFloat;
-                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
-
-                const marketContract = new ethers.Contract(
-                    contracts.predictionMarketMulti,
-                    ['function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)'],
-                    signer
-                );
-
-                const tx = await marketContract.buyShares(
-                    BigInt(market.id),
-                    BigInt(selectedOutcome),
-                    sharesBN,
-                    tradeAmountBN
-                );
-                console.log('[Terminal] TX sent:', tx.hash);
-                const receipt = await tx.wait();
-                console.log('[Terminal] Confirmed:', receipt.hash);
-
-                result = {
-                    shares: estShares.toFixed(2),
-                    cost: amount,
-                    newPrice: currentPrice,
-                    hash: receipt.hash
-                };
-
-            } else {
-                // ── Custodial (Google / Email) path ─────────────────────────────
-                // User deposited via Pimlico Smart Account, so SA address owns the deposited balance.
-                // Gasless: Pimlico pays BNB gas, fee deducted from deposited balance to treasury.
-                console.log(`[Terminal] Custodial user — executing via Pimlico Smart Account...`);
-
-                const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
-
-                if (tradeAmountBN <= feeUSDC) {
-                    setIsTradeLoading(false);
-                    alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
-                    return;
-                }
-
-                const netTradeCost = tradeAmountBN - feeUSDC;
-                const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
-                const estShares = netAmountFloat / priceFloat;
-                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
-
-                const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
-                if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
-
-                const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
-                const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '0xa4B1B886f955b2342bC9bbB4f7B80839357378b76';
-
-                const hash = await BiconomyService.executeBatchedTrade(
-                    activeWallet,
-                    contracts.predictionMarketMulti,
-                    usdcAddr,
-                    treasury,
-                    market.id,
-                    selectedOutcome,
-                    sharesBN,
-                    netTradeCost,
-                    feeUSDC
-                );
-
-                result = {
-                    shares: estShares.toFixed(2),
-                    cost: amount,
-                    newPrice: currentPrice,
-                    hash
-                };
+            if (tradeAmountBN <= feeUSDC) {
+                setIsTradeLoading(false);
+                alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
+                return;
             }
+
+            const netTradeCost = tradeAmountBN - feeUSDC;
+            const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
+            const estShares = netAmountFloat / priceFloat;
+            const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
+
+            const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+            if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
+
+            const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
+            const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '0xa4B1B886f955b2342bC9bbB4f7B80839357378b76';
+
+            const hash = await BiconomyService.executeBatchedTrade(
+                activeWallet,
+                contracts.predictionMarketMulti,
+                usdcAddr,
+                treasury,
+                market.id,
+                selectedOutcome,
+                sharesBN,
+                netTradeCost,
+                feeUSDC
+            );
+
+            result = {
+                shares: estShares.toFixed(2),
+                cost: amount,
+                newPrice: currentPrice,
+                hash
+            };
 
             setSuccessData({
                 marketId: market.id,
