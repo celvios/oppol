@@ -359,7 +359,21 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
             const netTradeCost = tradeAmountBN - feeUSDC;
             const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
-            const estShares = netAmountFloat / priceFloat;
+
+            // Read protocol fee (bps) from contract so share estimate accounts for it.
+            // Contract deducts: totalCost = LSMR_cost + (LSMR_cost * protocolFee / 10000)
+            // We need: LSMR_cost + fee = netTradeCost, so LSMR_cost = netTradeCost / (1 + fee%)
+            let protocolFeeBps = 500; // default 5%
+            try {
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const provider = new ethers.JsonRpcProvider(rpcUrl);
+                const feeContract = new ethers.Contract(contracts.predictionMarketMulti, ['function protocolFee() view returns (uint256)'], provider);
+                protocolFeeBps = Number(await feeContract.protocolFee());
+            } catch { /* use default */ }
+
+            // Effective LSMR budget after the contract's own protocol fee is deducted
+            const lsmrBudget = netAmountFloat / (1 + protocolFeeBps / 10000);
+            const estShares = lsmrBudget / priceFloat;
             const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
             const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
