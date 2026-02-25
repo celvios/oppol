@@ -203,19 +203,8 @@ export default function CreateMarketPage() {
         }
 
         const adminKey = localStorage.getItem("admin_secret");
-        // Admin path: only if key is valid AND connected wallet is the contract operator
-        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
-        let isOperator = false;
-        if (adminKey && hasAdminAccess && address && MARKET_ADDR) {
-            try {
-                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                const provider = new ethers.JsonRpcProvider(rpcUrl);
-                const mc = new ethers.Contract(MARKET_ADDR, ['function operator() view returns (address)', 'function owner() view returns (address)'], provider);
-                const [op, ow] = await Promise.all([mc.operator().catch(() => ''), mc.owner().catch(() => '')]);
-                isOperator = address.toLowerCase() === op.toLowerCase() || address.toLowerCase() === ow.toLowerCase();
-            } catch { isOperator = false; }
-        }
-        const useAdminEndpoint = adminKey && hasAdminAccess && isOperator;
+        // Admin path: only if key is valid (wallet can be anything)
+        const useAdminEndpoint = adminKey && hasAdminAccess;
         const usePublicEndpoint = canCreate && !useAdminEndpoint;
 
         if (!useAdminEndpoint && !usePublicEndpoint) {
@@ -261,6 +250,7 @@ export default function CreateMarketPage() {
                         'x-admin-secret': adminKey!
                     },
                     body: JSON.stringify({
+                        creator: address, // Connected wallet gets creator fees
                         question: formData.question,
                         description: formData.description,
                         image: finalImageUrl,

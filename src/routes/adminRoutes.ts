@@ -856,7 +856,7 @@ router.post('/set-operator', checkAdminAuth, async (req, res) => {
 
 router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
     try {
-        const { question, description, image, outcomes, durationMinutes, category } = req.body;
+        const { creator, question, description, image, outcomes, durationMinutes, category } = req.body;
 
         if (!question || !outcomes || !Array.isArray(outcomes) || outcomes.length < 2) {
             return res.status(400).json({ success: false, error: 'Missing required fields: question, outcomes[]' });
@@ -917,7 +917,7 @@ router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
             abi: parseAbi(['function createMarketFor(address _creator, string _question, string _image, string _description, string[] _outcomes, uint256 _durationMinutes) external returns (uint256)']),
             functionName: 'createMarketFor',
             args: [
-                smartAccount.address,   // creator = the Smart Account itself
+                creator || smartAccount.address,   // Use connected wallet, or fallback to the Smart Account itself
                 question,
                 image || '',
                 description || '',
