@@ -728,6 +728,88 @@ router.post('/set-volume', checkAdminAuth, async (req, res) => {
     }
 });
 
+// ─── Configure Creation Tokens (BC400 + NFT) ─────────────────────────────
+router.post('/configure-creation-tokens', checkAdminAuth, async (req, res) => {
+    const BC400_TOKEN = '0x61Fc93c7C070B32B1b1479B86056d8Ec1D7125BD';
+    const BC400_NFT = '0xB929177331De755d7aCc5665267a247e458bCdeC';
+    const MIN_BC400 = BigInt('10000000000000000000000000'); // 10M * 10^18
+    const MIN_NFT = 1n;
+
+    const PRIVATE_KEY = process.env.PRIVATE_KEY;
+    if (!PRIVATE_KEY) return res.status(500).json({ success: false, error: 'PRIVATE_KEY not configured on server' });
+
+    const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+    if (!MARKET_ADDR) return res.status(500).json({ success: false, error: 'Market address not configured' });
+
+    const rpcUrl = process.env.BNB_RPC_URL || CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+    const chainId = Number(process.env.CHAIN_ID) || 56;
+
+    try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+        const signer = new ethers.Wallet(PRIVATE_KEY, provider);
+
+        const bnbBal = await provider.getBalance(signer.address);
+        console.log(`[Admin] Config wallet: ${signer.address}, BNB: ${ethers.formatEther(bnbBal)}`);
+
+        if (bnbBal < ethers.parseEther('0.001')) {
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient BNB in owner wallet (${signer.address}). Have ${ethers.formatEther(bnbBal)}, need ~0.001`
+            });
+        }
+
+        const ABI = [
+            'function setCreationSettings(address _token, uint256 _minBalance, bool _publicCreation) external',
+            'function setSecondaryCreationSettings(address _token, uint256 _minBalance) external',
+            'function creationToken() view returns (address)',
+            'function secondaryCreationToken() view returns (address)',
+        ];
+        const contract = new ethers.Contract(MARKET_ADDR, ABI, signer);
+
+        const results: any = {};
+
+        // 1. Primary: BC400 token (10M minimum, publicCreation = false)
+        try {
+            console.log('[Admin] Setting primary creation token (BC400)...');
+            const tx1 = await contract.setCreationSettings(BC400_TOKEN, MIN_BC400, false);
+            await tx1.wait();
+            results.primary = { success: true, token: BC400_TOKEN, txHash: tx1.hash };
+            console.log(`[Admin] ✅ Primary token set: ${tx1.hash}`);
+        } catch (e: any) {
+            results.primary = { success: false, error: e.message };
+            console.warn('[Admin] Primary token set failed:', e.message);
+        }
+
+        // 2. Secondary: BC400 NFT (1 minimum)
+        try {
+            console.log('[Admin] Setting secondary creation token (BC400 NFT)...');
+            const tx2 = await contract.setSecondaryCreationSettings(BC400_NFT, MIN_NFT);
+            await tx2.wait();
+            results.secondary = { success: true, token: BC400_NFT, txHash: tx2.hash };
+            console.log(`[Admin] ✅ Secondary token set: ${tx2.hash}`);
+        } catch (e: any) {
+            results.secondary = { success: false, error: e.message };
+            console.warn('[Admin] Secondary token set failed:', e.message);
+        }
+
+        // Read final state
+        const [finalPrimary, finalSecondary] = await Promise.all([
+            contract.creationToken().catch(() => 'N/A'),
+            contract.secondaryCreationToken().catch(() => 'N/A'),
+        ]);
+
+        return res.json({
+            success: true,
+            results,
+            finalState: { creationToken: finalPrimary, secondaryCreationToken: finalSecondary }
+        });
+
+    } catch (error: any) {
+        console.error('[Admin] Configure creation tokens error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ─── Set Operator (one-time, owner only) ──────────────────────────────────
 router.post('/set-operator', checkAdminAuth, async (req, res) => {
     try {
