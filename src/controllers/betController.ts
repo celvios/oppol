@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ethers } from 'ethers';
+import { query } from '../config/database';
 
 // Contract addresses
 const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
@@ -18,6 +19,36 @@ const MARKET_ABI = [
 const USDC_DECIMALS = 18;
 
 /**
+ * Resolve the on-chain address that actually holds a user's deposited balance.
+ * - For custodial (Google/email) users: re-derive the Pimlico SA from the stored private key.
+ * - For MetaMask users: the wallet address passed in IS the SA (Pimlico SA derived client-side).
+ */
+async function resolveTradeAddress(walletAddress: string, privyUserId?: string): Promise<string> {
+    if (!privyUserId) return walletAddress.toLowerCase();
+
+    try {
+        // Look up user by Privy ID
+        const userRes = await query('SELECT id FROM users WHERE privy_user_id = $1', [privyUserId]);
+        if (userRes.rows.length === 0) return walletAddress.toLowerCase();
+
+        const userId = userRes.rows[0].id;
+        const walletRes = await query('SELECT encrypted_private_key FROM wallets WHERE user_id = $1', [userId]);
+        if (walletRes.rows.length === 0) return walletAddress.toLowerCase();
+
+        // Re-derive the Pimlico Simple Smart Account address from the stored private key
+        const { EncryptionService } = require('../services/encryption');
+        const { getSmartAccountAddressForKey } = require('./walletController');
+        const pk = EncryptionService.decrypt(walletRes.rows[0].encrypted_private_key);
+        const saAddr = await getSmartAccountAddressForKey(pk);
+        console.log(`[Bet] Resolved custodial SA for ${privyUserId}: ${saAddr}`);
+        return saAddr.toLowerCase();
+    } catch (e: any) {
+        console.error('[Bet] Failed to resolve custodial SA, using walletAddress:', e.message);
+        return walletAddress.toLowerCase();
+    }
+}
+
+/**
  * Place a bet for a user (custodial/relayer trading)
  * POST /api/bet
  *
@@ -29,7 +60,7 @@ const USDC_DECIMALS = 18;
  */
 export const placeBet = async (req: Request, res: Response) => {
     try {
-        const { walletAddress, marketId, outcomeIndex, side, amount } = req.body;
+        const { walletAddress, privyUserId, marketId, outcomeIndex, side, amount } = req.body;
 
         if (!walletAddress) {
             return res.status(400).json({ success: false, error: 'Wallet address required' });
@@ -39,7 +70,10 @@ export const placeBet = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Missing marketId, side/outcomeIndex, or amount' });
         }
 
-        const normalizedAddress = walletAddress.toLowerCase();
+        // Resolve the correct on-chain address where funds live.
+        // For custodial users the Pimlico SA is re-derived from the stored private key.
+        const normalizedAddress = await resolveTradeAddress(walletAddress, privyUserId);
+
 
         // Determine outcome index
         let targetOutcome = 0;

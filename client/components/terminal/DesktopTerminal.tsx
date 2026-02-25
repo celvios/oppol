@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { MultiOutcomeChart } from "./MultiOutcomeChart";
 import { TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Clock, Activity, AlertCircle } from "lucide-react";
 import { useWallet } from "@/lib/use-wallet";
+import { usePrivy } from "@privy-io/react-auth";
 import { LoginModal } from "@/components/ui/LoginModal";
 import { web3Service } from '@/lib/web3';
 import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
@@ -77,7 +78,9 @@ export function DesktopTerminal() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState<TradeSuccessData | null>(null);
 
-    const { isConnected, address, isConnecting: walletLoading, connect } = useWallet();
+    const { isConnected, address, isConnecting: walletLoading, connect, loginMethod } = useWallet();
+    const { user: privyUser } = usePrivy();
+    const isEmbeddedWallet = loginMethod === 'privy' || loginMethod === 'google' || loginMethod === 'email';
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -157,7 +160,6 @@ export function DesktopTerminal() {
     }, []);
 
     const fetchData = useCallback(async () => {
-        // if (!isConnected || !address) return;
         console.log('[DesktopTerminal] fetchData called');
         try {
             const allMarkets = await web3Service.getMarkets();
@@ -165,7 +167,25 @@ export function DesktopTerminal() {
 
             if (address) {
                 try {
-                    const depositedBalance = await web3Service.getDepositedBalance(address);
+                    // For Google/email (custodial) users, funds live under the backend SA,
+                    // not the Privy EOA. Resolve the SA via the auth API.
+                    let balanceAddress = address;
+                    if (isEmbeddedWallet && privyUser?.id) {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        const res = await fetch(`${apiUrl}/api/auth/privy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                privyUserId: privyUser.id,
+                                walletAddress: address,
+                                loginMethod: loginMethod || 'google'
+                            })
+                        });
+                        const data = await res.json();
+                        const sa = data.custodialAddress || data.user?.wallet_address;
+                        if (sa) balanceAddress = sa;
+                    }
+                    const depositedBalance = await web3Service.getDepositedBalance(balanceAddress);
                     setBalance(depositedBalance);
                 } catch (e) {
                     console.error('[DesktopTerminal] Balance fetch error:', e);
@@ -179,7 +199,7 @@ export function DesktopTerminal() {
         } finally {
             setLoading(false);
         }
-    }, [isConnected, address]);
+    }, [isConnected, address, isEmbeddedWallet, privyUser, loginMethod]);
 
     useEffect(() => {
         fetchData();
@@ -253,6 +273,8 @@ export function DesktopTerminal() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: address,
+                    // Send privyUserId for custodial users so backend can resolve the SA address
+                    privyUserId: isEmbeddedWallet ? privyUser?.id : undefined,
                     marketId: market.id,
                     side: tradeSide,
                     amount: parseFloat(amount)
