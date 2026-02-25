@@ -251,14 +251,32 @@ export default function DepositPage() {
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const { web3Service } = await import('@/lib/web3');
 
-            // Use custodial address if provided (for social/embedded users)
-            const checkAddress = overrideAddress || (isEmbeddedWallet && custodialWalletAddress ? custodialWalletAddress : effectiveAddress);
+            // Determine which address holds the deposited balance:
+            // - Embedded/custodial users: custodialAddress (from backend)
+            // - MetaMask (wallet) users: their Pimlico SA address (deposits go there via executeDeposit)
+            // - Fallback: effectiveAddress (EOA)
+            let checkAddress = overrideAddress || effectiveAddress;
+            if (!overrideAddress) {
+                if (isEmbeddedWallet && custodialWalletAddress) {
+                    checkAddress = custodialWalletAddress;
+                } else if (loginMethod === 'wallet') {
+                    // For MetaMask users, the SA address holds the deposited balance
+                    try {
+                        const { BiconomyService } = await import('@/lib/biconomy-service');
+                        const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
+                        const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+                        if (activeWallet) {
+                            checkAddress = await BiconomyService.getSmartAccountAddress(activeWallet);
+                        }
+                    } catch { /* fallback to EOA */ }
+                }
+            }
             console.log('[Deposit] Checking game balance for:', checkAddress);
 
             // Get contract deposited balance
             const contractBalance = await web3Service.getDepositedBalance(checkAddress);
 
-            // Also get raw USDC wallet balance (shows immediately after migration, before auto-deposit)
+            // Also get raw USDC wallet balance of the SA (in case deposit is pending)
             const { ethers: eth } = await import('ethers');
             const provider = new eth.JsonRpcProvider(rpcUrl);
             const usdcAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
@@ -280,6 +298,7 @@ export default function DepositPage() {
             setGameBalance('0.00');
         }
     }
+
 
     async function checkAndAutoDeposit() {
         // Use ref value to ensure we have the latest amount inside the interval
