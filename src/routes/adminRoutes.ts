@@ -728,7 +728,45 @@ router.post('/set-volume', checkAdminAuth, async (req, res) => {
     }
 });
 
-// ─── Admin Create Market via Pimlico (Gasless / AA) ───────────────────────
+// ─── Set Operator (one-time, owner only) ──────────────────────────────────
+router.post('/set-operator', checkAdminAuth, async (req, res) => {
+    try {
+        const { operatorAddress } = req.body;
+        if (!operatorAddress) {
+            return res.status(400).json({ success: false, error: 'Missing operatorAddress' });
+        }
+
+        const PRIVATE_KEY = process.env.PRIVATE_KEY;
+        if (!PRIVATE_KEY) throw new Error('PRIVATE_KEY not configured');
+
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        if (!MARKET_ADDR) throw new Error('Market contract address not configured');
+
+        const rpcUrl = process.env.BNB_RPC_URL || CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+        const chainId = Number(process.env.CHAIN_ID) || 56;
+        const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+        const signer = new ethers.Wallet(PRIVATE_KEY, provider);
+
+        const contract = new ethers.Contract(MARKET_ADDR, [
+            'function setOperator(address _operator) external',
+            'function operator() view returns (address)'
+        ], signer);
+
+        console.log(`[Admin] Setting operator to: ${operatorAddress}`);
+        const tx = await contract.setOperator(operatorAddress);
+        const receipt = await tx.wait();
+        const newOperator = await contract.operator();
+
+        console.log(`[Admin] ✅ Operator set to: ${newOperator}`);
+        return res.json({ success: true, operator: newOperator, txHash: receipt.hash });
+
+    } catch (error: any) {
+        console.error('[Admin] Set Operator Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
 router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
     try {
         const { question, description, image, outcomes, durationMinutes, category } = req.body;
@@ -787,10 +825,18 @@ router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
         console.log(`[Admin/Pimlico] Smart Account: ${smartAccount.address}`);
         console.log(`[Admin/Pimlico] Creating market: "${question}" (${durationMinutes || 1440} min)`);
 
+        // Use createMarketFor (operator function) — Smart Account must be whitelisted as operator
         const createMarketData = encodeFunctionData({
-            abi: parseAbi(['function createMarket(string _question, string _description, string _image, string[] _outcomeNames, uint256 _durationMinutes) external returns (uint256)']),
-            functionName: 'createMarket',
-            args: [question, description || '', image || '', outcomes, BigInt(Math.round(Number(durationMinutes) || 1440))],
+            abi: parseAbi(['function createMarketFor(address _creator, string _question, string _image, string _description, string[] _outcomes, uint256 _durationMinutes) external returns (uint256)']),
+            functionName: 'createMarketFor',
+            args: [
+                smartAccount.address,   // creator = the Smart Account itself
+                question,
+                image || '',
+                description || '',
+                outcomes,
+                BigInt(Math.round(Number(durationMinutes) || 1440))
+            ],
         });
 
         const userOpHash = await smartAccountClient.sendUserOperation({
