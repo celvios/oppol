@@ -961,18 +961,21 @@ router.post('/create-market-v2', checkAdminAuth, async (req, res) => {
 });
 
 // POST /recover-sa-usdc — Transfer USDC from Pimlico SA back to user's EOA wallet
-// Body: { userId: string }  (can be DB user id OR privy_user_id)
+// Body: { userId: string }  — can be DB user id, privy_user_id, OR wallet_address
 // Header: x-admin-secret
 router.post('/recover-sa-usdc', checkAdminAuth, async (req, res) => {
     try {
         const { userId } = req.body;
         if (!userId) return res.status(400).json({ success: false, error: 'userId required' });
 
-        // Look up wallet
+        // Look up wallet — supports DB id, privy_user_id, or wallet_address
         const walletResult = await query(
             `SELECT w.public_address as eoa, w.encrypted_private_key
              FROM wallets w JOIN users u ON u.id = w.user_id
-             WHERE u.id = $1 OR u.privy_user_id = $1`,
+             WHERE u.id = $1
+                OR u.privy_user_id = $1
+                OR LOWER(u.wallet_address) = LOWER($1)
+                OR LOWER(w.public_address) = LOWER($1)`,
             [userId]
         );
         if (walletResult.rows.length === 0)
