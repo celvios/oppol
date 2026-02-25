@@ -1,23 +1,31 @@
 import { Request, Response } from 'express';
-import { query } from '../config/database';
-import { EncryptionService } from '../services/encryption';
 import { ethers } from 'ethers';
 
 // Contract addresses
-const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B'; // V2 Address
+const MARKET_CONTRACT = process.env.MARKET_CONTRACT || '0xe3Eb84D7e271A5C44B27578547f69C80c497355B';
 const RPC_URL = process.env.RPC_URL || 'https://bsc-rpc.publicnode.com';
 
-// Market contract ABI for buySharesFor (V2)
+// Market contract ABI — includes V4's sweepGasFeeFor for universal gas recovery
 const MARKET_ABI = [
     'function buySharesFor(address user, uint256 marketId, uint256 outcomeIndex, uint256 shares, uint256 maxCost)',
     'function userBalances(address) view returns (uint256)',
     'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)',
-    'function getPrice(uint256 _marketId, uint256 _outcomeIndex) view returns (uint256)'
+    'function getPrice(uint256 _marketId, uint256 _outcomeIndex) view returns (uint256)',
+    // V4: operator deducts gas fee from any user's deposited balance — no private key needed
+    'function sweepGasFeeFor(address user, uint256 amount)',
 ];
+
+const USDC_DECIMALS = 18;
 
 /**
  * Place a bet for a user (custodial/relayer trading)
  * POST /api/bet
+ *
+ * Fee model (ALL user types — email/Google AND MetaMask):
+ *   net trade amount = requestedAmount - gasFeeUSDC
+ *   Protocol fee (~5-10%) is applied ON-CHAIN by the contract inside buySharesFor.
+ *   Gas fee is recovered AFTER the trade via sweepGasFeeFor(), which works for
+ *   any user type without needing to store their private key.
  */
 export const placeBet = async (req: Request, res: Response) => {
     try {
@@ -31,8 +39,6 @@ export const placeBet = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Missing marketId, side/outcomeIndex, or amount' });
         }
 
-        // Validate and normalize address
-        // Simple normalization
         const normalizedAddress = walletAddress.toLowerCase();
 
         // Determine outcome index
@@ -43,84 +49,65 @@ export const placeBet = async (req: Request, res: Response) => {
             targetOutcome = side.toUpperCase() === 'YES' ? 0 : 1;
         }
 
-        // Server wallet (operator) configuration
+        // Server wallet (operator/relayer) — signs all on-chain calls
         const privateKey = process.env.PRIVATE_KEY;
         if (!privateKey) {
             return res.status(500).json({ success: false, error: 'Server wallet not configured' });
         }
 
-        // Connect to blockchain
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const signer = new ethers.Wallet(privateKey, provider);
         const marketContract = new ethers.Contract(MARKET_CONTRACT, MARKET_ABI, signer);
 
-        // Check deposited balance of the USER (Contract Balance)
-        // USDC uses 18 decimals on BSC.
-        const balanceFormattedCheck = await marketContract.userBalances(normalizedAddress);
+        // --- GAS FEE CALCULATION (applied to ALL user types) ---
+        // Estimate: buySharesFor ~150k + sweepGasFeeFor ~60k = ~210k gas. Use 250k as safety margin.
+        const { gasService } = require('../services/gasService');
+        const estGas = 250000n;
+        const gasFeeUSDC: bigint = await gasService.estimateGasCostInUSDC(estGas); // bigint, 18-dec USDC
 
-        const maxCost = parseFloat(amount);
-        // --- GAS FEE CALCULATION START ---
-        // query wallet to get private key for fee sweeping
-        const walletRes = await query('SELECT encrypted_private_key FROM wallets WHERE public_address = $1', [normalizedAddress]);
-        let custodialSigner: ethers.Wallet | null = null;
+        console.log(`[Bet] Est. Gas Fee: ${ethers.formatUnits(gasFeeUSDC, USDC_DECIMALS)} USDC`);
 
-        if (walletRes.rows.length > 0) {
-            const pk = EncryptionService.decrypt(walletRes.rows[0].encrypted_private_key);
-            custodialSigner = new ethers.Wallet(pk, provider);
-        }
-
-        // Calculate Gas Fee (Trade + Withdraw + Transfer)
-        // Trade ~150k, Withdraw ~50k, Transfer ~50k. Total ~250k.
-        let tradeAmount = maxCost;
+        const amountBN = ethers.parseUnits(String(amount), USDC_DECIMALS);
+        let tradeAmount = parseFloat(String(amount));
         let feesToSweep = 0n;
-        const USDC_DECIMALS = 18;
 
-        if (custodialSigner) {
-            const { gasService } = require('../services/gasService');
-            const estGas = 250000n; // Safety margin
-            const gasFeeUSDC = await gasService.estimateGasCostInUSDC(estGas); // Returns bigint 18 decimals
-
-            console.log(`[Bet] Est. Gas Fee: ${ethers.formatUnits(gasFeeUSDC, 18)} USDC`);
-
-            const amountBN = ethers.parseUnits(amount, USDC_DECIMALS);
-            if (amountBN > gasFeeUSDC) {
-                const netAmount = amountBN - gasFeeUSDC;
-                tradeAmount = parseFloat(ethers.formatUnits(netAmount, USDC_DECIMALS));
-                feesToSweep = gasFeeUSDC;
-                console.log(`[Bet] Net Trade Amount: ${tradeAmount} USDC (Fee: ${ethers.formatUnits(feesToSweep, 18)})`);
-            } else {
-                console.warn('[Bet] Amount too low to cover gas. Trading with full amount (Relayer absorbs cost).');
-            }
+        if (amountBN > gasFeeUSDC) {
+            const netAmount = amountBN - gasFeeUSDC;
+            tradeAmount = parseFloat(ethers.formatUnits(netAmount, USDC_DECIMALS));
+            feesToSweep = gasFeeUSDC;
+            console.log(`[Bet] Net Trade Amount: ${tradeAmount} USDC | Gas Fee: ${ethers.formatUnits(feesToSweep, USDC_DECIMALS)} USDC`);
+        } else {
+            console.warn('[Bet] Amount too low to cover gas — trading full amount, relayer absorbs gas cost.');
         }
-        // --- GAS FEE CALCULATION END ---
+        // --- END GAS FEE CALCULATION ---
 
-        const maxCostInUnits = ethers.parseUnits(tradeAmount.toFixed(18), 18);
+        const maxCostInUnits = ethers.parseUnits(tradeAmount.toFixed(18), USDC_DECIMALS);
 
-        if (balanceFormattedCheck < maxCostInUnits) {
-            const bal = ethers.formatUnits(balanceFormattedCheck, 18);
-            console.log(`[Bet] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount}`);
-            return res.status(400).json({ success: false, error: `Insufficient balance. Have: $${bal}, Need: $${amount}` });
+        // Check deposited balance: user must have enough for trade + gas fee
+        const userBalance: bigint = await marketContract.userBalances(normalizedAddress);
+        const totalRequired = maxCostInUnits + feesToSweep;
+
+        if (userBalance < totalRequired) {
+            const bal = parseFloat(ethers.formatUnits(userBalance, USDC_DECIMALS)).toFixed(4);
+            console.log(`[Bet] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount} (incl. gas)`);
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient balance. Have: $${bal}, Need: $${amount}`
+            });
         }
 
-        // Binary search to find max shares for the given amount
-        // maxCostInUnits is 18-dec USDC.
-        const maxCostIn18Dec = maxCostInUnits; // 18-dec USDC -> 18-dec LMSR
-
+        // Binary search (20 iterations ≈ 0.0001% precision) to find max shares for net trade amount
         let low = BigInt(1);
-        // Upper bound: if price ≈ 0.5, shares ≈ 2 * amount. Start with 10x as safe upper.
-        let high = maxCostIn18Dec * BigInt(10);
-
+        let high = maxCostInUnits * BigInt(10); // safe upper bound
         let bestShares = BigInt(0);
 
-        // Binary search (20 iterations gives 1/2^20 ≈ 0.0001% precision)
         for (let i = 0; i < 20; i++) {
             const mid = (low + high) / BigInt(2);
             if (mid === BigInt(0)) break;
 
-            const cost = await marketContract.calculateCost(marketId, targetOutcome, mid);
-            // cost is 18-dec, maxCostIn18Dec is also 18-dec — same unit now ✓
+            const cost: bigint = await marketContract.calculateCost(marketId, targetOutcome, mid);
 
-            if (cost <= maxCostIn18Dec) {
+            if (cost <= maxCostInUnits) {
                 bestShares = mid;
                 low = mid + BigInt(1);
             } else {
@@ -129,15 +116,14 @@ export const placeBet = async (req: Request, res: Response) => {
         }
 
         if (bestShares === BigInt(0)) {
-            return res.status(400).json({ success: false, error: 'Amount too small' });
+            return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
         }
 
-        // Execute trade via Operator
-        // Add 2% buffer to cost for slippage protection during block time
-        const finalCost = await marketContract.calculateCost(marketId, targetOutcome, bestShares);
+        // 5% slippage buffer on the exact cost at execution time
+        const finalCost: bigint = await marketContract.calculateCost(marketId, targetOutcome, bestShares);
         const maxCostWithBuffer = finalCost * BigInt(105) / BigInt(100);
 
-        console.log(`[Bet] Relayer ${signer.address} buying ${ethers.formatUnits(bestShares, 18)} shares for ${normalizedAddress}`);
+        console.log(`[Bet] Relayer ${signer.address} buying ${ethers.formatUnits(bestShares, USDC_DECIMALS)} shares for ${normalizedAddress}`);
 
         const tx = await marketContract.buySharesFor(
             normalizedAddress,
@@ -146,44 +132,18 @@ export const placeBet = async (req: Request, res: Response) => {
             bestShares,
             maxCostWithBuffer
         );
-
         const receipt = await tx.wait();
 
-        // --- FEE COLLECTION ---
-        if (feesToSweep > 0n && custodialSigner) {
-            console.log(`[Bet] Sweeping Gas Fee: ${ethers.formatUnits(feesToSweep, 18)} USDC...`);
-
-            // Check Gas for Custodial Wallet (needed for withdraw/transfer)
-            const custBal = await provider.getBalance(custodialSigner.address);
-            const minGas = ethers.parseEther("0.0006");
-            if (custBal < minGas) {
-                console.log(`[Bet] Funding Custodial Wallet for Fee Sweep...`);
-                const fundTx = await signer.sendTransaction({
-                    to: custodialSigner.address,
-                    value: minGas - custBal + ethers.parseEther("0.0002")
-                });
-                await fundTx.wait();
-            }
-
+        // --- GAS FEE RECOVERY via sweepGasFeeFor (works for ALL user types) ---
+        if (feesToSweep > 0n) {
+            console.log(`[Bet] Sweeping gas fee: ${ethers.formatUnits(feesToSweep, USDC_DECIMALS)} USDC from ${normalizedAddress} ...`);
             try {
-                // 1. Withdraw Fee from Market
-                // DECIMAL FIX: withdraw() takes 18-dec USDC amount — same as feesToSweep.
-                const marketAbi = ['function withdraw(uint256 amount)'];
-                const mkt = new ethers.Contract(MARKET_CONTRACT, marketAbi, custodialSigner);
-                const txW = await mkt.withdraw(feesToSweep); // feesToSweep is already 18-dec USDC
-                await txW.wait();
-
-                // 2. Transfer to Relayer
-                const USDC_ADDR = process.env.NEXT_PUBLIC_USDC_CONTRACT || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
-                const usdcAbi = ['function transfer(address, uint256) returns (bool)'];
-                const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, custodialSigner);
-
-                const txT = await usdc.transfer(signer.address, feesToSweep);
-                await txT.wait();
-                console.log(`[Bet] ✅ Gas fee swept to relayer: ${txT.hash}`);
-
+                const sweepTx = await marketContract.sweepGasFeeFor(normalizedAddress, feesToSweep);
+                await sweepTx.wait();
+                console.log(`[Bet] ✅ Gas fee recovered: ${sweepTx.hash}`);
             } catch (e: any) {
-                console.error(`[Bet] Failed to sweep fee: ${e.message}`);
+                // Non-fatal: trade succeeded, relayer absorbs gas cost this round
+                console.error(`[Bet] ⚠️ Gas sweep failed (non-fatal): ${e.message}`);
             }
         }
 
@@ -193,9 +153,9 @@ export const placeBet = async (req: Request, res: Response) => {
                 hash: receipt.hash,
                 marketId,
                 outcomeIndex: targetOutcome,
-                shares: ethers.formatUnits(bestShares, 18),
+                shares: ethers.formatUnits(bestShares, USDC_DECIMALS),
                 user: walletAddress,
-                feeDeducted: ethers.formatUnits(feesToSweep, 18)
+                gasDeducted: ethers.formatUnits(feesToSweep, USDC_DECIMALS),
             }
         });
 
@@ -232,10 +192,10 @@ export const estimateBetCost = async (req: Request, res: Response) => {
 
         return res.json({
             success: true,
-            estimatedCost: ethers.formatUnits(cost, 18),          // 18-dec LMSR value → human readable
+            estimatedCost: ethers.formatUnits(cost, 18),
             shares: shares,
-            pricePerShare: (Number(priceBP) / 10000).toFixed(4),  // basis points → 0.0–1.0
-            pricePercent: (Number(priceBP) / 100).toFixed(2),     // basis points → 0–100%
+            pricePerShare: (Number(priceBP) / 10000).toFixed(4),
+            pricePercent: (Number(priceBP) / 100).toFixed(2),
         });
     } catch (error: any) {
         return res.status(500).json({
@@ -244,4 +204,3 @@ export const estimateBetCost = async (req: Request, res: Response) => {
         });
     }
 };
-

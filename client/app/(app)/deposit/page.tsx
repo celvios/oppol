@@ -137,11 +137,17 @@ export default function DepositPage() {
                     const { web3Service } = await import('@/lib/web3');
 
                     // 1. Check if funds already arrived in game (backend auto-sweep)
-                    console.log('[Polling] Checking game balance...');
-                    const newBal = await web3Service.getDepositedBalance(effectiveAddress);
+                    // For custodial/Google users the contract balance is stored under
+                    // custodialWalletAddress (backend-derived SA), NOT the Privy login wallet.
+                    const checkAddr = (isEmbeddedWallet && custodialWalletAddress)
+                        ? custodialWalletAddress
+                        : effectiveAddress;
+                    console.log('[Polling] Checking game balance for:', checkAddr);
+                    const newBal = await web3Service.getDepositedBalance(checkAddr);
                     const newBalNum = parseFloat(newBal);
                     const oldBalNum = parseFloat(initialGameBalance || gameBalance || '0');
                     if (newBalNum > oldBalNum + 0.001) {
+                        clearInterval(interval); // stop polling immediately
                         setGameBalance(newBal);
                         if (fundingStep !== 'depositing') setFundingStep('depositing');
 
@@ -290,7 +296,10 @@ export default function DepositPage() {
 
             // Show the higher of the two (contract balance takes precedence once deposited)
             const contractNum = parseFloat(contractBalance);
-            const total = contractNum > 0 ? contractNum : rawWalletBalance;
+            // Only fall back to raw wallet balance if it is meaningfully above zero (>0.001)
+            // This prevents showing USDC "dust" leftover from a previous withdrawal
+            const DUST_THRESHOLD = 0.001;
+            const total = contractNum > 0 ? contractNum : (rawWalletBalance > DUST_THRESHOLD ? rawWalletBalance : 0);
             console.log(`[Deposit] Game balance: contract=${contractNum}, raw=${rawWalletBalance}, showing=${total}`);
             setGameBalance(total.toFixed(2));
         } catch (error: any) {
@@ -585,7 +594,15 @@ export default function DepositPage() {
             setDepositAmount('');
             setFundingStep('input'); // Reset flow
             fetchBalance();
-            fetchGameBalance(); // Refresh game balance
+            // Poll fetchGameBalance a few times so the display catches up after the
+            // RPC node indexes the confirmed transaction. setGameBalance() inside
+            // fetchGameBalance() triggers re-renders automatically.
+            let pollCount = 0;
+            const balancePoll = setInterval(async () => {
+                pollCount++;
+                await fetchGameBalance();
+                if (pollCount >= 8) clearInterval(balancePoll); // poll for ~16s max
+            }, 2000);
 
         } catch (error: any) {
             console.error('Deposit failed:', error);

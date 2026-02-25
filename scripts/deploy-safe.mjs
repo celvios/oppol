@@ -46,9 +46,8 @@ async function main() {
     console.log(`   BNB balance: ${ethers.formatEther(bnb)}`);
     console.log(`   USDC: ${USDC_ADDR}`);
 
-    if (bnb < ethers.parseEther('0.01')) {
-        console.error(`\n❌ Need ~0.01 BNB for deployment. Have: ${ethers.formatEther(bnb)}`);
-        process.exit(1);
+    if (bnb < ethers.parseEther('0.002')) {
+        console.warn(`\n⚠️  Warning: Low BNB balance (${ethers.formatEther(bnb)}). The deployment might fail if gas spikes.`);
     }
 
     // Load compiled artifact

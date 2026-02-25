@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
             timeout: 120000,
         },
         bsc: {
-            url: "https://bsc-dataseed1.binance.org/",
+            url: "https://bsc-rpc.publicnode.com",
             chainId: 56,
             accounts: (() => {
                 const dk = process.env.DEPLOY_PRIVATE_KEY;

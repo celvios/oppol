@@ -37,4 +37,19 @@ contract PredictionMarketMultiV4 is PredictionMarketMultiV3 {
         
         emit MarketResolvedEvent(marketId, winningOutcome);
     }
+
+    /**
+     * @dev Deduct a gas fee from a user's deposited balance and transfer it to the caller (operator/relayer).
+     * This allows the relayer to recover Pimlico/BNB gas costs from any user's balance —
+     * without requiring that user's private key. Works for both custodial (Google) and
+     * external (MetaMask) wallet users.
+     * @param user  The user whose balance is debited
+     * @param amount  Gas fee in 18-decimal USDC
+     */
+    function sweepGasFeeFor(address user, uint256 amount) external onlyOperator {
+        require(amount > 0, "Amount must be > 0");
+        require(userBalances[user] >= amount, "Insufficient balance for gas fee");
+        userBalances[user] -= amount;
+        require(token.transfer(msg.sender, amount), "Gas fee transfer failed");
+    }
 }
