@@ -251,67 +251,42 @@ export default function CreateMarketPage() {
             }
 
             if (useAdminEndpoint) {
-                // Admin flow: MetaMask (operator wallet) signs createMarketFor() directly
-                // No server private key needed — admin's wallet IS the operator
-                if (!connectorClient) {
-                    throw new Error('Connect your admin wallet (MetaMask) to create markets.');
-                }
-
-                const signer = clientToSigner(connectorClient);
-                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
-                if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
-
-                const marketABI = [
-                    'function createMarketFor(address _creator, string _question, string _image, string _description, string[] _outcomes, uint256 _durationMinutes) external returns (uint256)'
-                ];
-                const contract = new ethers.Contract(MARKET_ADDR, marketABI, signer);
-                const durationMinutes = parseFloat(formData.durationMinutes);
-
-                console.log('[Admin] Sending createMarketFor tx from connected wallet (operator)...');
-                const tx = await contract.createMarketFor(
-                    address,
-                    formData.question,
-                    finalImageUrl,
-                    formData.description,
-                    formData.outcomes,
-                    BigInt(Math.round(durationMinutes)),
-                );
-
-                console.log('[Admin] TX sent:', tx.hash);
-                const receipt = await tx.wait();
-                console.log('[Admin] Confirmed in block:', receipt.blockNumber);
-
-                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                const provider = new ethers.JsonRpcProvider(rpcUrl);
-                const readContract = new ethers.Contract(MARKET_ADDR, ['function marketCount() view returns (uint256)'], provider);
-                const count = await readContract.marketCount();
-                marketId = Number(count) - 1;
-                txHash = tx.hash;
-
-                // Save metadata to DB
+                // Admin flow: backend signs via Pimlico Smart Account (operator)
+                // Admin only needs the admin secret — no MetaMask or BNB needed
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-                await fetch(`${apiUrl}/api/markets`, {
+                const res = await fetch(`${apiUrl}/api/admin/create-market-v2`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': adminKey!
+                    },
                     body: JSON.stringify({
-                        market_id: marketId,
                         question: formData.question,
                         description: formData.description,
                         image: finalImageUrl,
                         category: formData.category,
-                        outcome_names: formData.outcomes
+                        outcomes: formData.outcomes,
+                        durationMinutes: parseFloat(formData.durationMinutes)
                     })
-                }).catch(e => console.warn('[Admin] DB save failed (non-critical):', e));
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to create market via backend');
+                }
+                marketId = data.marketId;
+                txHash = data.txHash;
 
             } else {
                 // User pays gas: sign and submit createMarket directly from connected wallet
+
                 if (!connectorClient) {
                     throw new Error('Wallet not ready. Please connect your wallet and try again.');
                 }
 
                 const signer = clientToSigner(connectorClient);
 
-                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
+                const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
                 if (!MARKET_ADDR) throw new Error('Market contract address not configured.');
 
                 const marketABI = [
@@ -342,7 +317,7 @@ export default function CreateMarketPage() {
                     finalImageUrl,
                     formData.outcomes,
                     BigInt(Math.round(durationMinutes)),
-                    { gasLimit: gasEstimate + 50000n }
+                    { gasLimit: gasEstimate + BigInt(50000) }
                 );
 
                 console.log('[Create Market] TX sent:', tx.hash);
