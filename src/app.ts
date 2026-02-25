@@ -401,86 +401,63 @@ app.post('/api/multi-bet', verifyAuth, async (req, res) => {
     // ==================================================================================
 
     // Check if this is a custodial user (has key in DB)
-    const walletQuery = await query('SELECT encrypted_private_key FROM wallets WHERE LOWER(public_address) = $1', [normalizedAddress.toLowerCase()]);
+    // Check if this is a custodial user by looking up their SA address in users.wallet_address
+    // (authController stores the Pimlico SA address there)
+    const walletQuery = await query(
+      `SELECT w.encrypted_private_key, w.public_address as eoa
+       FROM users u
+       JOIN wallets w ON w.user_id = u.id
+       WHERE LOWER(u.wallet_address) = $1`,
+      [normalizedAddress.toLowerCase()]
+    );
     const isCustodial = walletQuery.rows.length > 0;
 
     if (isCustodial) {
-      console.log(`✨ [MULTI-BET] Custodial User Detected: ${normalizedAddress}`);
+      console.log(`✨ [MULTI-BET] Custodial User Detected (SA): ${normalizedAddress}`);
 
       try {
         const { EncryptionService } = await import('./services/encryption');
-        const { CustodialWalletService } = await import('./services/custodialWallet');
-
         const userEncryptedKey = walletQuery.rows[0].encrypted_private_key;
         const userPrivateKey = EncryptionService.decrypt(userEncryptedKey);
-        const userWallet = new ethers.Wallet(userPrivateKey, provider);
 
-        // 1. Check BNB Balance (Gas)
-        const userBnbBalance = await provider.getBalance(userWallet.address);
-        const minGas = ethers.parseEther('0.002'); // Minimum to be safe
+        // 1. Check contract balance for the SA address (normalizedAddress IS the SA)
+        const MARKET_ADDR_CHECK = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
+        if (!MARKET_ADDR_CHECK) throw new Error('Missing MARKET_ADDRESS');
 
-        if (userBnbBalance < minGas) {
-          console.log(`⛽ [MULTI-BET] Low Gas (${ethers.formatEther(userBnbBalance)} BNB). Funding user...`);
-          // Fund 0.003 BNB
-          await CustodialWalletService.fundWallet(userWallet.address, '0.003', provider);
-          console.log('✅ [MULTI-BET] User funded with gas.');
-        }
-
-        // 2. Check Contract Balance vs Cost
-        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || process.env.MULTI_MARKET_ADDRESS;
-        // Note: We use MARKET_CONTRACT in CONFIG, but maintaining local var for safety
-        if (!MARKET_ADDR) throw new Error("Missing MARKET_ADDRESS");
-
-        const marketContract = new ethers.Contract(MARKET_ADDR, [
+        const marketCheckContract = new ethers.Contract(MARKET_ADDR_CHECK, [
           'function userBalances(address) view returns (uint256)',
-          'function deposit(uint256 amount) external'
-        ], userWallet);
+        ], provider);
 
-        const depositedBalance = await marketContract.userBalances(userWallet.address);
-        const costInWei = ethers.parseUnits(maxCost.toString(), 18); // Max willingness to pay
-
-        // We need to ensure they have enough deposited. 
-        // NOTE: 'maxCost' is loosely what they want to spend. Real cost might be less.
-        // But we should ensure they have at least 'maxCost' deposited to be safe.
+        const depositedBalance = await marketCheckContract.userBalances(normalizedAddress);
+        const costInWei = ethers.parseUnits(maxCost.toString(), 18);
 
         if (depositedBalance < costInWei) {
-          const needed = costInWei - depositedBalance;
-          console.log(`💰 [MULTI-BET] Insufficient Internal Balance. Need to deposit: ${ethers.formatUnits(needed, 18)} USDC`);
+          // Check SA's raw USDC wallet balance
+          const USDC_ADDR_CHECK = CONFIG.USDC_CONTRACT;
+          const usdcCheck = new ethers.Contract(USDC_ADDR_CHECK, [
+            'function balanceOf(address) view returns (uint256)'
+          ], provider);
+          const saUsdcBalance = await usdcCheck.balanceOf(normalizedAddress);
 
-          // 3. Check Wallet USDC Balance
-          const USDC_ADDR = CONFIG.USDC_CONTRACT;
-          const usdcContract = new ethers.Contract(USDC_ADDR, [
-            'function balanceOf(address) view returns (uint256)',
-            'function approve(address, uint256) external returns (bool)',
-            'function allowance(address, address) view returns (uint256)'
-          ], userWallet);
-
-          const walletUsdcBalance = await usdcContract.balanceOf(userWallet.address);
-
-          if (walletUsdcBalance < needed) {
-            // Fail early if they simply don't have the funds anywhere
-            throw new Error(`Insufficient funds. Wallet: ${ethers.formatUnits(walletUsdcBalance, 18)}, Deposited: ${ethers.formatUnits(depositedBalance, 18)}, Needed Total: ${amount}`);
+          if (saUsdcBalance < costInWei - depositedBalance) {
+            throw new Error(`Insufficient funds. SA contract balance: ${ethers.formatUnits(depositedBalance, 18)}, SA wallet: ${ethers.formatUnits(saUsdcBalance, 18)}, Needed: ${maxCost}`);
           }
 
-          // 4. Approve if needed
-          const allowance = await usdcContract.allowance(userWallet.address, MARKET_ADDR);
-          if (allowance < needed) {
-            console.log('🔓 [MULTI-BET] Approving USDC...');
-            const approveTx = await usdcContract.approve(MARKET_ADDR, ethers.MaxUint256);
-            await approveTx.wait();
-            console.log('✅ [MULTI-BET] Approved.');
+          // Auto-deposit from SA via Pimlico (gas sponsored, fee deducted from amount)
+          console.log(`💰 [MULTI-BET] SA has insufficient contract balance. Triggering Pimlico deposit...`);
+          const { processCustodialDeposit } = await import('./controllers/walletController');
+          const userResult = await query(
+            `SELECT u.id FROM users u JOIN wallets w ON w.user_id = u.id WHERE LOWER(u.wallet_address) = $1`,
+            [normalizedAddress.toLowerCase()]
+          );
+          if (userResult.rows.length > 0) {
+            const saBalance = parseFloat(ethers.formatUnits(saUsdcBalance, 18));
+            await processCustodialDeposit(userResult.rows[0].id, saBalance.toString(), 'auto-bet');
+            console.log('✅ [MULTI-BET] Pimlico deposit complete.');
+            await new Promise(r => setTimeout(r, 1000));
           }
-
-          // 5. Deposit
-          console.log(`💸 [MULTI-BET] Depositing ${ethers.formatUnits(needed, 18)} USDC...`);
-          const depositTx = await marketContract.deposit(needed);
-          await depositTx.wait();
-          console.log('✅ [MULTI-BET] Deposit successful.');
-
-          // Short wait for consistency
-          await new Promise(r => setTimeout(r, 1000));
         } else {
-          console.log('✅ [MULTI-BET] User has sufficient internal balance.');
+          console.log('✅ [MULTI-BET] SA has sufficient contract balance.');
         }
 
       } catch (custodialError: any) {
@@ -490,6 +467,7 @@ app.post('/api/multi-bet', verifyAuth, async (req, res) => {
           error: `Auto-Deposit Failed: ${custodialError.message}`
         });
       }
+
     } else {
       console.log(`ℹ️ [MULTI-BET] Standard User (Non-Custodial): ${normalizedAddress}`);
       // Standard users must have manually deposited before calling this.
@@ -2169,16 +2147,20 @@ initDatabase().then(async () => {
 
       // Load all existing custodial wallets from DB into the watcher
       // This ensures deposits are detected even after server restarts
+      // Load all custodial SA addresses into the deposit watcher.
+      // users.wallet_address holds the Pimlico SA address (set by authController).
+      // We watch the SA because users deposit to it, and Pimlico pays gas.
       const wallets = await query(
-        `SELECT w.public_address, w.user_id, u.phone_number
+        `SELECT u.wallet_address as watch_address, w.user_id, u.phone_number
          FROM wallets w
-         JOIN users u ON u.id = w.user_id`,
+         JOIN users u ON u.id = w.user_id
+         WHERE u.wallet_address IS NOT NULL`,
         []
       );
       for (const row of wallets.rows) {
-        watchAddress(row.public_address, row.user_id, row.phone_number || '');
+        watchAddress(row.watch_address, row.user_id, row.phone_number || '');
       }
-      console.log(`✅ Loaded ${wallets.rows.length} custodial wallets into deposit watcher`);
+      console.log(`✅ Loaded ${wallets.rows.length} custodial SA addresses into deposit watcher`);
 
     } catch (error) {
       console.warn('⚠️ Deposit watcher failed to start (non-fatal):', error);
