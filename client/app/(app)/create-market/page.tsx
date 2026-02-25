@@ -42,11 +42,17 @@ export default function CreateMarketPage() {
         outcomes: ["Yes", "No"] // Default to binary, user can add more
     });
 
-    // Check for admin access on mount
+    // Check for admin access on mount — validate key against backend
     useEffect(() => {
         const adminKey = localStorage.getItem("admin_secret");
         if (adminKey) {
-            setHasAdminAccess(true);
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            fetch(`${apiUrl}/api/admin/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminKey }
+            })
+                .then(r => r.ok ? setHasAdminAccess(true) : setHasAdminAccess(false))
+                .catch(() => setHasAdminAccess(false));
         }
 
         // Fetch categories from API
@@ -197,11 +203,23 @@ export default function CreateMarketPage() {
         }
 
         const adminKey = localStorage.getItem("admin_secret");
-        const useAdminEndpoint = adminKey && hasAdminAccess;
+        // Admin path: only if key is valid AND connected wallet is the contract operator
+        const MARKET_ADDR = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
+        let isOperator = false;
+        if (adminKey && hasAdminAccess && address && MARKET_ADDR) {
+            try {
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const provider = new ethers.JsonRpcProvider(rpcUrl);
+                const mc = new ethers.Contract(MARKET_ADDR, ['function operator() view returns (address)', 'function owner() view returns (address)'], provider);
+                const [op, ow] = await Promise.all([mc.operator().catch(() => ''), mc.owner().catch(() => '')]);
+                isOperator = address.toLowerCase() === op.toLowerCase() || address.toLowerCase() === ow.toLowerCase();
+            } catch { isOperator = false; }
+        }
+        const useAdminEndpoint = adminKey && hasAdminAccess && isOperator;
         const usePublicEndpoint = canCreate && !useAdminEndpoint;
 
         if (!useAdminEndpoint && !usePublicEndpoint) {
-            setError("You don't have permission to create markets. You need BFT token or admin access.");
+            setError("You don't have permission to create markets. You need BC400 tokens (10M) or an NFT.");
             setIsLoading(false);
             return;
         }

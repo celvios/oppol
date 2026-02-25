@@ -18,6 +18,11 @@ const checkAdminAuth = (req: express.Request, res: express.Response, next: expre
     next();
 };
 
+// Simple endpoint to validate admin key — used by frontend to confirm admin status
+router.post('/validate', checkAdminAuth, (req, res) => {
+    res.json({ success: true, admin: true });
+});
+
 router.post('/resolve-market', checkAdminAuth, async (req, res) => {
     try {
         const { marketId, outcomeIndex } = req.body;
