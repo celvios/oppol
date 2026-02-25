@@ -363,7 +363,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
             // Read protocol fee (bps) from contract so share estimate accounts for it.
             // Contract deducts: totalCost = LSMR_cost + (LSMR_cost * protocolFee / 10000)
             // We need: LSMR_cost + fee = netTradeCost, so LSMR_cost = netTradeCost / (1 + fee%)
-            let protocolFeeBps = 500; // default 5%
+            let protocolFeeBps = 1000; // default 10%
             try {
                 const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
                 const provider = new ethers.JsonRpcProvider(rpcUrl);

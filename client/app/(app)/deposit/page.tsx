@@ -472,13 +472,13 @@ export default function DepositPage() {
 
 
             if (selectedToken.direct) {
-                // Direct USDC deposit to their Smart Account 
-                // We must send funds to their gasless Pimlico address, NOT the market contract.
+                // Two-step gasless deposit for MetaMask users:
+                // Step 1: MetaMask EOA → SA wallet (USDC transfer, MetaMask pays BNB gas once)
+                // Step 2: SA → market.deposit() via Pimlico (gasless, no BNB needed)
 
                 setStatusMessage('Locating Smart Account...');
                 const { BiconomyService } = await import('@/lib/biconomy-service');
 
-                // Active wallet is the connected Web3 wallet (MetaMask)
                 const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
                 const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
 
@@ -487,17 +487,37 @@ export default function DepositPage() {
                 }
 
                 const smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
-                console.log(`[Deposit] Funding Smart Account at: ${smartAccountAddr}`);
+                console.log(`[Deposit] Smart Account: ${smartAccountAddr}`);
 
-                setStatusMessage('Sending to Smart Account...');
-                console.log('[Deposit] Sending USDC transfer tx...');
-                const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                // Check if USDC is already in the SA (user may have sent it previously)
+                const rpcForCheck = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const checkProvider = new ethers.JsonRpcProvider(rpcForCheck);
+                const usdcCheck = new Contract(selectedToken.address, ERC20_ABI, checkProvider);
+                const saUsdcBal = await usdcCheck.balanceOf(smartAccountAddr);
 
-                // Standard ERC-20 transfer to their smart account
-                const transferTx = await tokenContract.transfer(smartAccountAddr, amountInWei);
-                console.log('[Deposit] Transfer Tx sent:', transferTx.hash);
-                await transferTx.wait();
-                console.log('[Deposit] Transfer confirmed.');
+                if (saUsdcBal < amountInWei) {
+                    // Step 1: MetaMask EOA sends USDC to SA (only if not already there)
+                    setStatusMessage('Sending USDC to Smart Account...');
+                    console.log('[Deposit] Step 1: EOA → SA USDC transfer...');
+                    const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
+                    const transferTx = await tokenContract.transfer(smartAccountAddr, amountInWei);
+                    console.log('[Deposit] Transfer tx sent:', transferTx.hash);
+                    await transferTx.wait();
+                    console.log('[Deposit] Transfer confirmed. SA now has USDC.');
+                } else {
+                    console.log('[Deposit] SA already has USDC — skipping transfer, going straight to deposit.');
+                }
+
+                // Step 2: SA calls market.deposit() via Pimlico (gasless)
+                setStatusMessage('Depositing into game (gasless)...');
+                console.log('[Deposit] Step 2: SA → market.deposit() via Pimlico...');
+                await BiconomyService.executeDeposit(
+                    activeWallet,
+                    MARKET_CONTRACT,
+                    selectedToken.address,
+                    amountInWei
+                );
+                console.log('[Deposit] Gasless market deposit confirmed!');
 
             } else {
                 // Cross-token Zap: convert USDT / BNB → USDC and deposit into Smart Account
