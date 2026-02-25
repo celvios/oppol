@@ -179,17 +179,21 @@ export class BiconomyService {
 
         const smartAccountClient = await this.getSmartAccountClient(privyWallet);
 
-        const approveData = encodeFunctionData({
-            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
-            functionName: "approve",
-            args: [marketAddress as Address, costUSDC],
-        });
+        // Build batch calls
+        const calls: { to: Address; data: `0x${string}` }[] = [];
 
-        const calls: { to: Address; data: `0x${string}` }[] = [
-            { to: usdcAddress as Address, data: approveData },
-        ];
-
+        // Step 1 (optional): If there's a platform fee, withdraw it from the user's deposited
+        //   balance → SA wallet, then forward to treasury.
+        //   This recoups Pimlico's gas sponsorship cost from the user's in-contract balance.
+        //   `market.withdraw()` decrements userBalances[SA] and sends USDC to the SA wallet.
         if (feeUSDC > BigInt(0)) {
+            const withdrawData = encodeFunctionData({
+                abi: parseAbi(["function withdraw(uint256 amount)"]),
+                functionName: "withdraw",
+                args: [feeUSDC],
+            });
+            calls.push({ to: marketAddress as Address, data: withdrawData });
+
             const transferData = encodeFunctionData({
                 abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
                 functionName: "transfer",
@@ -198,6 +202,8 @@ export class BiconomyService {
             calls.push({ to: usdcAddress as Address, data: transferData });
         }
 
+        // Step 2: Buy shares using the remaining deposited balance (no approve needed —
+        //   buyShares draws from userBalances[msg.sender] directly).
         const buyData = encodeFunctionData({
             abi: parseAbi(["function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)"]),
             functionName: "buyShares",
@@ -205,7 +211,6 @@ export class BiconomyService {
         });
         calls.push({ to: marketAddress as Address, data: buyData });
 
-        console.log(`[Pimlico] Gas dynamically checked: ${feeUSDC.toString()}`);
         console.log(`[Pimlico] Sending batched UserOperation (${calls.length} calls)...`);
 
         const txHash = await smartAccountClient.sendUserOperation({ calls });
