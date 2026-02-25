@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from './use-wallet';
+import { useAuth } from '@/hooks/useAuth';
 
 const BC400_ABI = [
     "function balanceOf(address owner) view returns (uint256)"
@@ -13,13 +14,17 @@ const MIN_TOKEN_BALANCE = "10000000"; // 10 Million
 const BC400_DECIMALS = 18; // BC400 has 18 decimals (verified on-chain)
 
 export function useBC400Check() {
-    const { address, isConnected } = useWallet();
+    const { address: effectiveAddress, isConnected, loginMethod } = useWallet();
+    // For Web3 wallet users, tokens live in their raw EOA (not the Smart Account).
+    // Use walletAddress (raw EOA) for the check when available.
+    const { walletAddress: rawEOA } = useAuth();
+    const checkAddress = (loginMethod === 'wallet' && rawEOA) ? rawEOA : effectiveAddress;
     const [hasNFT, setHasNFT] = useState(false);
     const [checking, setChecking] = useState(false);
 
     useEffect(() => {
         async function checkBalance() {
-            if (!isConnected || !address) {
+            if (!isConnected || !checkAddress) {
                 setHasNFT(false);
                 return;
             }
@@ -31,14 +36,14 @@ export function useBC400Check() {
                 // Check NFT Balance with 10s timeout
                 const nftContract = new ethers.Contract(BC400_NFT_ADDRESS, BC400_ABI, provider);
                 const nftBalance = await Promise.race([
-                    nftContract.balanceOf(address),
+                    nftContract.balanceOf(checkAddress),
                     new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
                 ]).catch(() => BigInt(0));
 
                 // Check Token Balance with 10s timeout
                 const tokenContract = new ethers.Contract(BC400_TOKEN_ADDRESS, BC400_ABI, provider);
                 const tokenBalance = await Promise.race([
-                    tokenContract.balanceOf(address),
+                    tokenContract.balanceOf(checkAddress),
                     new Promise<bigint>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
                 ]).catch(() => BigInt(0));
 
@@ -49,7 +54,7 @@ export function useBC400Check() {
                 const hasNft = Number(nftBalance) > 0;
 
                 console.log('[BC400 Access Check]', {
-                    address,
+                    address: checkAddress,
                     tokenBalance: ethers.formatUnits(tokenBalance, BC400_DECIMALS),
                     tokenBalanceRaw: tokenBalance.toString(),
                     requiredTokens: MIN_TOKEN_BALANCE,
@@ -70,6 +75,6 @@ export function useBC400Check() {
         }
 
         checkBalance();
-    }, [address, isConnected]);
+    }, [checkAddress, isConnected]);
     return { hasNFT, checking };
 }
