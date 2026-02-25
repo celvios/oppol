@@ -268,15 +268,16 @@ export function DesktopTerminal() {
 
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            const response = await fetch(`${apiUrl}/api/bet`, {
+            // Use /api/multi-bet — it has custodial auto-deposit logic (checks EOA balance,
+            // funds BNB gas, deposits USDC if needed, then executes buySharesFor)
+            const outcomeIndex = tradeSide === 'YES' ? 0 : 1;
+            const response = await fetch(`${apiUrl}/api/multi-bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     walletAddress: address,
-                    // Send privyUserId for custodial users so backend can resolve the SA address
-                    privyUserId: isEmbeddedWallet ? privyUser?.id : undefined,
                     marketId: market.id,
-                    side: tradeSide,
+                    outcomeIndex,
                     amount: parseFloat(amount)
                 })
             });
