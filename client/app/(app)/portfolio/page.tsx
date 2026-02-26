@@ -113,10 +113,34 @@ export default function PortfolioPage() {
                         console.warn('[Portfolio] Failed to fetch custodial address:', e);
                     }
                 } else if (loginMethod === 'wallet') {
-                    // MetaMask/connected wallet users deposit directly via EOA (approve+deposit).
-                    // Their balance is stored as userBalances[EOA] in the market contract.
-                    // No SA lookup needed — just use their EOA address.
-                    console.log('[Portfolio] Wallet user — using EOA address for balance:', checkAddress);
+                    // MetaMask users now deposit directly (approve+deposit from EOA).
+                    // But some may have previously deposited via the old Biconomy SA flow.
+                    // Silently check if the Biconomy SA has a higher balance and use that instead.
+                    try {
+                        const { BiconomyService } = await import('@/lib/biconomy-service');
+                        let saAddr: string | null = null;
+                        if (privyUser) {
+                            const wallets = privyUser.linkedAccounts.filter((a: any) => a.type === 'wallet') || [];
+                            const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
+                            if (activeWallet) saAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
+                        } else {
+                            saAddr = await BiconomyService.getSmartAccountAddressFromEOA(effectiveAddress!);
+                        }
+                        if (saAddr && saAddr.toLowerCase() !== effectiveAddress?.toLowerCase()) {
+                            const saBal = await web3Service.getDepositedBalance(saAddr).catch(() => '0');
+                            const eoaBal = await web3Service.getDepositedBalance(checkAddress).catch(() => '0');
+                            // Use whichever address has the higher balance
+                            if (parseFloat(saBal) > parseFloat(eoaBal)) {
+                                console.log(`[Portfolio] Legacy SA balance (${saBal}) > EOA balance (${eoaBal}). Using SA: ${saAddr}`);
+                                checkAddress = saAddr;
+                            } else {
+                                console.log(`[Portfolio] EOA balance (${eoaBal}) >= SA balance (${saBal}). Using EOA.`);
+                            }
+                        }
+                    } catch {
+                        // Biconomy unavailable — stay with EOA
+                        console.log('[Portfolio] Biconomy SA check skipped, using EOA balance.');
+                    }
                 }
 
                 // Kick off balance + portfolio fetch IN PARALLEL for speed
