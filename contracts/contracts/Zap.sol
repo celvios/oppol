@@ -39,6 +39,22 @@ contract Zap is Ownable {
     }
 
     /**
+     * @dev Update the market contract address (e.g. after a redeployment)
+     */
+    function setMarket(address _newMarket) external onlyOwner {
+        require(_newMarket != address(0), "Invalid address");
+        market = IPredictionMarket(_newMarket);
+    }
+
+    /**
+     * @dev Update the USDC token address
+     */
+    function setUsdc(address _newUsdc) external onlyOwner {
+        require(_newUsdc != address(0), "Invalid address");
+        usdc = IERC20(_newUsdc);
+    }
+
+    /**
      * @dev Zap any ERC20 token into the Prediction Market (converts to USDC)
      * @param tokenIn The token to deposit (e.g. USDT)
      * @param amountIn The amount of tokenIn to deposit
