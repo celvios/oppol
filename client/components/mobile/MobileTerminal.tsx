@@ -759,6 +759,20 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
         setLoading(true);
         setError(null);
 
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 1 - Balance Check ======
+        console.log('🔍 [MobileTerminal] [ISSUE-1] handleBuy called:', {
+            amount,
+            amountParsed: parseFloat(amount),
+            balance,
+            balanceParsed: parseFloat(balance),
+            isBalanceSufficient,
+            loginMethod,
+            address,
+            isConnected,
+            market_id: market.id,
+        });
+        // ========================================================
+
         try {
             if (loginMethod === 'wallet') {
                 // EXTERNAL WALLET (Inclusive Pricing)
@@ -823,6 +837,17 @@ function TradeBottomSheet({ isOpen, onClose, market, side, outcomeIndex = 0, bal
     // If custodial: Amount <= Balance
     // If external: We don't verify balance here (logic in buyShares will fail if low), so allow proceed
     const isBalanceSufficient = loginMethod === 'wallet' || parseFloat(amount || '0') <= parseFloat(balance);
+
+    // ====== 🔍 DIAGNOSTIC LOG: Issue 1 - Balance Render ======
+    console.log('🔍 [MobileTerminal] [ISSUE-1] Balance state on render:', {
+        balance,
+        amount,
+        isBalanceSufficient,
+        loginMethod,
+        address,
+        isConnected,
+    });
+    // =========================================================
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end justify-center">

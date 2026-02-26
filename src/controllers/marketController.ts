@@ -298,6 +298,10 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
         const { address } = req.params;
         if (!address) return res.status(400).json({ success: false, message: 'Address required' });
 
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 2 - Portfolio Entry ======
+        console.log('🔍 [Portfolio] [ISSUE-2] getUserPortfolio called for address:', address);
+        // ===========================================================
+
         // Get all markets the user has traded in, with their share balances
         // Group by market + outcome to sum shares, and join market info
         const result = await query(`
@@ -318,6 +322,23 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
             GROUP BY t.market_id, t.outcome_index, m.question, m.outcome_names, m.prices, m.resolved, m.winning_outcome
             ORDER BY t.market_id ASC
         `, [address]);
+
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 2 - DB Trades Query Result ======
+        console.log('🔍 [Portfolio] [ISSUE-2] Trades DB query result:', {
+            address,
+            rowsFound: result.rows.length,
+            rows: result.rows.map((r: any) => ({
+                market_id: r.market_id,
+                outcome_index: r.outcome_index,
+                total_shares: r.total_shares,
+                total_cost: r.total_cost,
+                question: r.question ? r.question.substring(0, 40) + '...' : 'NULL (no matching market in DB!)',
+            })),
+            NOTE: result.rows.length === 0
+                ? '⚠️ NO TRADES FOUND — Either no bets placed yet, or trades are NOT being written to DB, or wrong address being queried'
+                : `✅ Found ${result.rows.length} trade group(s)`,
+        });
+        // =================================================================
 
         // Group by market_id
         const marketMap: Record<number, any> = {};
@@ -412,6 +433,20 @@ export const getUserPortfolio = async (req: Request, res: Response) => {
                 console.error('[Portfolio] On-chain claimed check failed, using default false:', e);
             }
         }
+
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 2 - Final Positions ======
+        console.log('🔍 [Portfolio] [ISSUE-2] Final positions returned:', {
+            address,
+            positionCount: positions.length,
+            positions: positions.map((p: any) => ({
+                marketId: p.marketId,
+                market: p.market?.substring(0, 30),
+                side: p.side,
+                shares: p.shares,
+                currentPrice: p.currentPrice,
+            })),
+        });
+        // ============================================================
 
         res.json({ success: true, positions });
     } catch (error) {

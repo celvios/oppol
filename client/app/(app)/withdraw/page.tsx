@@ -108,6 +108,20 @@ export default function WithdrawPage() {
             const deposited = await web3MultiService.getDepositedBalance(effectiveAddress);
             setContractBalance(deposited);
 
+            // ====== 🔍 DIAGNOSTIC LOG: Issue 3 - Contract Balance ======
+            console.log('🔍 [WithdrawPage] [ISSUE-3] Contract (deposited game) balance:', {
+                effectiveAddress,
+                deposited,
+                depositedParsed: parseFloat(deposited || '0'),
+                loginMethod,
+                isEmbeddedWallet,
+                custodialAddress,
+                NOTE: parseFloat(deposited || '0') === 0
+                    ? '⚠️ Deposited balance is ZERO — check if correct SA address is used for this user'
+                    : '✅ Has deposited balance',
+            });
+            // =============================================================
+
             // 2. Get Wallet Balance — check both USDC AND USDT, show combined total
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const { ethers: eth } = await import('ethers');
@@ -148,6 +162,22 @@ export default function WithdrawPage() {
 
             console.log(`[WithdrawPage] USDC: ${usdcNum}, USDT: ${usdtNum}, Privy USDT: ${privyUsdtNum}`);
             setWalletBalance(totalWallet.toFixed(6));
+
+            // ====== 🔍 DIAGNOSTIC LOG: Issue 3 - Wallet Balance ======
+            console.log('🔍 [WithdrawPage] [ISSUE-3] Wallet balance breakdown:', {
+                effectiveAddress,
+                USDC_ADDRESS,
+                usdcBalance: usdcNum,
+                usdtBalance: usdtNum,
+                totalWallet,
+                availableBalance: ethers.formatUnits(
+                    (contractBalance ? parseFloat(contractBalance) : 0) * 1e6 + totalWallet * 1e6,
+                    6
+                ),
+                privyAddress,
+                privyUsdtBalance: privyUsdtNum,
+            });
+            // ============================================================
 
 
 

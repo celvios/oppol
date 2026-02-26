@@ -62,6 +62,18 @@ export const placeBet = async (req: Request, res: Response) => {
     try {
         const { walletAddress, privyUserId, marketId, outcomeIndex, side, amount } = req.body;
 
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 1 & 2 - Bet Entry ======
+        console.log('🔍 [BetController] [ISSUE-1/2] Incoming bet request:', {
+            walletAddress,
+            privyUserId: privyUserId ? `${privyUserId.substring(0, 12)}...` : undefined,
+            marketId,
+            outcomeIndex,
+            side,
+            amount,
+            timestamp: new Date().toISOString(),
+        });
+        // =========================================================
+
         if (!walletAddress) {
             return res.status(400).json({ success: false, error: 'Wallet address required' });
         }
@@ -73,6 +85,15 @@ export const placeBet = async (req: Request, res: Response) => {
         // Resolve the correct on-chain address where funds live.
         // For custodial users the Pimlico SA is re-derived from the stored private key.
         const normalizedAddress = await resolveTradeAddress(walletAddress, privyUserId);
+
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 1 - Address Resolution ======
+        console.log('🔍 [BetController] [ISSUE-1] Address resolution result:', {
+            original_walletAddress: walletAddress,
+            resolved_normalizedAddress: normalizedAddress,
+            addressChanged: walletAddress.toLowerCase() !== normalizedAddress,
+            hasCustodialUser: !!privyUserId,
+        });
+        // =============================================================
 
 
         // Determine outcome index
@@ -121,9 +142,23 @@ export const placeBet = async (req: Request, res: Response) => {
         const userBalance: bigint = await marketContract.userBalances(normalizedAddress);
         const totalRequired = maxCostInUnits + feesToSweep;
 
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 1 - On-Chain Balance Check ======
+        console.log('🔍 [BetController] [ISSUE-1] On-chain balance check:', {
+            address: normalizedAddress,
+            userBalance_raw: userBalance.toString(),
+            userBalance_formatted: ethers.formatUnits(userBalance, USDC_DECIMALS),
+            requiredAmount: amount,
+            maxCostInUnits_formatted: ethers.formatUnits(maxCostInUnits, USDC_DECIMALS),
+            feesToSweep_formatted: ethers.formatUnits(feesToSweep, USDC_DECIMALS),
+            totalRequired_formatted: ethers.formatUnits(totalRequired, USDC_DECIMALS),
+            sufficient: userBalance >= totalRequired,
+            marketContract: MARKET_CONTRACT,
+        });
+        // =================================================================
+
         if (userBalance < totalRequired) {
             const bal = parseFloat(ethers.formatUnits(userBalance, USDC_DECIMALS)).toFixed(4);
-            console.log(`[Bet] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount} (incl. gas)`);
+            console.log(`❌ [BetController] [ISSUE-1] Insufficient balance for ${normalizedAddress}. Have: ${bal}, Need: ${amount} (incl. gas)`);
             return res.status(400).json({
                 success: false,
                 error: `Insufficient balance. Have: $${bal}, Need: $${amount}`
@@ -180,6 +215,19 @@ export const placeBet = async (req: Request, res: Response) => {
                 console.error(`[Bet] ⚠️ Gas sweep failed (non-fatal): ${e.message}`);
             }
         }
+
+        // ====== 🔍 DIAGNOSTIC LOG: Issue 2 - Bet Success ======
+        console.log('✅ [BetController] [ISSUE-2] Bet placed successfully:', {
+            txHash: receipt.hash,
+            marketId,
+            outcomeIndex: targetOutcome,
+            shares: ethers.formatUnits(bestShares, USDC_DECIMALS),
+            user_original: walletAddress,
+            user_resolved: normalizedAddress,
+            gasDeducted: ethers.formatUnits(feesToSweep, USDC_DECIMALS),
+            NOTE: 'Check if trades table is being written after this. If not, portfolio will be empty.',
+        });
+        // ========================================================
 
         return res.json({
             success: true,

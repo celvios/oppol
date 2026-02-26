@@ -189,10 +189,10 @@ export async function syncAllMarkets(): Promise<void> {
 
                 for (const log of marketTrades) {
                     // @ts-ignore
-                    const { user, outcomeIndex, shares, totalCost } = log.args;
+                    const [marketIdArg, user, outcomeIndex, shares, cost] = log.args;
                     const txHash = log.transactionHash;
 
-                    totalNewVolume += BigInt(totalCost);
+                    totalNewVolume += BigInt(cost);
 
                     // Insert trade record
                     try {
@@ -206,9 +206,22 @@ export async function syncAllMarkets(): Promise<void> {
                             user,
                             Number(outcomeIndex),
                             ethers.formatUnits(shares, 18),
-                            ethers.formatUnits(totalCost, 18),
+                            ethers.formatUnits(cost, 18),
                             txHash
                         ]);
+
+                        // ====== 🔍 DIAGNOSTIC LOG: Issue 2 - Trade Written to DB ======
+                        console.log('🔍 [Indexer] [ISSUE-2] Trade inserted into DB:', {
+                            txHash,
+                            marketId,
+                            user_address: user,
+                            outcomeIndex: Number(outcomeIndex),
+                            shares: ethers.formatUnits(shares, 18),
+                            cost: ethers.formatUnits(cost, 18),
+                            NOTE: 'Portfolio query uses LOWER(user_address). Ensure this matches the address in /api/portfolio/:address',
+                        });
+                        // ============================================================
+
                     } catch (err: any) {
                         console.error(`[Indexer] Failed to insert trade ${txHash}:`, err.message);
                     }
