@@ -104,6 +104,9 @@ export default function DepositPage() {
     const [errorModalOpen, setErrorModalOpen] = useState(false);
     const [modalError, setModalError] = useState({ title: '', message: '' });
     const [lastDeposit, setLastDeposit] = useState({ amount: '0', symbol: 'USDT', hash: '' });
+    // Diagnostic error report (copyable)
+    const [errorReport, setErrorReport] = useState<string | null>(null);
+    const [errorReportCopied, setErrorReportCopied] = useState(false);
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || process.env.NEXT_PUBLIC_ZAP_ADDRESS || '';
@@ -447,119 +450,129 @@ export default function DepositPage() {
     async function handleDeposit() {
         if (!effectiveAddress || !depositAmount || parseFloat(depositAmount) <= 0) return;
         setIsProcessing(true);
+        setErrorReport(null);
         setStatusMessage('Preparing transaction...');
-        console.log('[Deposit] Starting deposit flow...', { amount: depositAmount, token: selectedToken.symbol });
+
+        // ── Diagnostic context captured throughout each step ──────────────────
+        const diag: Record<string, string> = {
+            timestamp: new Date().toISOString(),
+            userAddress: effectiveAddress || 'unknown',
+            loginMethod: loginMethod || 'unknown',
+            token: selectedToken.symbol,
+            amount: depositAmount,
+            marketContract: MARKET_CONTRACT || 'NOT_SET',
+            zapContract: ZAP_CONTRACT || 'NOT_SET',
+            usdcAddress: selectedToken.direct ? selectedToken.address : 'N/A',
+            chain: 'BSC Mainnet (56)',
+            step: 'init',
+        };
+
+        const logStep = (s: string, extra: Record<string, string> = {}) => {
+            diag.step = s;
+            Object.assign(diag, extra);
+            console.log(`[Deposit][${s}]`, { ...diag, ...extra });
+            setStatusMessage(s);
+        };
 
         try {
-            // For embedded wallets, we DO NOT transact (no gas). We just wait for backend sweeper.
+            // ── Custodial / embedded wallet ──────────────────────────────────
             if (isEmbeddedWallet) {
-                console.log('[Deposit] Embedded wallet detecting... waiting for sweep.');
-                setStatusMessage('Detecting funds... please wait.');
+                logStep('Custodial: detecting funds...');
+                diag.custodialWallet = custodialWalletAddress || 'fetching...';
                 await checkAndAutoDeposit();
                 return;
             }
 
-            if (!connectorClient) {
-                throw new Error('Wallet not ready. Please verify your connection.');
-            }
+            if (!connectorClient) throw new Error('Wallet not ready. Please verify your connection.');
 
             const signer = clientToSigner(connectorClient);
             const amountInWei = ethers.parseUnits(depositAmount, selectedToken.decimals);
 
-            // ... (rest of standard deposit logic reused)
-
-            // Check balance first
             const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
             const publicProvider = new ethers.JsonRpcProvider(rpcUrl);
 
-            // ... (reusing existing checks)
-            let currentBalance;
+            // ── Pre-flight balance checks ────────────────────────────────────
+            logStep('Checking wallet balances...');
+            const bnbBalance = await publicProvider.getBalance(effectiveAddress);
+            diag.bnbBalance = ethers.formatEther(bnbBalance) + ' BNB';
+
             if (selectedToken.isNative) {
-                currentBalance = await publicProvider.getBalance(effectiveAddress);
-                // Leave some gas buffer for BNB transactions (0.001 BNB ~ $0.96)
-                const gasBuffer = ethers.parseEther("0.001");
-                if (currentBalance < (amountInWei + gasBuffer)) {
-                    throw new Error(`Insufficient BNB balance. Need ${depositAmount} + gas.`);
+                const gasBuffer = ethers.parseEther('0.001');
+                if (bnbBalance < (amountInWei + gasBuffer)) {
+                    throw new Error(`Insufficient BNB. Have: ${ethers.formatEther(bnbBalance)} BNB, Need: ${depositAmount} + gas`);
                 }
             } else if (!selectedToken.direct) {
-                // For zap/swap tokens (USDT, etc.), user pays BNB gas — check they have enough
-                const bnbBalance = await publicProvider.getBalance(effectiveAddress);
-                const minGas = ethers.parseEther("0.001");
-                console.log(`[Deposit] BNB Balance check: ${ethers.formatEther(bnbBalance)} BNB (Min: ${ethers.formatEther(minGas)})`);
-                if (bnbBalance < minGas) {
-                    throw new Error(`Insufficient BNB to cover network fee. Please add a small amount of BNB to your wallet.`);
+                if (bnbBalance < ethers.parseEther('0.001')) {
+                    throw new Error(`Insufficient BNB for gas. Have: ${ethers.formatEther(bnbBalance)} BNB, Need: ~0.001 BNB`);
                 }
                 const tokenContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
-                currentBalance = await tokenContract.balanceOf(effectiveAddress);
-                if (currentBalance < amountInWei) {
-                    throw new Error(`Insufficient ${selectedToken.symbol} balance.`);
+                const tokenBalance = await tokenContract.balanceOf(effectiveAddress);
+                diag.tokenBalance = ethers.formatUnits(tokenBalance, selectedToken.decimals) + ' ' + selectedToken.symbol;
+                if (tokenBalance < amountInWei) {
+                    throw new Error(`Insufficient ${selectedToken.symbol}. Have: ${diag.tokenBalance}, Need: ${depositAmount}`);
                 }
             }
-            // Direct USDC: no BNB needed — Step 1 (if needed) pays trivial gas, Step 2 is gasless via Pimlico
 
-
-
+            // ── USDC direct deposit ──────────────────────────────────────────
             if (selectedToken.direct) {
-                // Direct USDC deposit from MetaMask wallet:
-                // approve(market, amount) → market.deposit(amount)
-                // Balance stored as userBalances[EOA] in market contract.
-                // No Biconomy/SA needed — user has BNB for gas.
+                const usdcContract = new Contract(selectedToken.address, ERC20_ABI, publicProvider);
+                const usdcBal = await usdcContract.balanceOf(effectiveAddress);
+                diag.usdcBalance = ethers.formatUnits(usdcBal, 18) + ' USDC';
+                if (usdcBal < amountInWei) {
+                    throw new Error(`Insufficient USDC. Have: ${diag.usdcBalance}, Need: ${depositAmount}`);
+                }
 
-                setStatusMessage('Approving USDC...');
-                console.log('[Deposit] Step 1: Approving USDC for market contract...');
-                const tokenContractWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
-                const allowance = await tokenContractWithSigner.allowance(effectiveAddress, MARKET_CONTRACT);
+                logStep('Approving USDC for market contract...');
+                const tokenWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
+                const allowance = await tokenWithSigner.allowance(effectiveAddress, MARKET_CONTRACT);
+                diag.usdcAllowance = ethers.formatUnits(allowance, 18);
                 if (allowance < amountInWei) {
-                    const approveTx = await tokenContractWithSigner.approve(MARKET_CONTRACT, ethers.MaxUint256);
+                    const approveTx = await tokenWithSigner.approve(MARKET_CONTRACT, ethers.MaxUint256);
+                    diag.approveTxHash = approveTx.hash;
+                    logStep('Waiting for USDC approval...', { approveTxHash: approveTx.hash });
                     await approveTx.wait();
-                    console.log('[Deposit] USDC approval confirmed.');
+                    console.log('[Deposit] ✅ USDC approved.');
                 } else {
                     console.log('[Deposit] USDC already approved.');
                 }
 
-                setStatusMessage('Depositing USDC into game...');
-                console.log('[Deposit] Step 2: Calling market.deposit()...');
-                const marketContractWithSigner = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
-                const depositTx = await marketContractWithSigner.deposit(amountInWei);
+                logStep('Calling market.deposit()...');
+                const marketWithSigner = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+                const depositTx = await marketWithSigner.deposit(amountInWei);
+                diag.depositTxHash = depositTx.hash;
+                logStep('Waiting for deposit confirmation...', { depositTxHash: depositTx.hash });
                 await depositTx.wait();
-                console.log('[Deposit] ✅ USDC deposited into market. Balance now under userBalances[EOA].');
+                console.log('[Deposit] ✅ USDC deposited. userBalances[EOA] funded.');
 
+                // ── Zap (BNB / USDT → USDC) ─────────────────────────────────────
             } else {
-                // Cross-token Zap: convert USDT / BNB → USDC and deposit into Smart Account
-                if (!ZAP_CONTRACT) {
-                    throw new Error("Zap contract is not configured. Please contact support.");
-                }
+                if (!ZAP_CONTRACT) throw new Error('Zap contract not configured. Check NEXT_PUBLIC_ZAP_ADDRESS.');
 
                 const zapContract = new Contract(ZAP_CONTRACT, ZAP_ABI, signer);
-
-                // 0.5% slippage tolerance: minUSDC = amount * 0.995
                 const minUSDC = amountInWei * BigInt(995) / BigInt(1000);
+                diag.minUSDC = ethers.formatUnits(minUSDC, 18);
 
-                let zapTx;
+                let zapTx: any;
                 if (selectedToken.isNative) {
-                    // BNB → USDC via Zap (payable)
-                    setStatusMessage('Swapping BNB → USDC...');
-                    console.log('[Deposit] Calling zapInBNB...');
+                    logStep('Swapping BNB → USDC via Zap...');
                     zapTx = await zapContract.zapInBNB(minUSDC, { value: amountInWei });
                 } else {
-                    // ERC-20 (USDT etc.) → USDC via Zap
-                    setStatusMessage(`Approving ${selectedToken.symbol}...`);
-                    console.log(`[Deposit] Approving Zap to spend ${selectedToken.symbol}...`);
-                    const tokenContractWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
-                    const allowance = await tokenContractWithSigner.allowance(effectiveAddress, ZAP_CONTRACT);
+                    logStep(`Approving ${selectedToken.symbol} for Zap...`);
+                    const tokenWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
+                    const allowance = await tokenWithSigner.allowance(effectiveAddress, ZAP_CONTRACT);
                     if (allowance < amountInWei) {
-                        const approveTx = await tokenContractWithSigner.approve(ZAP_CONTRACT, ethers.MaxUint256);
+                        const approveTx = await tokenWithSigner.approve(ZAP_CONTRACT, ethers.MaxUint256);
+                        diag.approveTxHash = approveTx.hash;
                         await approveTx.wait();
-                        console.log('[Deposit] Approval confirmed.');
                     }
-                    setStatusMessage(`Swapping ${selectedToken.symbol} → USDC...`);
-                    console.log('[Deposit] Calling zapInToken...');
+                    logStep(`Swapping ${selectedToken.symbol} → USDC via Zap...`);
                     zapTx = await zapContract.zapInToken(selectedToken.address, amountInWei, minUSDC);
                 }
 
-                console.log('[Deposit] Zap TX sent:', zapTx.hash);
+                diag.zapTxHash = zapTx.hash;
+                logStep('Waiting for Zap confirmation...', { zapTxHash: zapTx.hash });
                 await zapTx.wait();
-                console.log('[Deposit] Zap confirmed - USDC deposited to Smart Account.');
+                console.log('[Deposit] ✅ Zap confirmed. userBalances[EOA] funded via depositFor.');
             }
 
             setLastDeposit({
@@ -582,22 +595,57 @@ export default function DepositPage() {
             }, 2000);
 
         } catch (error: any) {
-            console.error('Deposit failed:', error);
-            // Error handling ...
-            let errorMessage = error.message || 'Deposit failed';
+            console.error('[Deposit] ❌ FAILED at step:', diag.step, error);
 
-            // Basic error parsing (simplified for brevity, matching existing logic)
-            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected')) {
-                errorMessage = 'Transaction rejected';
-            } else if (error.message?.includes('insufficient funds')) {
-                errorMessage = 'Insufficient funds';
-            }
+            let errorMessage = error.message || 'Unknown error';
+            if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected'))
+                errorMessage = 'Transaction rejected by user';
+            else if (error.message?.includes('insufficient funds'))
+                errorMessage = 'Insufficient funds for gas';
 
+            diag.errorMessage = errorMessage;
+            diag.errorCode = String(error.code || 'none');
+            diag.errorData = error.data ? JSON.stringify(error.data) : 'none';
+            diag.errorStack = (error.stack || '').split('\n').slice(0, 4).join(' | ');
+
+            const report = [
+                '━━━ DEPOSIT ERROR REPORT ━━━',
+                `Time:        ${diag.timestamp}`,
+                `User:        ${diag.userAddress}`,
+                `Method:      ${diag.loginMethod}`,
+                `Token:       ${diag.token}  Amount: ${diag.amount}`,
+                `Failed At:   ${diag.step}`,
+                '',
+                '─ Balances ─',
+                `BNB:         ${diag.bnbBalance || 'n/a'}`,
+                `USDC:        ${diag.usdcBalance || 'n/a'}`,
+                `Token Bal:   ${diag.tokenBalance || 'n/a'}`,
+                `Allowance:   ${diag.usdcAllowance || 'n/a'}`,
+                '',
+                '─ Contracts ─',
+                `Market:      ${diag.marketContract}`,
+                `Zap:         ${diag.zapContract}`,
+                `USDC addr:   ${diag.usdcAddress}`,
+                `Chain:       ${diag.chain}`,
+                '',
+                '─ TX Hashes ─',
+                `Approve TX:  ${diag.approveTxHash || 'none'}`,
+                `Deposit TX:  ${diag.depositTxHash || 'none'}`,
+                `Zap TX:      ${diag.zapTxHash || 'none'}`,
+                '',
+                '─ Error ─',
+                `Message:     ${diag.errorMessage}`,
+                `Code:        ${diag.errorCode}`,
+                `Data:        ${diag.errorData}`,
+                `Stack:       ${diag.errorStack}`,
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            ].join('\n');
+
+            setErrorReport(report);
             setModalError({ title: 'Transaction Failed', message: errorMessage });
             setErrorModalOpen(true);
 
-            // If we were in verifying/depositing mode, go back to input or retry?
-            if (fundingStep === 'depositing') setFundingStep('verifying'); // Keep checking? Or 'payment'?
+            if (fundingStep === 'depositing') setFundingStep('verifying');
             else setFundingStep('input');
         } finally {
             setIsProcessing(false);
@@ -631,7 +679,31 @@ export default function DepositPage() {
                 </p>
             </div>
 
+            {/* ── Diagnostic Error Report (appears only on failure) ── */}
+            {errorReport && (
+                <div className="bg-red-950/40 border border-red-500/40 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-red-400 font-bold text-sm uppercase tracking-widest">⚠ Deposit Failed — Error Report</p>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(errorReport);
+                                setErrorReportCopied(true);
+                                setTimeout(() => setErrorReportCopied(false), 2500);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-mono text-white/80 transition-all"
+                        >
+                            {errorReportCopied ? '✅ Copied!' : '📋 Copy Report'}
+                        </button>
+                    </div>
+                    <pre className="text-[11px] font-mono text-white/60 whitespace-pre-wrap break-all leading-relaxed bg-black/30 rounded-xl p-4 max-h-64 overflow-y-auto">
+                        {errorReport}
+                    </pre>
+                    <p className="text-white/40 text-xs">Copy this report and send it to support so the issue can be diagnosed.</p>
+                </div>
+            )}
+
             {isEffectivelyConnected ? (
+
                 <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6">
 
                     {/* Header / Wallet Info */}
