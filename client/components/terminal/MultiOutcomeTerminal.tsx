@@ -415,7 +415,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 } catch { /* use default */ }
 
                 const lsmrBudget = netAmountFloat / (1 + protocolFeeBps / 10000);
-                const estShares = lsmrBudget / priceFloat;
+                // LSMR is non-linear: buying shares shifts the price, making actual cost
+                // slightly higher than the linear estimate. Apply 2% slippage buffer so
+                // the real LSMR cost stays comfortably under netTradeCost (_maxCost).
+                const estShares = (lsmrBudget / priceFloat) * 0.98;
                 const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
 
                 const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
