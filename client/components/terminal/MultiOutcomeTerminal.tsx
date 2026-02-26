@@ -390,60 +390,38 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
             } else {
                 // ── MetaMask (wallet) path ───────────────────────────────────────────
-                // MetaMask users deposited via Pimlico SA (derived from MetaMask key).
-                // Client-side Pimlico SA has the deposited balance → trades gaslessly.
-                console.log(`[Terminal] Wallet user → client-side Pimlico SA trade...`);
+                // Route through backend /api/multi-bet — operator relayer signs the tx.
+                // No MetaMask popup needed + indexer records the trade in the DB.
+                console.log(`[Terminal] Wallet user → backend /api/multi-bet (no popup)...`);
 
-                const tradeAmountBN = ethers.parseUnits(amount, usdcDecimals);
-                const feeUSDC = await BiconomyService.estimateGasFeeUSDC();
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                const adminSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET || '';
 
-                if (tradeAmountBN <= feeUSDC) {
-                    setIsTradeLoading(false);
-                    alert(`Trade amount is too small. It must exceed the platform fee ($${ethers.formatUnits(feeUSDC, usdcDecimals)}).`);
-                    return;
-                }
+                // Use SA address (balanceAddress) — that's where the deposited funds live
+                const tradeAddress = balanceAddress || address;
 
-                const netTradeCost = tradeAmountBN - feeUSDC;
-                const netAmountFloat = parseFloat(ethers.formatUnits(netTradeCost, usdcDecimals));
+                const response = await fetch(`${apiUrl}/api/multi-bet`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': adminSecret,
+                    },
+                    body: JSON.stringify({
+                        walletAddress: tradeAddress,
+                        marketId: market.id,
+                        outcomeIndex: selectedOutcome,
+                        amount,
+                    }),
+                });
 
-                let protocolFeeBps = 1000; // default 10%
-                try {
-                    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                    const provider = new ethers.JsonRpcProvider(rpcUrl);
-                    const feeContract = new ethers.Contract(contracts.predictionMarketMulti, ['function protocolFee() view returns (uint256)'], provider);
-                    protocolFeeBps = Number(await feeContract.protocolFee());
-                } catch { /* use default */ }
-
-                const lsmrBudget = netAmountFloat / (1 + protocolFeeBps / 10000);
-                // LSMR is non-linear: buying shares shifts the price, making actual cost
-                // slightly higher than the linear estimate. Apply 2% slippage buffer so
-                // the real LSMR cost stays comfortably under netTradeCost (_maxCost).
-                const estShares = (lsmrBudget / priceFloat) * 0.98;
-                const sharesBN = ethers.parseUnits(estShares.toFixed(18), 18);
-
-                const activeWallet = wallets.find(w => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
-                if (!activeWallet) throw new Error('No active wallet found. Please reconnect.');
-
-                const usdcAddr = (contracts as any).usdc || (contracts as any).mockUSDC;
-                const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '';
-
-                const hash = await BiconomyService.executeBatchedTrade(
-                    activeWallet,
-                    contracts.predictionMarketMulti,
-                    usdcAddr,
-                    treasury,
-                    market.id,
-                    selectedOutcome,
-                    sharesBN,
-                    netTradeCost,
-                    feeUSDC
-                );
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Trade failed');
 
                 result = {
-                    shares: estShares.toFixed(2),
+                    shares: data.shares || '0',
                     cost: amount,
-                    newPrice: currentPrice,
-                    hash,
+                    newPrice: data.newPrice || currentPrice,
+                    hash: data.txHash || data.transaction?.hash || '0x',
                 };
             }
 
