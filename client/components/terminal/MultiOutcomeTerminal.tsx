@@ -263,11 +263,22 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     // --- Data Fetching (Markets) ---
     const fetchData = useCallback(async () => {
         console.log('[MultiTerminal] fetchData called');
+        console.log('[MultiTerminal] 🔍 Balance Diagnostics:', {
+            loginMethod,
+            eoaAddress: address,
+            saAddress,
+            balanceAddress,
+            isConnected,
+            marketContract: process.env.NEXT_PUBLIC_MARKET_ADDRESS,
+        });
         try {
             const [allMarkets, depositedBalance, position] = await Promise.all([
                 web3MultiService.getMarkets(),
-                balanceAddress ? web3MultiService.getDepositedBalance(balanceAddress).catch(e => {
-                    console.error('[MultiTerminal] Balance fetch error:', e);
+                balanceAddress ? web3MultiService.getDepositedBalance(balanceAddress).then(bal => {
+                    console.log(`[MultiTerminal] ✅ Balance for ${balanceAddress}: ${bal}`);
+                    return bal;
+                }).catch(e => {
+                    console.error('[MultiTerminal] ❌ Balance fetch error:', e);
                     return '0';
                 }) : Promise.resolve('0'),
                 (balanceAddress && selectedMarketId !== null && selectedMarketId !== undefined) ? web3MultiService.getUserPosition(selectedMarketId, balanceAddress).catch(e => {

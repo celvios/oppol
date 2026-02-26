@@ -388,13 +388,20 @@ export class Web3MultiService {
      * Get deposited balance in the contract
      */
     async getDepositedBalance(address: string): Promise<string> {
-        if (!this.predictionMarket) return '0';
+        if (!this.predictionMarket) {
+            console.warn('[web3-multi] getDepositedBalance: predictionMarket not initialized');
+            return '0';
+        }
         try {
+            const contractAddr = await this.predictionMarket.getAddress().catch(() => 'unknown');
+            console.log(`[web3-multi] getDepositedBalance → contract: ${contractAddr}, querying: ${address}`);
             const balance = await this.predictionMarket.userBalances(address);
+            const formatted = ethers.formatUnits(balance, 18);
+            console.log(`[web3-multi] getDepositedBalance → raw: ${balance.toString()}, formatted: ${formatted}`);
             // DECIMAL FIX: userBalances on BSC USDC is 18-dec
-            return ethers.formatUnits(balance, 18);
+            return formatted;
         } catch (error) {
-            console.error('Error fetching deposited balance:', error);
+            console.error('[web3-multi] Error fetching deposited balance:', error);
             return '0';
         }
     }
