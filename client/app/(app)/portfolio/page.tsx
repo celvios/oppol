@@ -38,6 +38,11 @@ export default function PortfolioPage() {
     const [custodialUsdcBalance, setCustodialUsdcBalance] = useState<string>('0');
     const [isDepositingCustodial, setIsDepositingCustodial] = useState(false);
     const [custodialDepositDone, setCustodialDepositDone] = useState(false);
+    // Legacy SA migration state (for wallet users with old Biconomy SA balance)
+    const [legacySaAddress, setLegacySaAddress] = useState<string | null>(null);
+    const [legacySaBalance, setLegacySaBalance] = useState<string>('0');
+    const [isMigrating, setIsMigrating] = useState(false);
+    const [migrationDone, setMigrationDone] = useState(false);
 
     const { isConnected, isConnecting, address, connect, disconnect, loginMethod } = useWallet();
     const { user: privyUser } = usePrivy();
@@ -115,7 +120,7 @@ export default function PortfolioPage() {
                 } else if (loginMethod === 'wallet') {
                     // MetaMask users now deposit directly (approve+deposit from EOA).
                     // But some may have previously deposited via the old Biconomy SA flow.
-                    // Silently check if the Biconomy SA has a higher balance and use that instead.
+                    // Detect legacy SA balance and offer migration to EOA.
                     try {
                         const { BiconomyService } = await import('@/lib/biconomy-service');
                         let saAddr: string | null = null;
@@ -129,16 +134,17 @@ export default function PortfolioPage() {
                         if (saAddr && saAddr.toLowerCase() !== effectiveAddress?.toLowerCase()) {
                             const saBal = await web3Service.getDepositedBalance(saAddr).catch(() => '0');
                             const eoaBal = await web3Service.getDepositedBalance(checkAddress).catch(() => '0');
-                            // Use whichever address has the higher balance
+                            if (parseFloat(saBal) > 0.01) {
+                                // Has legacy SA balance — show migration banner
+                                setLegacySaAddress(saAddr);
+                                setLegacySaBalance(saBal);
+                                console.log(`[Portfolio] Legacy SA balance found: ${saBal} USDC at ${saAddr}`);
+                            }
                             if (parseFloat(saBal) > parseFloat(eoaBal)) {
-                                console.log(`[Portfolio] Legacy SA balance (${saBal}) > EOA balance (${eoaBal}). Using SA: ${saAddr}`);
-                                checkAddress = saAddr;
-                            } else {
-                                console.log(`[Portfolio] EOA balance (${eoaBal}) >= SA balance (${saBal}). Using EOA.`);
+                                checkAddress = saAddr; // show SA balance until migration completes
                             }
                         }
                     } catch {
-                        // Biconomy unavailable — stay with EOA
                         console.log('[Portfolio] Biconomy SA check skipped, using EOA balance.');
                     }
                 }
@@ -382,6 +388,63 @@ export default function PortfolioPage() {
                             <h3 className="text-white font-bold">Deposit Submitted!</h3>
                             <p className="text-white/60 text-sm">Your balance will update in ~10 seconds. Refreshing...</p>
                         </div>
+                    </div>
+                )
+            }
+
+            {/* Legacy SA Migration Banner — wallet users with old Biconomy SA balance */}
+            {
+                loginMethod === 'wallet' && parseFloat(legacySaBalance) > 0.01 && !migrationDone && (
+                    <div className="mb-8 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 text-2xl">⚡</div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-lg font-bold text-white">Balance Migration Required</h3>
+                                    <span className="px-2 py-0.5 bg-amber-500 text-black text-[10px] font-bold uppercase rounded-full">Action Needed</span>
+                                </div>
+                                <p className="text-white/60 text-sm">
+                                    You have <span className="text-white font-mono font-bold">${parseFloat(legacySaBalance).toFixed(2)} USDC</span> in your legacy Smart Account.
+                                    Migrate it to your wallet so you can bet and withdraw normally.
+                                    <span className="block text-white/40 text-xs mt-1">This is a gasless one-click operation — no BNB needed.</span>
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (!privyUser || !address || !legacySaAddress) return;
+                                setIsMigrating(true);
+                                try {
+                                    const { BiconomyService } = await import('@/lib/biconomy-service');
+                                    const { ethers } = await import('ethers');
+
+                                    const wallets = privyUser.linkedAccounts.filter((a: any) => a.type === 'wallet') || [];
+                                    const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
+                                    if (!activeWallet) throw new Error('No Privy wallet found. Please reconnect via Privy.');
+
+                                    const marketAddr = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
+                                    const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '';
+                                    const amountWei = ethers.parseUnits(parseFloat(legacySaBalance).toFixed(18), 18);
+
+                                    await BiconomyService.migrateSAToEOA(activeWallet, address, marketAddr, usdcAddr, amountWei);
+                                    setMigrationDone(true);
+                                    alert(`✅ Migration complete! ${parseFloat(legacySaBalance).toFixed(2)} USDC is now in your wallet. You'll be redirected to deposit it.`);
+                                    window.location.href = '/deposit';
+                                } catch (e: any) {
+                                    alert('Migration failed: ' + (e.message || 'Unknown error'));
+                                } finally {
+                                    setIsMigrating(false);
+                                }
+                            }}
+                            disabled={isMigrating}
+                            className="w-full md:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                            {isMigrating ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" />Migrating...</>
+                            ) : (
+                                <>⚡ Migrate Balance</>
+                            )}
+                        </button>
                     </div>
                 )
             }

@@ -322,4 +322,57 @@ export class BiconomyService {
         console.log(`[Pimlico] ✅ Swap Confirmed: ${onChainHash}`);
         return onChainHash;
     }
+    /**
+     * Migrates legacy SA balance back to the user's EOA.
+     * Used when the user previously deposited via the old Biconomy 2-step flow
+     * and their market balance is stored under userBalances[SA] instead of userBalances[EOA].
+     *
+     * Atomic UserOperation batch (gasless, Pimlico pays):
+     *   1. market.withdraw(amount)  → USDC leaves market, arrives in SA wallet
+     *   2. USDC.transfer(EOA, amount) → USDC moves from SA wallet to user's EOA
+     *
+     * After this, the user's EOA has raw USDC and can deposit directly
+     * (approve + deposit from MetaMask).
+     */
+    static async migrateSAToEOA(
+        privyWallet: any,
+        eoaAddress: string,
+        marketAddress: string,
+        usdcAddress: string,
+        amount: bigint
+    ): Promise<string> {
+        console.log(
+            `[Pimlico/Migrate] Migrating ${ethers.formatUnits(amount, USDC_DECIMALS)} USDC ` +
+            `from SA market balance → EOA: ${eoaAddress}`
+        );
+
+        const smartAccountClient = await this.getSmartAccountClient(privyWallet);
+
+        // Step 1: Withdraw from market contract → USDC goes to SA wallet
+        const withdrawData = encodeFunctionData({
+            abi: parseAbi(['function withdraw(uint256 amount)']),
+            functionName: 'withdraw',
+            args: [amount],
+        });
+
+        // Step 2: Transfer USDC from SA wallet → EOA
+        const transferData = encodeFunctionData({
+            abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
+            functionName: 'transfer',
+            args: [eoaAddress as Address, amount],
+        });
+
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: marketAddress as Address, data: withdrawData },
+            { to: usdcAddress as Address, data: transferData },
+        ];
+
+        console.log('[Pimlico/Migrate] Sending migration UserOperation...');
+        const txHash = await smartAccountClient.sendUserOperation({ calls });
+        const receipt = await smartAccountClient.waitForUserOperationReceipt({ hash: txHash });
+        const onChainHash = receipt.receipt.transactionHash;
+
+        console.log(`[Pimlico/Migrate] ✅ Migration complete. USDC now in EOA. Tx: ${onChainHash}`);
+        return onChainHash;
+    }
 }
