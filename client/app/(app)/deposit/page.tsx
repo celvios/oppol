@@ -500,52 +500,29 @@ export default function DepositPage() {
 
 
             if (selectedToken.direct) {
-                // Two-step gasless deposit for MetaMask users:
-                // Step 1: MetaMask EOA → SA wallet (USDC transfer, MetaMask pays BNB gas once)
-                // Step 2: SA → market.deposit() via Pimlico (gasless, no BNB needed)
+                // Direct USDC deposit from MetaMask wallet:
+                // approve(market, amount) → market.deposit(amount)
+                // Balance stored as userBalances[EOA] in market contract.
+                // No Biconomy/SA needed — user has BNB for gas.
 
-                setStatusMessage('Locating Smart Account...');
-                const { BiconomyService } = await import('@/lib/biconomy-service');
-
-                const wallets = privyUser?.linkedAccounts.filter(a => a.type === 'wallet') || [];
-                const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
-
-                if (!activeWallet) {
-                    throw new Error("Could not find active wallet mapping for Smart Account.");
-                }
-
-                const smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
-                console.log(`[Deposit] Smart Account: ${smartAccountAddr}`);
-
-                // Check if USDC is already in the SA (user may have sent it previously)
-                const rpcForCheck = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
-                const checkProvider = new ethers.JsonRpcProvider(rpcForCheck);
-                const usdcCheck = new Contract(selectedToken.address, ERC20_ABI, checkProvider);
-                const saUsdcBal = await usdcCheck.balanceOf(smartAccountAddr);
-
-                if (saUsdcBal < amountInWei) {
-                    // Step 1: MetaMask EOA sends USDC to SA (only if not already there)
-                    setStatusMessage('Sending USDC to Smart Account...');
-                    console.log('[Deposit] Step 1: EOA → SA USDC transfer...');
-                    const tokenContract = new Contract(selectedToken.address, ERC20_ABI, signer);
-                    const transferTx = await tokenContract.transfer(smartAccountAddr, amountInWei);
-                    console.log('[Deposit] Transfer tx sent:', transferTx.hash);
-                    await transferTx.wait();
-                    console.log('[Deposit] Transfer confirmed. SA now has USDC.');
+                setStatusMessage('Approving USDC...');
+                console.log('[Deposit] Step 1: Approving USDC for market contract...');
+                const tokenContractWithSigner = new Contract(selectedToken.address, ERC20_ABI, signer);
+                const allowance = await tokenContractWithSigner.allowance(effectiveAddress, MARKET_CONTRACT);
+                if (allowance < amountInWei) {
+                    const approveTx = await tokenContractWithSigner.approve(MARKET_CONTRACT, ethers.MaxUint256);
+                    await approveTx.wait();
+                    console.log('[Deposit] USDC approval confirmed.');
                 } else {
-                    console.log('[Deposit] SA already has USDC — skipping transfer, going straight to deposit.');
+                    console.log('[Deposit] USDC already approved.');
                 }
 
-                // Step 2: SA calls market.deposit() via Pimlico (gasless)
-                setStatusMessage('Depositing into game (gasless)...');
-                console.log('[Deposit] Step 2: SA → market.deposit() via Pimlico...');
-                await BiconomyService.executeDeposit(
-                    activeWallet,
-                    MARKET_CONTRACT,
-                    selectedToken.address,
-                    amountInWei
-                );
-                console.log('[Deposit] Gasless market deposit confirmed!');
+                setStatusMessage('Depositing USDC into game...');
+                console.log('[Deposit] Step 2: Calling market.deposit()...');
+                const marketContractWithSigner = new Contract(MARKET_CONTRACT, MARKET_ABI, signer);
+                const depositTx = await marketContractWithSigner.deposit(amountInWei);
+                await depositTx.wait();
+                console.log('[Deposit] ✅ USDC deposited into market. Balance now under userBalances[EOA].');
 
             } else {
                 // Cross-token Zap: convert USDT / BNB → USDC and deposit into Smart Account

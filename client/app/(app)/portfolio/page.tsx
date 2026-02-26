@@ -113,31 +113,10 @@ export default function PortfolioPage() {
                         console.warn('[Portfolio] Failed to fetch custodial address:', e);
                     }
                 } else if (loginMethod === 'wallet') {
-                    // Web3/Reown wallet users: derive their Biconomy Smart Account address
-                    try {
-                        const { BiconomyService } = await import('@/lib/biconomy-service');
-                        let smartAccountAddr: string | null = null;
-
-                        if (privyUser) {
-                            // Privy-linked wallet: use the Privy wallet object (has getEthereumProvider)
-                            const wallets = privyUser.linkedAccounts.filter(a => a.type === 'wallet') || [];
-                            const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === effectiveAddress?.toLowerCase()) || wallets[0];
-                            if (activeWallet) {
-                                smartAccountAddr = await BiconomyService.getSmartAccountAddress(activeWallet);
-                            }
-                        } else {
-                            // Pure Reown/wagmi wallet: derive from EOA + window.ethereum
-                            smartAccountAddr = await BiconomyService.getSmartAccountAddressFromEOA(effectiveAddress!);
-                        }
-
-                        if (smartAccountAddr) {
-                            console.log('[Portfolio] Smart Account:', smartAccountAddr);
-                            setCustodialAddress(smartAccountAddr);
-                            checkAddress = smartAccountAddr;
-                        }
-                    } catch (e) {
-                        console.warn('[Portfolio] Failed to fetch Smart Account address:', e);
-                    }
+                    // MetaMask/connected wallet users deposit directly via EOA (approve+deposit).
+                    // Their balance is stored as userBalances[EOA] in the market contract.
+                    // No SA lookup needed — just use their EOA address.
+                    console.log('[Portfolio] Wallet user — using EOA address for balance:', checkAddress);
                 }
 
                 // Kick off balance + portfolio fetch IN PARALLEL for speed
