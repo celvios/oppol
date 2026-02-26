@@ -60,6 +60,13 @@ export class Web3MultiService {
     private isRevalidating = false; // Prevent multiple simultaneous background fetches
     private updateListeners: Set<(markets: MultiMarket[]) => void> = new Set();
 
+    /** Clear cache so next getMarkets() fetches fresh data from API */
+    invalidateCache(): void {
+        this.marketsCache = null;
+        try { localStorage.removeItem(this.STORAGE_KEY); } catch { /* SSR */ }
+        console.log('[Web3MultiService] Cache invalidated');
+    }
+
     constructor() {
         // Restore cache from localStorage on init (survives page navigations)
         this.restoreCacheFromStorage();

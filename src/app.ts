@@ -724,13 +724,14 @@ app.post('/api/multi-bet', verifyAuth, async (req, res) => {
     const priceResult = await rawCall(MULTI_MARKET_ADDR, priceData);
     const newPrice = Number(iface.decodeFunctionResult('getPrice', priceResult)[0]) / 100;
 
-    // Trigger immediate market sync so UI updates instantly
-    console.log('[MULTI-BET] Triggering immediate market sync...');
+    // Await market sync so response returns AFTER DB is updated with new trade
+    console.log('[MULTI-BET] Awaiting market sync so volume/positions are up-to-date...');
     try {
       const { syncAllMarkets } = await import('./services/marketIndexer');
-      syncAllMarkets().catch(err => console.error('[MULTI-BET] Sync failed:', err));
+      await syncAllMarkets();
+      console.log('[MULTI-BET] ✅ Sync complete');
     } catch (error) {
-      console.error('[MULTI-BET] Failed to trigger sync:', error);
+      console.error('[MULTI-BET] Sync failed (non-fatal):', error);
     }
 
     return res.json({

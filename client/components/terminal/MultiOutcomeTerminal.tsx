@@ -425,6 +425,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                 };
             }
 
+            // Invalidate cache so next data fetch gets fresh volume/positions
+            web3MultiService.invalidateCache();
 
             setSuccessData({
                 marketId: market.id,
