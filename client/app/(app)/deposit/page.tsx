@@ -498,8 +498,15 @@ export default function DepositPage() {
 
             if (selectedToken.isNative) {
                 const gasBuffer = ethers.parseEther('0.001');
-                if (bnbBalance < (amountInWei + gasBuffer)) {
-                    throw new Error(`Insufficient BNB. Have: ${ethers.formatEther(bnbBalance)} BNB, Need: ${depositAmount} + gas`);
+                const totalNeeded = amountInWei + gasBuffer;
+                if (bnbBalance < totalNeeded) {
+                    throw new Error(
+                        `Insufficient BNB. ` +
+                        `Have: ${parseFloat(ethers.formatEther(bnbBalance)).toFixed(4)} BNB, ` +
+                        `Need: ${parseFloat(ethers.formatEther(totalNeeded)).toFixed(4)} BNB ` +
+                        `(${depositAmount} deposit + ~0.001 gas). ` +
+                        `Please top up your wallet first.`
+                    );
                 }
             } else if (!selectedToken.direct) {
                 if (bnbBalance < ethers.parseEther('0.001')) {
