@@ -107,10 +107,69 @@ export default function DepositPage() {
     // Diagnostic error report (copyable)
     const [errorReport, setErrorReport] = useState<string | null>(null);
     const [errorReportCopied, setErrorReportCopied] = useState(false);
+    // Old market recovery (funds stranded in 0xe5a5320... by old Zap)
+    const [oldMarketBalance, setOldMarketBalance] = useState<bigint>(BigInt(0));
+    const [isRecoveringOldMarket, setIsRecoveringOldMarket] = useState(false);
+    const [oldMarketRecovered, setOldMarketRecovered] = useState(false);
 
     const contracts = getContracts() as any;
     const ZAP_CONTRACT = contracts.zap || process.env.NEXT_PUBLIC_ZAP_ADDRESS || '';
     const MARKET_CONTRACT = process.env.NEXT_PUBLIC_MARKET_ADDRESS || contracts.predictionMarket || '';
+    const OLD_MARKET_ADDRESS = '0xe5a5320b3764Bd8FFFd95cF7aA7F406DaC2B070C';
+
+    useEffect(() => {
+        // Check old market balance whenever wallet connects
+        if (!effectiveAddress || isEmbeddedWallet) return;
+        const checkOldMarket = async () => {
+            try {
+                const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                const provider = new ethers.JsonRpcProvider(rpcUrl);
+                const oldMkt = new Contract(OLD_MARKET_ADDRESS, ['function userBalances(address) view returns (uint256)'], provider);
+                const bal: bigint = await oldMkt.userBalances(effectiveAddress);
+                setOldMarketBalance(bal);
+            } catch { }
+        };
+        checkOldMarket();
+    }, [effectiveAddress, isEmbeddedWallet]);
+
+    async function handleOldMarketRecovery() {
+        if (!connectorClient || oldMarketBalance === BigInt(0)) return;
+        setIsRecoveringOldMarket(true);
+        try {
+            const signer = clientToSigner(connectorClient);
+            const usdcAddr = contracts.usdc || contracts.mockUSDC || process.env.NEXT_PUBLIC_USDC_CONTRACT || '';
+            const oldMkt = new Contract(OLD_MARKET_ADDRESS, [
+                'function withdraw(uint256 amount) external',
+            ], signer);
+            const newMkt = new Contract(MARKET_CONTRACT, [
+                'function deposit(uint256 amount) external',
+            ], signer);
+            const usdcContract = new Contract(usdcAddr, ERC20_ABI, signer);
+
+            // Step 1: Withdraw from old market
+            const withdrawTx = await oldMkt.withdraw(oldMarketBalance);
+            await withdrawTx.wait();
+
+            // Step 2: Approve new market
+            const approveTx = await usdcContract.approve(MARKET_CONTRACT, oldMarketBalance);
+            await approveTx.wait();
+
+            // Step 3: Deposit into new market
+            const depositTx = await newMkt.deposit(oldMarketBalance);
+            await depositTx.wait();
+
+            setOldMarketBalance(BigInt(0));
+            setOldMarketRecovered(true);
+            fetchBalance();
+            fetchGameBalance();
+        } catch (e: any) {
+            console.error('[OldMarketRecovery] Failed:', e);
+            alert('Recovery failed: ' + (e.message || 'Unknown error'));
+        } finally {
+            setIsRecoveringOldMarket(false);
+        }
+    }
+
 
     useEffect(() => {
         if (effectiveAddress) {
@@ -706,6 +765,35 @@ export default function DepositPage() {
                         {errorReport}
                     </pre>
                     <p className="text-white/40 text-xs">Copy this report and send it to support so the issue can be diagnosed.</p>
+                </div>
+            )}
+
+            {/* ── Old Market Recovery Banner (wallet users only) ── */}
+            {!isEmbeddedWallet && oldMarketBalance > BigInt(0) && !oldMarketRecovered && (
+                <div className="bg-amber-950/40 border border-amber-500/50 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                            <p className="text-amber-300 font-bold text-sm uppercase tracking-widest mb-1">Funds Detected in Old Contract</p>
+                            <p className="text-white/60 text-sm">
+                                You have <span className="text-amber-300 font-bold">{parseFloat((Number(oldMarketBalance) / 1e18).toFixed(4))} USDC</span> stuck
+                                in a previous contract version. Click below to recover them — this requires signing 3 transactions in your wallet.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleOldMarketRecovery}
+                        disabled={isRecoveringOldMarket}
+                        className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-amber-800 disabled:cursor-not-allowed text-black font-bold text-sm transition-all"
+                    >
+                        {isRecoveringOldMarket ? '⏳ Recovering… please confirm in wallet' : '🔁 Recover My Funds'}
+                    </button>
+                </div>
+            )}
+            {!isEmbeddedWallet && oldMarketRecovered && (
+                <div className="bg-green-950/40 border border-green-500/40 rounded-2xl p-4 flex items-center gap-3">
+                    <span className="text-xl">✅</span>
+                    <p className="text-green-300 text-sm font-medium">Funds successfully recovered to your balance!</p>
                 </div>
             )}
 
