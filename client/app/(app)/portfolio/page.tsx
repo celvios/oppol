@@ -430,14 +430,26 @@ export default function PortfolioPage() {
                                         if (!(window as any).ethereum) throw new Error('No wallet provider. Please use MetaMask.');
                                         const provider = new ethers.BrowserProvider((window as any).ethereum);
                                         const signer = await provider.getSigner();
-                                        // Withdraw from market then transfer USDC to EOA
-                                        const marketContract = new ethers.Contract(
-                                            marketAddr,
-                                            ['function withdraw(uint256 amount)'],
-                                            signer
-                                        );
-                                        const tx = await marketContract.withdraw(amountWei);
-                                        await tx.wait();
+
+                                        // ⚠️ The balance is held BY the Biconomy SA (legacySaAddress), not by the EOA.
+                                        // Only the SA can call market.withdraw(). The SA owner (EOA) must call
+                                        // sa.execute(target, value, calldata) to instruct the SA to act.
+                                        const SA_ABI = ['function execute(address dest, uint256 value, bytes calldata func)'];
+                                        const saContract = new ethers.Contract(legacySaAddress, SA_ABI, signer);
+
+                                        const marketIface = new ethers.Interface(['function withdraw(uint256 amount)']);
+                                        const usdcIface = new ethers.Interface(['function transfer(address to, uint256 amount) returns (bool)']);
+
+                                        const withdrawCalldata = marketIface.encodeFunctionData('withdraw', [amountWei]);
+                                        const transferCalldata = usdcIface.encodeFunctionData('transfer', [address, amountWei]);
+
+                                        // Step 1: SA withdraws USDC from the market into itself
+                                        const tx1 = await saContract.execute(marketAddr, 0n, withdrawCalldata);
+                                        await tx1.wait();
+
+                                        // Step 2: SA transfers that USDC to the user's EOA
+                                        const tx2 = await saContract.execute(usdcAddr, 0n, transferCalldata);
+                                        await tx2.wait();
                                     }
 
                                     setMigrationDone(true);
