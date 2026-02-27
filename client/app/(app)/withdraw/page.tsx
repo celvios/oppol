@@ -12,7 +12,7 @@ import { useConnectorClient, useAccount } from 'wagmi';
 import { clientToSigner } from "@/lib/viem-ethers-adapters";
 import { web3MultiService } from "@/lib/web3-multi";
 import { useUIStore } from "@/lib/store";
-import { useWallets } from "@privy-io/react-auth";
+import { useWallets, usePrivy } from "@privy-io/react-auth";
 
 const MARKET_ABI = [
     { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
@@ -29,6 +29,7 @@ export default function WithdrawPage() {
     const { connector } = useAccount();
     const { data: connectorClient } = useConnectorClient();
     const { wallets } = useWallets();
+    const { ready: privyReady, user: privyUser } = usePrivy();
 
     // Fix for Google Users seeing standard wallet UI
     // If loginMethod is social, we treat it as embedded/custodial
@@ -61,10 +62,12 @@ export default function WithdrawPage() {
     const [processingStep, setProcessingStep] = useState(''); // e.g., "Withdrawing from game...", "Sending to wallet..."
 
     // Data State
-    const [contractBalance, setContractBalance] = useState<string | null>(null); // Deposited in Game
-    const [walletBalance, setWalletBalance] = useState<string | null>(null);   // In Wallet
+    const [contractBalance, setContractBalance] = useState<string | null>(null);
+    const [walletBalance, setWalletBalance] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showConnectModal, setShowConnectModal] = useState(false);
+    // Withdrawal preview (populated after prepare-withdrawal call, shown in confirm step)
+    const [withdrawalPreview, setWithdrawalPreview] = useState<{ gasFee: string; netAmount: string } | null>(null);
 
 
 
@@ -104,13 +107,46 @@ export default function WithdrawPage() {
         console.log('[WithdrawPage] Fetching balances for:', effectiveAddress);
         setIsLoading(true);
         try {
-            // 1. Get Game Balance (USDC already deposited into contract)
-            const deposited = await web3MultiService.getDepositedBalance(effectiveAddress);
+            // ── For embedded/social users resolve the backend SA address first ──
+            // The market contract stores balances under the SA, NOT the Privy login wallet.
+            let balanceAddress = effectiveAddress;
+            if (isEmbeddedWallet) {
+                // 1. Try the zustand store (fastest — already fetched at login)
+                if (custodialAddress) {
+                    balanceAddress = custodialAddress;
+                } else {
+                    // 2. Fallback: fetch from the auth endpoint (same as portfolio + deposit)
+                    try {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        const res = await fetch(`${apiUrl}/api/auth/privy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                privyUserId: privyUser?.id,
+                                walletAddress: effectiveAddress,
+                                loginMethod: loginMethod || 'google',
+                            }),
+                        });
+                        const data = await res.json();
+                        const resolved = data.custodialAddress || data.user?.wallet_address;
+                        if (resolved) {
+                            balanceAddress = resolved;
+                            console.log('[WithdrawPage] Resolved custodial SA address:', resolved);
+                        }
+                    } catch (e) {
+                        console.warn('[WithdrawPage] Could not resolve custodial address, using effectiveAddress:', e);
+                    }
+                }
+            }
+
+            // 1. Get Game Balance (USDC deposited into contract) — use the SA address
+            const deposited = await web3MultiService.getDepositedBalance(balanceAddress);
             setContractBalance(deposited);
 
             // ====== 🔍 DIAGNOSTIC LOG: Issue 3 - Contract Balance ======
             console.log('🔍 [WithdrawPage] [ISSUE-3] Contract (deposited game) balance:', {
                 effectiveAddress,
+                balanceAddress,
                 deposited,
                 depositedParsed: parseFloat(deposited || '0'),
                 loginMethod,
@@ -138,12 +174,12 @@ export default function WithdrawPage() {
             const privyAddress = privyWallet?.address;
 
             const queries = [
-                new eth.Contract(USDC_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
+                new eth.Contract(USDC_ADDRESS, tokenAbi, provider).balanceOf(balanceAddress).catch(() => 0n),
                 new eth.Contract(USDC_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
-                new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(effectiveAddress).catch(() => 0n),
+                new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(balanceAddress).catch(() => 0n),
                 new eth.Contract(USDT_ADDRESS, tokenAbi, provider).decimals().catch(() => 18),
             ];
-            if (privyAddress) {
+            if (privyAddress && privyAddress.toLowerCase() !== balanceAddress.toLowerCase()) {
                 queries.push(new eth.Contract(USDT_ADDRESS, tokenAbi, provider).balanceOf(privyAddress).catch(() => 0n));
             }
 
@@ -152,7 +188,7 @@ export default function WithdrawPage() {
             const usdcDec = results[1];
             const usdtBal = results[2];
             const usdtDec = results[3];
-            const privyUsdtBal = privyAddress ? results[4] : 0n;
+            const privyUsdtBal = (privyAddress && privyAddress.toLowerCase() !== balanceAddress.toLowerCase()) ? results[4] : 0n;
 
             const usdcNum = parseFloat(eth.formatUnits(usdcBal, usdcDec));
             const usdtNum = parseFloat(eth.formatUnits(usdtBal, usdtDec));
@@ -166,14 +202,11 @@ export default function WithdrawPage() {
             // ====== 🔍 DIAGNOSTIC LOG: Issue 3 - Wallet Balance ======
             console.log('🔍 [WithdrawPage] [ISSUE-3] Wallet balance breakdown:', {
                 effectiveAddress,
+                balanceAddress,
                 USDC_ADDRESS,
                 usdcBalance: usdcNum,
                 usdtBalance: usdtNum,
                 totalWallet,
-                availableBalance: ethers.formatUnits(
-                    (contractBalance ? parseFloat(contractBalance) : 0) * 1e6 + totalWallet * 1e6,
-                    6
-                ),
                 privyAddress,
                 privyUsdtBalance: privyUsdtNum,
             });
@@ -191,6 +224,7 @@ export default function WithdrawPage() {
     }
 
 
+
     async function handleAction() {
         if (!effectiveAddress || !amount || parseFloat(amount) <= 0) return;
 
@@ -203,30 +237,69 @@ export default function WithdrawPage() {
             const isCustodialUser = loginMethod === 'google' || loginMethod === 'email' || loginMethod === 'twitter' || loginMethod === 'discord';
 
             if (isCustodialUser) {
-                setProcessingStep('Processing secure withdrawal...');
-                console.log("Custodial Withdrawal initiated for:", user?.privy_user_id);
+                // ── Secure 2-step user-signed withdrawal ──────────────────────
+                // Step 1: Prepare — get nonce + message from backend
+                // Step 2: User signs message with their Privy embedded wallet
+                // Step 3: Submit signed authorization — backend verifies & executes
 
                 if (!user?.privy_user_id) {
-                    throw new Error("User session not fully synced. Please wait or refresh.");
+                    throw new Error('User session not fully synced. Please wait or refresh.');
                 }
 
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/wallet/custodial-withdraw`, {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+                // Step 1: Prepare withdrawal intent
+                setProcessingStep('Preparing withdrawal...');
+                const prepareRes = await fetch(`${apiUrl}/api/wallet/prepare-withdrawal`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         privyUserId: user.privy_user_id,
-                        amount: amount,
-                        destinationAddress: isEmbeddedWallet ? destinationAddress : undefined
-                    })
+                        amount,
+                        destinationAddress,
+                    }),
                 });
+                const prepareData = await prepareRes.json();
+                if (!prepareData.success) throw new Error(prepareData.error || 'Failed to prepare withdrawal');
 
-                const data = await response.json();
-                if (!data.success) throw new Error(data.error || 'Withdrawal failed');
+                const { nonce, message } = prepareData;
+                // Surface fee breakdown to user
+                setWithdrawalPreview({ gasFee: prepareData.gasFee, netAmount: prepareData.netAmount });
 
-                setTxHash(data.txHash);
+                // Step 2: Find the user's Privy embedded wallet and sign the message
+                setProcessingStep('Waiting for your signature...');
+                const privyWallet = wallets?.find((w: any) => w.walletClientType === 'privy');
+                if (!privyWallet) {
+                    throw new Error('Privy embedded wallet not found. Please log out and back in.');
+                }
+
+                // Get an ethers signer from the Privy embedded wallet
+                await privyWallet.switchChain(56); // BSC Mainnet
+                const provider = await privyWallet.getEthersProvider();
+                const signer = provider.getSigner();
+                const signerAddress = await signer.getAddress();
+
+                let signature: string;
+                try {
+                    signature = await signer.signMessage(message);
+                } catch (sigErr: any) {
+                    if (sigErr?.code === 4001 || sigErr?.message?.includes('rejected')) {
+                        throw new Error('Withdrawal cancelled — you rejected the signature request.');
+                    }
+                    throw sigErr;
+                }
+
+                // Step 3: Submit the signed authorization
+                setProcessingStep('Submitting secure withdrawal...');
+                const submitRes = await fetch(`${apiUrl}/api/wallet/submit-withdrawal`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nonce, signature, signerAddress }),
+                });
+                const submitData = await submitRes.json();
+                if (!submitData.success) throw new Error(submitData.error || 'Withdrawal failed');
+
+                setTxHash(submitData.txHash);
                 setStep('complete');
                 setTimeout(fetchAllBalances, 2000);
                 return;
@@ -446,26 +519,49 @@ export default function WithdrawPage() {
                                 <span className="text-white font-bold uppercase">{isEmbeddedWallet ? 'CASH OUT' : activeTab}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-white/60">Amount</span>
-                                <span className="text-primary font-mono text-lg">${amount}</span>
+                                <span className="text-white/60">Requested</span>
+                                <span className="text-primary font-mono text-lg">${amount} USDC</span>
                             </div>
+
                             {isEmbeddedWallet && (
-                                <div className="pt-3 border-t border-white/10 flex flex-col gap-1">
-                                    <span className="text-white/60 text-xs">Destination Address</span>
-                                    <span className="text-white font-mono text-xs break-all">{destinationAddress}</span>
+                                <div className="pt-3 border-t border-white/10 space-y-2">
+                                    {withdrawalPreview ? (
+                                        <>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-white/50">Gas Fee</span>
+                                                <span className="text-yellow-400 font-mono">-${parseFloat(withdrawalPreview.gasFee).toFixed(4)} USDC</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm font-bold">
+                                                <span className="text-white/80">You Receive</span>
+                                                <span className="text-green-400 font-mono">${parseFloat(withdrawalPreview.netAmount).toFixed(4)} USDC</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p className="text-white/30 text-xs italic">Gas fee calculated on confirmation.</p>
+                                    )}
+                                    <div className="pt-2 flex flex-col gap-1">
+                                        <span className="text-white/60 text-xs">To Address</span>
+                                        <span className="text-white font-mono text-xs break-all">{destinationAddress}</span>
+                                    </div>
+                                    <p className="text-white/30 text-xs pt-1">
+                                        ✍️ You will sign this withdrawal in your Privy wallet to authorize it.
+                                    </p>
                                 </div>
                             )}
                         </div>
 
                         <SlideToConfirm
                             onConfirm={handleAction}
-                            text={isEmbeddedWallet ? "SLIDE TO CASH OUT" : "SLIDE TO WITHDRAW"}
+                            text={isEmbeddedWallet ? "SLIDE TO SIGN & CASH OUT" : "SLIDE TO WITHDRAW"}
                             isLoading={false}
                             disabled={false}
                             side="YES"
                         />
 
-                        <button onClick={() => setStep('input')} className="w-full text-center text-white/40 hover:text-white text-sm">
+                        <button
+                            onClick={() => { setStep('input'); setWithdrawalPreview(null); }}
+                            className="w-full text-center text-white/40 hover:text-white text-sm"
+                        >
                             Cancel
                         </button>
                     </motion.div>

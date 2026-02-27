@@ -37,6 +37,13 @@ export const CONFIG = {
 
     // Alias for backwards compatibility
     MULTI_MARKET_ADDRESS: getEnv('NEXT_PUBLIC_MARKET_ADDRESS') || getEnv('MARKET_CONTRACT') || getEnv('MARKET_ADDRESS') || getEnv('MULTI_MARKET_ADDRESS', ''),
+
+    /**
+     * PROXY_WALLET_VERSION controls which SA derivation is used:
+     *   "simple"  = legacy toSimpleSmartAccount (default — safe during Phase 3 migration)
+     *   "safe"    = new toSafeSmartAccount with deterministic saltNonce (set AFTER migration)
+     */
+    PROXY_WALLET_VERSION: getEnv('PROXY_WALLET_VERSION', 'simple'),
 };
 
 console.log('✅ Contract Configuration Loaded:');

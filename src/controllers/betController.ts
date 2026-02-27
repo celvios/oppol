@@ -203,16 +203,89 @@ export const placeBet = async (req: Request, res: Response) => {
         );
         const receipt = await tx.wait();
 
+        if (receipt.status !== 1) {
+            throw new Error('Transaction reverted on-chain. Database not updated.');
+        }
+
+        // --- TRADE RECORDING (FIX ISSUE 2: Empty Portfolio) ---
+        // Strictly after on-chain success, insert the trade using the canonical Proxy Wallet / SA address.
+        // This makes it instantly visible in the user's portfolio query.
+        try {
+            await query(`
+                INSERT INTO trades (
+                    user_address, 
+                    market_id, 
+                    outcome_index, 
+                    shares, 
+                    price, 
+                    timestamp, 
+                    transaction_hash
+                ) VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+            `, [
+                normalizedAddress, // MUST be the proxy wallet address for portfolio matching
+                marketId,
+                targetOutcome,
+                ethers.formatUnits(bestShares, USDC_DECIMALS),
+                ethers.formatUnits(finalCost, USDC_DECIMALS),
+                receipt.hash
+            ]);
+            console.log(`[Bet] ✅ Trade securely recorded in DB for ${normalizedAddress}`);
+        } catch (dbError: any) {
+            console.error(`[Bet] ⚠️ CRITICAL: Blockchain succeeded but DB insert failed!`, dbError);
+            // We do not throw here because the user's money was genuinely spent on-chain.
+            // The indexer might catch it as a fallback.
+        }
+
         // --- GAS FEE RECOVERY via sweepGasFeeFor (works for ALL user types) ---
         if (feesToSweep > 0n) {
             console.log(`[Bet] Sweeping gas fee: ${ethers.formatUnits(feesToSweep, USDC_DECIMALS)} USDC from ${normalizedAddress} ...`);
-            try {
-                const sweepTx = await marketContract.sweepGasFeeFor(normalizedAddress, feesToSweep);
-                await sweepTx.wait();
-                console.log(`[Bet] ✅ Gas fee recovered: ${sweepTx.hash}`);
-            } catch (e: any) {
-                // Non-fatal: trade succeeded, relayer absorbs gas cost this round
-                console.error(`[Bet] ⚠️ Gas sweep failed (non-fatal): ${e.message}`);
+
+            const MAX_SWEEP_ATTEMPTS = 3;
+            const SWEEP_RETRY_DELAY_MS = 2000;
+            let sweepSuccess = false;
+
+            for (let attempt = 1; attempt <= MAX_SWEEP_ATTEMPTS; attempt++) {
+                try {
+                    const sweepTx = await marketContract.sweepGasFeeFor(normalizedAddress, feesToSweep);
+                    await sweepTx.wait();
+                    console.log(`[Bet] ✅ Gas fee recovered (attempt ${attempt}): ${sweepTx.hash}`);
+                    sweepSuccess = true;
+                    break;
+                } catch (e: any) {
+                    console.error(`[Bet] ⚠️ Gas sweep attempt ${attempt}/${MAX_SWEEP_ATTEMPTS} failed: ${e.message}`);
+                    if (attempt < MAX_SWEEP_ATTEMPTS) {
+                        await new Promise(resolve => setTimeout(resolve, SWEEP_RETRY_DELAY_MS));
+                    }
+                }
+            }
+
+            // If all retries exhausted, log to DB for offline reconciliation.
+            // The trade succeeded on-chain — we must not lose track of the owed fee.
+            if (!sweepSuccess) {
+                console.error(`[Bet] 🚨 SWEEP FAILED after ${MAX_SWEEP_ATTEMPTS} attempts. Recording to failed_sweeps for reconciliation.`);
+                try {
+                    await query(`
+                        INSERT INTO failed_sweeps (
+                            user_address,
+                            amount,
+                            trade_tx_hash,
+                            created_at
+                        ) VALUES ($1, $2, $3, NOW())
+                        ON CONFLICT (trade_tx_hash) DO NOTHING
+                    `, [
+                        normalizedAddress,
+                        ethers.formatUnits(feesToSweep, USDC_DECIMALS),
+                        receipt.hash
+                    ]);
+                } catch (dbErr: any) {
+                    // Last resort — at minimum ensure it is visible in server logs
+                    console.error(`[Bet] 🚨 CRITICAL: failed_sweeps DB insert also failed. Manual recovery needed!`, {
+                        user: normalizedAddress,
+                        amount: ethers.formatUnits(feesToSweep, USDC_DECIMALS),
+                        txHash: receipt.hash,
+                        error: dbErr.message,
+                    });
+                }
             }
         }
 
@@ -225,7 +298,7 @@ export const placeBet = async (req: Request, res: Response) => {
             user_original: walletAddress,
             user_resolved: normalizedAddress,
             gasDeducted: ethers.formatUnits(feesToSweep, USDC_DECIMALS),
-            NOTE: 'Check if trades table is being written after this. If not, portfolio will be empty.',
+            db_stored: true, // DB is now written to immediately
         });
         // ========================================================
 

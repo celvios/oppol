@@ -1,12 +1,21 @@
 import { Router } from 'express';
-import { getWallet, linkWallet, triggerCustodialDeposit, handleCustodialWithdraw, claimCustodialWinnings, executeCustodialTrade } from '../controllers/walletController';
+import { getWallet, linkWallet, triggerCustodialDeposit, handleCustodialWithdraw, claimCustodialWinnings, executeCustodialTrade, prepareWithdrawal, submitWithdrawal } from '../controllers/walletController';
 
 const router = Router();
 
 router.get('/:userId', getWallet);
 router.post('/link', linkWallet);
 router.post('/deposit-custodial', triggerCustodialDeposit);
-router.post('/custodial-withdraw', handleCustodialWithdraw);
+router.post('/custodial-withdraw', handleCustodialWithdraw); // Legacy — kept for backward compat
+
+/**
+ * Secure withdrawal — 2-step user-signed flow (custodial/Google users)
+ * Step 1: POST /api/wallet/prepare-withdrawal  → returns nonce + message to sign
+ * Step 2: POST /api/wallet/submit-withdrawal   → verifies signature, executes
+ */
+router.post('/prepare-withdrawal', prepareWithdrawal);
+router.post('/submit-withdrawal', submitWithdrawal);
+
 router.post('/claim-custodial', claimCustodialWinnings);
 
 /**
@@ -17,4 +26,3 @@ router.post('/claim-custodial', claimCustodialWinnings);
 router.post('/trade-custodial', executeCustodialTrade);
 
 export default router;
-

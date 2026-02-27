@@ -3,6 +3,7 @@ import { query } from '../config/database';
 import { createRandomWallet } from '../services/web3';
 import { EncryptionService } from '../services/encryption';
 import { CONFIG } from '../config/contracts';
+import { getBundlerUrl, getActiveBundlerProvider } from '../config/bundler';
 import { ethers } from 'ethers';
 import {
     createPublicClient,
@@ -17,8 +18,9 @@ import { bsc } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createSmartAccountClient } from 'permissionless';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { toSimpleSmartAccount } from 'permissionless/accounts';
+import { toSimpleSmartAccount, toSafeSmartAccount } from 'permissionless/accounts';
 import { entryPoint07Address } from 'viem/account-abstraction';
+import { keccak256, toBytes } from 'viem';
 
 // Get user's wallet
 export const getWallet = async (req: Request, res: Response) => {
@@ -63,7 +65,8 @@ export const linkWallet = async (req: Request, res: Response) => {
     res.status(410).json({ error: 'Wallet linking is deprecated. Web and Mobile Auth are distinct.' });
 };
 
-// Export helper to get Smart Account address from a private key (used in authController)
+// Export helper to get Smart Account address from a private key (LEGACY — Simple SA, no salt)
+// Kept for migration script usage (reading old SA balances)
 export const getSmartAccountAddressForKey = async (privateKeyHex: string): Promise<string> => {
     const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
     const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
@@ -77,10 +80,89 @@ export const getSmartAccountAddressForKey = async (privateKeyHex: string): Promi
     return smartAccount.address;
 };
 
+/**
+ * getSafeProxyWalletForUser
+ *
+ * NEW — Phase 3 deterministic Safe Proxy Wallet.
+ * Derives a Safe smart account whose address is permanently bound to both
+ * the owner private key AND the platform userId via a deterministic saltNonce.
+ *
+ * saltNonce = first 8 bytes of keccak256(userId) converted to BigInt.
+ * This guarantees the same userId always produces the same SA address,
+ * even if the server derives it on different machines or after a restart.
+ */
+export const getSafeProxyWalletForUser = async (privateKeyHex: string, userId: string) => {
+    const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
+    const bundlerUrl = getBundlerUrl(CONFIG.CHAIN_ID);
+
+    const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
+    const formattedKey = (privateKeyHex.startsWith('0x') ? privateKeyHex : `0x${privateKeyHex}`) as `0x${string}`;
+    const ownerAccount = privateKeyToAccount(formattedKey);
+
+    // Deterministic salt: first 8 bytes of keccak256(userId) → stable bigint per user
+    const saltNonce = BigInt('0x' + keccak256(toBytes(userId)).slice(2, 18));
+
+    console.log(`[SafeWallet] Deriving Safe SA for userId=${userId} saltNonce=${saltNonce}`);
+
+    const safeAccount = await toSafeSmartAccount({
+        client: publicClient,
+        owners: [ownerAccount],
+        version: '1.4.1',
+        entryPoint: { address: entryPoint07Address, version: '0.7' },
+        saltNonce,
+    });
+
+    const pimlicoClient = createPimlicoClient({
+        transport: http(bundlerUrl),
+        entryPoint: { address: entryPoint07Address, version: '0.7' },
+    });
+
+    const smartAccountClient = createSmartAccountClient({
+        account: safeAccount,
+        chain: bsc,
+        bundlerTransport: http(bundlerUrl),
+        paymaster: pimlicoClient,
+        userOperation: {
+            estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
+        },
+    });
+
+    return {
+        smartAccountClient,
+        pimlicoClient,
+        smartAccountAddress: safeAccount.address,
+        publicClient,
+    };
+};
+
+/**
+ * getActiveProxyWallet
+ *
+ * ENV-GATED router: returns the Safe SA client (new) or Simple SA client (legacy)
+ * based on the PROXY_WALLET_VERSION environment variable.
+ *
+ *   PROXY_WALLET_VERSION=simple  → old behaviour (default, safe during migration)
+ *   PROXY_WALLET_VERSION=safe    → new Safe SA (set AFTER migration script completes)
+ *
+ * All handlers (deposit, withdraw, trade, claim) call this instead of
+ * getSmartAccountClient directly, giving a single switch-over point.
+ */
+export const getActiveProxyWallet = async (privateKeyHex: string, userId: string) => {
+    const version = (process.env.PROXY_WALLET_VERSION || 'simple').toLowerCase();
+    if (version === 'safe') {
+        console.log(`[ProxyWallet] Mode: SAFE (Phase 3)`);
+        return getSafeProxyWalletForUser(privateKeyHex, userId);
+    }
+    console.log(`[ProxyWallet] Mode: SIMPLE (legacy)`);
+    return getSmartAccountClient(privateKeyHex);
+};
+
 // Helper to build Pimlico Smart Account Client
 const getSmartAccountClient = async (privateKeyHex: string) => {
     const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
-    const pimlicoUrl = `https://api.pimlico.io/v2/${CONFIG.CHAIN_ID}/rpc?apikey=${process.env.NEXT_PUBLIC_PIMLICO_API_KEY || process.env.PIMLICO_API_KEY}`;
+    const bundlerUrl = getBundlerUrl(CONFIG.CHAIN_ID);
+    console.log(`[Bundler] Using provider: ${getActiveBundlerProvider()} → ${bundlerUrl.split('?')[0]}`);
+    const pimlicoUrl = bundlerUrl; // alias kept for internal usage below
 
     const publicClient = createPublicClient({ chain: bsc, transport: http(rpcUrl) });
 
@@ -133,8 +215,8 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const wallet = walletResult.rows[0];
         const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getSmartAccountClient(privateKey);
-        console.log(`[Deposit] Custodial Smart Account Wallet: ${smartAccountAddress}`);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
+        console.log(`[Deposit] Custodial Proxy Wallet [${process.env.PROXY_WALLET_VERSION || 'simple'}]: ${smartAccountAddress}`);
 
         const USDC_DECIMALS = 18;
         const depositAmount = ethers.parseUnits(amountRaw, USDC_DECIMALS);
@@ -226,7 +308,7 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             return;
         }
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId);
 
         const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
         const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
@@ -320,7 +402,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         }
 
         // 2. Check SA USDC balance first, fall back to EOA if SA is empty
-        const { smartAccountAddress } = await getSmartAccountClient(privateKey);
+        const { smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
@@ -435,7 +517,7 @@ export const handleCustodialWithdraw = async (req: Request, res: Response) => {
         const custodialAddress = wallet.public_address;
         const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId);
 
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
@@ -574,10 +656,10 @@ export const claimCustodialWinnings = async (req: Request, res: Response) => {
 
         const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
 
-        // 3. Build Pimlico Smart Account client
-        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getSmartAccountClient(privateKey);
+        // 3. Build Proxy Wallet client (routes to Simple or Safe SA based on PROXY_WALLET_VERSION)
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
 
-        console.log(`[CustodialClaim] Calling claimWinnings(${marketId}) from Smart Account ${smartAccountAddress}`);
+        console.log(`[CustodialClaim] Calling claimWinnings(${marketId}) from Proxy Wallet [${process.env.PROXY_WALLET_VERSION || 'simple'}]: ${smartAccountAddress}`);
 
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS || process.env.NEXT_PUBLIC_MARKET_ADDRESS;
         if (!MARKET_ADDR) throw new Error('Market contract address not configured');
@@ -647,8 +729,8 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         }
 
         const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
-        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getSmartAccountClient(privateKey);
-        console.log(`[CustodialTrade] SA: ${smartAccountAddress}`);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId);
+        console.log(`[CustodialTrade] Proxy Wallet [${process.env.PROXY_WALLET_VERSION || 'simple'}]: ${smartAccountAddress}`);
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
@@ -746,4 +828,298 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         return res.status(500).json({ success: false, error: error.message });
     }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory nonce store (replace with Redis/DB for multi-instance deployments)
+// Each entry expires after 5 minutes.
+// ─────────────────────────────────────────────────────────────────────────────
+interface WithdrawalIntent {
+    privyUserId: string;
+    amount: string;
+    destinationAddress: string;
+    gasFeeUSDC: string;
+    netAmount: string;
+    smartAccountAddress: string;
+    expiresAt: number; // unix ms
+}
+const pendingWithdrawals = new Map<string, WithdrawalIntent>();
+const INTENT_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Purge expired intents periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [nonce, intent] of pendingWithdrawals.entries()) {
+        if (now > intent.expiresAt) pendingWithdrawals.delete(nonce);
+    }
+}, 60_000);
+
+/**
+ * POST /api/wallet/prepare-withdrawal
+ *
+ * Step 1 of 2 in the secure withdrawal flow.
+ * Builds the withdrawal details (amounts, fees) and returns them along with
+ * a one-time nonce. The frontend must have the user sign the intent message
+ * with their Privy embedded wallet before calling submit-withdrawal.
+ *
+ * Body: { privyUserId, amount, destinationAddress }
+ * Returns: { nonce, message, gasFee, netAmount, smartAccountAddress }
+ */
+export const prepareWithdrawal = async (req: Request, res: Response) => {
+    try {
+        const { privyUserId, amount, destinationAddress } = req.body;
+
+        if (!privyUserId || !amount || !destinationAddress) {
+            return res.status(400).json({ success: false, error: 'privyUserId, amount, and destinationAddress are required' });
+        }
+
+        if (!ethers.isAddress(destinationAddress)) {
+            return res.status(400).json({ success: false, error: 'Invalid destination address' });
+        }
+
+        // 1. Resolve user and their Smart Account
+        const userResult = await query('SELECT id FROM users WHERE privy_user_id = $1', [privyUserId]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = userResult.rows[0].id;
+
+        const walletResult = await query(
+            'SELECT encrypted_private_key FROM wallets WHERE user_id = $1',
+            [userId]
+        );
+        if (walletResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+        }
+
+        const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
+        const smartAccountAddress = await getSmartAccountAddressForKey(privateKey);
+
+        // 2. Estimate gas fee
+        const { gasService } = require('../services/gasService');
+        const gasFeeUSDC: bigint = await gasService.estimateGasCostInUSDC(BigInt(100000));
+        const DECIMALS = 18;
+        const amountBN = ethers.parseUnits(String(amount), DECIMALS);
+
+        if (amountBN <= gasFeeUSDC) {
+            return res.status(400).json({ success: false, error: 'Amount too small to cover gas fee' });
+        }
+
+        const netAmountBN = amountBN - gasFeeUSDC;
+        const gasFeeStr = ethers.formatUnits(gasFeeUSDC, DECIMALS);
+        const netAmountStr = ethers.formatUnits(netAmountBN, DECIMALS);
+
+        // 3. Generate a one-time nonce
+        const { randomBytes } = await import('crypto');
+        const nonce = randomBytes(16).toString('hex');
+        const expiresAt = Date.now() + INTENT_TTL_MS;
+
+        // 4. Build the canonical message the user must sign
+        // Format is deterministic so the backend can reconstruct and verify it
+        const message = [
+            'OPPOL WITHDRAWAL AUTHORIZATION',
+            `Amount:      ${amount} USDC`,
+            `Gas Fee:     ${gasFeeStr} USDC`,
+            `You Receive: ${netAmountStr} USDC`,
+            `To:          ${destinationAddress.toLowerCase()}`,
+            `From:        ${smartAccountAddress.toLowerCase()}`,
+            `Nonce:       ${nonce}`,
+            `Expires:     ${new Date(expiresAt).toISOString()}`,
+        ].join('\n');
+
+        // 5. Store intent server-side (keyed by nonce)
+        pendingWithdrawals.set(nonce, {
+            privyUserId,
+            amount: String(amount),
+            destinationAddress: destinationAddress.toLowerCase(),
+            gasFeeUSDC: gasFeeStr,
+            netAmount: netAmountStr,
+            smartAccountAddress: smartAccountAddress.toLowerCase(),
+            expiresAt,
+        });
+
+        console.log(`[PrepareWithdrawal] Intent created for ${privyUserId}. Nonce: ${nonce}. Net: ${netAmountStr} USDC → ${destinationAddress}`);
+
+        return res.json({
+            success: true,
+            nonce,
+            message,
+            gasFee: gasFeeStr,
+            netAmount: netAmountStr,
+            smartAccountAddress,
+            expiresAt,
+        });
+
+    } catch (error: any) {
+        console.error('[PrepareWithdrawal] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/**
+ * POST /api/wallet/submit-withdrawal
+ *
+ * Step 2 of 2 in the secure withdrawal flow.
+ * Receives the nonce + the user's signature over the intent message.
+ * Verifies the signature against the user's known Privy embedded-wallet address.
+ * Only then executes the withdrawal UserOperation via Pimlico.
+ *
+ * Body: { nonce, signature, signerAddress }
+ * - nonce:         from prepare-withdrawal response
+ * - signature:     hex signature produced by the user's Privy embedded wallet
+ * - signerAddress: the Privy embedded wallet address that signed (for verification)
+ */
+export const submitWithdrawal = async (req: Request, res: Response) => {
+    try {
+        const { nonce, signature, signerAddress } = req.body;
+
+        if (!nonce || !signature || !signerAddress) {
+            return res.status(400).json({ success: false, error: 'nonce, signature, and signerAddress are required' });
+        }
+
+        // 1. Retrieve the pending intent
+        const intent = pendingWithdrawals.get(nonce);
+        if (!intent) {
+            return res.status(400).json({ success: false, error: 'Invalid or expired withdrawal nonce. Please start a new withdrawal.' });
+        }
+
+        // 2. Check expiry
+        if (Date.now() > intent.expiresAt) {
+            pendingWithdrawals.delete(nonce);
+            return res.status(400).json({ success: false, error: 'Withdrawal intent expired. Please start again.' });
+        }
+
+        // 3. Reconstruct the exact message the user was asked to sign
+        const message = [
+            'OPPOL WITHDRAWAL AUTHORIZATION',
+            `Amount:      ${intent.amount} USDC`,
+            `Gas Fee:     ${intent.gasFeeUSDC} USDC`,
+            `You Receive: ${intent.netAmount} USDC`,
+            `To:          ${intent.destinationAddress}`,
+            `From:        ${intent.smartAccountAddress}`,
+            `Nonce:       ${nonce}`,
+            `Expires:     ${new Date(intent.expiresAt).toISOString()}`,
+        ].join('\n');
+
+        // 4. Recover the signer from the signature and verify
+        let recoveredAddress: string;
+        try {
+            recoveredAddress = ethers.verifyMessage(message, signature);
+        } catch (e: any) {
+            return res.status(400).json({ success: false, error: 'Invalid signature format' });
+        }
+
+        if (recoveredAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+            console.error(`[SubmitWithdrawal] Signature mismatch! Recovered: ${recoveredAddress}, Claimed: ${signerAddress}`);
+            return res.status(403).json({ success: false, error: 'Signature verification failed. Withdrawal rejected.' });
+        }
+
+        // 5. Verify signerAddress belongs to the Privy user
+        const userResult = await query(
+            'SELECT u.id FROM users u WHERE u.privy_user_id = $1',
+            [intent.privyUserId]
+        );
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = userResult.rows[0].id;
+
+        // The signerAddress must be a known wallet address linked to this user in either users or wallets table
+        const knownAddressCheck = await query(
+            `SELECT 1 FROM users WHERE id = $1 AND LOWER(wallet_address) = LOWER($2)
+             UNION
+             SELECT 1 FROM wallets WHERE user_id = $1 AND LOWER(public_address) = LOWER($2)`,
+            [userId, signerAddress]
+        );
+
+        if (knownAddressCheck.rows.length === 0) {
+            console.error(`[SubmitWithdrawal] Signer ${signerAddress} not linked to user ${intent.privyUserId}`);
+            return res.status(403).json({ success: false, error: 'Signer address not associated with this account.' });
+        }
+
+        // 6. Consume the nonce (one-time use)
+        pendingWithdrawals.delete(nonce);
+
+        console.log(`[SubmitWithdrawal] ✅ Signature verified for ${intent.privyUserId}. Executing withdrawal...`);
+
+        // 7. Execute the withdrawal via the existing custodial flow
+        // We build a mock request/response to reuse handleCustodialWithdraw internally
+        const walletResult = await query(
+            'SELECT encrypted_private_key FROM wallets WHERE user_id = $1',
+            [userId]
+        );
+        if (walletResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+        }
+
+        const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
+
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const USDC_ADDR = CONFIG.USDC_CONTRACT;
+        const TREASURY_ADDR = process.env.ADMIN_WALLET || process.env.NEXT_PUBLIC_ADMIN_WALLET;
+        if (!MARKET_ADDR || !USDC_ADDR) throw new Error('Missing contract config');
+
+        const DECIMALS = 18;
+        const netAmountBN = ethers.parseUnits(intent.netAmount, DECIMALS);
+        const gasFeeUSDCBN = ethers.parseUnits(intent.gasFeeUSDC, DECIMALS);
+        const totalNeeded = netAmountBN + gasFeeUSDCBN;
+
+        // Check SA balance — withdraw from market if needed
+        const { ethers: eth2 } = require('ethers');
+        const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org');
+        const usdc = new ethers.Contract(USDC_ADDR, ['function balanceOf(address) view returns (uint256)'], provider);
+        const saUsdcBalance: bigint = await usdc.balanceOf(smartAccountAddress);
+
+        const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+
+        if (saUsdcBalance < totalNeeded) {
+            const neededFromMarket = totalNeeded - saUsdcBalance;
+            console.log(`[SubmitWithdrawal] Need ${ethers.formatUnits(neededFromMarket, DECIMALS)} USDC from market`);
+            const withdrawData = efd({
+                abi: pa(['function withdraw(uint256 amount)']),
+                functionName: 'withdraw',
+                args: [neededFromMarket],
+            });
+            calls.push({ to: MARKET_ADDR as `0x${string}`, data: withdrawData });
+        }
+
+        // Transfer net amount to destination
+        const transferData = efd({
+            abi: pa(['function transfer(address to, uint256 amount) returns (bool)']),
+            functionName: 'transfer',
+            args: [intent.destinationAddress as `0x${string}`, netAmountBN],
+        });
+        calls.push({ to: USDC_ADDR as `0x${string}`, data: transferData });
+
+        // Transfer gas fee to treasury
+        if (TREASURY_ADDR && gasFeeUSDCBN > 0n) {
+            const feeData = efd({
+                abi: pa(['function transfer(address to, uint256 amount) returns (bool)']),
+                functionName: 'transfer',
+                args: [TREASURY_ADDR as `0x${string}`, gasFeeUSDCBN],
+            });
+            calls.push({ to: USDC_ADDR as `0x${string}`, data: feeData });
+        }
+
+        console.log(`[SubmitWithdrawal] Sending ${calls.length}-call UserOperation...`);
+        const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const txHash = receipt.receipt.transactionHash;
+
+        console.log(`✅ [SubmitWithdrawal] Complete. Tx: ${txHash}`);
+
+        return res.json({
+            success: true,
+            txHash,
+            netAmount: intent.netAmount,
+            gasFee: intent.gasFeeUSDC,
+            destination: intent.destinationAddress,
+        });
+
+    } catch (error: any) {
+        console.error('[SubmitWithdrawal] Error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 

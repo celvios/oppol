@@ -9,6 +9,7 @@ import { SkeletonLoader } from "@/components/ui/SkeletonLoader";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/lib/store";
 import { useWallet } from "@/lib/use-wallet";
+import { usePrivy } from '@privy-io/react-auth';
 import { AnimatePresence, motion } from "framer-motion";
 import CommentsSection from "@/components/market/CommentsSection";
 import NeonButton from "@/components/ui/NeonButton";
@@ -137,7 +138,11 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     const [shareImageSrc, setShareImageSrc] = useState<string>("");
     const chartRef = useRef<HTMLDivElement>(null);
 
-    const { isConnected, address, isConnecting, disconnect, connect } = useWallet();
+    const { isConnected, address, isConnecting, disconnect, connect, loginMethod } = useWallet();
+    const { user: privyUser } = usePrivy();
+    // Resolved custodial SA address for embedded (Google/email) users.
+    // Stored in a ref so polling re-uses it without re-deriving it every 60s.
+    const custodialAddressRef = useRef<string | null>(null);
     const MARKET_CONTRACT = getMarketContract();
     const { setTradeModalOpen } = useUIStore();
 
@@ -286,10 +291,42 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
         setIsLoadingReal(true);
 
         try {
+            // ── For embedded/social users (Google, email) resolve the SA address ──
+            // Their market balance is stored under the backend-derived SA, not the Privy login wallet.
+            const isEmbeddedUser = loginMethod && loginMethod !== 'wallet';
+            let balanceAddress = address;
+
+            if (isEmbeddedUser && address && privyUser?.id) {
+                // Re-use cached address if already resolved
+                if (!custodialAddressRef.current) {
+                    try {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+                        const res = await fetch(`${apiUrl}/api/auth/privy`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                privyUserId: privyUser.id,
+                                walletAddress: address,
+                                loginMethod: loginMethod || 'google',
+                            }),
+                        });
+                        const data = await res.json();
+                        const resolved = data.custodialAddress || data.user?.wallet_address;
+                        if (resolved) {
+                            custodialAddressRef.current = resolved;
+                            console.log('[MobileTerminal] Custodial SA resolved:', resolved);
+                        }
+                    } catch (e) {
+                        console.warn('[MobileTerminal] Could not resolve custodial address:', e);
+                    }
+                }
+                if (custodialAddressRef.current) balanceAddress = custodialAddressRef.current;
+            }
+
             // Parallel requests for faster loading
             const [allMarkets, depositedBalance] = await Promise.all([
                 web3Service.getMarkets(),
-                address ? web3Service.getDepositedBalance(address).catch(() => '0') : Promise.resolve('0')
+                balanceAddress ? web3Service.getDepositedBalance(balanceAddress).catch(() => '0') : Promise.resolve('0')
             ]);
 
             if (allMarkets.length === 0) {
@@ -321,7 +358,7 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
             setLoading(false);
             setIsLoadingReal(false);
         }
-    }, [address, retryCount, selectedMarketId, searchParams]);
+    }, [address, loginMethod, privyUser, retryCount, selectedMarketId, searchParams]);
 
     // Initial fetch on mount
     useEffect(() => {
@@ -331,7 +368,9 @@ export function MobileTerminal({ initialMarkets = [] }: MobileTerminalProps) {
     // Refresh balance when wallet connects/changes
     useEffect(() => {
         if (address) {
-            web3Service.getDepositedBalance(address).then(setBalance).catch(() => setBalance('0'));
+            // Use the cached custodial address if available, otherwise fall back to the raw address
+            const balAddr = custodialAddressRef.current || address;
+            web3Service.getDepositedBalance(balAddr).then(setBalance).catch(() => setBalance('0'));
         }
     }, [address]);
 
