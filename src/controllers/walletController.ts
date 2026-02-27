@@ -1075,8 +1075,8 @@ export const submitWithdrawal = async (req: Request, res: Response) => {
         if (saUsdcBalance < totalNeeded) {
             const neededFromMarket = totalNeeded - saUsdcBalance;
             console.log(`[SubmitWithdrawal] Need ${ethers.formatUnits(neededFromMarket, DECIMALS)} USDC from market`);
-            const withdrawData = efd({
-                abi: pa(['function withdraw(uint256 amount)']),
+            const withdrawData = encodeFunctionData({
+                abi: parseAbi(['function withdraw(uint256 amount)']),
                 functionName: 'withdraw',
                 args: [neededFromMarket],
             });
@@ -1084,8 +1084,8 @@ export const submitWithdrawal = async (req: Request, res: Response) => {
         }
 
         // Transfer net amount to destination
-        const transferData = efd({
-            abi: pa(['function transfer(address to, uint256 amount) returns (bool)']),
+        const transferData = encodeFunctionData({
+            abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
             functionName: 'transfer',
             args: [intent.destinationAddress as `0x${string}`, netAmountBN],
         });
@@ -1093,8 +1093,8 @@ export const submitWithdrawal = async (req: Request, res: Response) => {
 
         // Transfer gas fee to treasury
         if (TREASURY_ADDR && gasFeeUSDCBN > 0n) {
-            const feeData = efd({
-                abi: pa(['function transfer(address to, uint256 amount) returns (bool)']),
+            const feeData = encodeFunctionData({
+                abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
                 functionName: 'transfer',
                 args: [TREASURY_ADDR as `0x${string}`, gasFeeUSDCBN],
             });
