@@ -19,6 +19,7 @@ import updateBalanceRoutes from './routes/admin';
 import commentsRoutes from './routes/comments';
 import boostRoutes from './routes/boostRoutes';
 import marketRoutes from './routes/marketRoutes';
+import walletRouter from './routes/wallet';
 import { apiRouter } from './routes/api';
 import { verifyAuth } from './middleware/verifyAuth';
 
@@ -84,6 +85,7 @@ app.use('/api/admin', updateBalanceRoutes);
 // API Routes (includes Telegram, WhatsApp, Markets, etc.)
 import authRoutes from './routes/auth';
 app.use('/api/auth', authRoutes);
+app.use('/api/wallet', walletRouter);  // prepare-withdrawal, submit-withdrawal, trade-custodial etc.
 app.use('/api/comments', commentsRoutes);
 app.use('/api/boost', boostRoutes);
 app.use('/api/market', marketRoutes);
