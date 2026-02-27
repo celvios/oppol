@@ -417,38 +417,59 @@ export default function PortfolioPage() {
 
                                     const marketAddr = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
                                     const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '';
-                                    const amountWei = ethers.parseUnits(parseFloat(legacySaBalance).toFixed(18), 18);
+
+                                    // ── Always fetch the EXACT raw uint256 from the contract ──────────────
+                                    // Never re-encode from a display string — floating point will cause
+                                    // an off-by-N-wei revert (0xdb42144d InsufficientBalance error).
+                                    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://bsc-dataseed.binance.org/';
+                                    const { ethers: eth } = await import('ethers');
+                                    const roProvider = new eth.JsonRpcProvider(rpcUrl);
+                                    const mktRead = new eth.Contract(
+                                        marketAddr,
+                                        ['function userBalances(address) view returns (uint256)'],
+                                        roProvider
+                                    );
+                                    const exactAmountWei: bigint = await mktRead.userBalances(legacySaAddress);
+                                    if (exactAmountWei === 0n) throw new Error('No balance found in legacy SA on-chain.');
 
                                     // Try Privy-linked wallet first (gasless Biconomy path)
                                     const privyWallets = privyUser?.linkedAccounts?.filter((a: any) => a.type === 'wallet') || [];
                                     const activeWallet = privyWallets.find((w: any) => w.address.toLowerCase() === address.toLowerCase()) || privyWallets[0] || null;
 
                                     if (activeWallet) {
-                                        await BiconomyService.migrateSAToEOA(activeWallet, address, marketAddr, usdcAddr, amountWei);
+                                        await BiconomyService.migrateSAToEOA(activeWallet, address, marketAddr, usdcAddr, exactAmountWei);
                                     } else {
                                         // Fallback: user signs directly with window.ethereum (standard MetaMask)
                                         if (!(window as any).ethereum) throw new Error('No wallet provider. Please use MetaMask.');
-                                        const provider = new ethers.BrowserProvider((window as any).ethereum);
+                                        const provider = new eth.BrowserProvider((window as any).ethereum);
                                         const signer = await provider.getSigner();
 
-                                        // ⚠️ The balance is held BY the Biconomy SA (legacySaAddress), not by the EOA.
-                                        // Only the SA can call market.withdraw(). The SA owner (EOA) must call
-                                        // sa.execute(target, value, calldata) to instruct the SA to act.
-                                        const SA_ABI = ['function execute(address dest, uint256 value, bytes calldata func)'];
-                                        const saContract = new ethers.Contract(legacySaAddress, SA_ABI, signer);
+                                        // The balance is held BY the Biconomy SA — the EOA (as SA owner) calls
+                                        // sa.execute() to instruct the SA to act on its own behalf.
+                                        const saContract = new eth.Contract(
+                                            legacySaAddress,
+                                            ['function execute(address dest, uint256 value, bytes calldata func)'],
+                                            signer
+                                        );
+                                        const marketIface = new eth.Interface(['function withdraw(uint256 amount)']);
+                                        const usdcIface = new eth.Interface(['function transfer(address to, uint256 amount) returns (bool)']);
 
-                                        const marketIface = new ethers.Interface(['function withdraw(uint256 amount)']);
-                                        const usdcIface = new ethers.Interface(['function transfer(address to, uint256 amount) returns (bool)']);
-
-                                        const withdrawCalldata = marketIface.encodeFunctionData('withdraw', [amountWei]);
-                                        const transferCalldata = usdcIface.encodeFunctionData('transfer', [address, amountWei]);
-
-                                        // Step 1: SA withdraws USDC from the market into itself
-                                        const tx1 = await saContract.execute(marketAddr, 0n, withdrawCalldata);
+                                        // Step 1: SA withdraws exact balance from market into itself
+                                        const tx1 = await saContract.execute(
+                                            marketAddr, BigInt(0),
+                                            marketIface.encodeFunctionData('withdraw', [exactAmountWei])
+                                        );
                                         await tx1.wait();
 
-                                        // Step 2: SA transfers that USDC to the user's EOA
-                                        const tx2 = await saContract.execute(usdcAddr, 0n, transferCalldata);
+                                        // Step 2: Read fresh USDC balance at SA (avoids any sweep/fee dust)
+                                        const usdcRead = new eth.Contract(usdcAddr, ['function balanceOf(address) view returns (uint256)'], roProvider);
+                                        const saUsdcBal: bigint = await usdcRead.balanceOf(legacySaAddress);
+
+                                        // Step 3: SA transfers all USDC to the user's EOA
+                                        const tx2 = await saContract.execute(
+                                            usdcAddr, BigInt(0),
+                                            usdcIface.encodeFunctionData('transfer', [address, saUsdcBal])
+                                        );
                                         await tx2.wait();
                                     }
 
