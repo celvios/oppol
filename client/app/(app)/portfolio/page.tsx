@@ -75,6 +75,10 @@ export default function PortfolioPage() {
             setBalance('0');
             setWalletBalance('0');
             setTotalPnL(0);
+            setCustodialAddress(null);
+            setCustodialUsdcBalance('0');
+            setLegacySaAddress(null);
+            setLegacySaBalance('0');
             return;
         }
 
@@ -91,6 +95,17 @@ export default function PortfolioPage() {
         }
 
         async function fetchData() {
+            // ── Clear stale state immediately so previous user's data never bleeds through ──
+            setBalance('0');
+            setWalletBalance('0');
+            setPositions([]);
+            setTotalPnL(0);
+            setCustodialAddress(null);
+            setCustodialUsdcBalance('0');
+            setLegacySaAddress(null);
+            setLegacySaBalance('0');
+            setLoading(true);
+
             try {
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -227,7 +242,7 @@ export default function PortfolioPage() {
 
         // Cleanup on unmount
         return () => clearInterval(interval);
-    }, [address, isConnecting, isEffectivelyConnected]);
+    }, [address, isConnecting, isEffectivelyConnected, privyUser?.id]);
 
     if (isConnecting) {
         return (
