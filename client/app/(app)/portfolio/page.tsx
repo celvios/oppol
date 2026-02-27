@@ -133,15 +133,12 @@ export default function PortfolioPage() {
                         }
                         if (saAddr && saAddr.toLowerCase() !== effectiveAddress?.toLowerCase()) {
                             const saBal = await web3Service.getDepositedBalance(saAddr).catch(() => '0');
-                            const eoaBal = await web3Service.getDepositedBalance(checkAddress).catch(() => '0');
                             if (parseFloat(saBal) > 0.01) {
-                                // Has legacy SA balance — show migration banner
+                                // Has legacy SA balance — show migration banner only
+                                // Do NOT override checkAddress — deposited balance always reads from EOA
                                 setLegacySaAddress(saAddr);
                                 setLegacySaBalance(saBal);
                                 console.log(`[Portfolio] Legacy SA balance found: ${saBal} USDC at ${saAddr}`);
-                            }
-                            if (parseFloat(saBal) > parseFloat(eoaBal)) {
-                                checkAddress = saAddr; // show SA balance until migration completes
                             }
                         }
                     } catch {
@@ -412,21 +409,37 @@ export default function PortfolioPage() {
                         </div>
                         <button
                             onClick={async () => {
-                                if (!privyUser || !address || !legacySaAddress) return;
+                                if (!address || !legacySaAddress) return;
                                 setIsMigrating(true);
                                 try {
                                     const { BiconomyService } = await import('@/lib/biconomy-service');
                                     const { ethers } = await import('ethers');
 
-                                    const wallets = privyUser.linkedAccounts.filter((a: any) => a.type === 'wallet') || [];
-                                    const activeWallet = wallets.find((w: any) => w.address.toLowerCase() === address?.toLowerCase()) || wallets[0];
-                                    if (!activeWallet) throw new Error('No Privy wallet found. Please reconnect via Privy.');
-
                                     const marketAddr = process.env.NEXT_PUBLIC_MARKET_ADDRESS || '';
                                     const usdcAddr = process.env.NEXT_PUBLIC_USDC_CONTRACT || '';
                                     const amountWei = ethers.parseUnits(parseFloat(legacySaBalance).toFixed(18), 18);
 
-                                    await BiconomyService.migrateSAToEOA(activeWallet, address, marketAddr, usdcAddr, amountWei);
+                                    // Try Privy-linked wallet first (gasless Biconomy path)
+                                    const privyWallets = privyUser?.linkedAccounts?.filter((a: any) => a.type === 'wallet') || [];
+                                    const activeWallet = privyWallets.find((w: any) => w.address.toLowerCase() === address.toLowerCase()) || privyWallets[0] || null;
+
+                                    if (activeWallet) {
+                                        await BiconomyService.migrateSAToEOA(activeWallet, address, marketAddr, usdcAddr, amountWei);
+                                    } else {
+                                        // Fallback: user signs directly with window.ethereum (standard MetaMask)
+                                        if (!(window as any).ethereum) throw new Error('No wallet provider. Please use MetaMask.');
+                                        const provider = new ethers.BrowserProvider((window as any).ethereum);
+                                        const signer = await provider.getSigner();
+                                        // Withdraw from market then transfer USDC to EOA
+                                        const marketContract = new ethers.Contract(
+                                            marketAddr,
+                                            ['function withdraw(uint256 amount)'],
+                                            signer
+                                        );
+                                        const tx = await marketContract.withdraw(amountWei);
+                                        await tx.wait();
+                                    }
+
                                     setMigrationDone(true);
                                     alert(`✅ Migration complete! ${parseFloat(legacySaBalance).toFixed(2)} USDC is now in your wallet. You'll be redirected to deposit it.`);
                                     window.location.href = '/deposit';
