@@ -49,5 +49,12 @@ export const CONFIG = {
 console.log('✅ Contract Configuration Loaded:');
 console.log('   - Market:', CONFIG.MARKET_CONTRACT);
 console.log('   - USDC:', CONFIG.USDC_CONTRACT);
+console.log('   - USDT:', CONFIG.USDT_CONTRACT || '❌ NOT SET');
+console.log('   - ZAP:', CONFIG.ZAP_CONTRACT || '❌ NOT SET');
 console.log('   - RPC:', CONFIG.RPC_URL);
 console.log('   - Chain ID:', CONFIG.CHAIN_ID);
+console.log('   [ENV DEBUG] NEXT_PUBLIC_ZAP_ADDRESS:', process.env.NEXT_PUBLIC_ZAP_ADDRESS || 'empty');
+console.log('   [ENV DEBUG] ZAP_ADDRESS:', process.env.ZAP_ADDRESS || 'empty');
+console.log('   [ENV DEBUG] NEXT_PUBLIC_USDT_CONTRACT:', process.env.NEXT_PUBLIC_USDT_CONTRACT || 'empty');
+console.log('   [ENV DEBUG] USDT_CONTRACT:', process.env.USDT_CONTRACT || 'empty');
+console.log('   [ENV DEBUG] USDT_ADDRESS:', process.env.USDT_ADDRESS || 'empty');
