@@ -1028,10 +1028,11 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         // We must check receipt.success to detect reverts in withdraw/transfer/buyShares.
         if (!receipt.success) {
             console.error(`❌ [CustodialTrade] UserOp failed on-chain! Tx: ${txHash}`);
+            console.error(`❌ [CustodialTrade] Receipt Details:`, JSON.stringify(receipt, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
             return res.status(500).json({
                 success: false,
-                error: 'Trade failed on-chain (insufficient balance or market error). Your balance was not changed.',
-                txHash,
+                error: `Trade failed on-chain. TX: ${txHash}. Inner calls reverted.`,
+                txHash: txHash
             });
         }
 
