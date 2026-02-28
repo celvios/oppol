@@ -464,92 +464,127 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-        // 1. Attempt Swap if USDT exists
-        let swapErrorMsg = ' (DEBUG: Backend code is definitely building)';
-        try {
-            await processCustodialSwap(userId, custodialAddress, privateKey, provider);
-        } catch (e: any) {
-            console.error("[TriggerDeposit] Swap failed/skipped:", e?.message || e);
-            console.error(e);
-            // Save the error so we can return it if USDC is also empty
-            swapErrorMsg = e?.message ? ` (Swap Error: ${e.message})` : ' (Swap Error: Unknown)';
-        }
-
-        // 2. Check SA USDC balance first, fall back to EOA if SA is empty
-        const { smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
-
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
+        const USDT_ADDR = (CONFIG as any).USDT_CONTRACT || process.env.USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
+        const ZAP_ADDR = process.env.ZAP_ADDRESS || process.env.NEXT_PUBLIC_ZAP_ADDRESS || '';
+        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
+        console.log(`[TriggerDeposit] SA: ${smartAccountAddress}, EOA: ${custodialAddress}`);
 
-        const usdcAbi = [
+        const tokenAbi = [
             'function balanceOf(address) view returns (uint256)',
             'function decimals() view returns (uint8)',
             'function transfer(address to, uint256 amount) returns (bool)'
         ];
-        const usdc = new ethers.Contract(USDC_ADDR, usdcAbi, provider);
-        let usdcBalanceWei = await usdc.balanceOf(smartAccountAddress);
-        const USDC_DECIMALS = 18;
-        const MIN_DEPOSIT = ethers.parseUnits('0.01', USDC_DECIMALS);
+        const usdc = new ethers.Contract(USDC_ADDR, tokenAbi, provider);
+        const usdt = new ethers.Contract(USDT_ADDR, tokenAbi, provider);
+        const DECIMALS = 18;
+        const MIN_DEPOSIT = ethers.parseUnits('0.01', DECIMALS);
 
-        // --- EOA Fallback ---
-        // If SA has no USDC but EOA does, move EOA → SA first (one-time migration)
-        if (usdcBalanceWei < MIN_DEPOSIT) {
-            const eoaUsdcBalance = await usdc.balanceOf(custodialAddress);
-            if (eoaUsdcBalance >= MIN_DEPOSIT) {
-                console.log(`[TriggerDeposit] SA empty but EOA has ${ethers.formatUnits(eoaUsdcBalance, USDC_DECIMALS)} USDC. Moving EOA → SA...`);
+        // ── Step 1: Check all balances ────────────────────────────────────────
+        const [saUsdc, saUsdt, eoaUsdc, eoaUsdt] = await Promise.all([
+            usdc.balanceOf(smartAccountAddress),
+            usdt.balanceOf(smartAccountAddress),
+            usdc.balanceOf(custodialAddress),
+            usdt.balanceOf(custodialAddress),
+        ]);
+        console.log(`[TriggerDeposit] Balances — SA USDC: ${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT: ${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC: ${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT: ${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
 
-                // Fund EOA gas if needed (one-time cost from admin wallet)
-                const eoaBnb = await provider.getBalance(custodialAddress);
-                if (eoaBnb < ethers.parseEther('0.0005')) {
-                    const adminKey = process.env.PRIVATE_KEY;
-                    if (adminKey) {
-                        const adminWallet = new ethers.Wallet(adminKey, provider);
-                        console.log(`[TriggerDeposit] Funding EOA with 0.001 BNB for gas from admin wallet ${adminWallet.address}...`);
-                        const fundTx = await adminWallet.sendTransaction({
-                            to: custodialAddress,
-                            value: ethers.parseEther('0.001')
-                        });
-                        await fundTx.wait();
-                        console.log(`[TriggerDeposit] ✅ EOA funded.`);
-                    } else {
-                        const msg = `[TriggerDeposit] No PRIVATE_KEY set — cannot fund EOA gas. Skipping EOA migration.`;
-                        console.warn(msg);
-                        throw new Error(msg);
-                    }
+        // ── Step 2: Move EOA funds → SA (regular tx, needs BNB gas) ──────────
+        const needsEoaMove = eoaUsdc >= MIN_DEPOSIT || eoaUsdt >= MIN_DEPOSIT;
+        if (needsEoaMove) {
+            const eoaBnb = await provider.getBalance(custodialAddress);
+            console.log(`[TriggerDeposit] EOA BNB: ${ethers.formatEther(eoaBnb)}`);
+            if (eoaBnb < ethers.parseEther('0.0005')) {
+                const adminKey = process.env.PRIVATE_KEY;
+                if (adminKey) {
+                    const adminWallet = new ethers.Wallet(adminKey, provider);
+                    console.log(`[TriggerDeposit] Funding EOA with 0.001 BNB from admin ${adminWallet.address}...`);
+                    const fundTx = await adminWallet.sendTransaction({ to: custodialAddress, value: ethers.parseEther('0.001') });
+                    await fundTx.wait();
+                    console.log('[TriggerDeposit] ✅ EOA funded with BNB.');
+                } else {
+                    console.warn('[TriggerDeposit] No PRIVATE_KEY — cannot fund EOA gas. EOA move may fail.');
                 }
-
-                // EOA transfers USDC to SA
-                const eoaWallet = new ethers.Wallet(
-                    privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`,
-                    provider
-                );
-                const eoaUsdc = usdc.connect(eoaWallet) as typeof usdc;
-                const transferTx = await (eoaUsdc as any).transfer(smartAccountAddress, eoaUsdcBalance);
-                await transferTx.wait();
-                console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdcBalance, USDC_DECIMALS)} USDC from EOA → SA.`);
-
-                // Reload SA balance
-                usdcBalanceWei = await usdc.balanceOf(smartAccountAddress);
+            }
+            const eoaSigner = new ethers.Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`, provider);
+            if (eoaUsdc >= MIN_DEPOSIT) {
+                try {
+                    const tx = await (usdc.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdc);
+                    await tx.wait();
+                    console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdc, DECIMALS)} USDC from EOA → SA.`);
+                } catch (e: any) { console.error('[TriggerDeposit] EOA USDC transfer failed:', e.message); }
+            }
+            if (eoaUsdt >= MIN_DEPOSIT) {
+                try {
+                    const tx = await (usdt.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdt);
+                    await tx.wait();
+                    console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdt, DECIMALS)} USDT from EOA → SA.`);
+                } catch (e: any) { console.error('[TriggerDeposit] EOA USDT transfer failed:', e.message); }
             }
         }
 
-        let amountBN: bigint = usdcBalanceWei;
+        // ── Step 3: Re-read SA balances after EOA migration ──────────────────
+        const [usdcAfterMove, usdtAfterMove] = await Promise.all([
+            usdc.balanceOf(smartAccountAddress),
+            usdt.balanceOf(smartAccountAddress),
+        ]);
+        console.log(`[TriggerDeposit] After EOA move — SA USDC: ${ethers.formatUnits(usdcAfterMove, DECIMALS)}, SA USDT: ${ethers.formatUnits(usdtAfterMove, DECIMALS)}`);
 
-        // Check minimum
-        if (amountBN < MIN_DEPOSIT) {
-            console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, USDC_DECIMALS)} USDC in SA). Skipping.`);
+        // ── Step 4: Swap SA USDT → USDC via Zap (gasless UserOp) ────────────
+        if (usdtAfterMove >= MIN_DEPOSIT) {
+            if (!ZAP_ADDR) {
+                console.warn('[TriggerDeposit] SA has USDT but ZAP_ADDRESS is not configured. Cannot swap USDT→USDC.');
+            } else {
+                console.log(`[TriggerDeposit] Swapping ${ethers.formatUnits(usdtAfterMove, DECIMALS)} USDT→USDC via Zap UserOp...`);
+                try {
+                    const zapCalls: { to: Address; data: `0x${string}` }[] = [
+                        {
+                            to: USDT_ADDR as Address,
+                            data: encodeFunctionData({
+                                abi: parseAbi(['function approve(address spender, uint256 amount) returns (bool)']),
+                                functionName: 'approve',
+                                args: [ZAP_ADDR as Address, usdtAfterMove],
+                            })
+                        },
+                        {
+                            to: ZAP_ADDR as Address,
+                            data: encodeFunctionData({
+                                abi: parseAbi(['function zapInToken(address tokenIn, uint256 amountIn, uint256 minUSDC) external']),
+                                functionName: 'zapInToken',
+                                args: [USDT_ADDR as Address, usdtAfterMove, BigInt(0)],
+                            })
+                        },
+                    ];
+                    const zapOpHash = await smartAccountClient.sendUserOperation({ calls: zapCalls });
+                    const zapReceipt = await pimlicoClient.waitForUserOperationReceipt({ hash: zapOpHash });
+                    console.log(`[TriggerDeposit] ✅ USDT→USDC Zap complete. Tx: ${zapReceipt.receipt.transactionHash}`);
+                } catch (zapErr: any) {
+                    console.error('[TriggerDeposit] Zap swap failed:', zapErr?.message || zapErr);
+                }
+            }
+        }
+
+        // ── Step 5: Final USDC balance check ─────────────────────────────────
+        const finalUsdcBal = await usdc.balanceOf(smartAccountAddress);
+        console.log(`[TriggerDeposit] Final SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}`);
+
+        if (finalUsdcBal < MIN_DEPOSIT) {
+            const usdtRemaining = await usdt.balanceOf(smartAccountAddress);
             return res.json({
                 success: false,
-                error: `No USDC balance to deposit${swapErrorMsg}`,
-                balance: parseFloat(ethers.formatUnits(amountBN, USDC_DECIMALS))
+                error: `Insufficient USDC. SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}, SA USDT remaining: ${ethers.formatUnits(usdtRemaining, DECIMALS)}. ${!ZAP_ADDR ? 'ZAP_ADDRESS env var is not set.' : 'Check Zap contract logs.'}`,
+                balance: parseFloat(ethers.formatUnits(finalUsdcBal, DECIMALS)),
+                usdtBalance: parseFloat(ethers.formatUnits(usdtRemaining, DECIMALS)),
             });
         }
 
-        console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, USDC_DECIMALS)} USDC for ${userId} via Pimlico...`);
-        const amountStr = ethers.formatUnits(amountBN, USDC_DECIMALS);
-
-        // Trigger the Pimlico SA deposit
+        // ── Step 6: Deposit USDC into Market (Pimlico sponsors gas, platform fee deducted from funds) ──
+        const amountStr = ethers.formatUnits(finalUsdcBal, DECIMALS);
+        console.log(`[TriggerDeposit] Depositing ${amountStr} USDC for user ${userId}...`);
         const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
         return res.json({
             success: true,
