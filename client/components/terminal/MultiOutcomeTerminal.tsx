@@ -298,7 +298,8 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 300000);
+        // Poll balance every 30s so deposits are reflected quickly
+        const interval = setInterval(fetchData, 30000);
         return () => clearInterval(interval);
     }, [fetchData]);
 
@@ -1223,7 +1224,9 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                                         const amt = parseFloat(amount || '0');
                                                         const price = (market.prices[selectedOutcome] || 0) / 100;
                                                         if (amt === 0 || price === 0) return '0';
-                                                        return `~${(amt / price).toFixed(0)}`;
+                                                        const est = amt / price;
+                                                        // Use 2 decimal places for small amounts, 0 for large
+                                                        return est >= 1 ? `~${est.toFixed(0)}` : `~${est.toFixed(2)}`;
                                                     })()}
                                                 </span>
                                             </div>
