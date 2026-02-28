@@ -494,54 +494,81 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const saUsdt = hasUsdt ? await usdt!.balanceOf(smartAccountAddress) : 0n;
         const eoaUsdt = hasUsdt ? await usdt!.balanceOf(custodialAddress) : 0n;
         console.log(`[TriggerDeposit] Balances — SA USDC: ${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT: ${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC: ${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT: ${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
+
+        // Track all step results for debugging (returned in API response)
+        const steps: string[] = [];
+        steps.push(`Balances: SA USDC=${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT=${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC=${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT=${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
+
         // ── Step 2: Move EOA funds → SA (regular tx, needs BNB gas) ──────────
         const needsEoaMove = eoaUsdc >= MIN_DEPOSIT || eoaUsdt >= MIN_DEPOSIT;
         if (needsEoaMove) {
             const eoaBnb = await provider.getBalance(custodialAddress);
+            steps.push(`EOA BNB: ${ethers.formatEther(eoaBnb)}`);
             console.log(`[TriggerDeposit] EOA BNB: ${ethers.formatEther(eoaBnb)}`);
             if (eoaBnb < ethers.parseEther('0.0005')) {
                 const adminKey = process.env.PRIVATE_KEY;
                 if (adminKey) {
-                    const adminWallet = new ethers.Wallet(adminKey, provider);
-                    console.log(`[TriggerDeposit] Funding EOA with 0.001 BNB from admin ${adminWallet.address}...`);
-                    const fundTx = await adminWallet.sendTransaction({ to: custodialAddress, value: ethers.parseEther('0.001') });
-                    await fundTx.wait();
-                    console.log('[TriggerDeposit] ✅ EOA funded with BNB.');
+                    try {
+                        const adminWallet = new ethers.Wallet(adminKey, provider);
+                        const adminBal = await provider.getBalance(adminWallet.address);
+                        steps.push(`Admin wallet: ${adminWallet.address}, BNB: ${ethers.formatEther(adminBal)}`);
+                        console.log(`[TriggerDeposit] Admin wallet: ${adminWallet.address}, BNB: ${ethers.formatEther(adminBal)}`);
+                        const fundTx = await adminWallet.sendTransaction({ to: custodialAddress, value: ethers.parseEther('0.001') });
+                        await fundTx.wait();
+                        steps.push('✅ EOA funded with 0.001 BNB');
+                        console.log('[TriggerDeposit] ✅ EOA funded with BNB.');
+                    } catch (fundErr: any) {
+                        steps.push(`❌ Gas funding failed: ${fundErr.message}`);
+                        console.error('[TriggerDeposit] Gas funding failed:', fundErr.message);
+                    }
                 } else {
-                    console.warn('[TriggerDeposit] No PRIVATE_KEY — cannot fund EOA gas. EOA move may fail.');
+                    steps.push('❌ PRIVATE_KEY not set on backend');
+                    console.warn('[TriggerDeposit] No PRIVATE_KEY — cannot fund EOA gas.');
                 }
+            } else {
+                steps.push('EOA has enough BNB for gas');
             }
             const eoaSigner = new ethers.Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`, provider);
             if (eoaUsdc >= MIN_DEPOSIT) {
                 try {
                     const tx = await (usdc.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdc);
                     await tx.wait();
-                    console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdc, DECIMALS)} USDC from EOA → SA.`);
-                } catch (e: any) { console.error('[TriggerDeposit] EOA USDC transfer failed:', e.message); }
+                    steps.push(`✅ Moved ${ethers.formatUnits(eoaUsdc, DECIMALS)} USDC EOA→SA`);
+                    console.log(`[TriggerDeposit] ✅ Moved USDC from EOA → SA.`);
+                } catch (e: any) {
+                    steps.push(`❌ USDC EOA→SA failed: ${e.message}`);
+                    console.error('[TriggerDeposit] EOA USDC transfer failed:', e.message);
+                }
             }
             if (eoaUsdt >= MIN_DEPOSIT && usdt) {
                 try {
                     const tx = await (usdt!.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdt);
                     await tx.wait();
-                    console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdt, DECIMALS)} USDT from EOA → SA.`);
-                } catch (e: any) { console.error('[TriggerDeposit] EOA USDT transfer failed:', e.message); }
+                    steps.push(`✅ Moved ${ethers.formatUnits(eoaUsdt, DECIMALS)} USDT EOA→SA`);
+                    console.log(`[TriggerDeposit] ✅ Moved USDT from EOA → SA.`);
+                } catch (e: any) {
+                    steps.push(`❌ USDT EOA→SA failed: ${e.message}`);
+                    console.error('[TriggerDeposit] EOA USDT transfer failed:', e.message);
+                }
             }
+        } else {
+            steps.push('No EOA funds to move');
         }
 
         // ── Step 3: Re-read SA balances after EOA migration ──────────────────
         const usdcAfterMove = await usdc.balanceOf(smartAccountAddress);
         const usdtAfterMove = (hasUsdt && usdt) ? await usdt!.balanceOf(smartAccountAddress) : 0n;
+        steps.push(`After move: SA USDC=${ethers.formatUnits(usdcAfterMove, DECIMALS)}, SA USDT=${ethers.formatUnits(usdtAfterMove, DECIMALS)}`);
         console.log(`[TriggerDeposit] After EOA move — SA USDC: ${ethers.formatUnits(usdcAfterMove, DECIMALS)}, SA USDT: ${ethers.formatUnits(usdtAfterMove, DECIMALS)}`);
 
         // ── Step 4: Swap SA USDT → USDC via Zap (gasless UserOp) ────────────
         // NOTE: Zap.sol does BOTH: swap USDT→USDC AND deposit into Market via depositFor()
-        // So if Zap succeeds, the deposit is ALREADY DONE — no need for step 6.
         let zapCompleted = false;
         if (usdtAfterMove >= MIN_DEPOSIT) {
             if (!ZAP_ADDR) {
-                console.warn('[TriggerDeposit] SA has USDT but ZAP_ADDRESS is not configured. Cannot swap USDT→USDC.');
+                steps.push('❌ ZAP_ADDRESS not configured');
             } else {
-                console.log(`[TriggerDeposit] Swapping ${ethers.formatUnits(usdtAfterMove, DECIMALS)} USDT→USDC via Zap UserOp (Zap also deposits into Market)...`);
+                steps.push(`Zapping ${ethers.formatUnits(usdtAfterMove, DECIMALS)} USDT via ${ZAP_ADDR}...`);
                 try {
                     const zapCalls: { to: Address; data: `0x${string}` }[] = [
                         {
@@ -563,15 +590,18 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                     ];
                     const zapOpHash = await smartAccountClient.sendUserOperation({ calls: zapCalls });
                     const zapReceipt = await pimlicoClient.waitForUserOperationReceipt({ hash: zapOpHash });
-                    console.log(`[TriggerDeposit] ✅ Zap complete (swap + deposit). Tx: ${zapReceipt.receipt.transactionHash}`);
+                    steps.push(`✅ Zap complete! Tx: ${zapReceipt.receipt.transactionHash}`);
                     zapCompleted = true;
                 } catch (zapErr: any) {
-                    console.error('[TriggerDeposit] Zap swap+deposit failed:', zapErr?.message || zapErr);
+                    steps.push(`❌ Zap failed: ${zapErr?.message || zapErr}`);
+                    console.error('[TriggerDeposit] Zap failed:', zapErr?.message || zapErr);
                 }
             }
+        } else {
+            steps.push(`SA USDT (${ethers.formatUnits(usdtAfterMove, DECIMALS)}) below min, skipping Zap`);
         }
 
-        // If Zap succeeded, the deposit is already done — return success
+        // If Zap succeeded, the deposit is already done
         if (zapCompleted) {
             const zapAmount = ethers.formatUnits(usdtAfterMove, DECIMALS);
             return res.json({
@@ -580,20 +610,22 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                 amount: parseFloat(zapAmount),
                 custodialAddress: smartAccountAddress,
                 method: 'zap',
+                steps,
             });
         }
 
         // ── Step 5: If no Zap, check SA USDC and deposit manually ─────────────
         const finalUsdcBal = await usdc.balanceOf(smartAccountAddress);
-        console.log(`[TriggerDeposit] Final SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}`);
+        steps.push(`Final SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}`);
 
         if (finalUsdcBal < MIN_DEPOSIT) {
             const usdtRemaining = usdt ? await usdt.balanceOf(smartAccountAddress) : 0n;
             return res.json({
                 success: false,
-                error: `Insufficient USDC. SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}, SA USDT remaining: ${ethers.formatUnits(usdtRemaining, DECIMALS)}. ${!ZAP_ADDR ? 'ZAP_ADDRESS env var is not set.' : 'Check Zap contract logs.'}`,
+                error: `Deposit failed`,
                 balance: parseFloat(ethers.formatUnits(finalUsdcBal, DECIMALS)),
                 usdtBalance: parseFloat(ethers.formatUnits(usdtRemaining, DECIMALS)),
+                steps,
             });
         }
 
