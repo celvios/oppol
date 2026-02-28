@@ -348,8 +348,9 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
                     await fundTx.wait();
                     console.log(`[Swap] EOA funded with BNB for gas.`);
                 } else {
-                    console.warn('[Swap] No PRIVATE_KEY env. Cannot fund EOA gas. Skipping EOA USDT sweep.');
-                    return;
+                    const msg = '[Swap] No PRIVATE_KEY env. Cannot fund EOA gas. Skipping EOA USDT sweep.';
+                    console.warn(msg);
+                    throw new Error(msg);
                 }
             }
 
@@ -512,7 +513,9 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                         await fundTx.wait();
                         console.log(`[TriggerDeposit] ✅ EOA funded.`);
                     } else {
-                        console.warn(`[TriggerDeposit] No PRIVATE_KEY set — cannot fund EOA gas. Skipping EOA migration.`);
+                        const msg = `[TriggerDeposit] No PRIVATE_KEY set — cannot fund EOA gas. Skipping EOA migration.`;
+                        console.warn(msg);
+                        throw new Error(msg);
                     }
                 }
 
