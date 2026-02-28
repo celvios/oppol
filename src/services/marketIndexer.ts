@@ -194,19 +194,25 @@ export async function syncAllMarkets(): Promise<void> {
 
                     totalNewVolume += BigInt(cost);
 
-                    // Insert trade record
                     try {
+                        const sharesFormatted = ethers.formatUnits(shares, 18);
+                        const costFormatted = ethers.formatUnits(cost, 18);
+                        const pricePerShare = Number(sharesFormatted) > 0 ? (Number(costFormatted) / Number(sharesFormatted)).toFixed(6) : "0";
+                        const sideStr = Number(outcomeIndex) === 0 ? 'YES' : 'NO';
+
                         await query(`
                             INSERT INTO trades (
-                                market_id, user_address, outcome_index, shares, total_cost, tx_hash, created_at
-                            ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                                market_id, user_address, outcome_index, side, shares, total_cost, price_per_share, tx_hash, created_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
                             ON CONFLICT (tx_hash) DO NOTHING
                         `, [
                             marketId,
                             user,
                             Number(outcomeIndex),
-                            ethers.formatUnits(shares, 18),
-                            ethers.formatUnits(cost, 18),
+                            sideStr,
+                            sharesFormatted,
+                            costFormatted,
+                            pricePerShare,
                             txHash
                         ]);
 
@@ -216,8 +222,10 @@ export async function syncAllMarkets(): Promise<void> {
                             marketId,
                             user_address: user,
                             outcomeIndex: Number(outcomeIndex),
-                            shares: ethers.formatUnits(shares, 18),
-                            cost: ethers.formatUnits(cost, 18),
+                            side: sideStr,
+                            shares: sharesFormatted,
+                            cost: costFormatted,
+                            pricePerShare,
                             NOTE: 'Portfolio query uses LOWER(user_address). Ensure this matches the address in /api/portfolio/:address',
                         });
                         // ============================================================
