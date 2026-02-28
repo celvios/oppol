@@ -434,31 +434,50 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
 
 export const triggerCustodialDeposit = async (req: Request, res: Response) => {
     try {
-        const { privyUserId } = req.body;
+        const { privyUserId, targetAddress } = req.body;
         if (!privyUserId) {
             return res.status(400).json({ success: false, error: 'privyUserId required' });
         }
 
-        // Look up user by privy_user_id
-        const userResult = await query(
-            'SELECT id FROM users WHERE privy_user_id = $1',
-            [privyUserId]
-        );
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-        const userId = userResult.rows[0].id;
+        let userId: number | undefined;
+        let walletResult;
 
-        // Get custodial wallet
-        const walletResult = await query(
-            'SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
-            [userId]
-        );
-        if (walletResult.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Custodial wallet not found' });
+        // If frontend passes a specific targetAddress context, use it to find the exact wallet
+        if (targetAddress) {
+            walletResult = await query(
+                'SELECT user_id, public_address, encrypted_private_key FROM wallets WHERE LOWER(public_address) = LOWER($1)',
+                [targetAddress]
+            );
+            if (walletResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: `Wallet not found for address ${targetAddress}` });
+            }
+            userId = walletResult.rows[0].user_id;
+        } else {
+            // Fallback to privyUserId lookup (might hit wrong DB user record if duplicates exist)
+            const userResult = await query(
+                'SELECT id FROM users WHERE privy_user_id = $1',
+                [privyUserId]
+            );
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'User not found' });
+            }
+            userId = userResult.rows[0].id;
+
+            walletResult = await query(
+                'SELECT public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
+                [userId]
+            );
+            if (walletResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'Custodial wallet not found for user' });
+            }
         }
+
         const custodialAddress = walletResult.rows[0].public_address;
         const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
+
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'Could not determine user ID' });
+        }
 
         // Setup Provider
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';

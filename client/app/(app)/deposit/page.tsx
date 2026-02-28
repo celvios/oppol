@@ -496,13 +496,17 @@ export default function DepositPage() {
                     // Await the sweep — if it succeeds, show success immediately.
                     // For custodial Zap deposits, the Market records balance under the SA address,
                     // not the EOA, so we cannot rely on game-balance polling to detect success.
+                    const payload = {
+                        privyUserId: privyUser?.id,
+                        targetAddress: custodialWalletAddress // Pass the actual address we detected funds on
+                    };
                     const sweepRes = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
                         },
-                        body: JSON.stringify({ privyUserId: privyUser?.id })
+                        body: JSON.stringify(payload)
                     });
                     const sweepData = await sweepRes.json();
                     console.log('[Polling] Backend Sweep Triggered:', sweepData);
