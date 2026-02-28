@@ -131,9 +131,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     }, [searchQuery]);
 
     const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
-    // For MetaMask users: the SA address (not EOA) holds the deposited balance
-    // because USDC deposits go to the SA wallet before SA calls market.deposit()
-    const [saAddress, setSaAddress] = useState<string | null>(null);
 
     const market = markets.find(m => m.id === selectedMarketId) || markets[0];
     const marketRef = useRef(market);
@@ -255,23 +252,10 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
     const { isConnected, address, isConnecting: walletLoading, connect, loginMethod } = useWallet();
 
-    // For MetaMask users: compute their SA address once (it's deterministic from their key).
-    // USDC deposits go to the SA wallet, so the deposited balance in the market is under SA address.
-    useEffect(() => {
-        if (loginMethod === 'wallet' && address) {
-            BiconomyService.getSmartAccountAddressFromEOA(address)
-                .then(sa => {
-                    console.log(`[MultiTerminal] MetaMask SA address: ${sa}`);
-                    setSaAddress(sa);
-                })
-                .catch(() => setSaAddress(null));
-        } else {
-            setSaAddress(null);
-        }
-    }, [loginMethod, address]);
-
-    // Effective address for balance queries: SA address for MetaMask users, direct address for custodial
-    const balanceAddress = (loginMethod === 'wallet' && saAddress) ? saAddress : address;
+    // Effective address for balance queries:
+    // - Wallet users: EOA address directly (as they now deposit directly)
+    // - Custodial users: Custodial SA address (provided by useWallet's `address`)
+    const balanceAddress = address;
 
     // --- Data Fetching (Markets) ---
     const fetchData = useCallback(async () => {
@@ -279,7 +263,6 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
         console.log('[MultiTerminal] 🔍 Balance Diagnostics:', {
             loginMethod,
             eoaAddress: address,
-            saAddress,
             balanceAddress,
             isConnected,
             marketContract: process.env.NEXT_PUBLIC_MARKET_ADDRESS,
