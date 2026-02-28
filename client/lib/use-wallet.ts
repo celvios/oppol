@@ -12,30 +12,45 @@ export function useWallet() {
   const custodialAddress = useUIStore((state) => state.custodialAddress);
 
   const handleConnect = async () => {
-    // Open the selection modal
     setLoginModalOpen(true);
   };
 
   const handleDisconnect = async () => {
-    // If logged in via Privy (Social or Email or Embedded Wallet), use Privy logout
     if (loginMethod !== 'wallet') {
       await logout();
     } else {
-      // Pure Wagmi/Reown wallet (if any)
       wagmiDisconnect();
     }
   };
 
   // Determine effective address:
-  // - Wallet (MetaMask) users: always use the wagmi/MetaMask address
-  // - Google/email (Privy) users: use custodial address if available, fallback to walletAddress
-  const effectiveAddress = loginMethod === 'wallet'
-    ? (walletAddress || null)
-    : (custodialAddress && custodialAddress !== '0x0000000000000000000000000000000000000000')
-      ? custodialAddress
-      : (walletAddress || null);
+  // - Wallet (MetaMask) users: always use the wagmi/MetaMask EOA address
+  // - Social/email (Privy) users: use custodialAddress (Safe SA) ONLY.
+  //   NEVER fall back to walletAddress — that would show the WALLET account's
+  //   balance during the async window before UserRegistrationManager finishes
+  //   syncing the custodial address. null = "still loading" → pages show skeleton.
+  let effectiveAddress: string | null;
+  if (loginMethod === 'wallet') {
+    effectiveAddress = walletAddress || null;
+  } else if (loginMethod) {
+    // Social/email user — only trust the custodialAddress from the store
+    const isValidCustodial =
+      custodialAddress &&
+      custodialAddress !== '0x0000000000000000000000000000000000000000';
+    effectiveAddress = isValidCustodial ? custodialAddress : null;
+  } else {
+    // loginMethod not set yet — treat as unauthenticated
+    effectiveAddress = null;
+  }
 
-  // Map to the shape expected by components
+  console.log('[useWallet] DEBUG:', {
+    loginMethod,
+    walletAddress,
+    custodialAddress,
+    effectiveAddress,
+    isAuthenticated,
+  });
+
   const user = isAuthenticated ? {
     name: authUser?.google?.name || authUser?.email?.address || 'User',
     email: authUser?.email?.address || null,
@@ -45,12 +60,12 @@ export function useWallet() {
 
   return {
     isConnected: isAuthenticated,
-    address: effectiveAddress, // Use custodial address if available
-    isConnecting: isLoading, // Now correctly tracks Privy ready state
-    connect: handleConnect, // Opens Global Modal
+    address: effectiveAddress,
+    isConnecting: isLoading,
+    connect: handleConnect,
     disconnect: handleDisconnect,
     user,
-    connectors: [], // Not exposed for hybrid
-    loginMethod // Expose for UI logic
+    connectors: [],
+    loginMethod
   };
 }
