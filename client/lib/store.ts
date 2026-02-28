@@ -45,7 +45,7 @@ export const useUIStore = create<UIState>()(
             setCustodialAddress: (address) => set({ custodialAddress: address }),
         }),
         {
-            name: 'opoll-ui-storage',
+            name: 'opoll-ui-v2', // renamed from 'opoll-ui-storage' to bust old cached user/custodialAddress data
             partialize: (state) => ({
                 // Intentionally NOT persisting user or custodialAddress —
                 // they are re-synced fresh on every login via UserRegistrationManager.
