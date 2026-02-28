@@ -159,13 +159,26 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
     };
 
     const getImageUrl = (m: MultiMarket) => {
-        const img = m.image_url || m.image || '';
+        let img = m.image_url || m.image || '';
+        // Fix for early markets where image and description were swapped on-chain
+        if (!isValidImage(img) && isValidImage(m.description)) {
+            img = m.description;
+        }
         return img && isValidImage(img) ? img.trim() : '';
+    };
+
+    const getDescription = (m: MultiMarket) => {
+        let desc = m.description && m.description.trim() ? m.description.trim() : '';
+        // Fix for early markets where image and description were swapped on-chain
+        if (isValidImage(desc) && !isValidImage(m.image_url || m.image)) {
+            desc = m.image_url || m.image || '';
+        }
+        return desc;
     };
 
     const metadata = market ? {
         image: getImageUrl(market),
-        description: market.description && market.description.trim() ? market.description.trim() : '',
+        description: getDescription(market),
         category: market.category_id || 'General'
     } : null;
 

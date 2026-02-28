@@ -18,6 +18,16 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
     // Only show boosted markets
     const boostedMarkets = markets.filter(m => m.isBoosted);
 
+    const getImageUrl = (market: MultiMarket) => {
+        let img = market.image_url || market.image || '';
+        const desc = market.description || '';
+        const isValid = (s: string) => s.startsWith('http') || s.startsWith('data:') || s.startsWith('/');
+        if (!isValid(img) && isValid(desc)) {
+            img = desc;
+        }
+        return img;
+    };
+
     // Reset when markets change
     useEffect(() => {
         setActiveIndex(0);
@@ -71,7 +81,7 @@ export default function DesktopFeaturedCarousel({ markets }: DesktopFeaturedCaro
                                     {/* Background Image */}
                                     <div className="absolute inset-0">
                                         <img
-                                            src={market.image_url || market.image || ''}
+                                            src={getImageUrl(market)}
                                             alt=""
                                             className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-700"
                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}

@@ -263,8 +263,8 @@ export default function CreateMarketPage() {
             console.log('[Create Market] Estimating gas...');
             const gasEstimate = await contract.createMarket.estimateGas(
                 formData.question,
-                formData.description,
                 finalImageUrl,
+                formData.description,
                 formData.outcomes,
                 BigInt(Math.round(durationMinutes))
             );
@@ -273,8 +273,8 @@ export default function CreateMarketPage() {
             console.log('[Create Market] Sending tx from user wallet...');
             const tx = await contract.createMarket(
                 formData.question,
-                formData.description,
                 finalImageUrl,
+                formData.description,
                 formData.outcomes,
                 BigInt(Math.round(durationMinutes)),
                 { gasLimit: gasEstimate + BigInt(50000) }
@@ -298,11 +298,11 @@ export default function CreateMarketPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    market_id: marketId,
+                    marketId: marketId,
                     question: formData.question,
                     description: formData.description,
-                    image: finalImageUrl,
-                    category: formData.category,
+                    imageUrl: finalImageUrl,
+                    categoryId: formData.category,
                     outcome_names: formData.outcomes
                 })
             }).catch(e => console.warn('[Create Market] DB metadata save failed (non-critical):', e));

@@ -253,8 +253,19 @@ export default function MobileMarketList({ initialMarkets = EMPTY_ARRAY }: Mobil
 // ----------------------------------------------------------------------
 function TrendingMarketCard({ market, className }: { market: MultiMarket, className?: string }) {
     const isMultiOutcome = (market.outcomes?.length || 0) > 2;
+
+    const getImageUrl = () => {
+        let img = market.image_url || market.image || '';
+        const desc = market.description || '';
+        const isValid = (s: string) => s.startsWith('http') || s.startsWith('data:') || s.startsWith('/');
+        if (!isValid(img) && isValid(desc)) {
+            img = desc;
+        }
+        return img;
+    };
+
     const metadata = {
-        image: market.image_url || '',
+        image: getImageUrl(),
         category: market.category_id || 'General'
     };
 
@@ -372,8 +383,18 @@ function TrendingMarketCard({ market, className }: { market: MultiMarket, classN
 function MarketCard({ market, className }: { market: MultiMarket, className?: string }) {
     const isMultiOutcome = (market.outcomes?.length || 0) > 2;
 
+    const getImageUrl = () => {
+        let img = market.image_url || market.image || '';
+        const desc = market.description || '';
+        const isValid = (s: string) => s.startsWith('http') || s.startsWith('data:') || s.startsWith('/');
+        if (!isValid(img) && isValid(desc)) {
+            img = desc;
+        }
+        return img;
+    };
+
     const metadata = {
-        image: market.image_url || '',
+        image: getImageUrl(),
         category: market.category_id || 'General'
     };
 

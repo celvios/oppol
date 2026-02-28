@@ -71,9 +71,25 @@ export default function MarketCard({
             trimmed.startsWith('/');
     };
 
+    const getImageUrl = () => {
+        let img = image_url || '';
+        if (!isValidImage(img) && isValidImage(description)) {
+            img = description as string;
+        }
+        return img && isValidImage(img) ? img.trim() : '';
+    };
+
+    const getDescription = () => {
+        let desc = description && description.trim() ? description : '';
+        if (isValidImage(desc) && !isValidImage(image_url)) {
+            desc = image_url || '';
+        }
+        return desc;
+    };
+
     const metadata = {
-        image: image_url && isValidImage(image_url) ? image_url.trim() : '',
-        description: description && description.trim() ? description : '',
+        image: getImageUrl(),
+        description: getDescription(),
         category: 'General'
     };
 
