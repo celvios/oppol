@@ -69,16 +69,16 @@ export const claimFaucet = async (req: Request, res: Response) => {
 
         console.log(`[Faucet] User Balances - USDC: ${usdcBal.toString()}, USDT: ${usdtBal.toString()}`);
 
-        // Minimum 0.50 tokens required to claim gas
-        // 0.50 * 10^18 is a safe check (works for 18 decimals)
-        // 0.50 * 10^6 (for 6 decimals) -> 500,000
-        const MIN_BALANCE = BigInt(500000); // Works for 6 decimals (0.5 USDC)
+        // Minimum 0.10 tokens required to claim gas
+        // 0.10 * 10^18 is a safe check (works for 18 decimals)
+        // 0.10 * 10^6 (for 6 decimals) -> 100,000
+        const MIN_BALANCE = BigInt(100000); // Works for 6 decimals (0.1 USDC)
 
         if (usdcBal < MIN_BALANCE && usdtBal < MIN_BALANCE) {
             console.warn(`[Faucet] User ${userAddress} has insufficient tokens.`);
             return res.status(400).json({
                 success: false,
-                error: 'Insufficient token balance. You need at least 0.50 USDC/USDT to claim gas.'
+                error: 'Insufficient token balance. You need at least 0.10 USDC/USDT to claim gas.'
             });
         }
 
