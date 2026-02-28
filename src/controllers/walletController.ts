@@ -947,13 +947,8 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const feeUSDC: bigint = await gasService.estimateGasCostInUSDC(BigInt(150000)).catch(() => ethers.parseUnits('0.02', DECIMALS));
         console.log(`[CustodialTrade] Gas fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC`);
 
-        if (amountBN <= feeUSDC) {
-            return res.status(400).json({ success: false, error: 'Amount too small to cover gas fee' });
-        }
-
-        const netTradeCost = amountBN - feeUSDC;
-
-        // 3. Read protocol fee from contract and estimate shares
+        // 3. Read ACTUAL on-chain market balance (not the requested amount)
+        // Critical: deposit fee may have made actual balance < requested amount.
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
         const provider = new ethers.JsonRpcProvider(rpcUrl);
         const marketContract = new ethers.Contract(
@@ -961,9 +956,25 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
             [
                 'function protocolFee() view returns (uint256)',
                 'function getPrice(uint256 marketId, uint256 outcomeIndex) view returns (uint256)',
+                'function userBalances(address) view returns (uint256)',
             ],
             provider
         );
+
+        const actualBalanceBN: bigint = await marketContract.userBalances(smartAccountAddress);
+        console.log(`[CustodialTrade] Actual on-chain balance: ${ethers.formatUnits(actualBalanceBN, DECIMALS)} USDC`);
+        console.log(`[CustodialTrade] Requested amount: ${ethers.formatUnits(amountBN, DECIMALS)} USDC`);
+
+        // Use the smaller of requested amount and actual balance to avoid reverts
+        const effectiveBudget = actualBalanceBN < amountBN ? actualBalanceBN : amountBN;
+
+        if (effectiveBudget <= feeUSDC) {
+            return res.status(400).json({ success: false, error: `Balance too low to cover gas fee. Balance: ${ethers.formatUnits(effectiveBudget, DECIMALS)} USDC, Fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC` });
+        }
+
+        // netTradeCost = what will remain for buyShares after fee withdrawal
+        const netTradeCost = effectiveBudget - feeUSDC;
+        console.log(`[CustodialTrade] Net trade amount after fee: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
 
         let protocolFeeBps = BigInt(1000); // default 10%
         try { protocolFeeBps = await marketContract.protocolFee(); } catch { /* use default */ }
@@ -1012,6 +1023,18 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const userOpHash = await smartAccountClient.sendUserOperation({ calls });
         const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
         const txHash = receipt.receipt.transactionHash;
+
+        // CRITICAL: In ERC-4337 the bundler tx always succeeds even if inner calls fail.
+        // We must check receipt.success to detect reverts in withdraw/transfer/buyShares.
+        if (!receipt.success) {
+            console.error(`❌ [CustodialTrade] UserOp failed on-chain! Tx: ${txHash}`);
+            return res.status(500).json({
+                success: false,
+                error: 'Trade failed on-chain (insufficient balance or market error). Your balance was not changed.',
+                txHash,
+            });
+        }
+
         console.log(`✅ [CustodialTrade] Trade confirmed. Tx: ${txHash}`);
 
         // Await market sync so response returns AFTER DB is updated with new trade
