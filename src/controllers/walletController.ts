@@ -465,7 +465,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         // 1. Attempt Swap if USDT exists
-        let swapErrorMsg = '';
+        let swapErrorMsg = ' (DEBUG: Backend code is definitely building)';
         try {
             await processCustodialSwap(userId, custodialAddress, privateKey, provider);
         } catch (e: any) {
