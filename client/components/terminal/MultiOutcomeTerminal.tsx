@@ -7,6 +7,7 @@ import { TrendingUp, Wallet, Clock, Activity, MessageCircle, Search, X, Share, G
 import html2canvas from "html2canvas";
 import { useWallet } from "@/lib/use-wallet";
 import { useWallets } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { BiconomyService } from '@/lib/biconomy-service';
 import { getMultiContracts } from '@/lib/contracts-multi';
 import { ethers } from "ethers";
@@ -62,6 +63,7 @@ interface MultiOutcomeTerminalProps {
 export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTerminalProps) {
     const searchParams = useSearchParams();
     const { wallets } = useWallets();
+    const { user: privyUser } = usePrivy();
 
     // Use server-provided data if available (SSR = instant load!)
     const [markets, setMarkets] = useState<MultiMarket[]>(initialMarkets);
