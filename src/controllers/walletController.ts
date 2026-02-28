@@ -942,11 +942,6 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const DECIMALS = 18;
         const amountBN = ethers.parseUnits(String(amount), DECIMALS);
 
-        // 2. Estimate platform gas fee
-        const { gasService } = require('../services/gasService');
-        const feeUSDC: bigint = await gasService.estimateGasCostInUSDC(BigInt(150000)).catch(() => ethers.parseUnits('0.02', DECIMALS));
-        console.log(`[CustodialTrade] Gas fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC`);
-
         // 3. Read ACTUAL on-chain market balance (not the requested amount)
         // Critical: deposit fee may have made actual balance < requested amount.
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
@@ -968,13 +963,13 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         // Use the smaller of requested amount and actual balance to avoid reverts
         const effectiveBudget = actualBalanceBN < amountBN ? actualBalanceBN : amountBN;
 
-        if (effectiveBudget <= feeUSDC) {
-            return res.status(400).json({ success: false, error: `Balance too low to cover gas fee. Balance: ${ethers.formatUnits(effectiveBudget, DECIMALS)} USDC, Fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC` });
+        if (effectiveBudget <= 0n) {
+            return res.status(400).json({ success: false, error: 'Balance is zero.' });
         }
 
-        // netTradeCost = what will remain for buyShares after fee withdrawal
-        const netTradeCost = effectiveBudget - feeUSDC;
-        console.log(`[CustodialTrade] Net trade amount after fee: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
+        // 100% of the budget is used for the trade (Pimlico sponsors gas)
+        const netTradeCost = effectiveBudget;
+        console.log(`[CustodialTrade] Net trade amount: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
 
         let protocolFeeBps = BigInt(1000); // default 10%
         try { protocolFeeBps = await marketContract.protocolFee(); } catch { /* use default */ }
@@ -989,26 +984,8 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         console.log(`[CustodialTrade] Shares: ${estShares.toFixed(4)}, lsmrBudget: ${lsmrBudget.toFixed(4)}`);
 
         // 4. Build batched UserOperation calls
-        // Step A: Withdraw fee from deposited balance → SA wallet
-        const withdrawData = encodeFunctionData({
-            abi: parseAbi(['function withdraw(uint256 amount)']),
-            functionName: 'withdraw',
-            args: [feeUSDC],
-        });
-
-        // Step B: Transfer fee from SA wallet → treasury
-        const calls: { to: Address; data: `0x${string}` }[] = [
-            { to: MARKET_ADDR as Address, data: withdrawData },
-        ];
-
-        if (TREASURY_ADDR) {
-            const transferData = encodeFunctionData({
-                abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
-                functionName: 'transfer',
-                args: [TREASURY_ADDR as Address, feeUSDC],
-            });
-            calls.push({ to: USDC_ADDR as Address, data: transferData });
-        }
+        // Since Pimlico sponsors gas, we DO NOT deduct gas from the user's trade balance.
+        const calls: { to: Address; data: `0x${string}` }[] = [];
 
         // Step C: Buy shares using deposited balance (netTradeCost as _maxCost)
         const netTradeCostBN = BigInt(netTradeCost.toString());
