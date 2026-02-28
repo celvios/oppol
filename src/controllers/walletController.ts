@@ -473,6 +473,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 
         const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
         console.log(`[TriggerDeposit] SA: ${smartAccountAddress}, EOA: ${custodialAddress}`);
+        console.log(`[TriggerDeposit] Config — USDT: ${USDT_ADDR || 'NOT SET'}, ZAP: ${ZAP_ADDR || 'NOT SET'}, MARKET: ${MARKET_ADDR || 'NOT SET'}`);
 
         const tokenAbi = [
             'function balanceOf(address) view returns (uint256)',
@@ -480,19 +481,19 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
             'function transfer(address to, uint256 amount) returns (bool)'
         ];
         const usdc = new ethers.Contract(USDC_ADDR, tokenAbi, provider);
-        const usdt = new ethers.Contract(USDT_ADDR, tokenAbi, provider);
+        const hasUsdt = !!USDT_ADDR;
+        const usdt = hasUsdt ? new ethers.Contract(USDT_ADDR, tokenAbi, provider) : null;
         const DECIMALS = 18;
         const MIN_DEPOSIT = ethers.parseUnits('0.01', DECIMALS);
 
         // ── Step 1: Check all balances ────────────────────────────────────────
-        const [saUsdc, saUsdt, eoaUsdc, eoaUsdt] = await Promise.all([
+        const [saUsdc, eoaUsdc] = await Promise.all([
             usdc.balanceOf(smartAccountAddress),
-            usdt.balanceOf(smartAccountAddress),
             usdc.balanceOf(custodialAddress),
-            usdt.balanceOf(custodialAddress),
         ]);
+        const saUsdt = hasUsdt ? await usdt!.balanceOf(smartAccountAddress) : 0n;
+        const eoaUsdt = hasUsdt ? await usdt!.balanceOf(custodialAddress) : 0n;
         console.log(`[TriggerDeposit] Balances — SA USDC: ${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT: ${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC: ${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT: ${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
-
         // ── Step 2: Move EOA funds → SA (regular tx, needs BNB gas) ──────────
         const needsEoaMove = eoaUsdc >= MIN_DEPOSIT || eoaUsdt >= MIN_DEPOSIT;
         if (needsEoaMove) {
@@ -518,9 +519,9 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                     console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdc, DECIMALS)} USDC from EOA → SA.`);
                 } catch (e: any) { console.error('[TriggerDeposit] EOA USDC transfer failed:', e.message); }
             }
-            if (eoaUsdt >= MIN_DEPOSIT) {
+            if (eoaUsdt >= MIN_DEPOSIT && usdt) {
                 try {
-                    const tx = await (usdt.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdt);
+                    const tx = await (usdt!.connect(eoaSigner) as any).transfer(smartAccountAddress, eoaUsdt);
                     await tx.wait();
                     console.log(`[TriggerDeposit] ✅ Moved ${ethers.formatUnits(eoaUsdt, DECIMALS)} USDT from EOA → SA.`);
                 } catch (e: any) { console.error('[TriggerDeposit] EOA USDT transfer failed:', e.message); }
@@ -528,10 +529,8 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         }
 
         // ── Step 3: Re-read SA balances after EOA migration ──────────────────
-        const [usdcAfterMove, usdtAfterMove] = await Promise.all([
-            usdc.balanceOf(smartAccountAddress),
-            usdt.balanceOf(smartAccountAddress),
-        ]);
+        const usdcAfterMove = await usdc.balanceOf(smartAccountAddress);
+        const usdtAfterMove = (hasUsdt && usdt) ? await usdt!.balanceOf(smartAccountAddress) : 0n;
         console.log(`[TriggerDeposit] After EOA move — SA USDC: ${ethers.formatUnits(usdcAfterMove, DECIMALS)}, SA USDT: ${ethers.formatUnits(usdtAfterMove, DECIMALS)}`);
 
         // ── Step 4: Swap SA USDT → USDC via Zap (gasless UserOp) ────────────
@@ -573,7 +572,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         console.log(`[TriggerDeposit] Final SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}`);
 
         if (finalUsdcBal < MIN_DEPOSIT) {
-            const usdtRemaining = await usdt.balanceOf(smartAccountAddress);
+            const usdtRemaining = usdt ? await usdt.balanceOf(smartAccountAddress) : 0n;
             return res.json({
                 success: false,
                 error: `Insufficient USDC. SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}, SA USDT remaining: ${ethers.formatUnits(usdtRemaining, DECIMALS)}. ${!ZAP_ADDR ? 'ZAP_ADDRESS env var is not set.' : 'Check Zap contract logs.'}`,
