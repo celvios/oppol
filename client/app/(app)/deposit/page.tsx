@@ -416,13 +416,13 @@ export default function DepositPage() {
             const isSmartAccountUser = isEmbeddedWallet || selectedToken.direct;
 
             if (isSmartAccountUser) {
-                // For embedded AND direct Smart Account depositors, check BOTH USDC and USDT
-                // We want to detect if *any* supported stablecoin arrived
+                // For embedded AND direct Smart Account depositors, check USDC, USDT, and BNB
                 const usdcToken = tokens.find(t => t.symbol === 'USDC');
                 const usdtToken = tokens.find(t => t.symbol === 'USDT');
 
                 let usdcBal = 0;
                 let usdtBal = 0;
+                let bnbBal = 0;
 
                 if (usdcToken) {
                     const c = new Contract(usdcToken.address, ERC20_ABI, provider);
@@ -436,14 +436,27 @@ export default function DepositPage() {
                     usdtBal = parseFloat(ethers.formatUnits(b, usdtToken.decimals));
                     console.log(`[Polling] USDT: ${usdtBal}`);
                 }
+                // Also detect native BNB — backend will swap it to USDC
+                try {
+                    const bnbRaw = await provider.getBalance(checkAddress);
+                    // Keep aside ~0.002 BNB for gas, only count the rest as depositable
+                    const bnbSpendable = Math.max(0, parseFloat(ethers.formatEther(bnbRaw)) - 0.002);
+                    bnbBal = bnbSpendable;
+                    if (bnbBal > 0.001) console.log(`[Polling] BNB: ${bnbBal}`);
+                } catch { /* ignore */ }
 
-                // Use the highest balance (or sum? usually user sends one or the other)
-                // If we have mixed balances, backend swap handles USDT, so effectively we have sum?
-                // For simplicity, let's trigger if SUM >= amount, or MAX >= amount. 
-                // Since swap logic takes time, let's just trigger if we see funds.
+                // Trigger if USDC+USDT sum meets amount, OR if BNB is present (backend converts)
                 currentBal = usdcBal + usdtBal;
-                if (usdtBal > usdcBal) detectedTokenSymbol = 'USDT';
-                else detectedTokenSymbol = 'USDC';
+                const hasBnb = bnbBal > 0.001;
+                if (hasBnb && currentBal < parseFloat(effectiveAmount)) {
+                    // BNB detected — treat as meeting threshold so sweep is triggered
+                    currentBal = parseFloat(effectiveAmount);
+                    detectedTokenSymbol = 'BNB';
+                } else if (usdtBal > usdcBal) {
+                    detectedTokenSymbol = 'USDT';
+                } else {
+                    detectedTokenSymbol = 'USDC';
+                }
 
             } else {
                 // Standard wallet: check selected token only

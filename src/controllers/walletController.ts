@@ -371,9 +371,58 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             console.log(`[Swap] ✅ EOA USDT swap complete. Tx: ${receipt.receipt.transactionHash}`);
         }
 
-        if (saBal < MIN_USDT && eoaBal < MIN_USDT) {
-            console.log(`[Swap] No significant USDT at SA or EOA. Nothing to swap.`);
+        // --- Path C: Native BNB at SA or EOA → swap to USDC via PancakeSwap ---
+        const GAS_RESERVE = ethers.parseEther('0.002'); // keep for gas fees
+        const MIN_BNB = ethers.parseEther('0.003');     // minimum worth swapping
+
+        const [saBnb, eoaBnb] = await Promise.all([
+            provider.getBalance(smartAccountAddress),
+            provider.getBalance(custodialAddress),
+        ]);
+        console.log(`[Swap] SA BNB: ${ethers.formatEther(saBnb)}, EOA BNB: ${ethers.formatEther(eoaBnb)}`);
+
+        // Swap BNB sitting at the SA (send ETH value in the UserOp call)
+        const spendableSaBnb = saBnb > GAS_RESERVE ? saBnb - GAS_RESERVE : 0n;
+        if (spendableSaBnb >= MIN_BNB) {
+            console.log(`[Swap] Swapping ${ethers.formatEther(spendableSaBnb)} BNB from SA to USDC...`);
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+            const swapBnbData = encodeFunctionData({
+                abi: parseAbi(['function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)']),
+                functionName: 'swapExactETHForTokens',
+                args: [BigInt(0), ['0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', USDC_ADDR] as Address[], smartAccountAddress as Address, deadline],
+            });
+            const userOpHash = await smartAccountClient.sendUserOperation({
+                calls: [{ to: ROUTER_ADDR as Address, data: swapBnbData, value: spendableSaBnb }]
+            });
+            const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+            console.log(`[Swap] ✅ SA BNB swap complete. Tx: ${receipt.receipt.transactionHash}`);
         }
+
+        // Sweep BNB from EOA to SA, then swap
+        const spendableEoaBnb = eoaBnb > GAS_RESERVE ? eoaBnb - GAS_RESERVE : 0n;
+        if (spendableEoaBnb >= MIN_BNB) {
+            console.log(`[Swap] Moving ${ethers.formatEther(spendableEoaBnb)} BNB from EOA to SA...`);
+            const eoaSigner = new ethers.Wallet(privateKey, provider);
+            const sendTx = await eoaSigner.sendTransaction({ to: smartAccountAddress, value: spendableEoaBnb });
+            await sendTx.wait();
+            // Now swap via SA
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+            const swapBnbData = encodeFunctionData({
+                abi: parseAbi(['function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)']),
+                functionName: 'swapExactETHForTokens',
+                args: [BigInt(0), ['0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', USDC_ADDR] as Address[], smartAccountAddress as Address, deadline],
+            });
+            const userOpHash = await smartAccountClient.sendUserOperation({
+                calls: [{ to: ROUTER_ADDR as Address, data: swapBnbData, value: spendableEoaBnb }]
+            });
+            const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+            console.log(`[Swap] ✅ EOA BNB sweep+swap complete. Tx: ${receipt.receipt.transactionHash}`);
+        }
+
+        if (saBal < MIN_USDT && eoaBal < MIN_USDT && spendableSaBnb < MIN_BNB && spendableEoaBnb < MIN_BNB) {
+            console.log(`[Swap] No significant USDT or BNB at SA or EOA. Nothing to swap.`);
+        }
+
 
     } catch (e: any) {
         console.error('[Swap] Failed:', e);
