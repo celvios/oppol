@@ -971,28 +971,64 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const netTradeCost = effectiveBudget;
         console.log(`[CustodialTrade] Net trade amount: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
 
-        let protocolFeeBps = BigInt(1000); // default 10%
+        // 4. Binary search to find max shares (in wei) for given cost
+        let low = BigInt(1);
+        let high = netTradeCost * BigInt(100);
+        let bestShares = BigInt(0);
+
+        // DEDUCT FEE: Contract adds fee ON TOP of cost.
+        let protocolFeeBps = BigInt(1000); // 10% buffer
         try { protocolFeeBps = await marketContract.protocolFee(); } catch { /* use default */ }
+        const BPS_DIVISOR = BigInt(10000);
+        const effectiveMaxCost = netTradeCost * BPS_DIVISOR / (BPS_DIVISOR + protocolFeeBps);
 
-        const priceRaw = await marketContract.getPrice(BigInt(marketId), BigInt(outcomeIndex)).catch(() => BigInt(50));
-        const priceFloat = Number(priceRaw) > 0 ? Number(priceRaw) / 100 : 0.5;
+        let iterations = 0;
+        console.log(`[CustodialTrade] Starting binary search. effectiveMaxCost: ${effectiveMaxCost}`);
 
-        // lsmrBudget = netTradeCost / (1 + protocolFee%) so totalCost fits within netTradeCost
-        const lsmrBudget = parseFloat(ethers.formatUnits(netTradeCost, DECIMALS)) / (1 + Number(protocolFeeBps) / 10000);
-        const estShares = lsmrBudget / priceFloat;
-        const sharesBN = ethers.parseUnits(estShares.toFixed(DECIMALS), DECIMALS);
-        console.log(`[CustodialTrade] Shares: ${estShares.toFixed(4)}, lsmrBudget: ${lsmrBudget.toFixed(4)}`);
+        const iface = new ethers.Interface([
+            'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)'
+        ]);
 
-        // 4. Build batched UserOperation calls
+        // We need a raw provider to call without signer
+        const rawCall = async (data: string) => {
+            const tx = await provider.call({ to: MARKET_ADDR, data });
+            return tx;
+        };
+
+        while (low <= high && iterations < 100) {
+            const mid = (low + high) / BigInt(2);
+            const costData = iface.encodeFunctionData('calculateCost', [BigInt(marketId), BigInt(outcomeIndex), mid]);
+            const costResult = await rawCall(costData);
+            const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+
+            if (cost <= effectiveMaxCost) {
+                bestShares = mid;
+                low = mid + BigInt(1);
+            } else {
+                high = mid - BigInt(1);
+            }
+            iterations++;
+        }
+
+        if (bestShares === BigInt(0)) {
+            return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
+        }
+
+        const estSharesFloat = parseFloat(ethers.formatUnits(bestShares, DECIMALS));
+        console.log(`[CustodialTrade] Binary search found: ${estSharesFloat.toFixed(4)} shares in ${iterations} iterations.`);
+
+        // 5. Build batched UserOperation calls
         // Since Pimlico sponsors gas, we DO NOT deduct gas from the user's trade balance.
         const calls: { to: Address; data: `0x${string}` }[] = [];
 
-        // Step C: Buy shares using deposited balance (netTradeCost as _maxCost)
-        const netTradeCostBN = BigInt(netTradeCost.toString());
+        // Buy shares using deposited balance
+        // maxCost should have slight slippage tolerance (10%) to prevent reverts if other trades hit first
+        const maxCostWithSlippage = netTradeCost * BigInt(110) / BigInt(100);
+
         const buyData = encodeFunctionData({
             abi: parseAbi(['function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)']),
             functionName: 'buyShares',
-            args: [BigInt(marketId), BigInt(outcomeIndex), BigInt(sharesBN.toString()), netTradeCostBN],
+            args: [BigInt(marketId), BigInt(outcomeIndex), bestShares, maxCostWithSlippage],
         });
         calls.push({ to: MARKET_ADDR as Address, data: buyData });
 
@@ -1028,7 +1064,7 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         return res.json({
             success: true,
             txHash,
-            shares: estShares.toFixed(4),
+            shares: estSharesFloat.toFixed(4),
             cost: amount,
             smartAccountAddress,
         });
