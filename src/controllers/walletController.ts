@@ -444,14 +444,23 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 
         // If frontend passes a specific targetAddress context, use it to find the exact wallet
         if (targetAddress) {
-            walletResult = await query(
-                'SELECT user_id, public_address, encrypted_private_key FROM wallets WHERE LOWER(public_address) = LOWER($1)',
+            // targetAddress is the Smart Account (SA) address, which is stored in users.wallet_address
+            const targetUserRes = await query(
+                'SELECT id FROM users WHERE LOWER(wallet_address) = LOWER($1)',
                 [targetAddress]
             );
-            if (walletResult.rows.length === 0) {
-                return res.status(404).json({ success: false, error: `Wallet not found for address ${targetAddress}` });
+            if (targetUserRes.rows.length === 0) {
+                return res.status(404).json({ success: false, error: `User not found for SA address ${targetAddress}` });
             }
-            userId = walletResult.rows[0].user_id;
+            userId = targetUserRes.rows[0].id;
+
+            walletResult = await query(
+                'SELECT user_id, public_address, encrypted_private_key FROM wallets WHERE user_id = $1',
+                [userId]
+            );
+            if (walletResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: `Wallet records not found for user ${userId}` });
+            }
         } else {
             // Fallback to privyUserId lookup (might hit wrong DB user record if duplicates exist)
             const userResult = await query(

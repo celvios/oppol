@@ -1,0 +1,2 @@
+﻿src/controllers/walletController.ts(493,115): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/controllers/walletController.ts(662,54): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../config/database';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { createWalletInternal, getSmartAccountAddressForKey } from './walletController';
+import { createWalletInternal, getActiveProxyWallet } from './walletController';
 import { createRandomWallet } from '../services/web3';
 import { EncryptionService } from '../services/encryption';
 import { watchAddress } from '../services/depositWatcher';
@@ -189,7 +189,7 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                     // fee is deducted from deposit amount. SA is the canonical on-chain address.
                     try {
                         const pk = EncryptionService.decrypt(walletCheck.rows[0].encrypted_private_key);
-                        const saAddr = await getSmartAccountAddressForKey(pk);
+                        const { smartAccountAddress: saAddr } = await getActiveProxyWallet(pk, user.id.toString());
                         custodialWalletAddress = saAddr;
                         // Keep users.wallet_address in sync with SA
                         if (user.wallet_address !== saAddr) {
@@ -207,7 +207,7 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                     const newWallet = await createWalletInternal(user.id);
                     try {
                         const pk = EncryptionService.decrypt(newWallet.encrypted_private_key || '');
-                        const saAddr = await getSmartAccountAddressForKey(pk);
+                        const { smartAccountAddress: saAddr } = await getActiveProxyWallet(pk, user.id.toString());
                         custodialWalletAddress = saAddr;
                         await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [saAddr, user.id]);
                         user.wallet_address = saAddr;
@@ -257,7 +257,7 @@ export const authenticatePrivyUser = async (req: Request, res: Response) => {
                 const newWallet = await createWalletInternal(user.id);
                 try {
                     const pk = EncryptionService.decrypt(newWallet.encrypted_private_key || '');
-                    const saAddr = await getSmartAccountAddressForKey(pk);
+                    const { smartAccountAddress: saAddr } = await getActiveProxyWallet(pk, user.id.toString());
                     custodialWalletAddress = saAddr;
                     await query('UPDATE users SET wallet_address = $1 WHERE id = $2', [saAddr, user.id]);
                     user.wallet_address = saAddr;
