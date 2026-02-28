@@ -233,6 +233,9 @@ export const initDatabase = async () => {
 
       -- Trades Schema Update
       ALTER TABLE trades ADD COLUMN IF NOT EXISTS outcome_index INTEGER;
+
+      -- Add unique constraint on tx_hash for deduplication in indexer
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_tx_hash ON trades (tx_hash) WHERE tx_hash IS NOT NULL;
     `);
 
     console.log('✅ Database Initialization Complete');
