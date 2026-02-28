@@ -215,7 +215,7 @@ export const processCustodialDeposit = async (userId: string, amountRaw: string,
         const wallet = walletResult.rows[0];
         const privateKey = EncryptionService.decrypt(wallet.encrypted_private_key);
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId.toString());
         console.log(`[Deposit] Custodial Proxy Wallet [${process.env.PROXY_WALLET_VERSION || 'simple'}]: ${smartAccountAddress}`);
 
         const USDC_DECIMALS = 18;
@@ -928,7 +928,7 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         }
 
         const privateKey = EncryptionService.decrypt(walletResult.rows[0].encrypted_private_key);
-        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId.toString());
         console.log(`[CustodialTrade] Proxy Wallet [${process.env.PROXY_WALLET_VERSION || 'simple'}]: ${smartAccountAddress}`);
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
