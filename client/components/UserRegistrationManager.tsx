@@ -15,6 +15,15 @@ export default function UserRegistrationManager() {
     // Store access
     const { setUser, setCustodialAddress } = useUIStore();
 
+    // ── Clear store immediately when the logged-in identity changes ─────────────
+    // This prevents the previous account's user + custodialAddress from bleeding
+    // into the new session on all pages before the async sync completes.
+    useEffect(() => {
+        // Clear stale state as soon as user identity changes
+        setUser(null);
+        setCustodialAddress(null);
+    }, [user?.id]); // user.id is stable per session; changes only on account switch
+
     // Sync Privy User with Backend
     useEffect(() => {
         const syncPrivyUser = async () => {

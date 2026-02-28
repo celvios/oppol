@@ -79,6 +79,9 @@ export default function WithdrawPage() {
 
     useEffect(() => {
         if (!isEffectivelyConnected) {
+            // Clear ALL balance state when disconnected so previous account data never bleeds through
+            setContractBalance('0.00');
+            setWalletBalance('0.00');
             setIsLoading(false);
             return;
         }
@@ -86,8 +89,6 @@ export default function WithdrawPage() {
         if (effectiveAddress) {
             fetchAllBalances();
         } else {
-            // Connected but no address yet (syncing?)
-            // Timeout to stop loading if it takes too long
             const timer = setTimeout(() => {
                 console.warn('[WithdrawPage] Timeout waiting for address');
                 setContractBalance('0.00');
@@ -96,7 +97,8 @@ export default function WithdrawPage() {
             }, 5000);
             return () => clearTimeout(timer);
         }
-    }, [effectiveAddress, isEffectivelyConnected]);
+        // privyUser?.id ensures we re-fetch when the logged-in identity changes (wallet → email etc.)
+    }, [effectiveAddress, isEffectivelyConnected, privyUser?.id]);
 
     async function fetchAllBalances() {
         if (!effectiveAddress) {
@@ -104,7 +106,9 @@ export default function WithdrawPage() {
             setIsLoading(false);
             return;
         }
-        console.log('[WithdrawPage] Fetching balances for:', effectiveAddress);
+        // ── Immediately zero out previous account's balances before async reads ──
+        setContractBalance('0.00');
+        setWalletBalance('0.00');
         setIsLoading(true);
         try {
             // ── For embedded/social users resolve the backend SA address first ──

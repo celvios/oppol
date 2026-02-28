@@ -45,11 +45,13 @@ export const useUIStore = create<UIState>()(
             setCustodialAddress: (address) => set({ custodialAddress: address }),
         }),
         {
-            name: 'opoll-ui-storage', // name of the item in the storage (must be unique)
+            name: 'opoll-ui-storage',
             partialize: (state) => ({
-                user: state.user,
-                custodialAddress: state.custodialAddress
-            }), // Only persist user data
+                // Intentionally NOT persisting user or custodialAddress —
+                // they are re-synced fresh on every login via UserRegistrationManager.
+                // Persisting them caused cross-account balance bleed when switching accounts.
+                isTradeModalOpen: state.isTradeModalOpen,
+            }),
         }
     )
 );
