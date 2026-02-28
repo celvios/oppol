@@ -1,0 +1,59 @@
+{
+  "user": [
+    {
+      "id": "b853736b-20bf-4bda-8ae2-505e2d9d3bc7",
+      "wallet_address": "0x9Ff472aEb3A160A47E00916ce717802A511DE419",
+      "sa": "0x667967E3cA6e7d5F2750a172595d3a5416c3b984"
+    }
+  ],
+  "latestTrades": [
+    {
+      "id": "d559b5f9-8026-4aea-b6c8-bb04c5f188be",
+      "market_id": 2,
+      "user_address": "0xBe7db7c2a7c6f911C65F0335C893E58Cb34590e3",
+      "side": "YES",
+      "shares": "51.145923",
+      "price_per_share": "0.586557",
+      "total_cost": "30.000000",
+      "tx_hash": "0xa859b27b2d5c6332902f65b38942566aa8f656eb9a64595129db27f5a8c6bdaa",
+      "created_at": "2026-02-28T20:35:14.224Z",
+      "outcome_index": 0
+    },
+    {
+      "id": "b2c1448f-0600-4653-beae-cc7765bb7024",
+      "market_id": 2,
+      "user_address": "0x2622726E4B8a3dEd641867E6d51b1b28984c2221",
+      "side": "YES",
+      "shares": "0.090672",
+      "price_per_share": "0.551436",
+      "total_cost": "0.050000",
+      "tx_hash": "0xa6ee8562473b9f424e7fa147fb4ec4b89ab53180a4f40f7c2f49e622593dd6a4",
+      "created_at": "2026-02-28T20:35:13.567Z",
+      "outcome_index": 0
+    },
+    {
+      "id": "f96c8c46-c869-4331-b985-a011f3e9eecd",
+      "market_id": 2,
+      "user_address": "0x2622726E4B8a3dEd641867E6d51b1b28984c2221",
+      "side": "YES",
+      "shares": "0.090693",
+      "price_per_share": "0.551311",
+      "total_cost": "0.050000",
+      "tx_hash": "0x21259bb43aa8d6733a53dc55c1b5a7cda13bcecefa45d1afdaf7f536f5f37008",
+      "created_at": "2026-02-28T20:35:13.299Z",
+      "outcome_index": 0
+    },
+    {
+      "id": "860beb82-931b-4dd5-835d-4dcac74fecf3",
+      "market_id": 2,
+      "user_address": "0x0ff7e81Cb052243ECf72d19D63e0d4268fa26eC9",
+      "side": "YES",
+      "shares": "0.908060",
+      "price_per_share": "0.550624",
+      "total_cost": "0.500000",
+      "tx_hash": "0x7ea242ca43f5f8235bc703743bd57e431bb0d7dab136a7411bcf331d75b0ed27",
+      "created_at": "2026-02-28T19:43:48.417Z",
+      "outcome_index": 0
+    }
+  ]
+}

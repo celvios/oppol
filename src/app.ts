@@ -1653,6 +1653,11 @@ app.get('/api/portfolio/:walletAddress', async (req, res) => {
 app.get('/api/debug-trades/:address', async (req, res) => {
   try {
     const { address } = req.params;
+
+    // TEMPORARY FIX: Move ghost SA trades to actual SA
+    await query("UPDATE trades SET user_address = '0x667967E3cA6e7d5F2750a172595d3a5416c3b984' WHERE LOWER(user_address) = LOWER('0xBe7db7c2a7c6f911C65F0335C893E58Cb34590e3')");
+    await query("UPDATE trades SET user_address = '0x667967E3cA6e7d5F2750a172595d3a5416c3b984' WHERE LOWER(user_address) = LOWER('0x2622726E4B8a3dEd641867E6d51b1b28984c2221')");
+
     const trades = await query('SELECT * FROM trades ORDER BY created_at DESC LIMIT 5');
     const user = await query('SELECT u.id, u.wallet_address, w.public_address as sa FROM users u JOIN wallets w ON w.user_id = u.id WHERE LOWER(u.wallet_address) = $1', [address.toLowerCase()]);
     res.json({ user: user.rows, latestTrades: trades.rows });
