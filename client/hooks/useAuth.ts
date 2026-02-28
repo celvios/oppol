@@ -29,8 +29,15 @@ export function useAuth(): AuthState {
     const isLoading = !privyReady || status === 'reconnecting';
 
     // --- Path 1: Privy Social Login (Google / Email / etc.) ---
-    // Check FIRST — a Privy social session always overrides a lingering wagmi connection.
-    if (privyAuth && privyUser) {
+    // Only trigger for Privy EMBEDDED wallet users (social/email logins).
+    // A MetaMask user may also have Privy authenticated (linked account), but if an
+    // external wallet is actively connected we must not treat them as custodial.
+    const hasPrivyEmbeddedWallet = privyUser?.linkedAccounts?.some(
+        (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+    );
+    const isExternalWalletConnected = isConnected && !!address && connector?.id !== 'privy';
+
+    if (privyAuth && privyUser && hasPrivyEmbeddedWallet && !isExternalWalletConnected) {
         let loginMethod: 'google' | 'twitter' | 'discord' | 'email' | 'privy' = 'privy';
 
         if (privyUser.linkedAccounts.some((a: any) => a.type === 'google_oauth')) loginMethod = 'google';
