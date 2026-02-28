@@ -1014,6 +1014,16 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const txHash = receipt.receipt.transactionHash;
         console.log(`✅ [CustodialTrade] Trade confirmed. Tx: ${txHash}`);
 
+        // Await market sync so response returns AFTER DB is updated with new trade
+        console.log('[CustodialTrade] Awaiting market sync so volume/positions are up-to-date...');
+        try {
+            const { syncAllMarkets } = await import('../services/marketIndexer');
+            await syncAllMarkets();
+            console.log('[CustodialTrade] ✅ Sync complete');
+        } catch (error) {
+            console.error('[CustodialTrade] Sync failed (non-fatal):', error);
+        }
+
         return res.json({
             success: true,
             txHash,
