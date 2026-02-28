@@ -464,12 +464,14 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         // 1. Attempt Swap if USDT exists
+        let swapErrorMsg = '';
         try {
             await processCustodialSwap(userId, custodialAddress, privateKey, provider);
         } catch (e: any) {
-            // Note: If swap fails for unpredictable reasons, we just log it and see if they have USDC anyway
             console.error("[TriggerDeposit] Swap failed/skipped:", e?.message || e);
             console.error(e);
+            // Save the error so we can return it if USDC is also empty
+            swapErrorMsg = e?.message ? ` (Swap Error: ${e.message})` : ' (Swap Error: Unknown)';
         }
 
         // 2. Check SA USDC balance first, fall back to EOA if SA is empty
@@ -477,6 +479,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
+
 
         const usdcAbi = [
             'function balanceOf(address) view returns (uint256)',
@@ -533,7 +536,11 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // Check minimum
         if (amountBN < MIN_DEPOSIT) {
             console.log(`[Deposit] Balance too low (${ethers.formatUnits(amountBN, USDC_DECIMALS)} USDC in SA). Skipping.`);
-            return res.json({ success: false, error: 'No USDC balance to deposit', balance: parseFloat(ethers.formatUnits(amountBN, USDC_DECIMALS)) });
+            return res.json({
+                success: false,
+                error: `No USDC balance to deposit${swapErrorMsg}`,
+                balance: parseFloat(ethers.formatUnits(amountBN, USDC_DECIMALS))
+            });
         }
 
         console.log(`[Deposit] Processing deposit of ${ethers.formatUnits(amountBN, USDC_DECIMALS)} USDC for ${userId} via Pimlico...`);
