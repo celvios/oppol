@@ -498,7 +498,7 @@ export default function DepositPage() {
                     // not the EOA, so we cannot rely on game-balance polling to detect success.
                     const payload = {
                         privyUserId: privyUser?.id,
-                        targetAddress: custodialWalletAddress // Pass the actual address we detected funds on
+                        targetAddress: effectiveAddress // Pass the actual address we detected funds on
                     };
                     const sweepRes = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
                         method: 'POST',
