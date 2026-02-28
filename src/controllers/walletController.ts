@@ -490,7 +490,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
 
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId.toString());
 
         // Verify the private key matches the stored public_address
         const derivedEoa = new ethers.Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`).address;
@@ -659,7 +659,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // ── Step 6: Deposit USDC into Market (Pimlico sponsors gas, platform fee deducted from funds) ──
         const amountStr = ethers.formatUnits(finalUsdcBal, DECIMALS);
         console.log(`[TriggerDeposit] Depositing ${amountStr} USDC for user ${userId}...`);
-        const txHash = await processCustodialDeposit(userId, amountStr, 'manual-trigger');
+        const txHash = await processCustodialDeposit(userId.toString(), amountStr, 'manual-trigger');
         return res.json({
             success: true,
             message: `Successfully deposited ${amountStr} USDC into market contract`,
