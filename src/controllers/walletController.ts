@@ -299,8 +299,7 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
     try {
         console.log(`[Swap] Checking for USDT balance to swap...`);
         const USDT_ADDR = CONFIG.USDT_CONTRACT;
-        // PancakeSwap Router v2
-        const ROUTER_ADDR = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
+        const ROUTER_ADDR = '0x10ED43C718714eb63d5aA57B78B54704E256024E'; // PancakeSwap Router v2
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
 
         if (!USDT_ADDR || !USDC_ADDR) {
@@ -308,57 +307,80 @@ const processCustodialSwap = async (userId: string, custodialAddress: string, pr
             return;
         }
 
-        const { smartAccountClient, pimlicoClient, smartAccountAddress, publicClient } = await getActiveProxyWallet(privateKey, userId);
+        const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
 
-        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+        const usdtAbi = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function transfer(address to, uint256 amount) returns (bool)'];
         const usdt = new ethers.Contract(USDT_ADDR, usdtAbi, provider);
-
-        // Check Smart Account balance (users should now deposit directly here)
-        const bal = await usdt.balanceOf(smartAccountAddress);
         const decimals = await usdt.decimals().catch(() => 18);
-        console.log(`[Swap] Checking Smart Account ${smartAccountAddress} for USDT... Raw: ${bal}`);
+        const MIN_USDT = ethers.parseUnits('0.05', decimals);
 
-        // Threshold: 0.1 USDT
-        if (bal < ethers.parseUnits("0.1", decimals)) {
-            console.log(`[Swap] USDT Balance low (${ethers.formatUnits(bal, decimals)}). Skipping.`);
-            return;
+        // Check BOTH the Smart Account AND the custodial EOA for USDT
+        const [saBal, eoaBal] = await Promise.all([
+            usdt.balanceOf(smartAccountAddress),
+            usdt.balanceOf(custodialAddress),
+        ]);
+        console.log(`[Swap] SA USDT: ${ethers.formatUnits(saBal, decimals)}, EOA USDT: ${ethers.formatUnits(eoaBal, decimals)}`);
+
+        // --- Path A: USDT at Smart Account — swap via gasless UserOperation ---
+        if (saBal >= MIN_USDT) {
+            console.log(`[Swap] Found ${ethers.formatUnits(saBal, decimals)} USDT in SA. Swapping via UserOp...`);
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+            const calls: { to: Address; data: `0x${string}` }[] = [
+                { to: USDT_ADDR as Address, data: encodeFunctionData({ abi: parseAbi(['function approve(address spender, uint256 amount) returns (bool)']), functionName: 'approve', args: [ROUTER_ADDR as Address, saBal] }) },
+                { to: ROUTER_ADDR as Address, data: encodeFunctionData({ abi: parseAbi(['function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)']), functionName: 'swapExactTokensForTokens', args: [saBal, BigInt(0), [USDT_ADDR, USDC_ADDR] as Address[], smartAccountAddress as Address, deadline] }) },
+            ];
+            const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+            const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+            console.log(`[Swap] ✅ SA USDT swap complete. Tx: ${receipt.receipt.transactionHash}`);
         }
 
-        console.log(`[Swap] Found ${ethers.formatUnits(bal, decimals)} USDT in Smart Account. Initiating Swap via Router...`);
+        // --- Path B: USDT at EOA — transfer to SA first, then swap ---
+        if (eoaBal >= MIN_USDT) {
+            console.log(`[Swap] Found ${ethers.formatUnits(eoaBal, decimals)} USDT at EOA. Moving to SA for swap...`);
 
-        const approveData = encodeFunctionData({
-            abi: parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]),
-            functionName: "approve",
-            args: [ROUTER_ADDR as Address, bal],
-        });
+            // Fund EOA with BNB for gas if needed
+            const eoaBnb = await provider.getBalance(custodialAddress);
+            if (eoaBnb < ethers.parseEther('0.0005')) {
+                const adminKey = process.env.PRIVATE_KEY;
+                if (adminKey) {
+                    const adminWallet = new ethers.Wallet(adminKey, provider);
+                    const fundTx = await adminWallet.sendTransaction({ to: custodialAddress, value: ethers.parseEther('0.001') });
+                    await fundTx.wait();
+                    console.log(`[Swap] EOA funded with BNB for gas.`);
+                } else {
+                    console.warn('[Swap] No PRIVATE_KEY env. Cannot fund EOA gas. Skipping EOA USDT sweep.');
+                    return;
+                }
+            }
 
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 10); // 10 minutes
-        let finalPath = [USDT_ADDR, USDC_ADDR];
+            // Transfer USDT from EOA to SA
+            const eoaSigner = new ethers.Wallet(privateKey, provider);
+            const usdtW = new ethers.Contract(USDT_ADDR, usdtAbi, eoaSigner);
+            const transferTx = await usdtW.transfer(smartAccountAddress, eoaBal);
+            await transferTx.wait();
+            console.log(`[Swap] USDT moved from EOA to SA. Now swapping...`);
 
-        // Ensure we handle BigInt conversions cleanly
-        const swapData = encodeFunctionData({
-            abi: parseAbi(["function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)"]),
-            functionName: "swapExactTokensForTokens",
-            args: [bal, BigInt(0), finalPath as Address[], smartAccountAddress as Address, deadline],
-        });
+            // Swap from SA
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+            const calls: { to: Address; data: `0x${string}` }[] = [
+                { to: USDT_ADDR as Address, data: encodeFunctionData({ abi: parseAbi(['function approve(address spender, uint256 amount) returns (bool)']), functionName: 'approve', args: [ROUTER_ADDR as Address, eoaBal] }) },
+                { to: ROUTER_ADDR as Address, data: encodeFunctionData({ abi: parseAbi(['function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)']), functionName: 'swapExactTokensForTokens', args: [eoaBal, BigInt(0), [USDT_ADDR, USDC_ADDR] as Address[], smartAccountAddress as Address, deadline] }) },
+            ];
+            const userOpHash = await smartAccountClient.sendUserOperation({ calls });
+            const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
+            console.log(`[Swap] ✅ EOA USDT swap complete. Tx: ${receipt.receipt.transactionHash}`);
+        }
 
-        const calls: { to: Address; data: `0x${string}` }[] = [
-            { to: USDT_ADDR as Address, data: approveData },
-            { to: ROUTER_ADDR as Address, data: swapData },
-        ];
-
-        console.log('[Swap] Sending batched swap UserOperation via Pimlico...');
-        const userOpHash = await smartAccountClient.sendUserOperation({ calls });
-        console.log(`[Swap] UserOperation sent! Waiting for confirmation...`);
-
-        const receipt = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
-        console.log(`[Swap] ✅ Swap Complete. Tx: ${receipt.receipt.transactionHash}`);
+        if (saBal < MIN_USDT && eoaBal < MIN_USDT) {
+            console.log(`[Swap] No significant USDT at SA or EOA. Nothing to swap.`);
+        }
 
     } catch (e: any) {
         console.error('[Swap] Failed:', e);
-        throw e; // We want to surface errors now instead of failing silently
+        throw e;
     }
 };
+
 
 export const triggerCustodialDeposit = async (req: Request, res: Response) => {
     try {
