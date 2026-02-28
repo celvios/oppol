@@ -942,6 +942,11 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         const DECIMALS = 18;
         const amountBN = ethers.parseUnits(String(amount), DECIMALS);
 
+        // 2. Estimate platform gas fee
+        const { gasService } = require('../services/gasService');
+        const feeUSDC: bigint = await gasService.estimateGasCostInUSDC(BigInt(150000)).catch(() => ethers.parseUnits('0.02', DECIMALS));
+        console.log(`[CustodialTrade] Gas fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC`);
+
         // 3. Read ACTUAL on-chain market balance (not the requested amount)
         // Critical: deposit fee may have made actual balance < requested amount.
         const rpcUrl = CONFIG.RPC_URL || 'https://bsc-dataseed.binance.org';
@@ -963,72 +968,54 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         // Use the smaller of requested amount and actual balance to avoid reverts
         const effectiveBudget = actualBalanceBN < amountBN ? actualBalanceBN : amountBN;
 
-        if (effectiveBudget <= 0n) {
-            return res.status(400).json({ success: false, error: 'Balance is zero.' });
+        if (effectiveBudget <= feeUSDC) {
+            return res.status(400).json({ success: false, error: `Balance too low to cover gas fee. Balance: ${ethers.formatUnits(effectiveBudget, DECIMALS)} USDC, Fee: ${ethers.formatUnits(feeUSDC, DECIMALS)} USDC` });
         }
 
-        // 100% of the budget is used for the trade (Pimlico sponsors gas)
-        const netTradeCost = effectiveBudget;
-        console.log(`[CustodialTrade] Net trade amount: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
+        // netTradeCost = what will remain for buyShares after fee withdrawal
+        const netTradeCost = effectiveBudget - feeUSDC;
+        console.log(`[CustodialTrade] Net trade amount after fee: ${ethers.formatUnits(netTradeCost, DECIMALS)} USDC`);
 
-        // 4. Binary search to find max shares (in wei) for given cost
-        let low = BigInt(1);
-        let high = netTradeCost * BigInt(100);
-        let bestShares = BigInt(0);
-
-        // DEDUCT FEE: Contract adds fee ON TOP of cost.
-        let protocolFeeBps = BigInt(1000); // 10% buffer
+        let protocolFeeBps = BigInt(1000); // default 10%
         try { protocolFeeBps = await marketContract.protocolFee(); } catch { /* use default */ }
-        const BPS_DIVISOR = BigInt(10000);
-        const effectiveMaxCost = netTradeCost * BPS_DIVISOR / (BPS_DIVISOR + protocolFeeBps);
 
-        let iterations = 0;
-        console.log(`[CustodialTrade] Starting binary search. effectiveMaxCost: ${effectiveMaxCost}`);
+        const priceRaw = await marketContract.getPrice(BigInt(marketId), BigInt(outcomeIndex)).catch(() => BigInt(50));
+        const priceFloat = Number(priceRaw) > 0 ? Number(priceRaw) / 100 : 0.5;
 
-        const iface = new ethers.Interface([
-            'function calculateCost(uint256 _marketId, uint256 _outcomeIndex, uint256 _shares) view returns (uint256)'
-        ]);
+        // lsmrBudget = netTradeCost / (1 + protocolFee%) so totalCost fits within netTradeCost
+        const lsmrBudget = parseFloat(ethers.formatUnits(netTradeCost, DECIMALS)) / (1 + Number(protocolFeeBps) / 10000);
+        const estShares = lsmrBudget / priceFloat;
+        const sharesBN = ethers.parseUnits(estShares.toFixed(DECIMALS), DECIMALS);
+        console.log(`[CustodialTrade] Shares: ${estShares.toFixed(4)}, lsmrBudget: ${lsmrBudget.toFixed(4)}`);
 
-        // We need a raw provider to call without signer
-        const rawCall = async (data: string) => {
-            const tx = await provider.call({ to: MARKET_ADDR, data });
-            return tx;
-        };
+        // 4. Build batched UserOperation calls
+        // Step A: Withdraw fee from deposited balance → SA wallet
+        const withdrawData = encodeFunctionData({
+            abi: parseAbi(['function withdraw(uint256 amount)']),
+            functionName: 'withdraw',
+            args: [feeUSDC],
+        });
 
-        while (low <= high && iterations < 100) {
-            const mid = (low + high) / BigInt(2);
-            const costData = iface.encodeFunctionData('calculateCost', [BigInt(marketId), BigInt(outcomeIndex), mid]);
-            const costResult = await rawCall(costData);
-            const cost = BigInt(iface.decodeFunctionResult('calculateCost', costResult)[0]);
+        // Step B: Transfer fee from SA wallet → treasury
+        const calls: { to: Address; data: `0x${string}` }[] = [
+            { to: MARKET_ADDR as Address, data: withdrawData },
+        ];
 
-            if (cost <= effectiveMaxCost) {
-                bestShares = mid;
-                low = mid + BigInt(1);
-            } else {
-                high = mid - BigInt(1);
-            }
-            iterations++;
+        if (TREASURY_ADDR) {
+            const transferData = encodeFunctionData({
+                abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
+                functionName: 'transfer',
+                args: [TREASURY_ADDR as Address, feeUSDC],
+            });
+            calls.push({ to: USDC_ADDR as Address, data: transferData });
         }
 
-        if (bestShares === BigInt(0)) {
-            return res.status(400).json({ success: false, error: 'Amount too small to buy any shares' });
-        }
-
-        const estSharesFloat = parseFloat(ethers.formatUnits(bestShares, DECIMALS));
-        console.log(`[CustodialTrade] Binary search found: ${estSharesFloat.toFixed(4)} shares in ${iterations} iterations.`);
-
-        // 5. Build batched UserOperation calls
-        // Since Pimlico sponsors gas, we DO NOT deduct gas from the user's trade balance.
-        const calls: { to: Address; data: `0x${string}` }[] = [];
-
-        // Buy shares using deposited balance
-        // maxCost should have slight slippage tolerance (10%) to prevent reverts if other trades hit first
-        const maxCostWithSlippage = netTradeCost * BigInt(110) / BigInt(100);
-
+        // Step C: Buy shares using deposited balance (netTradeCost as _maxCost)
+        const netTradeCostBN = BigInt(netTradeCost.toString());
         const buyData = encodeFunctionData({
             abi: parseAbi(['function buyShares(uint256 _marketId, uint256 _outcomeIndex, uint256 _sharesOut, uint256 _maxCost) returns (uint256)']),
             functionName: 'buyShares',
-            args: [BigInt(marketId), BigInt(outcomeIndex), bestShares, maxCostWithSlippage],
+            args: [BigInt(marketId), BigInt(outcomeIndex), BigInt(sharesBN.toString()), netTradeCostBN],
         });
         calls.push({ to: MARKET_ADDR as Address, data: buyData });
 
@@ -1041,42 +1028,29 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
         // We must check receipt.success to detect reverts in withdraw/transfer/buyShares.
         if (!receipt.success) {
             console.error(`❌ [CustodialTrade] UserOp failed on-chain! Tx: ${txHash}`);
-            console.error(`❌ [CustodialTrade] Receipt Details:`, JSON.stringify(receipt, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
             return res.status(500).json({
                 success: false,
-                error: `Trade failed on-chain. TX: ${txHash}. Inner calls reverted.`,
-                txHash: txHash
+                error: 'Trade failed on-chain (insufficient balance or market error). Your balance was not changed.',
+                txHash,
             });
         }
 
         console.log(`✅ [CustodialTrade] Trade confirmed. Tx: ${txHash}`);
 
-        // IMMEDIATELY insert the trade into the DB so it shows in portfolio right away.
-        // syncAllMarkets() has a cursor lag and may miss the fresh block on first run.
-        const sharesFormatted = ethers.formatUnits(bestShares, DECIMALS);
-        const costFormatted = ethers.formatUnits(netTradeCost, DECIMALS);
-        const pricePerShare = estSharesFloat > 0 ? (parseFloat(costFormatted) / estSharesFloat).toFixed(6) : '0';
-        const sideStr = Number(outcomeIndex) === 0 ? 'YES' : 'NO';
+        // Await market sync so response returns AFTER DB is updated with new trade
+        console.log('[CustodialTrade] Awaiting market sync so volume/positions are up-to-date...');
         try {
-            await query(`
-                INSERT INTO trades (market_id, user_address, outcome_index, side, shares, total_cost, price_per_share, tx_hash, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-                ON CONFLICT (tx_hash) DO NOTHING
-            `, [marketId, smartAccountAddress, Number(outcomeIndex), sideStr, sharesFormatted, costFormatted, pricePerShare, txHash]);
-            console.log(`[CustodialTrade] ✅ Trade written to DB for instant portfolio visibility.`);
-        } catch (dbErr: any) {
-            console.error('[CustodialTrade] DB insert failed (non-fatal):', dbErr.message);
+            const { syncAllMarkets } = await import('../services/marketIndexer');
+            await syncAllMarkets();
+            console.log('[CustodialTrade] ✅ Sync complete');
+        } catch (error) {
+            console.error('[CustodialTrade] Sync failed (non-fatal):', error);
         }
-
-        // Fire-and-forget market sync for volume/price updates
-        import('../services/marketIndexer').then(({ syncAllMarkets }) => {
-            syncAllMarkets().catch((e: any) => console.error('[CustodialTrade] Sync failed:', e));
-        });
 
         return res.json({
             success: true,
             txHash,
-            shares: estSharesFloat.toFixed(4),
+            shares: estShares.toFixed(4),
             cost: amount,
             smartAccountAddress,
         });

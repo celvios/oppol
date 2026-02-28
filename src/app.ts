@@ -1649,6 +1649,18 @@ app.get('/api/portfolio/:walletAddress', async (req, res) => {
   }
 });
 
+// TEMPORARY DEBUG ROUTE
+app.get('/api/debug-trades/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const trades = await query('SELECT * FROM trades ORDER BY created_at DESC LIMIT 5');
+    const user = await query('SELECT u.id, u.wallet_address, w.public_address as sa FROM users u JOIN wallets w ON w.user_id = u.id WHERE LOWER(u.wallet_address) = $1', [address.toLowerCase()]);
+    res.json({ user: user.rows, latestTrades: trades.rows });
+  } catch (e: any) {
+    res.json({ error: e.message });
+  }
+});
+
 // PRICE HISTORY ENDPOINT - For charts
 app.get('/api/markets/:id/price-history', async (req, res) => {
   try {
