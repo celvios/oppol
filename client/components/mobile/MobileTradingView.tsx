@@ -122,6 +122,36 @@ export default function MobileTradingView({ outcome, setOutcome, marketId, quest
                         </span>
                     )}
                 </div>
+
+                {/* Market Image */}
+                <div className="relative w-full h-48 mb-4 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                    {(() => {
+                        let img = market.image_url || market.image || '';
+                        const desc = market.description || '';
+                        const isValid = (s: string) => s.startsWith('http') || s.startsWith('data:') || s.startsWith('/');
+                        if (!isValid(img) && isValid(desc)) {
+                            img = desc;
+                        }
+
+                        if (img && isValid(img)) {
+                            return (
+                                <img
+                                    src={img}
+                                    alt={market.question}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                            );
+                        }
+                        return (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <TrendingUp className="w-8 h-8 text-white/20" />
+                            </div>
+                        );
+                    })()}
+                    <div className="absolute inset-0 bg-gradient-to-t from-void/90 via-void/40 to-transparent" />
+                </div>
+
                 <h1 className="text-2xl font-heading font-bold leading-tight mb-4">
                     {market.question}
                 </h1>
