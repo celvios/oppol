@@ -493,17 +493,32 @@ export default function DepositPage() {
                     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
                     console.log(`[Polling] Calling Backend Sweep for ${privyUser?.id}...`);
 
-                    // Fire and forget - don't block UI waiting for full sweep, but trigger it
-                    fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
+                    // Await the sweep — if it succeeds, show success immediately.
+                    // For custodial Zap deposits, the Market records balance under the SA address,
+                    // not the EOA, so we cannot rely on game-balance polling to detect success.
+                    const sweepRes = await fetch(`${apiUrl}/api/wallet/deposit-custodial`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
                         },
                         body: JSON.stringify({ privyUserId: privyUser?.id })
-                    }).then(res => res.json())
-                        .then(data => console.log('[Polling] Backend Sweep Triggered:', data))
-                        .catch(err => console.error('[Polling] Backend Trigger Failed:', err));
+                    });
+                    const sweepData = await sweepRes.json();
+                    console.log('[Polling] Backend Sweep Triggered:', sweepData);
+
+                    if (sweepData.success === true) {
+                        // Sweep succeeded — show success modal immediately
+                        clearInterval(interval);
+                        setFundingStep('depositing');
+                        setTimeout(() => {
+                            setSuccessModalOpen(true);
+                            setLastDeposit({ amount: sweepData.amount?.toString() || depositAmount, symbol: 'USDC', hash: sweepData.txHash || sweepData.steps?.slice(-1)[0] || '' });
+                            setFundingStep('input');
+                            setDepositAmount('');
+                        }, 1500);
+                        return;
+                    }
 
                     setFundingStep('depositing');
                     await handleDeposit();
