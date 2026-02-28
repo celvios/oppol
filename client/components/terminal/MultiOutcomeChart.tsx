@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import {
-    AreaChart,
-    Area,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     ResponsiveContainer,
@@ -33,26 +33,6 @@ const COLORS = [
 
 export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutcomeChartProps) {
 
-    // Create gradients definition
-    const gradients = useMemo(() => (
-        <defs>
-            {outcomes.map((outcome, index) => {
-                let color;
-                const lower = (outcome || "").toString().toLowerCase();
-                if (lower === 'yes') color = '#27E8A7'; // Neon Green
-                else if (lower === 'no') color = '#FF2E63'; // Neon Coral/Red
-                else color = COLORS[index % COLORS.length];
-
-                return (
-                    <linearGradient key={outcome} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                        <stop offset="95%" stopColor={color} stopOpacity={0} />
-                    </linearGradient>
-                );
-            })}
-        </defs>
-    ), [outcomes]);
-
     if (!outcomes || outcomes.length === 0) return null;
 
     return (
@@ -63,8 +43,7 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
             </div>
 
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    {gradients}
+                <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis
                         dataKey="time"
@@ -79,7 +58,7 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
-                        domain={[0, 100]}
+                        domain={[(dataMin: number) => Math.max(0, Math.floor(dataMin) - 5), (dataMax: number) => Math.min(100, Math.ceil(dataMax) + 5)]}
                         unit="%"
                     />
                     <Tooltip
@@ -105,21 +84,28 @@ export function MultiOutcomeChart({ data, outcomes, height = "100%" }: MultiOutc
                         else color = COLORS[index % COLORS.length];
 
                         return (
-                            <Area
+                            <Line
                                 key={outcome}
-                                type="monotone"
-                                dataKey={outcome} // Expecting data points like { time: '...', [outcome]: 45 }
+                                type="stepAfter"
+                                dataKey={outcome}
                                 name={outcome}
                                 stroke={color}
-                                strokeWidth={3}
-                                fillOpacity={1}
-                                fill={`url(#gradient-${index})`}
+                                strokeWidth={2.5}
+                                dot={(props: any) => {
+                                    // Only render dot for the last data point
+                                    if (props.index === data.length - 1) {
+                                        return (
+                                            <circle cx={props.cx} cy={props.cy} r={4} fill={color} stroke="none" key={`dot-${props.index}`} />
+                                        );
+                                    }
+                                    return <span key={`empty-${props.index}`} />;
+                                }}
                                 className="transition-all duration-500"
                                 activeDot={{ r: 6, strokeWidth: 0, fill: '#fff' }}
                             />
                         );
                     })}
-                </AreaChart>
+                </LineChart>
             </ResponsiveContainer>
         </div>
     );
