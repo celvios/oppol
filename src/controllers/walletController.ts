@@ -1051,15 +1051,27 @@ export const executeCustodialTrade = async (req: Request, res: Response) => {
 
         console.log(`✅ [CustodialTrade] Trade confirmed. Tx: ${txHash}`);
 
-        // Await market sync so response returns AFTER DB is updated with new trade
-        console.log('[CustodialTrade] Awaiting market sync so volume/positions are up-to-date...');
+        // IMMEDIATELY insert the trade into the DB so it shows in portfolio right away.
+        // syncAllMarkets() has a cursor lag and may miss the fresh block on first run.
+        const sharesFormatted = ethers.formatUnits(bestShares, DECIMALS);
+        const costFormatted = ethers.formatUnits(netTradeCost, DECIMALS);
+        const pricePerShare = estSharesFloat > 0 ? (parseFloat(costFormatted) / estSharesFloat).toFixed(6) : '0';
+        const sideStr = Number(outcomeIndex) === 0 ? 'YES' : 'NO';
         try {
-            const { syncAllMarkets } = await import('../services/marketIndexer');
-            await syncAllMarkets();
-            console.log('[CustodialTrade] ✅ Sync complete');
-        } catch (error) {
-            console.error('[CustodialTrade] Sync failed (non-fatal):', error);
+            await query(`
+                INSERT INTO trades (market_id, user_address, outcome_index, side, shares, total_cost, price_per_share, tx_hash, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                ON CONFLICT (tx_hash) DO NOTHING
+            `, [marketId, smartAccountAddress, Number(outcomeIndex), sideStr, sharesFormatted, costFormatted, pricePerShare, txHash]);
+            console.log(`[CustodialTrade] ✅ Trade written to DB for instant portfolio visibility.`);
+        } catch (dbErr: any) {
+            console.error('[CustodialTrade] DB insert failed (non-fatal):', dbErr.message);
         }
+
+        // Fire-and-forget market sync for volume/price updates
+        import('../services/marketIndexer').then(({ syncAllMarkets }) => {
+            syncAllMarkets().catch((e: any) => console.error('[CustodialTrade] Sync failed:', e));
+        });
 
         return res.json({
             success: true,
