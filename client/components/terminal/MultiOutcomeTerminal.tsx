@@ -340,7 +340,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
         const amountFloat = parseFloat(amount);
         const balanceFloat = parseFloat(balance);
-        const EPSILON = 0.001; // tolerance for floating-point precision (e.g. 0.0999999 vs 0.10)
+        const EPSILON = 0.01; // tolerance for fee rounding — contract balance may be 0.193 but display 0.20
 
         console.log('[Trade] 🔍 Balance Check:', {
             amount,
@@ -1137,7 +1137,7 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                         <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Available Balance</div>
                         <div className="text-2xl font-mono text-white flex items-center gap-2">
                             <span className="text-neon-cyan">$</span>
-                            {parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            {parseFloat(balance).toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                             <NeonButton variant="glass" className="ml-auto text-xs py-1 h-auto" onClick={() => window.location.href = '/deposit'}>DEPOSIT</NeonButton>
                         </div>
                     </GlassCard>
@@ -1199,13 +1199,16 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
                                                     placeholder="0.00"
                                                 />
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
-                                                    {['10', '50', '100'].map(val => (
+                                                    {['MAX', '10', '50', '100'].map(val => (
                                                         <button
                                                             key={val}
-                                                            onClick={() => setAmount(val)}
-                                                            className="px-2 py-1 bg-white/10 rounded text-xs text-white/70 hover:bg-white/20 hover:text-white"
+                                                            onClick={() => setAmount(val === 'MAX' ? parseFloat(balance).toFixed(3) : val)}
+                                                            className={`px-2 py-1 rounded text-xs transition-colors ${val === 'MAX'
+                                                                    ? 'bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/40 font-bold'
+                                                                    : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                                                                }`}
                                                         >
-                                                            ${val}
+                                                            {val === 'MAX' ? 'MAX' : `$${val}`}
                                                         </button>
                                                     ))}
                                                 </div>
