@@ -104,7 +104,8 @@ export async function syncAllMarkets(): Promise<void> {
 
         const DEPLOYMENT_BLOCK = parseInt(process.env.MARKET_DEPLOYMENT_BLOCK || '0');
         if (globalLastBlock === 0) {
-            globalLastBlock = DEPLOYMENT_BLOCK > 0 ? DEPLOYMENT_BLOCK : Math.max(0, currentBlock - 10000);
+            const safeColdStartBlock = Math.max(0, currentBlock - 10000);
+            globalLastBlock = DEPLOYMENT_BLOCK > 0 ? Math.max(DEPLOYMENT_BLOCK, safeColdStartBlock) : safeColdStartBlock;
         }
 
         const fetchFromBlock = globalLastBlock + 1;
@@ -112,7 +113,7 @@ export async function syncAllMarkets(): Promise<void> {
         // 1. GLOBALLY fetch all SharesPurchased events in ONE call, drastically saving RPC Compute Units
         const allNewTrades: any[] = [];
         if (currentBlock >= fetchFromBlock) {
-            const CHUNK_SIZE = 4000;
+            const CHUNK_SIZE = 1000;
             console.log(`[Indexer] Fetching global events from block ${fetchFromBlock} to ${currentBlock}...`);
 
             for (let from = fetchFromBlock; from <= currentBlock; from += CHUNK_SIZE) {
