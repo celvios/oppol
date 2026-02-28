@@ -20,11 +20,11 @@ export const CONFIG = {
     // Market contract - check multiple possible env var names
     MARKET_CONTRACT: getEnv('NEXT_PUBLIC_MARKET_ADDRESS') || getEnv('MARKET_CONTRACT') || getEnv('MARKET_ADDRESS') || getEnv('MULTI_MARKET_ADDRESS', ''),
     // USDC contract
-    USDC_CONTRACT: getEnv('NEXT_PUBLIC_USDC_CONTRACT') || getEnv('USDC_CONTRACT') || getEnv('USDC_ADDRESS', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'),
+    USDC_CONTRACT: getEnv('NEXT_PUBLIC_USDC_CONTRACT') || getEnv('USDC_CONTRACT') || getEnv('USDC_ADDRESS'),
     // USDT contract
-    USDT_CONTRACT: getEnv('NEXT_PUBLIC_USDT_CONTRACT') || '0x55d398326f99059fF775485246999027B3197955',
+    USDT_CONTRACT: getEnv('NEXT_PUBLIC_USDT_CONTRACT') || getEnv('USDT_CONTRACT') || getEnv('USDT_ADDRESS'),
     // Zap contract
-    ZAP_CONTRACT: getEnv('NEXT_PUBLIC_ZAP_ADDRESS') || '0x946e136ef0680709f77d60cd7d750c3f32e08e20',
+    ZAP_CONTRACT: getEnv('NEXT_PUBLIC_ZAP_ADDRESS') || getEnv('ZAP_ADDRESS'),
 
     // Chain ID
     CHAIN_ID: chainId,

@@ -465,9 +465,9 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         const USDC_ADDR = CONFIG.USDC_CONTRACT;
-        const USDT_ADDR = (CONFIG as any).USDT_CONTRACT || process.env.USDT_CONTRACT || '0x55d398326f99059fF775485246999027B3197955';
-        const ZAP_ADDR = process.env.ZAP_ADDRESS || process.env.NEXT_PUBLIC_ZAP_ADDRESS || '';
-        const MARKET_ADDR = process.env.MARKET_CONTRACT || process.env.MULTI_MARKET_ADDRESS;
+        const USDT_ADDR = CONFIG.USDT_CONTRACT;
+        const ZAP_ADDR = CONFIG.ZAP_CONTRACT;
+        const MARKET_ADDR = CONFIG.MARKET_CONTRACT;
 
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
