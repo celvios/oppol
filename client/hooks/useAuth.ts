@@ -14,45 +14,50 @@ export interface AuthState {
 /**
  * Unified auth hook.
  *
- * Two completely separate login paths:
- *   1. WALLET (Reown/AppKit) — wagmi isConnected is true AND connector is not Privy.
- *   2. SOCIAL (Privy) — privyAuth is true, address is the Privy-managed embedded wallet.
- *
- * Wallet takes priority if both are active simultaneously.
+ * Priority order (most specific wins):
+ *   1. SOCIAL (Privy) — if Privy is authenticated as a social/email/embedded user,
+ *      this ALWAYS takes priority, even if wagmi also has a wallet connected.
+ *      Wagmi stays connected when switching from MetaMask → email, so checking
+ *      Privy first prevents the MetaMask address bleeding into the email session.
+ *   2. WALLET (Reown/AppKit) — wagmi connected AND connector is not Privy AND
+ *      Privy has no active social session.
  */
 export function useAuth(): AuthState {
     const { authenticated: privyAuth, user: privyUser, ready: privyReady } = usePrivy();
-    const { isConnected, address, status, connector } = useAccount(); // Reown/wagmi
+    const { isConnected, address, status, connector } = useAccount();
 
     const isLoading = !privyReady || status === 'reconnecting';
 
-    // --- Path 1: External Wallet (Reown/AppKit) ---
-    // If wagmi reports a connected wallet AND it is NOT the Privy embedded wallet injection.
-    // Privy injects its own connector into wagmi which we MUST ignore here.
-    if (isConnected && address && connector?.id !== 'privy') {
-        return {
-            isAuthenticated: true,
-            user: privyUser ?? null,
-            walletAddress: address,
-            loginMethod: 'wallet',
-            isLoading,
-        };
-    }
-
-    // --- Path 2: Privy Social Login (Google / Email / etc.) ---
+    // --- Path 1: Privy Social Login (Google / Email / etc.) ---
+    // Check FIRST — a Privy social session always overrides a lingering wagmi connection.
     if (privyAuth && privyUser) {
         let loginMethod: 'google' | 'twitter' | 'discord' | 'email' | 'privy' = 'privy';
 
-        if (privyUser.linkedAccounts.some(a => a.type === 'google_oauth')) loginMethod = 'google';
-        else if (privyUser.linkedAccounts.some(a => a.type === 'twitter_oauth')) loginMethod = 'twitter';
-        else if (privyUser.linkedAccounts.some(a => a.type === 'discord_oauth')) loginMethod = 'discord';
-        else if (privyUser.linkedAccounts.some(a => a.type === 'email')) loginMethod = 'email';
+        if (privyUser.linkedAccounts.some((a: any) => a.type === 'google_oauth')) loginMethod = 'google';
+        else if (privyUser.linkedAccounts.some((a: any) => a.type === 'twitter_oauth')) loginMethod = 'twitter';
+        else if (privyUser.linkedAccounts.some((a: any) => a.type === 'discord_oauth')) loginMethod = 'discord';
+        else if (privyUser.linkedAccounts.some((a: any) => a.type === 'email')) loginMethod = 'email';
+
+        console.log('[useAuth] Privy social session:', { loginMethod, walletAddress: privyUser.wallet?.address });
 
         return {
             isAuthenticated: true,
             user: privyUser,
             walletAddress: privyUser.wallet?.address,
             loginMethod,
+            isLoading,
+        };
+    }
+
+    // --- Path 2: External Wallet (Reown/AppKit) ---
+    // Only reached when Privy has NO active social session.
+    if (isConnected && address && connector?.id !== 'privy') {
+        console.log('[useAuth] Wallet session:', { address, connectorId: connector?.id });
+        return {
+            isAuthenticated: true,
+            user: null,
+            walletAddress: address,
+            loginMethod: 'wallet',
             isLoading,
         };
     }
@@ -66,4 +71,3 @@ export function useAuth(): AuthState {
         isLoading,
     };
 }
-
