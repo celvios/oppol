@@ -534,11 +534,14 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         console.log(`[TriggerDeposit] After EOA move — SA USDC: ${ethers.formatUnits(usdcAfterMove, DECIMALS)}, SA USDT: ${ethers.formatUnits(usdtAfterMove, DECIMALS)}`);
 
         // ── Step 4: Swap SA USDT → USDC via Zap (gasless UserOp) ────────────
+        // NOTE: Zap.sol does BOTH: swap USDT→USDC AND deposit into Market via depositFor()
+        // So if Zap succeeds, the deposit is ALREADY DONE — no need for step 6.
+        let zapCompleted = false;
         if (usdtAfterMove >= MIN_DEPOSIT) {
             if (!ZAP_ADDR) {
                 console.warn('[TriggerDeposit] SA has USDT but ZAP_ADDRESS is not configured. Cannot swap USDT→USDC.');
             } else {
-                console.log(`[TriggerDeposit] Swapping ${ethers.formatUnits(usdtAfterMove, DECIMALS)} USDT→USDC via Zap UserOp...`);
+                console.log(`[TriggerDeposit] Swapping ${ethers.formatUnits(usdtAfterMove, DECIMALS)} USDT→USDC via Zap UserOp (Zap also deposits into Market)...`);
                 try {
                     const zapCalls: { to: Address; data: `0x${string}` }[] = [
                         {
@@ -560,14 +563,27 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                     ];
                     const zapOpHash = await smartAccountClient.sendUserOperation({ calls: zapCalls });
                     const zapReceipt = await pimlicoClient.waitForUserOperationReceipt({ hash: zapOpHash });
-                    console.log(`[TriggerDeposit] ✅ USDT→USDC Zap complete. Tx: ${zapReceipt.receipt.transactionHash}`);
+                    console.log(`[TriggerDeposit] ✅ Zap complete (swap + deposit). Tx: ${zapReceipt.receipt.transactionHash}`);
+                    zapCompleted = true;
                 } catch (zapErr: any) {
-                    console.error('[TriggerDeposit] Zap swap failed:', zapErr?.message || zapErr);
+                    console.error('[TriggerDeposit] Zap swap+deposit failed:', zapErr?.message || zapErr);
                 }
             }
         }
 
-        // ── Step 5: Final USDC balance check ─────────────────────────────────
+        // If Zap succeeded, the deposit is already done — return success
+        if (zapCompleted) {
+            const zapAmount = ethers.formatUnits(usdtAfterMove, DECIMALS);
+            return res.json({
+                success: true,
+                message: `Successfully zapped ${zapAmount} USDT → USDC and deposited into market contract`,
+                amount: parseFloat(zapAmount),
+                custodialAddress: smartAccountAddress,
+                method: 'zap',
+            });
+        }
+
+        // ── Step 5: If no Zap, check SA USDC and deposit manually ─────────────
         const finalUsdcBal = await usdc.balanceOf(smartAccountAddress);
         console.log(`[TriggerDeposit] Final SA USDC: ${ethers.formatUnits(finalUsdcBal, DECIMALS)}`);
 
