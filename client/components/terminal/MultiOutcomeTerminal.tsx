@@ -335,7 +335,23 @@ export function MultiOutcomeTerminal({ initialMarkets = [] }: MultiOutcomeTermin
 
         if (selectedOutcome === null || !amount || parseFloat(amount) <= 0 || !market) return;
 
-        if (parseFloat(amount) > parseFloat(balance)) {
+        const amountFloat = parseFloat(amount);
+        const balanceFloat = parseFloat(balance);
+        const EPSILON = 0.001; // tolerance for floating-point precision (e.g. 0.0999999 vs 0.10)
+
+        console.log('[Trade] 🔍 Balance Check:', {
+            amount,
+            balance,
+            amountFloat,
+            balanceFloat,
+            difference: amountFloat - balanceFloat,
+            loginMethod,
+            walletAddress: address,
+            balanceAddress,
+        });
+
+        if (amountFloat > balanceFloat + EPSILON) {
+            console.warn('[Trade] ❌ Insufficient balance - blocking trade');
             setShowInsufficientBalance(true);
             return;
         }
