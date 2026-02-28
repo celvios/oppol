@@ -504,6 +504,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // Track all step results for debugging (returned in API response)
         const steps: string[] = [];
         steps.push(`Addresses: SA=${smartAccountAddress}, EOA(derived)=${effectiveCustodialAddress}, EOA(DB)=${custodialAddress}, keyMatch=${eoaMatches}`);
+        steps.push(`Contracts: USDC=${USDC_ADDR}, USDT=${USDT_ADDR || 'NOT SET'}, ZAP=${ZAP_ADDR || 'NOT SET'}`);
         steps.push(`Balances: SA USDC=${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT=${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC=${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT=${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
 
         // ── Step 2: Move EOA funds → SA (regular tx, needs BNB gas) ──────────
