@@ -472,7 +472,13 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         if (!USDC_ADDR) return res.status(500).json({ success: false, error: 'USDC contract not configured' });
 
         const { smartAccountClient, pimlicoClient, smartAccountAddress } = await getActiveProxyWallet(privateKey, userId);
-        console.log(`[TriggerDeposit] SA: ${smartAccountAddress}, EOA: ${custodialAddress}`);
+
+        // Verify the private key matches the stored public_address
+        const derivedEoa = new ethers.Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`).address;
+        const eoaMatches = derivedEoa.toLowerCase() === custodialAddress.toLowerCase();
+        console.log(`[TriggerDeposit] SA: ${smartAccountAddress}, EOA (DB): ${custodialAddress}, EOA (derived): ${derivedEoa}, match: ${eoaMatches}`);
+        // Use derived EOA address as the authoritative one (matches the private key)
+        const effectiveCustodialAddress = derivedEoa;
         console.log(`[TriggerDeposit] Config — USDT: ${USDT_ADDR || 'NOT SET'}, ZAP: ${ZAP_ADDR || 'NOT SET'}, MARKET: ${MARKET_ADDR || 'NOT SET'}`);
 
         const tokenAbi = [
@@ -489,20 +495,21 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
         // ── Step 1: Check all balances ────────────────────────────────────────
         const [saUsdc, eoaUsdc] = await Promise.all([
             usdc.balanceOf(smartAccountAddress),
-            usdc.balanceOf(custodialAddress),
+            usdc.balanceOf(effectiveCustodialAddress),
         ]);
         const saUsdt = hasUsdt ? await usdt!.balanceOf(smartAccountAddress) : 0n;
-        const eoaUsdt = hasUsdt ? await usdt!.balanceOf(custodialAddress) : 0n;
+        const eoaUsdt = hasUsdt ? await usdt!.balanceOf(effectiveCustodialAddress) : 0n;
         console.log(`[TriggerDeposit] Balances — SA USDC: ${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT: ${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC: ${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT: ${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
 
         // Track all step results for debugging (returned in API response)
         const steps: string[] = [];
+        steps.push(`Addresses: SA=${smartAccountAddress}, EOA(derived)=${effectiveCustodialAddress}, EOA(DB)=${custodialAddress}, keyMatch=${eoaMatches}`);
         steps.push(`Balances: SA USDC=${ethers.formatUnits(saUsdc, DECIMALS)}, SA USDT=${ethers.formatUnits(saUsdt, DECIMALS)}, EOA USDC=${ethers.formatUnits(eoaUsdc, DECIMALS)}, EOA USDT=${ethers.formatUnits(eoaUsdt, DECIMALS)}`);
 
         // ── Step 2: Move EOA funds → SA (regular tx, needs BNB gas) ──────────
         const needsEoaMove = eoaUsdc >= MIN_DEPOSIT || eoaUsdt >= MIN_DEPOSIT;
         if (needsEoaMove) {
-            const eoaBnb = await provider.getBalance(custodialAddress);
+            const eoaBnb = await provider.getBalance(effectiveCustodialAddress);
             steps.push(`EOA BNB: ${ethers.formatEther(eoaBnb)}`);
             console.log(`[TriggerDeposit] EOA BNB: ${ethers.formatEther(eoaBnb)}`);
             if (eoaBnb < ethers.parseEther('0.0005')) {
@@ -513,7 +520,7 @@ export const triggerCustodialDeposit = async (req: Request, res: Response) => {
                         const adminBal = await provider.getBalance(adminWallet.address);
                         steps.push(`Admin wallet: ${adminWallet.address}, BNB: ${ethers.formatEther(adminBal)}`);
                         console.log(`[TriggerDeposit] Admin wallet: ${adminWallet.address}, BNB: ${ethers.formatEther(adminBal)}`);
-                        const fundTx = await adminWallet.sendTransaction({ to: custodialAddress, value: ethers.parseEther('0.001') });
+                        const fundTx = await adminWallet.sendTransaction({ to: effectiveCustodialAddress, value: ethers.parseEther('0.001') });
                         await fundTx.wait();
                         steps.push('✅ EOA funded with 0.001 BNB');
                         console.log('[TriggerDeposit] ✅ EOA funded with BNB.');
